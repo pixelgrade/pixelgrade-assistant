@@ -1,0 +1,27 @@
+.c-icon {
+	display: inline-block;
+	background-size: 100% 100%;
+	background-repeat: no-repeat;
+	width: 28px;
+	height: 28px;
+
+	&--large {
+		position: relative;
+		top: 4px;
+		margin-right: 5px;
+		width: 36px;
+		height: 36px;
+	}
+}
+
+.c-icon--success {
+	background-image: url('../images/icon-checked.svg');
+}
+
+.c-icon--warning {
+	background-image: url('../images/icon-warning-yellow.svg');
+}
+
+.c-icon--success-auth {
+	background-image: url('../images/icon-checked-purple.svg');
+}

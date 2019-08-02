@@ -1,0 +1,38 @@
+///* ========================================================================
+//   #FUNCTIONS
+//   ======================================================================== */
+
+// Custom functions.
+
+
+
+
+
+// Convert any px value into its rem equivalent.
+@function inuit-rem( $number ) {
+  @return $number / $base-font-size * 1rem;
+}
+
+// Halve any input and round the result.
+@function inuit-halve( $number ) {
+  @return round( $number / 2 );
+}
+
+// Generate contrast front color based on background color
+@function foreground( $background, $light: $white, $dark: $black ) {
+	@if (lightness( $background ) > 80) {
+		@return $dark; // Lighter backgorund, return dark color
+	} @else {
+		@return $light; // Darker background, return light color
+	}
+}
+
+@function long-shadow($color) {
+	$val: 0px 0px $color;
+
+	@for $i from 1 through 1000 {
+		$val: #{$val}, #{$i}px #{$i}px #{$color};
+	}
+
+	@return $val;
+}

@@ -1,0 +1,109 @@
+.header-toolbar {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 7px;
+}
+
+.header-toolbar__wing {
+    display: flex;
+    align-items: center;
+}
+
+.header-toolbar__wing--right {
+    .btn {
+        opacity: 1;
+    }
+
+    .btn:last-child {
+        padding-right: 0;
+    }
+}
+
+.theme__name {
+    margin: 0;
+    //font-family: $font-headings;
+    font-size: 36px;
+    font-weight: bold;
+    line-height: 49px;
+    color: $darker;
+    opacity: 0.9;
+
+    display: flex;
+    align-items: center;
+
+    span {
+        margin-left: 8px;
+        padding: 4px 12px;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 300;
+        line-height: 1;
+        background-color: $accent--green;
+        color: white;
+        text-transform: capitalize;
+
+        &.free {
+
+        }
+
+        &.pro {
+            background-color: $accent--purple;
+        }
+        
+        &.woo {
+            background-color: #96588a;
+        }
+    }
+}
+
+.theme__status {
+    margin-left: 21px;
+    //font-family: $font-headings;
+    font-size: 14px;
+    line-height: 1.35;
+    color: $dark;
+
+    &--ok:before {
+        content: "";
+
+        position: relative;
+        top: 2px;
+
+        display: inline-block;
+        width: 14px;
+        height: 14px;
+        margin-right: 5px;
+
+        background: url("../images/icon-checked.svg") center center no-repeat;
+        background-size: cover;
+    }
+}
+
+.theme__status {
+
+    &--ok,
+    &--not-ok {
+        &:before {
+            content: "";
+
+            position: relative;
+            top: 2px;
+
+            display: inline-block;
+            width: 14px;
+            height: 14px;
+            margin-right: 5px;
+
+            background: center center no-repeat;
+            background-size: cover;
+        }
+    }
+
+    &--ok:before {
+        background-image: url("../images/icon-checked.svg");
+    }
+
+    &--not-ok:before {
+        background-image: url("../images/icon-warning-yellow.svg");
+    }
+}

@@ -1,0 +1,37 @@
+.dashboard-tabs > *:first-child {
+    @extend %box;
+
+    justify-content: flex-start;
+
+    background: $white !important;
+    width: auto !important;
+}
+
+.dashboard-tabs__tab-name {
+    //flex: 0;
+    padding: 2px 26px !important;
+
+    border-bottom: 3px solid transparent !important;
+    border-radius: 0;
+
+    //font-family: $font-headings !important;
+    font-size: 15px;
+    color: $dark;
+    text-transform: none;
+
+    opacity: .5;
+
+    //&.is-active {
+    //    border-bottom: 3px solid $accent--purple !important;
+    //    opacity: 1;
+    //}
+
+    &--system-status {
+        margin-left: auto !important;
+        margin-right: 0 !important;
+
+        &[disabled] {
+            cursor: not-allowed !important;
+        }
+    }
+}

@@ -1,0 +1,223 @@
+///* ========================================================================
+//   #MIXINS
+//   ======================================================================== */
+
+// Global mixins available to the entire project. Define file-specific
+// mixins inside the file to which they relate.
+
+$baseline-unit		: 16px	!default;
+$baseline-debug		: true 	!default;
+$cap-size-headings	: 0.7	!default;
+
+// Generate a font-size and baseline-compatible line-height.
+@mixin baseline(
+		$baseline-font-size		: $base-font-size,
+		$baseline-line-height	: 1.7,
+		$cap-height-ratio		: $cap-size-headings,
+		$margin-bottom			: $base-spacing-unit-large
+	) {
+
+	$baseline-distance: ($baseline-line-height - $cap-height-ratio) / 2;
+
+    // set the proper font-size and line-height to size the element in multiples of baseline units
+    // font-size: ($baseline-font-size / $baseline-unit) * 1rem;
+    line-height: $baseline-line-height;
+
+    padding-top: calc(1rem - #{$baseline-distance * 1em});
+    padding-bottom: calc(1rem - #{$baseline-distance * 1em});
+    margin-bottom: calc(#{$margin-bottom} - 2rem);
+
+    @if $baseline-debug == true {
+        position: relative;
+
+        &:before,
+        &:after {
+            content: "#{$margin-bottom}";
+
+            position: absolute;
+            top: calc(100% - 1rem);
+            left: 0;
+            z-index: 0;
+
+            width: 100%;
+            height: $margin-bottom;
+
+			font-size: 0.6rem;
+
+            background: rgba(0, 128, 255, 0.25);
+        }
+
+        &:before {
+			content: "";
+            background: transparent;
+            top: 1rem;
+        }
+    }
+}
+
+
+
+
+// Mixin to create a declaration whose value is a rem unit. Also provide pixel
+// fallback.
+
+@mixin rem($property, $value) {
+
+  @if ($oldIE == true) {
+    #{$property}: $value;
+  }
+
+  #{$property}: inuit-rem($value);
+}
+
+
+
+
+// Mixin to drop micro clearfix into a selector. Further reading:
+// http://www.cssmojo.com/the-very-latest-clearfix-reloaded/
+//
+// .usage {
+//   @include inuit-clearfix();
+// }
+
+@mixin clearfix() {
+
+	&:after {
+		content: "" !important;
+		display: block !important;
+		clear: both !important;
+	}
+}
+
+@mixin long-shadow($color) {
+	&::after {
+		content: "";
+		position: absolute;
+		top: 0;
+		left: 0;
+
+		width: 100%;
+		height: 100%;
+		box-shadow: long-shadow($color);
+	}
+}
+
+
+// Mixin to quickly apply accessible hiding to elements.
+
+@mixin hidden-visually() {
+  border: 0 !important;
+  clip: rect(0 0 0 0) !important;
+  height: 1px !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+  position: absolute !important;
+  width: 1px !important;
+}
+
+// Generate breakpoint-dependent helper classes
+@mixin breakpoint-class( $class-name, $below: false ) {
+
+	.#{$class-name} {
+		@content
+	}
+
+	@each $breakpoint-name, $breakpoint-value in $mq-breakpoints {
+		@include mq($from: $breakpoint-name) {
+			.#{$class-name}-above-#{$breakpoint-name} 	{
+				@content
+			}
+		}
+
+		@if $below == true {
+			@include mq($until: $breakpoint-name) {
+				.#{$class-name}-below-#{$breakpoint-name} 	{
+					@content
+				}
+			}
+		}
+	}
+}
+
+
+@mixin wp-offset($value: 0px, $property: top, $fixed: false) {
+    #{$property}: $value;
+
+    .admin-bar & {
+        #{$property}: $value + 32px;
+    }
+
+    @media screen and (max-width: 782px) {
+        .admin-bar & {
+            #{$property}: $value + 46px;
+        }
+    }
+
+    @if $fixed != false {
+        position: fixed;
+
+        @media screen and (max-width: 600px) {
+            position: absolute;
+        }
+    }
+}
+
+@mixin alternate-row( $odd_color: $gray-light, $even_color: transparent ) {
+  &:nth-child(odd) { background-color: $odd_color; }
+  &:nth-child(even) { background-color: $even_color; }
+}
+
+@mixin box-shadow-large( $color ) {
+	box-shadow:
+	0 4px 4px 0 rgba($color, 0.2),
+	0 8px 8px 0 rgba($color, 0.2),
+	0 16px 16px 0 rgba($color, 0.2),
+	0 32px 32px 0 rgba($color, 0.2),
+	0 64px 64px 0 rgba($color, 0.2),
+	0 128px 128px 0 rgba($color, 0.2);
+}
+
+@mixin image-fill {
+	position: absolute;
+	top: 0;
+	left: 0;
+
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+}
+
+@function rgb($hex) {
+    @return unquote('rgb(#{red($hex)}, #{green($hex)}, #{blue($hex)})');
+}
+
+@mixin pixels($color: #2F2F2F) {
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" id="Layer_1" x="0px" y="0px" viewBox="0 0 22 22" enable-background="new 0 0 22 22" xml:space="preserve" height="22px" width="22px"><g><rect x="0" y="0" width="2" height="2" style="fill:#{rgb($color)};stroke-width:0"/></g></svg>');
+    background-repeat: repeat;
+    background-size: auto;
+}
+
+@mixin pxg-mark {
+  transform: rotate(-135deg);
+
+  &:before,
+  &:after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+
+    display: block;
+    width: 2px;
+    height: 9px;
+    margin-left: -3px;
+    margin-top: -4px;
+    background-color: currentColor;
+  }
+
+  &:after {
+    width: 6px;
+    height: 2px;
+  }
+}
