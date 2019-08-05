@@ -21,7 +21,7 @@ It will elevate the whole experience of setting up your site:
 * theme documentation right in your WordPress dashboard
 * various functionality and logic that a theme may need to do it's best work.
 
-All these facilities and enhancements are conditioned by having your site connected with pixelgrade.com. This way we can leverage our already existing infrastructure to best serve our free themes users also, with the efficiency required by a small team.
+All these facilities and enhancements are *conditioned* by having your site connected with pixelgrade.com. This way we can leverage our already existing infrastructure to best serve our free themes users also, with the efficiency required by a small team.
 You can chose not to use Pixelgrade Assistant but you will not be able to access the benefits that accompany your Pixelgrade theme.
 
 **Made with love by [Pixelgrade](https://pixelgrade.com)**
@@ -54,7 +54,7 @@ If you have a support question that requires us to take a look in your WordPress
 
 = Is this plugin tracking me? =
 
-No. We are not tracking you or your site. We ask your permission to share with us non-specific theme usage data and information about your WordPress install so we can resolve support questions faster. We are a small team and need to be as efficient as possible.
+No. We are not tracking you or your site. We ask your permission to share with us non-specific theme usage data and information about your WordPress install so we can resolve support questions faster - we are a small team and need to be as efficient as possible.
 *It is up to you if you are willing to share this data with us.* We respect your decision. We truly appreciate it if you do, but we will do our best to serve you regardless.
 
 == Credits ==
