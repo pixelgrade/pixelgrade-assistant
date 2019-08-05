@@ -5,7 +5,6 @@ if ( ! defined( 'ABSPATH' ) ) exit;
  * A class to handle data collection both in terms of stopping it and deciding what we are allowed to collect or not.
  *
  * @link       https://pixelgrade.com
- * @since      1.0.0
  *
  * @package    PixelgradeAssistant
  * @subpackage PixelgradeAssistant/includes
@@ -16,7 +15,6 @@ class PixelgradeAssistant_DataCollector {
 	 * The main plugin object (the parent).
 	 * @var     PixelgradeAssistant
 	 * @access  public
-	 * @since     1.3.0
 	 */
 	public $parent = null;
 
@@ -26,7 +24,6 @@ class PixelgradeAssistant_DataCollector {
 	 * The only instance.
 	 * @var     PixelgradeAssistant_Admin
 	 * @access  protected
-	 * @since   1.3.0
 	 */
 	protected static $_instance = null;
 
@@ -101,19 +98,6 @@ class PixelgradeAssistant_DataCollector {
 			'activePlugins'    => $data->get_active_plugins(),
 			'system'           => $data->get_system_data(),
 		);
-	}
-
-	/**
-	 * Data to be sent.
-	 */
-	public function get_post_data() {
-		$response                   = array();
-		$response['install_data']   = $this->get_install_data( true );
-		$response['active_plugins'] = $this->get_active_plugins();
-		$response['system_data']    = $this->get_system_data();
-		$response['site_content_data'] = $this->get_site_content_data();
-
-		return $response;
 	}
 
 	/**
@@ -483,7 +467,6 @@ class PixelgradeAssistant_DataCollector {
 	 *
 	 * Ensures only one instance of PixelgradeAssistant_DataCollector is loaded or can be loaded.
 	 *
-	 * @since  1.3.0
 	 * @static
 	 *
 	 * @param  object $parent Main PixelgradeAssistant instance.
@@ -497,25 +480,21 @@ class PixelgradeAssistant_DataCollector {
 		}
 
 		return self::$_instance;
-	} // End instance().
+	}
 
 	/**
 	 * Cloning is forbidden.
-	 *
-	 * @since 1.0.0
 	 */
 	public function __clone() {
 
 		_doing_it_wrong( __FUNCTION__, esc_html__( 'You should not do that!', '__plugin_txtd' ), esc_html( $this->parent->get_version() ) );
-	} // End __clone().
+	}
 
 	/**
 	 * Unserializing instances of this class is forbidden.
-	 *
-	 * @since 1.0.0
 	 */
 	public function __wakeup() {
 
 		_doing_it_wrong( __FUNCTION__, esc_html__( 'You should not do that!', '__plugin_txtd' ), esc_html( $this->parent->get_version() ) );
-	} // End __wakeup().
+	}
 }

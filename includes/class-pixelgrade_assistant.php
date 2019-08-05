@@ -10,7 +10,6 @@ if ( ! defined( 'ABSPATH' ) ) exit;
  * Also maintains the unique identifier of this plugin as well as the current
  * version of the plugin.
  *
- * @since      1.0.0
  * @package    PixelgradeAssistant
  * @subpackage PixelgradeAssistant/includes
  * @author     Pixelgrade <help@pixelgrade.com>
@@ -20,7 +19,6 @@ class PixelgradeAssistant {
 	 * The main plugin file.
 	 * @var     string
 	 * @access  public
-	 * @since   1.3.0
 	 */
 	public $file;
 
@@ -58,14 +56,12 @@ class PixelgradeAssistant {
 	 * The only instance.
 	 * @var     PixelgradeAssistant
 	 * @access  protected
-	 * @since   1.3.0
 	 */
 	protected static $_instance = null;
 
 	/**
 	 * The unique identifier of this plugin.
 	 *
-	 * @since    1.0.0
 	 * @access   protected
 	 * @var      string $plugin_name The string used to uniquely identify this plugin.
 	 */
@@ -74,7 +70,6 @@ class PixelgradeAssistant {
 	/**
 	 * The current version of the plugin.
 	 *
-	 * @since    1.0.0
 	 * @access   protected
 	 * @var      string $version The current version of the plugin.
 	 */
@@ -102,8 +97,6 @@ class PixelgradeAssistant {
 	 * Set the plugin name and the plugin version that can be used throughout the plugin.
 	 * Load the dependencies, define the locale, and set the hooks for the admin area and
 	 * the public-facing side of the site.
-	 *
-	 * @since    1.0.0
 	 *
 	 * @param string $file The main plugin file
 	 * @param string $version The current version of the plugin
@@ -161,11 +154,12 @@ class PixelgradeAssistant {
 	 * Include the following files that make up the plugin:
 	 *
 	 * - PixelgradeAssistant_i18n. Defines internationalization functionality.
-	 * - PixelgradeAssistantAdmin. Defines all hooks for the admin area.
-	 * - PixelgradeAssistant_Public. Defines all hooks for the public side of the site.
+	 * - PixelgradeAssistantAdmin. Defines all logic for the admin area.
+	 * - PixelgradeAssistant_StarterContent. Defines all logic for starter content.
+	 * - PixelgradeAssistant_SetupWizard. Defines all logic for the setup wizard.
+	 * - PixelgradeAssistant_DataCollector. Defines all logic for the data collector.
+	 * - PixelgradeAssistant_Support. Defines all logic for the theme help modal (support).
 	 *
-	 *
-	 * @since    1.0.0
 	 * @access   private
 	 */
 	private function load_modules() {
@@ -225,7 +219,6 @@ class PixelgradeAssistant {
 	 * Uses the PixelgradeAssistant_i18n class in order to set the domain and to register the hook
 	 * with WordPress.
 	 *
-	 * @since    1.0.0
 	 * @access   private
 	 */
 	private function set_locale() {
@@ -266,7 +259,6 @@ class PixelgradeAssistant {
 	 * The name of the plugin used to uniquely identify it within the context of
 	 * WordPress and to define internationalization functionality.
 	 *
-	 * @since     1.0.0
 	 * @return    string    The name of the plugin.
 	 */
 	public function get_plugin_name() {
@@ -276,7 +268,6 @@ class PixelgradeAssistant {
 	/**
 	 * Retrieve the version number of the plugin.
 	 *
-	 * @since     1.0.0
 	 * @return    string    The version number of the plugin.
 	 */
 	public function get_version() {
@@ -315,7 +306,6 @@ class PixelgradeAssistant {
 	 *
 	 * Ensures only one instance of PixelgradeAssistant is loaded or can be loaded.
 	 *
-	 * @since  1.3.0
 	 * @static
 	 * @param string $file    File.
 	 * @param string $version Version.
@@ -329,25 +319,21 @@ class PixelgradeAssistant {
 			self::$_instance = new self( $file, $version );
 		}
 		return self::$_instance;
-	} // End instance ()
+	}
 
 	/**
 	 * Cloning is forbidden.
-	 *
-	 * @since 1.3.0
 	 */
 	public function __clone() {
 
 		_doing_it_wrong( __FUNCTION__,esc_html__( 'You should not do that!', '__plugin_txtd' ), esc_html( $this->version ) );
-	} // End __clone ()
+	}
 
 	/**
 	 * Unserializing instances of this class is forbidden.
-	 *
-	 * @since 1.3.0
 	 */
 	public function __wakeup() {
 
 		_doing_it_wrong( __FUNCTION__, esc_html__( 'You should not do that!', '__plugin_txtd' ),  esc_html( $this->version ) );
-	} // End __wakeup ()
+	}
 }

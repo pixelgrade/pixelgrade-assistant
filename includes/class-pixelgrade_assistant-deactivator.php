@@ -5,7 +5,6 @@ if ( ! defined( 'ABSPATH' ) ) exit;
  * Fired during plugin deactivation
  *
  * @link       https://pixelgrade.com
- * @since      1.0.0
  *
  * @package    PixelgradeAssistant
  * @subpackage PixelgradeAssistant/includes
@@ -16,7 +15,6 @@ if ( ! defined( 'ABSPATH' ) ) exit;
  *
  * This class defines all code necessary to run during the plugin's deactivation.
  *
- * @since      1.0.0
  * @package    PixelgradeAssistant
  * @subpackage PixelgradeAssistant/includes
  * @author     Pixelgrade <help@pixelgrade.com>
@@ -24,11 +22,7 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 class PixelgradeAssistantDeactivator {
 
 	/**
-	 * Short Description. (use period)
-	 *
-	 * Long Description.
-	 *
-	 * @since    1.0.0
+	 * Run on plugin deactivation.
 	 */
 	public static function deactivate() {
 

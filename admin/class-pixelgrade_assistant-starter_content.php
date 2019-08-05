@@ -6,7 +6,6 @@ if ( ! defined( 'ABSPATH' ) ) exit;
  * Class responsable for the Starter Content Component
  * Basically this is an Import Demo Data system
  *
- * @since    1.1.6
  * @package    PixelgradeAssistant
  * @subpackage PixelgradeAssistant/admin
  * @author     Pixelgrade <help@pixelgrade.com>
@@ -17,7 +16,6 @@ class PixelgradeAssistant_StarterContent {
 	 * The main plugin object (the parent).
 	 * @var     PixelgradeAssistant
 	 * @access  public
-	 * @since     1.3.0
 	 */
 	public $parent = null;
 
@@ -25,14 +23,12 @@ class PixelgradeAssistant_StarterContent {
 	 * The only instance.
 	 * @var     PixelgradeAssistant_StarterContent
 	 * @access  protected
-	 * @since   1.3.0
 	 */
 	protected static $_instance = null;
 
 	/**
 	 * Initialize the class and set its properties.
 	 *
-	 * @since    1.1.6
 	 * @param PixelgradeAssistant $parent The parent instance.
 	 */
 	public function __construct( $parent ) {
@@ -401,7 +397,7 @@ class PixelgradeAssistant_StarterContent {
 		return $val;
 	}
 
-/**
+	/**
 	 * Import posts of a certain post type.
 	 *
 	 * @param $base_url
@@ -1348,7 +1344,6 @@ class PixelgradeAssistant_StarterContent {
 	 *
 	 * Ensures only one instance of PixelgradeAssistantStarterContent is loaded or can be loaded.
 	 *
-	 * @since  1.3.0
 	 * @static
 	 *
 	 * @param  PixelgradeAssistant $parent Main PixelgradeAssistant instance.
@@ -1362,25 +1357,21 @@ class PixelgradeAssistant_StarterContent {
 		}
 
 		return self::$_instance;
-	} // End instance().
+	}
 
 	/**
 	 * Cloning is forbidden.
-	 *
-	 * @since 1.0.0
 	 */
 	public function __clone() {
 
 		_doing_it_wrong( __FUNCTION__, esc_html__( 'You should not do that!', '__plugin_txtd' ), esc_html( $this->parent->get_version() ) );
-	} // End __clone().
+	}
 
 	/**
 	 * Unserializing instances of this class is forbidden.
-	 *
-	 * @since 1.0.0
 	 */
 	public function __wakeup() {
 
 		_doing_it_wrong( __FUNCTION__, esc_html__( 'You should not do that!', '__plugin_txtd' ), esc_html( $this->parent->get_version() ) );
-	} // End __wakeup().
+	}
 }

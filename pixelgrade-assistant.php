@@ -32,7 +32,6 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/integrations/devmode.php';
 /**
  * Returns the main instance of PixelgradeAssistant to prevent the need to use globals.
  *
- * @since  1.3.5
  * @return PixelgradeAssistant The PixelgradeAssistant instance
  */
 function PixelgradeAssistant() {

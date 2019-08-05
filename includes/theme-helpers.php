@@ -3,7 +3,6 @@
  * This is where we load all the various theme helpers.
  *
  * @link       https://pixelgrade.com
- * @since      1.2.2
  *
  * @package    PixelgradeAssistant
  * @subpackage PixelgradeAssistant/ThemeHelpers

@@ -15,7 +15,6 @@ class PixelgradeAssistant_Admin {
      * The main plugin object (the parent).
      * @var     PixelgradeAssistant
      * @access  public
-     * @since     1.3.0
      */
     public $parent = null;
 
@@ -25,7 +24,6 @@ class PixelgradeAssistant_Admin {
 	 *
 	 * @var      array / boolean    $theme_support
 	 * @access   private
-	 * @since    1.0.0
 	 */
 	public static $theme_support;
 
@@ -75,15 +73,13 @@ class PixelgradeAssistant_Admin {
 	 * Internal REST API endpoints used for housekeeping.
 	 * @var array
 	 * @access public
-	 * @since    1.3.7
 	 */
 	public static $internalApiEndpoints;
 
 	/**
-	 * External REST API endpoints used for communicating with the shop.
+	 * External REST API endpoints used for communicating with our site.
 	 * @var array
 	 * @access public
-	 * @since    1.3.7
 	 */
 	public static $externalApiEndpoints;
 
@@ -91,7 +87,6 @@ class PixelgradeAssistant_Admin {
 	 * Cache for the wupdates identification data to avoid firing the filter multiple times.
 	 * @var array
 	 * @access protected
-	 * @since    1.5.0
 	 */
 	protected static $wupdates_ids = array();
 
@@ -99,7 +94,6 @@ class PixelgradeAssistant_Admin {
      * The only instance.
      * @var     PixelgradeAssistant_Admin
      * @access  protected
-     * @since   1.3.0
      */
     protected static $_instance = null;
 
@@ -107,8 +101,6 @@ class PixelgradeAssistant_Admin {
 	 * Initialize the class and set its properties.
 	 *
 	 * @param $parent
-	 *
-	 * @since    1.0.0
 	 */
     public function __construct( $parent ) {
         $this->parent = $parent;
@@ -362,8 +354,6 @@ class PixelgradeAssistant_Admin {
 
     /**
      * Register the stylesheets for the admin area.
-     *
-     * @since    1.0.0
      */
     public function enqueue_styles() {
         if ( self::is_pixelgrade_assistant_dashboard() ) {
@@ -374,8 +364,6 @@ class PixelgradeAssistant_Admin {
 
     /**
      * Register the JavaScript for the admin area.
-     *
-     * @since    1.0.0
      */
     public function enqueue_scripts() {
 	    $suffix = ( defined( 'SCRIPT_DEBUG' ) && SCRIPT_DEBUG ) ? '' : '.min';
@@ -760,7 +748,6 @@ class PixelgradeAssistant_Admin {
      * @param array $value The current value being set up in theme mod
      * @param array $oldvalue The last known value for this theme mod
      *
-     * @since    1.2.5
      * @return array
      */
     public static function sanitize_theme_mods_holding_content( $value, $oldvalue ) {
@@ -778,7 +765,6 @@ class PixelgradeAssistant_Admin {
 	 *
 	 * @param array|string $content
 	 *
-	 * @since 1.2.5
 	 * @return array|string
 	 */
 	protected static function sanitize_array_items_for_emojies( $content ) {
@@ -1979,9 +1965,7 @@ class PixelgradeAssistant_Admin {
     }
 
 	/**
-	 * Register recommended plugins configured with the remote config.
-	 *
-	 * @since 1.4.7
+	 * Register recommended plugins from the config.
 	 */
 	public function register_required_plugins() {
 		// First get the config.
@@ -2040,7 +2024,6 @@ class PixelgradeAssistant_Admin {
      *
      * Ensures only one instance of PixelgradeAssistantAdmin is loaded or can be loaded.
      *
-     * @since  1.3.0
      * @static
      *
      * @param  object $parent Main PixelgradeAssistant instance.
@@ -2052,23 +2035,19 @@ class PixelgradeAssistant_Admin {
             self::$_instance = new self( $parent );
         }
         return self::$_instance;
-    } // End instance().
+    }
 
     /**
      * Cloning is forbidden.
-     *
-     * @since 1.0.0
      */
     public function __clone() {
         _doing_it_wrong( __FUNCTION__, esc_html__( 'You should not do that!', '__plugin_txtd' ), esc_html( $this->parent->get_version() ) );
-    } // End __clone().
+    }
 
     /**
      * Unserializing instances of this class is forbidden.
-     *
-     * @since 1.0.0
      */
     public function __wakeup() {
         _doing_it_wrong( __FUNCTION__, esc_html__( 'You should not do that!', '__plugin_txtd' ), esc_html( $this->parent->get_version() ) );
-    } // End __wakeup().
+    }
 }
