@@ -15,14 +15,14 @@ if ( ! defined( 'ABSPATH' ) ) {
  *
  * @return array
  */
-function pixcare_add_customer_data_to_customify_cloud_request_data( $request_data ) {
+function pixassist_add_customer_data_to_customify_cloud_request_data( $request_data ) {
 	// Get the connected pixelgrade user id
 	$connection_user = PixelgradeAssistant_Admin::get_theme_activation_user();
 	if ( empty( $connection_user ) || empty( $connection_user->ID ) ) {
 		return $request_data;
 	}
 
-	$user_id = get_user_meta( $connection_user->ID, 'pixcare_user_ID', true );
+	$user_id = get_user_meta( $connection_user->ID, 'pixassist_user_ID', true );
 	if ( empty( $user_id ) ) {
 		// not authenticated
 		return $request_data;
@@ -35,8 +35,8 @@ function pixcare_add_customer_data_to_customify_cloud_request_data( $request_dat
 
 	return $request_data;
 }
-add_filter( 'customify_pixelgrade_cloud_request_data', 'pixcare_add_customer_data_to_customify_cloud_request_data', 10, 1 );
-add_filter( 'pixelgrade_cloud_request_data', 'pixcare_add_customer_data_to_customify_cloud_request_data', 10, 1 );
+add_filter( 'customify_pixelgrade_cloud_request_data', 'pixassist_add_customer_data_to_customify_cloud_request_data', 10, 1 );
+add_filter( 'pixelgrade_cloud_request_data', 'pixassist_add_customer_data_to_customify_cloud_request_data', 10, 1 );
 
 /**
  * Add site data to Style Manager cloud request data.
@@ -45,7 +45,7 @@ add_filter( 'pixelgrade_cloud_request_data', 'pixcare_add_customer_data_to_custo
  *
  * @return array
  */
-function pixcare_add_site_data_to_customify_cloud_request_data( $site_data ) {
+function pixassist_add_site_data_to_customify_cloud_request_data( $site_data ) {
 	if ( empty( $site_data['wp'] ) ) {
 		$site_data['wp'] = array();
 	}
@@ -55,9 +55,9 @@ function pixcare_add_site_data_to_customify_cloud_request_data( $site_data ) {
 
 	return $site_data;
 }
-add_filter( 'customify_style_manager_get_site_data', 'pixcare_add_site_data_to_customify_cloud_request_data', 10, 1 );
+add_filter( 'customify_style_manager_get_site_data', 'pixassist_add_site_data_to_customify_cloud_request_data', 10, 1 );
 
-function pixcare_add_cloud_stats_endpoint( $config ) {
+function pixassist_add_cloud_stats_endpoint( $config ) {
 	if ( empty( $config['cloud']['stats'] ) ) {
 		$config['cloud']['stats'] = array(
 			'method' => 'POST',
@@ -67,26 +67,26 @@ function pixcare_add_cloud_stats_endpoint( $config ) {
 
 	return  $config;
 }
-add_filter( 'customify_style_manager_external_api_endpoints', 'pixcare_add_cloud_stats_endpoint', 10, 1 );
+add_filter( 'customify_style_manager_external_api_endpoints', 'pixassist_add_cloud_stats_endpoint', 10, 1 );
 
 /**
  * Send Color Palettes data when updating if a custom color palette is in use (on Customizer settings save - Publish).
  *
  * @param bool $custom_palette
  */
-function pixcare_send_cloud_stats( $custom_palette ) {
+function pixassist_send_cloud_stats( $custom_palette ) {
 	if ( class_exists( 'Customify_Cloud_Api' ) && ! empty( Customify_Cloud_Api::$externalApiEndpoints['cloud']['stats'] ) ) {
 		$cloud_api = new Customify_Cloud_Api();
 		$cloud_api->send_stats();
 		return;
 	}
 }
-add_action( 'customify_style_manager_updated_custom_palette_in_use', 'pixcare_send_cloud_stats', 10, 1 );
+add_action( 'customify_style_manager_updated_custom_palette_in_use', 'pixassist_send_cloud_stats', 10, 1 );
 
 // Since we have the notifications system in Pixelgrade Assistant (starting with v1.5.0), we don't want older versions of Customify (2.3.3 or older) to double the notifications.
 add_filter( 'customify_get_remote_notifications', '__return_empty_array', 100, 1 );
 // Also disable all the hooks that the notifications in Customify use.
-function pixcare_disable_customify_notifications() {
+function pixassist_disable_customify_notifications() {
 	if ( class_exists( 'Pixcloud_Admin_Notifications_Manager' ) ) {
 		$instance = Pixcloud_Admin_Notifications_Manager::instance(
 			array(
@@ -106,4 +106,4 @@ function pixcare_disable_customify_notifications() {
 
 	}
 }
-add_action( 'admin_init', 'pixcare_disable_customify_notifications', 5 );
+add_action( 'admin_init', 'pixassist_disable_customify_notifications', 5 );

@@ -1,6 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom';
-import { MuiThemeProvider } from '@material-ui/core/styles';
+import { ThemeProvider } from '@material-ui/styles';
 import muiTheme from '../mui-theme';
 import sessionStore from '../../reducers/session';
 import { Provider } from 'react-redux'
@@ -8,7 +8,7 @@ import _ from 'lodash';
 import SetupWizardSteps from "./steps";
 import Helpers from '../../helpers'
 
-const SetupWizard = () => ( <MuiThemeProvider theme={muiTheme}><SetupWizardSteps /></MuiThemeProvider> );
+const SetupWizard = () => ( <ThemeProvider theme={muiTheme}><SetupWizardSteps /></ThemeProvider> );
 
 class SetupWizardWelcome extends React.Component {
 	constructor(props) {
@@ -34,7 +34,7 @@ class SetupWizardWelcome extends React.Component {
 	}
 
 	beginSetupWizard = () => {
-		ReactDOM.render(<Provider store={sessionStore} ><SetupWizard /></Provider>, document.getElementById('pixelgrade_care_setup_wizard'));
+		ReactDOM.render(<Provider store={sessionStore} ><SetupWizard /></Provider>, document.getElementById('pixelgrade_assistant_setup_wizard'));
 	}
 }
 

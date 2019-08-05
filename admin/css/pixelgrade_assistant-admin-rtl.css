@@ -75,7 +75,7 @@
   .entry-content pre code {
     padding: 0; }
 
-.pixassist-support-modal-wrapper .dashicons, .pixelgrade_care-wrapper .dashicons {
+.pixassist-support-modal-wrapper .dashicons, .pixelgrade_assistant-wrapper .dashicons {
   display: inline-block;
   font: normal normal normal 14px/1 dashicons;
   font-size: inherit;
@@ -154,10 +154,10 @@
 .entry-content .wp-caption-text {
   margin-top: 14px; }
 
-.pixelgrade_care-wrapper {
+.pixelgrade_assistant-wrapper {
   max-width: 820px;
   margin: 50px auto; }
-  .pixelgrade_care-wrapper, .pixelgrade_care-wrapper * {
+  .pixelgrade_assistant-wrapper, .pixelgrade_assistant-wrapper * {
     box-sizing: border-box; }
 
 .dashboard-tabs > *:first-child, .section:not(.section--airy):not(.separator) {
@@ -222,7 +222,7 @@
   100% {
     transform: rotate(-360deg); } }
 
-#pixelgrade_care_dashboard {
+#pixelgrade_assistant_dashboard {
   position: relative; }
 
 .theme-selector {
@@ -1086,6 +1086,104 @@ ul.benefits {
 .system-status-tables div[style*="height: auto"]:not(.switch):last-child {
   margin-bottom: 0; }
 
+.system-status-tables .MuiSwitch-root {
+  width: 58px;
+  height: 38px;
+  display: inline-flex;
+  padding: 12px;
+  z-index: 0;
+  overflow: hidden;
+  position: relative;
+  box-sizing: border-box;
+  flex-shrink: 0;
+  vertical-align: middle; }
+
+.system-status-tables .MuiSwitch-switchBase {
+  top: 0;
+  right: 0;
+  color: #fafafa;
+  z-index: 1;
+  position: absolute;
+  transition: right 150ms cubic-bezier(0.4, 0, 0.2, 1) 0ms, transform 150ms cubic-bezier(0.4, 0, 0.2, 1) 0ms;
+  will-change: left, transform;
+  border-radius: 50%;
+  padding: 9px; }
+
+.system-status-tables .MuiSwitch-switchBase.Mui-checked {
+  right: 100%;
+  transform: translateX(100%); }
+
+.system-status-tables .MuiSwitch-switchBase.Mui-disabled {
+  color: #bdbdbd; }
+
+.system-status-tables .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track {
+  opacity: 0.5; }
+
+.system-status-tables .MuiSwitch-switchBase.Mui-disabled + .MuiSwitch-track {
+  opacity: 0.12; }
+
+.system-status-tables .MuiSwitch-colorPrimary.Mui-checked {
+  color: #8E65C0; }
+
+.system-status-tables .MuiSwitch-colorPrimary.Mui-disabled {
+  color: #bdbdbd; }
+
+.system-status-tables .MuiSwitch-colorPrimary.Mui-checked + .MuiSwitch-track {
+  background-color: #8E65C0; }
+
+.system-status-tables .MuiSwitch-colorPrimary.Mui-disabled + .MuiSwitch-track {
+  background-color: #000; }
+
+.system-status-tables .MuiSwitch-colorPrimary.Mui-checked:hover {
+  background-color: rgba(142, 101, 192, 0.08); }
+
+.system-status-tables .MuiSwitch-colorSecondary.Mui-checked {
+  color: #00A9DE; }
+
+.system-status-tables .MuiSwitch-colorSecondary.Mui-disabled {
+  color: #bdbdbd; }
+
+.system-status-tables .MuiSwitch-colorSecondary.Mui-checked + .MuiSwitch-track {
+  background-color: #00A9DE; }
+
+.system-status-tables .MuiSwitch-colorSecondary.Mui-disabled + .MuiSwitch-track {
+  background-color: #000; }
+
+.system-status-tables .MuiSwitch-colorSecondary.Mui-checked:hover {
+  background-color: rgba(0, 169, 222, 0.08); }
+
+.system-status-tables .MuiSwitch-sizeSmall {
+  width: 40px;
+  height: 24px;
+  padding: 7px; }
+
+.system-status-tables .MuiSwitch-sizeSmall .MuiSwitch-thumb {
+  width: 16px;
+  height: 16px; }
+
+.system-status-tables .MuiSwitch-sizeSmall .MuiSwitch-switchBase {
+  padding: 4px; }
+
+.system-status-tables .MuiSwitch-input {
+  right: -100%;
+  width: 300%; }
+
+.system-status-tables .MuiSwitch-thumb {
+  width: 20px;
+  height: 20px;
+  box-shadow: 0px 1px 3px 0px rgba(0, 0, 0, 0.2), 0px 1px 1px 0px rgba(0, 0, 0, 0.14), 0px 2px 1px -1px rgba(0, 0, 0, 0.12);
+  border-radius: 50%;
+  background-color: currentColor; }
+
+.system-status-tables .MuiSwitch-track {
+  width: 100%;
+  height: 100%;
+  opacity: 0.38;
+  z-index: -1;
+  transition: opacity 150ms cubic-bezier(0.4, 0, 0.2, 1) 0ms, background-color 150ms cubic-bezier(0.4, 0, 0.2, 1) 0ms;
+  border-radius: 7px;
+  background-color: #000; }
+
 .system-status-table {
   border: 1px solid #ebebeb;
   margin-bottom: 30px;
@@ -1135,11 +1233,11 @@ ul.benefits {
   width: 20px;
   background-color: #00CAB6; }
 
-#pixelgrade_care_dashboard .tools {
+#pixelgrade_assistant_dashboard .tools {
   margin-top: 56px; }
-  #pixelgrade_care_dashboard .tools .reset-wrapper {
+  #pixelgrade_assistant_dashboard .tools .reset-wrapper {
     text-align: right; }
-    #pixelgrade_care_dashboard .tools .reset-wrapper p {
+    #pixelgrade_assistant_dashboard .tools .reset-wrapper p {
       margin-bottom: 14px; }
 
 .allow-collect-data {
@@ -1147,15 +1245,15 @@ ul.benefits {
   margin-top: 28px;
   text-align: right; }
 
-.pixelgrade_care-setup {
+.pixelgrade_assistant-setup {
   margin: 0;
   padding: 100px 0;
   background-color: #F1F1F1;
   font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Oxygen-Sans,Ubuntu,Cantarell,"Helvetica Neue",sans-serif,"Apple Color Emoji","Segoe UI Emoji","Segoe UI Symbol"; }
-  .pixelgrade_care-setup .pixelgrade_care-wrapper {
+  .pixelgrade_assistant-setup .pixelgrade_assistant-wrapper {
     max-width: 720px;
     margin-top: 0; }
-  .pixelgrade_care-setup .btn--small {
+  .pixelgrade_assistant-setup .btn--small {
     padding: 12px 55px;
     background-color: #8E65C0; }
 
@@ -1356,7 +1454,7 @@ a.import--action {
   background: url("../images/crown.svg") center center no-repeat;
   background-size: contain; }
 
-#pixelgrade_care_setup_wizard .crown {
+#pixelgrade_assistant_setup_wizard .crown {
   width: 85px;
   height: 67px;
   margin: 0 auto 110px;
@@ -1535,19 +1633,19 @@ a.import--action {
   display: table;
   clear: both; }
 
-#pixelgrade_care-support-button {
+#pixelgrade_assistant-support-button {
   position: fixed;
   left: 10px;
   bottom: 10px;
   z-index: 150000; }
-  #pixelgrade_care-support-button button > span:first-child {
+  #pixelgrade_assistant-support-button button > span:first-child {
     text-transform: capitalize !important;
     font-size: 13px; }
-    #pixelgrade_care-support-button button > span:first-child .info-icon {
+    #pixelgrade_assistant-support-button button > span:first-child .info-icon {
       margin-left: 5px;
       font-size: 17px; }
 
-.wp-customizer #pixelgrade_care-support-button {
+.wp-customizer #pixelgrade_assistant-support-button {
   z-index: 550000; }
 
 #wpfooter {

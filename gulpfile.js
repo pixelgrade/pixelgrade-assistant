@@ -39,12 +39,12 @@ stylesAdmin.description = 'Compiles admin css files';
 gulp.task( 'styles-admin', stylesAdmin );
 
 function stylesAdminRtl() {
-	return gulp.src( './admin/css/pixelgrade_care-admin.css' )
+	return gulp.src( './admin/css/pixelgrade_assistant-admin.css' )
 		.pipe( plugins.rtlcss() )
-		.pipe( plugins.rename( 'pixelgrade_care-admin-rtl.css' ) )
+		.pipe( plugins.rename( 'pixelgrade_assistant-admin-rtl.css' ) )
 		.pipe( gulp.dest( dest_CSS.admin ) );
 }
-stylesAdminRtl.description = 'Generate admin pixelgrade_care-admin-rtl.css file based on admin pixelgrade_care-admin.css';
+stylesAdminRtl.description = 'Generate admin pixelgrade_assistant-admin-rtl.css file based on admin pixelgrade_assistant-admin.css';
 gulp.task( 'styles-admin-rtl', stylesAdminRtl );
 
 function stylesClub() {

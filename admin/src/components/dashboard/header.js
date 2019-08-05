@@ -54,13 +54,12 @@ class DashboardHeaderContainer extends React.Component {
 	}
 
 	render(){
-		let sessionTexts = Helpers.getStatusTexts( this.props.session );
-		let classname = 'theme__status  theme__status--' + sessionTexts.header.status;
+		let classname = 'theme__status  theme__status--' + this.props.status;
 
 		return <div className="header-toolbar">
 			<div className="header-toolbar__wing  header-toolbar__wing--left">
 				<h1 className="theme__name" dangerouslySetInnerHTML={{__html: this.props.session.themeTitle }}></h1>
-				<div className={classname} dangerouslySetInnerHTML={{__html: sessionTexts.header.msg }}></div>
+				<div className={classname} dangerouslySetInnerHTML={{__html: this.props.msg }}></div>
 			</div>
 			<div className="header-toolbar__wing  header-toolbar__wing--right">
 				<a className="btn  btn--text" href={this.props.myAccountLink} target="_blank">{this.props.myAccountLabel}</a>

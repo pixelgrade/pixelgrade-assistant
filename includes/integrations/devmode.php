@@ -13,7 +13,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  *
  * @return bool
  */
-function pixcare_is_devmode() {
+function pixassist_is_devmode() {
 	if ( defined( 'PIXELGRADE_ASSISTANT__DEV_MODE' ) && PIXELGRADE_ASSISTANT__DEV_MODE === true ) {
 		return true;
 	}
@@ -28,11 +28,11 @@ function pixcare_is_devmode() {
  *
  * @return bool
  */
-function pixcare_devmode_enable_data_collector_module( $allow ) {
-	if ( pixcare_is_devmode() ) {
+function pixassist_devmode_enable_data_collector_module( $allow ) {
+	if ( pixassist_is_devmode() ) {
 		$allow = true;
 	}
 
 	return $allow;
 }
-add_filter( 'pixcare_allow_data_collector_module', 'pixcare_devmode_enable_data_collector_module', 100, 1 );
+add_filter( 'pixassist_allow_data_collector_module', 'pixassist_devmode_enable_data_collector_module', 100, 1 );

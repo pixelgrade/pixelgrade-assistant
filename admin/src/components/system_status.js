@@ -63,9 +63,9 @@ class SystemStatus extends React.Component {
 						<FormControlLabel
 							control={
 								<Switch
-									checked={_.get(pixassist, 'systemStatus.allowCollectData', false)}
-									onChange={this.handleChange}
-									value="allowCollectData"
+									checked={_.get(pixassist, 'systemStatus.allowDataCollect', false)}
+									onChange={this.handleChange('allowDataCollect')}
+									value="allowDataCollect"
 									color="primary"
 								/>
 							}
@@ -84,7 +84,7 @@ class SystemStatus extends React.Component {
 				/>
 				<div id="systemDetails" style={style.list}></div>
 
-				{ !!_.get(pixassist, 'systemStatus.allowCollectData', false) === true ? (
+				{ !!_.get(pixassist, 'systemStatus.allowDataCollect', false) === true ? (
 						<SystemTables
 							installDataRows={this.createInstallData}
 							activePluginsRows={this.createActivePluginsData}
@@ -98,8 +98,8 @@ class SystemStatus extends React.Component {
 		);
 	}
 
-	handleChange = (event, active) => {
-		this.setDataCollect(active);
+	handleChange = name => event => {
+		this.setDataCollect(event.target.checked);
 	};
 
 	// returns the install_data Table Rows for the System Status table
@@ -359,7 +359,7 @@ class SystemStatus extends React.Component {
 			function (response) {
 				// @todo Handle errors
 				if ( response.code === 'success' ) {
-					pixassist.systemStatus.allowCollectData = response.data.allow_data_collect;
+					pixassist.systemStatus = response.data;
 
 					// if we receive a response - hide the loader
 					if ( !_.isUndefined(loader) ) {
@@ -393,12 +393,7 @@ class SystemStatus extends React.Component {
 				'allow_data_collect': is_active
 			},
 			function (response) {
-				// @todo Handle errors
-				if ( response.code === 'success' ) {
-					pixassist.systemStatus.allowCollectData = response.data.allow_data_collect;
-				}
-
-				// @todo We should probably not need this call - make things saner
+				// Refresh the client side data related to the system.
 				component.getDataCollect();
 			}
 		)

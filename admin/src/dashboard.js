@@ -10,6 +10,6 @@ import { Provider } from 'react-redux'
 		<Provider store={sessionStore} >
 			<Page  />
 		</Provider>,
-		document.getElementById('pixelgrade_care_dashboard')
+		document.getElementById('pixelgrade_assistant_dashboard')
 	);
 })(window);

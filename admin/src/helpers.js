@@ -121,9 +121,9 @@ const Helpers = (function (window) {
 		}
 
 		if (null === successCallback) {
-			// a default success callback ... just a log
+			// a default success callback
 			successCallback = function (response) {
-				console.debug(response);
+				// console.debug(response);
 			}
 		}
 
@@ -558,34 +558,6 @@ const Helpers = (function (window) {
 		return license;
 	};
 
-	/**
-	 * Dashboard Header Information: status & msg
-	 * @param state
-	 */
-	const getStatusTexts = ( state ) => {
-		let response = {
-			header: {},
-			authenticator: {}
-		};
-
-		// Texts for the header component
-		if ( true === state.is_logged  && true === state.has_license && true === state.is_active ) { // Is fully connected & validated
-			response.header.status = 'ok';
-			response.header.msg = pixassist.themeConfig.l10n.themeValidationNoticeOk;
-		} else if ( true === state.is_logged && true === state.has_license && false === state.is_active ) { // Is connected, has license but has not been activated
-			response.header.status = 'not-ok';
-			response.header.msg = 'Connected. Theme License Inactive!';
-		} else if ( true === state.is_logged && false === state.has_license ) { // Is connected but no license has been found
-			response.header.status = 'not-ok';
-			response.header.msg = 'Connected.';
-		} else if ( false === state.is_logged ) { // Not connected
-			response.header.status = 'not-ok';
-			response.header.msg = 'Not connected';
-		}
-
-		return response;
-	};
-
 	const checkHttpStatus = function (status) {
 		if (status == 4) {
 			// Throw client error
@@ -718,7 +690,6 @@ const Helpers = (function (window) {
 		clickUpdateTheme: clickUpdateTheme,
 		// licensing
 		getLicense: getLicense,
-		getStatusTexts: getStatusTexts,
 		compareVersion: compareVersion,
 		getFirstItem: getFirstItem,
 		decodeHtml: decodeHtml,

@@ -5,7 +5,7 @@ class PixelgradeAssistant_AdminRestInterface {
 
 	public function register_routes() {
 		$version   = '1';
-		$namespace = 'pixcare/v' . $version;
+		$namespace = 'pixassist/v' . $version;
 
 		register_rest_route( $namespace, '/global_state', array(
 			array(
@@ -66,27 +66,6 @@ class PixelgradeAssistant_AdminRestInterface {
 			'permission_callback' => array( $this, 'permission_nonce_callback' ),
 			'show_in_index'       => false, // We don't need others to know about this (API discovery)
 		) );
-
-		register_rest_route( $namespace, '/refresh_theme_license', array(
-			'methods'             => WP_REST_Server::CREATABLE,
-			'callback'            => array( $this, 'refresh_theme_license' ),
-			'permission_callback' => array( $this, 'permission_nonce_callback' ),
-			'show_in_index'       => false, // We don't need others to know about this (API discovery)
-		) );
-
-		register_rest_route( $namespace, '/update_license', array(
-			'methods'       => WP_REST_Server::CREATABLE,
-			'callback'      => array( $this, 'update_license' ),
-			'show_in_index' => true,
-		) );
-
-		// Endpoint to get details about the license
-		register_rest_route( $namespace, '/license_info', array(
-			'methods'       => WP_REST_Server::READABLE,
-			'callback'      => array( $this, 'license_info' ),
-			'show_in_index' => true,
-		) );
-
 	}
 
 	/**
@@ -95,7 +74,7 @@ class PixelgradeAssistant_AdminRestInterface {
 	 * @return false|int
 	 */
 	public function permission_nonce_callback( $request ) {
-		return wp_verify_nonce( $this->get_nonce( $request ), 'pixelgrade_care_rest' );
+		return wp_verify_nonce( $this->get_nonce( $request ), 'pixelgrade_assistant_rest' );
 	}
 
 	/**
@@ -126,13 +105,13 @@ class PixelgradeAssistant_AdminRestInterface {
 	 */
 	public function get_state( $request ) {
 
-		$pixcare_state = PixelgradeAssistant_Admin::get_option( 'state' );
+		$pixassist_state = PixelgradeAssistant_Admin::get_option( 'state' );
 
 		return rest_ensure_response( array(
 			'code'    => 'success',
 			'message' => '',
 			'data'    => array(
-				'state' => $pixcare_state,
+				'state' => $pixassist_state,
 			),
 		) );
 	}
@@ -166,22 +145,22 @@ class PixelgradeAssistant_AdminRestInterface {
 				 * The OAuth1.0a details
 				 */
 				if ( isset( $user_data['oauth_token'] ) ) {
-					update_user_meta( $current_user->ID, 'pixcare_oauth_token', $user_data['oauth_token'] );
+					update_user_meta( $current_user->ID, 'pixassist_oauth_token', $user_data['oauth_token'] );
 				}
 
 				if ( isset( $user_data['oauth_token_secret'] ) ) {
-					update_user_meta( $current_user->ID, 'pixcare_oauth_token_secret', $user_data['oauth_token_secret'] );
+					update_user_meta( $current_user->ID, 'pixassist_oauth_token_secret', $user_data['oauth_token_secret'] );
 				}
 
 				if ( isset( $user_data['oauth_verifier'] ) ) {
-					update_user_meta( $current_user->ID, 'pixcare_oauth_verifier', $user_data['oauth_verifier'] );
+					update_user_meta( $current_user->ID, 'pixassist_oauth_verifier', $user_data['oauth_verifier'] );
 				}
 
 				/*
 				 * The shop user details
 				 */
 				if ( isset( $user_data['pixelgrade_user_ID'] ) ) {
-					update_user_meta( $current_user->ID, 'pixcare_user_ID', $user_data['pixelgrade_user_ID'] );
+					update_user_meta( $current_user->ID, 'pixassist_user_ID', $user_data['pixelgrade_user_ID'] );
 					$should_return_new_state = true;
 				}
 
@@ -225,7 +204,7 @@ class PixelgradeAssistant_AdminRestInterface {
 						// We need to force a theme update check because with the new license we might have access to updates
 						delete_site_transient( 'update_themes' );
 						// Also delete our own saved data
-						remove_theme_mod( 'pixcare_new_theme_version' );
+						remove_theme_mod( 'pixassist_new_theme_version' );
 					}
 				}
 
@@ -285,14 +264,14 @@ class PixelgradeAssistant_AdminRestInterface {
 			/*
 			 * The OAuth1.0a details
 			 */
-			delete_user_meta( $current_user->ID, 'pixcare_oauth_token' );
-			delete_user_meta( $current_user->ID, 'pixcare_oauth_token_secret' );
-			delete_user_meta( $current_user->ID, 'pixcare_oauth_verifier' );
+			delete_user_meta( $current_user->ID, 'pixassist_oauth_token' );
+			delete_user_meta( $current_user->ID, 'pixassist_oauth_token_secret' );
+			delete_user_meta( $current_user->ID, 'pixassist_oauth_verifier' );
 
 			/*
 			 * The shop user details
 			 */
-			delete_user_meta( $current_user->ID, 'pixcare_user_ID' );
+			delete_user_meta( $current_user->ID, 'pixassist_user_ID' );
 			delete_user_meta( $current_user->ID, 'pixelgrade_user_login' );
 			delete_user_meta( $current_user->ID, 'pixelgrade_user_email' );
 			delete_user_meta( $current_user->ID, 'pixelgrade_display_name' );
@@ -301,7 +280,7 @@ class PixelgradeAssistant_AdminRestInterface {
 
 		PixelgradeAssistant_Admin::delete_license_mod();
 
-		remove_theme_mod( 'pixcare_new_theme_version' );
+		remove_theme_mod( 'pixassist_new_theme_version' );
 
 		@ini_set( 'display_errors', $display_errors );
 
@@ -341,22 +320,14 @@ class PixelgradeAssistant_AdminRestInterface {
 	 * @return WP_REST_Response
 	 */
 	public function get_data_collect( $request ) {
-		$display_errors = @ini_set( 'display_errors', 0 );
-		// clear whatever was printed before, we only need a pure json
-		if ( ob_get_length() ) {
-			ob_get_clean();
-		}
-
-		$allow_data_collect = PixelgradeAssistant_Admin::get_option( 'allow_data_collect', false );
-
-		@ini_set( 'display_errors', $display_errors );
 
 		return rest_ensure_response( array(
 			'code'    => 'success',
 			'message' => '',
-			'data'    => array(
-				'allow_data_collect' => $allow_data_collect,
-			),
+			// We will return all the data we are allowed to have access to
+			// Only the `allowDataCollect` entry as false when we are not allowed,
+			// the full data plus the `allowDataCollect` entry as true when we are.
+			'data'    => PixelgradeAssistant_DataCollector::get_system_status_data(),
 		) );
 	}
 
@@ -433,13 +404,6 @@ class PixelgradeAssistant_AdminRestInterface {
 				'message' => esc_html__( 'Your need to do better on your math.', '__plugin_txtd' ),
 				'data'    => array(),
 			) );
-		}
-
-		$current_user = PixelgradeAssistant_Admin::get_theme_activation_user();
-		if ( ! empty( $current_user ) && ! empty( $current_user->ID ) ) {
-			// Delete the cached customer products
-			$pixelgrade_user_id = get_user_meta( $current_user->ID, 'pixcare_user_ID', true );
-			PixelgradeAssistant_Admin::clear_customer_products_cache( $pixelgrade_user_id );
 		}
 
 		// Delete user OAuth connection details
@@ -541,10 +505,6 @@ class PixelgradeAssistant_AdminRestInterface {
 			wp_remote_request( PixelgradeAssistant_Admin::$externalApiEndpoints['wupl']['licenseAction']['url'], $request_args );
 		}
 
-		// Delete the cached customer products
-		$pixelgrade_user_id = get_user_meta( $current_user->ID, 'pixcare_user_ID', true );
-		PixelgradeAssistant_Admin::clear_customer_products_cache( $pixelgrade_user_id );
-
 		// Delete user OAuth connection details
 		PixelgradeAssistant_Admin::cleanup_oauth_token( $current_user->ID );
 
@@ -567,7 +527,7 @@ class PixelgradeAssistant_AdminRestInterface {
 
 		if ( ! empty( $params['force_disconnected'] ) ) {
 			// Add a marker so we can tell the user what we have done, in case of forced disconnect
-			add_user_meta( $current_user->ID, 'pixcare_force_disconnected', '1' );
+			add_user_meta( $current_user->ID, 'pixassist_force_disconnected', '1' );
 		}
 
 		@ini_set( 'display_errors', $display_errors );
@@ -577,233 +537,6 @@ class PixelgradeAssistant_AdminRestInterface {
 			'message' => esc_html__( 'User has been disconnected!', '__plugin_txtd' ),
 			'data'    => array(),
 		) );
-	}
-
-	/**
-	 * Handle the request to update the current (old) license with new details (even a new license).
-	 *
-	 * @param WP_REST_Request $request
-	 *
-	 * @return WP_REST_Response
-	 */
-	public function update_license( $request ) {
-
-		$params = $request->get_params();
-
-		if ( empty( $params['old_license'] ) ) {
-			return rest_ensure_response( array( 'success' => false, 'message' => esc_html__( 'No old license provided!', '__plugin_txtd' ) ) );
-		}
-
-		if ( empty( $params['new_license'] ) ) {
-			return rest_ensure_response( array( 'success' => false, 'message' => esc_html__( 'No new license provided!', '__plugin_txtd' ) ) );
-		}
-
-		if ( empty( $params['new_license_status'] ) ) {
-			return rest_ensure_response( array( 'success' => false, 'message' => esc_html__( 'No license status provided!', '__plugin_txtd' ) ) );
-		}
-
-		if ( empty( $params['new_license_type'] ) ) {
-			$params['new_license_type'] = 'shop';
-		}
-
-		// Check the old license with the current license. If they're the same - update the license with the new one
-		$current_license_hash = PixelgradeAssistant_Admin::get_license_mod_entry( 'license_hash' );
-
-		$set_license        = false;
-		$set_license_status = false;
-		$set_license_type   = false;
-		$set_license_exp    = false;
-
-		// We will only update if the old license received matched the current license.
-		// If there is a miss match we will not do anything.
-		if ( $current_license_hash === $params['old_license'] ) {
-			$set_license = sanitize_text_field( $params['new_license'] );
-			PixelgradeAssistant_Admin::set_license_mod_entry( 'license_hash', $set_license );
-
-			$set_license_status = sanitize_key( $params['new_license_status'] );
-			PixelgradeAssistant_Admin::set_license_mod_entry( 'license_status', $set_license_status );
-
-			$set_license_type = sanitize_key( $params['new_license_type'] );
-			PixelgradeAssistant_Admin::set_license_mod_entry( 'license_type', $set_license_type );
-
-			if ( isset( $params['pixcare_license_expiry_date'] ) ) {
-				$set_license_exp = sanitize_text_field( $params['pixcare_license_expiry_date'] );
-				PixelgradeAssistant_Admin::set_license_mod_entry( 'license_expiry_date', $set_license_exp );
-			}
-		}
-
-		return rest_ensure_response( array(
-			'success'                     => true,
-			'updated_license'             => $set_license,
-			'updated_license_status'      => $set_license_status,
-			'updated_license_type'        => $set_license_type,
-			'updated_license_expiry_date' => $set_license_exp,
-		) );
-	}
-
-	/**
-	 * Handle the request to update the current license details.
-	 *
-	 * For this to work you need to provide $_REQUEST['force_tgmpa'] = 'load' in the request!!!
-	 *
-	 * @param WP_REST_Request $request
-	 *
-	 * @return WP_REST_Response
-	 */
-	public function refresh_theme_license( $request ) {
-		// Update the license details (including fetching a new license)
-		$result = PixelgradeAssistant_Admin::fetch_and_activate_theme_license();
-
-		if ( false === $result ) {
-			return rest_ensure_response( array(
-				'code'    => 'update_failed',
-				'message' => esc_html__( 'Something went wrong and we couldn\'t refresh the theme license!', '__plugin_txtd' ),
-				'data'    => array(),
-			) );
-		}
-
-		// To make things easy, we will return back the entire updated localized data
-		return rest_ensure_response( array(
-			'code'    => 'success',
-			'message' => esc_html__( 'The theme license is good to go!', '__plugin_txtd' ),
-			'data'    => array(
-				'localized' => PixelgradeAssistant_Admin::localize_js_data( '', false ),
-			),
-		) );
-	}
-
-	/**
-	 * Gets the current license info including product details.
-	 * This endpoint should only be used by the server.
-	 *
-	 * @param WP_REST_Request $request
-	 *
-	 * @return WP_REST_Response
-	 */
-	public function license_info( $request ) {
-		$display_errors = @ini_set( 'display_errors', 0 );
-
-		// clear whatever was printed before, we only need a pure json
-		if ( ob_get_length() ) {
-			ob_get_clean();
-		}
-
-		$params = $request->get_params();
-
-		// These security measures are not actual security, but a way to block bots scanning for endpoints
-		// Due to the fact that the data shared is not sensitive, we consider it enough
-
-		// If the dirty little secret is missing or wrong, no need to bother.
-		if ( empty( $params['dirtysecret'] ) && 'QH5xX30DeLlq5tyIhM53749bk72Bn3Mfi7UR' !== $params['dirtysecret'] ) {
-			return rest_ensure_response( array( 'success' => false, 'message' => esc_html__( 'You are wrong, dirty you!', '__plugin_txtd' ) ) );
-		}
-
-		// Limit the origin to shop base domain
-		$origin = $request->get_header( 'origin' );
-		if ( empty( $origin ) && PIXELGRADE_ASSISTANT__API_BASE_DOMAIN !== $origin ) {
-			return rest_ensure_response( array( 'success' => false, 'message' => esc_html__( 'No no! Move along.', '__plugin_txtd' ) ) );
-		}
-
-		// Double check the origin with the user agent
-		$user_agent = $request->get_header( 'user-agent' );
-		if ( empty( $user_agent ) && false === strpos( $user_agent, PIXELGRADE_ASSISTANT__API_BASE_DOMAIN ) ) {
-			return rest_ensure_response( array( 'success' => false, 'message' => esc_html__( 'No no! Move along please.', '__plugin_txtd' ) ) );
-		}
-
-		/**
-		 * Lets start gathering the license info
-		 */
-		$data = array(
-			'license' => array(),
-			'theme'   => array(),
-			'users'   => array(),
-			'site'    => array(),
-		);
-
-		/**
-		 * Get the license info
-		 */
-		$data['license']['hash']        = PixelgradeAssistant_Admin::get_license_mod_entry( 'license_hash' );
-		$data['license']['status']      = PixelgradeAssistant_Admin::get_license_mod_entry( 'license_status' );
-		$data['license']['type']        = PixelgradeAssistant_Admin::get_license_mod_entry( 'license_type' );
-		$data['license']['expiry_date'] = PixelgradeAssistant_Admin::get_license_mod_entry( 'license_expiry_date' );
-		$data['license']['woocommerce_addon'] = PixelgradeAssistant_Admin::get_license_mod_entry( 'woocommerce_addon' );
-
-		/**
-		 * Get the theme's stylesheet header details and add them to the list
-		 */
-		$current_theme = wp_get_theme();
-
-		$data['theme']['stylesheet'] = array(
-			'Name'        => $current_theme->get( 'Name' ),
-			'ThemeURI'    => $current_theme->get( 'ThemeURI' ),
-			'Description' => $current_theme->get( 'Description' ),
-			'Author'      => $current_theme->get( 'Author' ),
-			'AuthorURI'   => $current_theme->get( 'AuthorURI' ),
-			'Version'     => $current_theme->get( 'Version' ),
-			'Template'    => $current_theme->get( 'Template' ),
-			'Status'      => $current_theme->get( 'Status' ),
-			'Tags'        => $current_theme->get( 'Tags' ),
-			'TextDomain'  => $current_theme->get( 'TextDomain' ),
-			'DomainPath'  => $current_theme->get( 'DomainPath' ),
-		);
-
-		if ( PixelgradeAssistant_Admin::is_wupdates_filter_unchanged() ) {
-			$data['theme']['wupdates'] = PixelgradeAssistant_Admin::get_wupdates_identification_data();
-		}
-
-		// Get the theme roots
-		$data['theme']['roots'] = get_theme_roots();
-		// Get the current (parent) theme directory URI
-		$data['theme']['directory_uri'] = get_parent_theme_file_uri();
-
-		// Get the current (parent) theme stylesheet URI
-		$data['theme']['stylesheet_uri'] = get_parent_theme_file_uri( 'style.css' );
-
-		/**
-		 * Some user information
-		 */
-		// Find users that have the PixCare meta connect info
-		$users = get_users( array(
-			'meta_key' => 'pixelgrade_user_email',
-		) );
-
-		if ( ! empty( $users ) ) {
-			/** @var WP_User $user */
-			foreach ( $users as $user ) {
-				$user_meta = get_user_meta( $user->ID );
-				$user_data = array();
-				if ( ! empty( $user_meta['pixcare_user_ID'] ) ) {
-					$user_data['pixelgrade_user_id'] = (int) reset( $user_meta['pixcare_user_ID'] );
-				}
-
-				if ( ! empty( $user_meta['pixelgrade_user_login'] ) ) {
-					$user_data['pixelgrade_user_login'] = (string) reset( $user_meta['pixelgrade_user_login'] );
-				}
-
-				if ( ! empty( $user_meta['pixelgrade_user_email'] ) ) {
-					$user_data['pixelgrade_user_email'] = (string) reset( $user_meta['pixelgrade_user_email'] );
-				}
-
-				if ( ! empty( $user_data ) ) {
-					$data['users'][ $user->ID ] = $user_data;
-				}
-			}
-		}
-
-		/**
-		 * Some installation information
-		 */
-		$data['site']['is_ssl']       = is_ssl();
-		$data['site']['is_multisite'] = is_multisite();
-
-		/** @var PixelgradeAssistant $local_plugin */
-		$local_plugin                    = PixelgradeAssistant();
-		$data['site']['pixcare_version'] = $local_plugin->get_version();
-
-		@ini_set( 'display_errors', $display_errors );
-
-		return rest_ensure_response( $data );
 	}
 
 	// HELPERS

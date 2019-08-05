@@ -43,16 +43,16 @@ class PixelgradeAssistant_StarterContent {
 		// Add some data to the localized data
 		add_filter( 'pixassist_localized_data', array( $this, 'localize_js_data' ) );
 
-		if ( apply_filters( 'pixcare_sce_allow_options_filtering', true ) ) {
-			add_filter( 'pixcare_sce_import_post_option_page_on_front', array(
+		if ( apply_filters( 'pixassist_sce_allow_options_filtering', true ) ) {
+			add_filter( 'pixassist_sce_import_post_option_page_on_front', array(
 				$this,
 				'filter_post_option_page_on_front'
 			) );
-			add_filter( 'pixcare_sce_import_post_option_page_for_posts', array(
+			add_filter( 'pixassist_sce_import_post_option_page_for_posts', array(
 				$this,
 				'filter_post_option_page_for_posts'
 			) );
-			add_filter( 'pixcare_sce_import_post_theme_mod_nav_menu_locations', array(
+			add_filter( 'pixassist_sce_import_post_theme_mod_nav_menu_locations', array(
 				$this,
 				'filter_post_theme_mod_nav_menu_locations'
 			) );
@@ -60,26 +60,26 @@ class PixelgradeAssistant_StarterContent {
 			/*
 			 * Replace the custom logo attachment ID with the new one.
 			 */
-			add_filter( 'pixcare_sce_import_post_theme_mod_custom_logo', array( $this, 'filter_post_theme_mod_custom_logo' ) );
+			add_filter( 'pixassist_sce_import_post_theme_mod_custom_logo', array( $this, 'filter_post_theme_mod_custom_logo' ) );
 			/**
 			 * Some themes use custom keys for various attachment ID controls, so we need to treat them separately.
 			 */
-			add_filter( 'pixcare_sce_import_post_theme_mod_osteria_transparent_logo', array( $this, 'filter_post_theme_mod_custom_logo' ) );
-			add_filter( 'pixcare_sce_import_post_theme_mod_pixelgrade_transparent_logo', array( $this, 'filter_post_theme_mod_custom_logo' ) );
+			add_filter( 'pixassist_sce_import_post_theme_mod_osteria_transparent_logo', array( $this, 'filter_post_theme_mod_custom_logo' ) );
+			add_filter( 'pixassist_sce_import_post_theme_mod_pixelgrade_transparent_logo', array( $this, 'filter_post_theme_mod_custom_logo' ) );
 
 			// prevent Jetpack from disabling the theme's style on import
-			add_filter( 'pixcare_sce_import_post_theme_mod_jetpack_custom_css', array( $this, 'uncheck_jetpack_custom_css_style_replacement' ) );
+			add_filter( 'pixassist_sce_import_post_theme_mod_jetpack_custom_css', array( $this, 'uncheck_jetpack_custom_css_style_replacement' ) );
 
 			//widgets
 
 			// content links
-			add_action( 'pixcare_sce_after_insert_post', array( $this, 'prepare_menus_links' ), 10, 2 );
-			add_action( 'pixcare_sce_import_end', array( $this, 'end_import' ) );
+			add_action( 'pixassist_sce_after_insert_post', array( $this, 'prepare_menus_links' ), 10, 2 );
+			add_action( 'pixassist_sce_import_end', array( $this, 'end_import' ) );
 		}
 	}
 
 	/**
-	 * Filter the pixcare localized data and add the starterContent data to the themeMod
+	 * Filter the pixassist localized data and add the starterContent data to the themeMod
 	 * @todo Is this filtering really needed?
 	 *
 	 * @param array $localized_data
@@ -98,13 +98,13 @@ class PixelgradeAssistant_StarterContent {
 
 	/** RESTful methods */
 	public function add_rest_routes_api() {
-		register_rest_route( 'pixcare/v1', '/import', array(
+		register_rest_route( 'pixassist/v1', '/import', array(
 			'methods'             => WP_REST_Server::CREATABLE,
 			'callback'            => array( $this, 'rest_import_step' ),
 			'permission_callback' => array( $this, 'permission_nonce_callback' ),
 		) );
 
-		register_rest_route( 'pixcare/v1', '/upload_media', array(
+		register_rest_route( 'pixassist/v1', '/upload_media', array(
 			'methods'             => WP_REST_Server::CREATABLE,
 			'callback'            => array( $this, 'rest_upload_media' ),
 			'permission_callback' => array( $this, 'permission_nonce_callback' ),
@@ -204,7 +204,7 @@ class PixelgradeAssistant_StarterContent {
 
 			$attachment_data = wp_generate_attachment_metadata( $attachment_id, $upload_file['file'] );
 
-			$attachment_data['imported_with_pixcare'] = true;
+			$attachment_data['imported_with_pixassist'] = true;
 
 			wp_update_attachment_metadata( $attachment_id, $attachment_data );
 
@@ -492,7 +492,7 @@ class PixelgradeAssistant_StarterContent {
 				'post_modified_gmt'     => $post['post_modified_gmt'],
 				'menu_order'            => $post['menu_order'],
 				'meta_input'            => array(
-					'imported_with_pixcare' => true
+					'imported_with_pixassist' => true
 				)
 			);
 
@@ -594,7 +594,7 @@ class PixelgradeAssistant_StarterContent {
 				wp_update_post( $update_args );
 			}
 
-			do_action( 'pixcare_sce_after_insert_post', $post, $imported_ids );
+			do_action( 'pixassist_sce_after_insert_post', $post, $imported_ids );
 		}
 
 		// Remember the imported post IDs
@@ -714,7 +714,7 @@ class PixelgradeAssistant_StarterContent {
 
 						update_term_meta( $new_id['term_id'], $key, $value );
 					}
-					update_term_meta( $new_id['term_id'], 'imported_with_pixcare', true );
+					update_term_meta( $new_id['term_id'], 'imported_with_pixassist', true );
 				}
 			}
 
@@ -773,7 +773,7 @@ class PixelgradeAssistant_StarterContent {
 			foreach ( $data['mods'] as $mod => $value ) {
 				$starter_content[ $settings_key ]['mods'][ $mod ] = get_theme_mod( $mod );
 
-				$value = apply_filters( "pixcare_sce_import_{$type}_theme_mod_{$mod}", $value );
+				$value = apply_filters( "pixassist_sce_import_{$type}_theme_mod_{$mod}", $value );
 
 				set_theme_mod( $mod, $value );
 			}
@@ -787,19 +787,19 @@ class PixelgradeAssistant_StarterContent {
 			foreach ( $data['options'] as $option => $value ) {
 				$starter_content[ $settings_key ]['options'][ $option ] = get_option( $option );
 
-				$value = apply_filters( "pixcare_sce_import_{$type}_option_{$option}", $value );
+				$value = apply_filters( "pixassist_sce_import_{$type}_option_{$option}", $value );
 
 				update_option( $option, $value );
 			}
 		}
 
 		if ( 'pre' === $type ) {
-			do_action( 'pixcare_sce_import_start' );
+			do_action( 'pixassist_sce_import_start' );
 		}
 
 
 		if ( 'post' === $type ) {
-			do_action( 'pixcare_sce_import_end' );
+			do_action( 'pixassist_sce_import_end' );
 		}
 
 		// Save the data in the DB
@@ -1015,7 +1015,7 @@ class PixelgradeAssistant_StarterContent {
 		if ( ! empty( $new_widgets ) && ! empty( $current_sidebars ) ) {
 			foreach ( $new_widgets as $type => $content ) {
 				// Save the data for each widget type
-				$content = apply_filters( "pixcare_sce_import_widget_{$type}", $content, $type );
+				$content = apply_filters( "pixassist_sce_import_widget_{$type}", $content, $type );
 				update_option( 'widget_' . $type, $content );
 			}
 
@@ -1297,7 +1297,7 @@ class PixelgradeAssistant_StarterContent {
 	 * @return false|int
 	 */
 	public function permission_nonce_callback( $request ) {
-		return wp_verify_nonce( $this->get_nonce( $request ), 'pixelgrade_care_rest' );
+		return wp_verify_nonce( $this->get_nonce( $request ), 'pixelgrade_assistant_rest' );
 	}
 
 	/**

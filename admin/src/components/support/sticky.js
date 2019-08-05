@@ -202,7 +202,7 @@ class StickyContainer extends React.Component {
 
 						document.getElementById('pixassist-support-button').dispatchEvent(ticketEvent);
 
-						let email_message = Helpers.decodeHtml(_.get(pixassist,'themeConfig.knowledgeBase.l10n.emailMessage', '' ));
+						let email_message = Helpers.replaceParams(Helpers.decodeHtml(_.get(pixassist,'themeConfig.knowledgeBase.l10n.emailMessage', '' )));
 
 						if ( ! _.isUndefined(pixassist.user.pixelgrade_user_email)) {
 							email_message = '<strong>' + Helpers.decodeHtml(pixassist.user.pixelgrade_user_email) + '</strong> (' + email_message + ')';

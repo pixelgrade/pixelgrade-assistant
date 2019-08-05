@@ -5,7 +5,7 @@ import Tabs from '@material-ui/core/Tabs';
 import Tab from '@material-ui/core/Tab';
 import Typography from '@material-ui/core/Typography';
 import AppBar from '@material-ui/core/AppBar';
-import withStyles from '@material-ui/styles/withStyles';
+import { withStyles } from '@material-ui/styles';
 
 import Tools from '../tools';
 import Notice from '../notice';
@@ -75,7 +75,7 @@ class DashboardTabsContainer extends React.Component {
 		}
 
 		// // This binding is necessary to make `this` work in the callback
-		this.onPixcareState = this.onPixcareState.bind(this);
+		this.onState = this.onState.bind(this);
 		this.addNotices = this.addNotices.bind(this);
 	}
 
@@ -476,7 +476,7 @@ class DashboardTabsContainer extends React.Component {
 		return false;
 	}
 
-	onPixcareState(state) {
+	onState(state) {
 		this.updateLocalState(state);
 	}
 

@@ -140,7 +140,7 @@ class SupportModalContainer extends React.Component {
 			is_pixassist_dashboard: false
 		};
 
-		if ( ! _.isUndefined( window.location.search ) && window.location.search.indexOf('pixelgrade_care') !== -1 ) {//on pixassist dashboard
+		if ( ! _.isUndefined( window.location.search ) && window.location.search.indexOf('pixelgrade_assistant') !== -1 ) {//on pixassist dashboard
 			this.state.is_pixassist_dashboard = true;
 		}
 
@@ -286,7 +286,7 @@ class SupportModalContainer extends React.Component {
 		}
 
 		AWS.config.update({
-			credentials: new AWS.Credentials(pixassist.themeConfig.eskb.aws.accessKeyId, pixassist.eskb.themeConfig.aws.secretAccessKey),
+			credentials: new AWS.Credentials(pixassist.themeConfig.eskb.aws.accessKeyId, pixassist.themeConfig.eskb.aws.secretAccessKey),
 			region: pixassist.themeConfig.eskb.aws.region
 		});
 	}

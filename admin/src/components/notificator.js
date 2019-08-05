@@ -73,12 +73,12 @@ class Notificator extends Component {
 				|| _.isUndefined( data.type )
 				|| _.isUndefined( data.title )
 				|| _.isUndefined( data.content ) ) {
-				console.error('invalid data')
+				console.error('PixAssist: invalid data')
 				return false
 			}
 
 			if ( ! _.isUndefined( comp.state.notes[ data.notice_id ] ) ) {
-				console.log( 'notice already exists' )
+				// Notice already exists.
 				return false
 			}
 
@@ -112,14 +112,14 @@ class Notificator extends Component {
 				|| _.isUndefined( data.type )
 				|| _.isUndefined( data.title )
 				|| _.isUndefined( data.content ) ) {
-				console.error('invalid data')
+				console.error('PixAssist: invalid notice data')
 				return false
 			}
 
-			console.log( 'try to udate' + data.notice_id )
+			console.log( 'PixAssist: try to udate' + data.notice_id )
 
 			if ( _.isUndefined( comp.state.notes[ data.notice_id ] ) ) {
-				console.log( 'notice doesn\'t exists, we are going to create it' )
+				console.log( 'PixAssist: notice doesn\'t exists, we are going to create it' )
 			}
 
 			var note_params = {
@@ -190,8 +190,6 @@ class Notificator extends Component {
 				delay: delay,
 			},
 			new_notes = this.state.notes
-
-		console.log('add ' + notice_id)
 
 		new_notes[notice_id] = data
 

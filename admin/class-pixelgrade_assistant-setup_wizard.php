@@ -45,7 +45,7 @@ class PixelgradeAssistant_SetupWizard {
 	 */
 	public function init() {
 		// Allow others to disable this module
-		if ( false === apply_filters( 'pixcare_allow_setup_wizard_module', true ) ) {
+		if ( false === apply_filters( 'pixassist_allow_setup_wizard_module', true ) ) {
 			return;
 		}
 
@@ -68,42 +68,42 @@ class PixelgradeAssistant_SetupWizard {
 		$screen = get_current_screen();
 
 		$screen->add_help_tab( array(
-			'id'      => 'pixelgrade_care_setup_wizard_tab',
+			'id'      => 'pixelgrade_assistant_setup_wizard_tab',
 			'title'   => esc_html__( 'Pixelgrade Assistant Setup', '__plugin_txtd' ),
 			'content' =>
 				'<h2>' . esc_html__( 'Pixelgrade Assistant Setup', '__plugin_txtd' ) . '</h2>' .
-				'<p><a href="' . esc_url( admin_url( 'index.php?page=pixelgrade_care-setup-wizard' ) ) . '" class="button button-primary">' . esc_html__( 'Setup Pixelgrade Assistant', '__plugin_txtd' ) . '</a></p>'
+				'<p><a href="' . esc_url( admin_url( 'index.php?page=pixelgrade_assistant-setup-wizard' ) ) . '" class="button button-primary">' . esc_html__( 'Setup Pixelgrade Assistant', '__plugin_txtd' ) . '</a></p>'
 
 		) );
 	}
 
 	public function add_admin_menu() {
-		add_submenu_page( null, '', '', 'manage_options', 'pixelgrade_care-setup-wizard', null );
+		add_submenu_page( null, '', '', 'manage_options', 'pixelgrade_assistant-setup-wizard', null );
 	}
 
 	public function setup_wizard() {
-		$allow_setup_wizard = $this->is_pixelgrade_care_setup_wizard() && current_user_can( 'manage_options' );
-		if ( false === apply_filters( 'pixcare_allow_setup_wizard_module', $allow_setup_wizard ) ) {
+		$allow_setup_wizard = $this->is_pixelgrade_assistant_setup_wizard() && current_user_can( 'manage_options' );
+		if ( false === apply_filters( 'pixassist_allow_setup_wizard_module', $allow_setup_wizard ) ) {
 			return;
 		}
 
 		if ( is_rtl() ) {
-			wp_enqueue_style( 'pixelgrade_care_style', plugin_dir_url( $this->parent->file ) . 'admin/css/pixelgrade_care-admin-rtl.css', array(), $this->parent->get_version(), 'all' );
+			wp_enqueue_style( 'pixelgrade_assistant_style', plugin_dir_url( $this->parent->file ) . 'admin/css/pixelgrade_assistant-admin-rtl.css', array(), $this->parent->get_version(), 'all' );
 		} else {
-			wp_enqueue_style( 'pixelgrade_care_style', plugin_dir_url( $this->parent->file ) . 'admin/css/pixelgrade_care-admin.css', array(), $this->parent->get_version(), 'all' );
+			wp_enqueue_style( 'pixelgrade_assistant_style', plugin_dir_url( $this->parent->file ) . 'admin/css/pixelgrade_assistant-admin.css', array(), $this->parent->get_version(), 'all' );
 		}
 
 		$suffix = ( defined( 'SCRIPT_DEBUG' ) && SCRIPT_DEBUG ) ? '' : '.min';
 
-		wp_enqueue_script( 'pixelgrade_care-setup-wizard', plugin_dir_url( $this->parent->file ) . 'admin/js/setup_wizard' . $suffix . '.js', array(
+		wp_enqueue_script( 'pixelgrade_assistant-setup-wizard', plugin_dir_url( $this->parent->file ) . 'admin/js/setup_wizard' . $suffix . '.js', array(
 			'jquery',
 			'wp-util',
 			'updates'
 		), $this->parent->get_version(), true );
 
-		PixelgradeAssistant_Admin::localize_js_data( 'pixelgrade_care-setup-wizard' );
+		PixelgradeAssistant_Admin::localize_js_data( 'pixelgrade_assistant-setup-wizard' );
 
-		update_option( 'pixelgrade_care_version', $this->parent->get_version() );
+		update_option( 'pixelgrade_assistant_version', $this->parent->get_version() );
 		// Delete redirect transient
 		$this->delete_redirect_transient();
 
@@ -154,7 +154,7 @@ class PixelgradeAssistant_SetupWizard {
 			do_action( 'admin_print_styles' );
 			?>
 		</head>
-		<body class="pixelgrade_care-setup wp-core-ui">
+		<body class="pixelgrade_assistant-setup wp-core-ui">
 
 		<?php
 	}
@@ -163,15 +163,15 @@ class PixelgradeAssistant_SetupWizard {
 	 * Output the content for the current step.
 	 */
 	public function setup_wizard_content() { ?>
-		<div class="pixelgrade_care-wrapper">
-			<div id="pixelgrade_care_setup_wizard"></div>
+		<div class="pixelgrade_assistant-wrapper">
+			<div id="pixelgrade_assistant_setup_wizard"></div>
 			<div id="valdationError"></div>
 		</div>
 	<?php }
 
 	public function setup_wizard_footer() { ?>
 		<?php
-		wp_print_scripts( 'pixelgrade_care_wizard' );
+		wp_print_scripts( 'pixelgrade_assistant_wizard' );
 		wp_print_footer_scripts();
 		wp_print_update_row_templates();
 		wp_print_admin_notice_templates(); ?>
@@ -182,8 +182,8 @@ class PixelgradeAssistant_SetupWizard {
 
 	/** === HELPERS=== */
 
-	public function is_pixelgrade_care_setup_wizard() {
-		if ( ! empty( $_GET['page'] ) && 'pixelgrade_care-setup-wizard' === $_GET['page'] ) {
+	public function is_pixelgrade_assistant_setup_wizard() {
+		if ( ! empty( $_GET['page'] ) && 'pixelgrade_assistant-setup-wizard' === $_GET['page'] ) {
 			return true;
 		}
 
@@ -191,7 +191,7 @@ class PixelgradeAssistant_SetupWizard {
 	}
 
 	public function delete_redirect_transient() {
-		$delete_transient = delete_site_transient( '_pixcare_activation_redirect' );
+		$delete_transient = delete_site_transient( '_pixassist_activation_redirect' );
 
 		return $delete_transient;
 	}

@@ -75,7 +75,7 @@ class StepsContainer extends Component {
 		super(props);
 
 		// // This binding is necessary to make `this` work in the callback
-		this.onPixcareState = this.onPixcareState.bind(this);
+		this.onState = this.onState.bind(this);
 		this.defaultNextButtonCallback = this.defaultNextButtonCallback.bind(this);
 		this.defaultSkipButtonCallback = this.defaultSkipButtonCallback.bind(this);
 
@@ -770,7 +770,7 @@ class StepsContainer extends Component {
 	 * Function passed to child components to be able to update the state remotely
 	 * @param state
 	 */
-	onPixcareState(state) {
+	onState(state) {
 		this.update_local_state(state);
 	}
 

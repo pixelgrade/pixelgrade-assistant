@@ -1,5 +1,5 @@
 import React from 'react';
-import MuiThemeProvider from '@material-ui/styles/ThemeProvider';
+import { ThemeProvider } from '@material-ui/styles';
 import muiTheme from '../mui-theme';
 
 import SupportButton from './button';
@@ -162,7 +162,7 @@ class SupportDashboardContainer extends React.Component {
 
 	render() {
 		return <div>
-				<div id="pixelgrade_care-support-button" >
+				<div id="pixelgrade_assistant-support-button" >
 					<SupportButton onSupportState={this.onSupportState} />
 				</div>
 				<div className={`pixassist-support-modal-wrapper ${ ! this.props.support.is_support_active ? 'hidden' : ''}`}>
@@ -189,9 +189,9 @@ const SupportDashboard = connect(
 
 const SupportContainer = () => {
 	return (
-		<MuiThemeProvider theme={muiTheme}>
+		<ThemeProvider theme={muiTheme} injectFirst>
 			<SupportDashboard />
-		</MuiThemeProvider>
+		</ThemeProvider>
 	);
 };
 

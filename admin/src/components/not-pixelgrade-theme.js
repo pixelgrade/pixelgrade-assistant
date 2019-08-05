@@ -5,7 +5,7 @@ import _ from 'lodash';
 /**
  * This component takes care about connecting to the Pixelgrade Shop and read data like license
  */
-class PixcareNotPixelgradeTheme extends React.Component {
+class NotPixelgradeTheme extends React.Component {
 
 	constructor(props) {
 		// this makes the this
@@ -15,7 +15,7 @@ class PixcareNotPixelgradeTheme extends React.Component {
 		this.state = {
 			is_pixassist_dashboard: false
 		};
-		if ( ! _.isUndefined( window.location.search ) && window.location.search.indexOf('pixelgrade_care') !== -1 ) {//on pixassist dashboard
+		if ( ! _.isUndefined( window.location.search ) && window.location.search.indexOf('pixelgrade_assistant') !== -1 ) {//on pixassist dashboard
 			this.state.is_pixassist_dashboard = true;
 		}
 
@@ -23,7 +23,7 @@ class PixcareNotPixelgradeTheme extends React.Component {
 	}
 
 	componentDidMount = () => {
-		if ( ! _.isUndefined( window.location.search ) && window.location.search.indexOf('pixelgrade_care') !== -1 ) {//on pixassist dashboard
+		if ( ! _.isUndefined( window.location.search ) && window.location.search.indexOf('pixelgrade_assistant') !== -1 ) {//on pixassist dashboard
 			this.setState({
 				is_pixassist_dashboard: true
 			});
@@ -53,9 +53,9 @@ class PixcareNotPixelgradeTheme extends React.Component {
 	}
 }
 
-PixcareNotPixelgradeTheme.propTypes = {
+NotPixelgradeTheme.propTypes = {
 	retryValidation: PropTypes.func,
 	modalClose: PropTypes.func
 }
 
-export default PixcareNotPixelgradeTheme;
+export default NotPixelgradeTheme;

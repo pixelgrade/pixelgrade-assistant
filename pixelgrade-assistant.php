@@ -40,7 +40,7 @@ function PixelgradeAssistant() {
 	 * The core plugin class that is used to define internationalization,
 	 * admin-specific hooks, and public-facing site hooks.
 	 */
-	require_once plugin_dir_path( __FILE__ ) . 'includes/class-pixelgrade_care.php';
+	require_once plugin_dir_path( __FILE__ ) . 'includes/class-pixelgrade_assistant.php';
 
 	$instance = PixelgradeAssistant::instance( __FILE__, '1.0.0' );
 

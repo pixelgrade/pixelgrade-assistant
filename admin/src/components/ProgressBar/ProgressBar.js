@@ -1,7 +1,7 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 
-class PixcareProgressBar extends Component {
+class ProgressBar extends Component {
     constructor(props) {
         super(props);
     }
@@ -20,10 +20,10 @@ class PixcareProgressBar extends Component {
 }
 
 // TypeChecking
-PixcareProgressBar.propTypes = {
+ProgressBar.propTypes = {
     installingClass: PropTypes.string,
     title: PropTypes.string,
     description: PropTypes.string
 }
 
-export default PixcareProgressBar;
+export default ProgressBar;

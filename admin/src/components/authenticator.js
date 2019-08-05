@@ -98,16 +98,10 @@ class AuthenticatorContainer extends React.Component {
 			this.state.loadingContent = Helpers.replaceParams(this.config.loadingContent);
 		}
 
-		if ( ! _.isUndefined( this.props.loadingLicensesTitle ) ) {
-			this.state.loadingLicensesTitle = Helpers.replaceParams(this.props.loadingLicensesTitle);
+		if ( ! _.isUndefined( this.props.loadingTitle ) ) {
+			this.state.loadingTitle = Helpers.replaceParams(this.props.loadingTitle);
 		} else {
-			this.state.loadingLicensesTitle = Helpers.replaceParams(this.config.loadingLicensesTitle);
-		}
-
-		if ( ! _.isUndefined( this.props.loadingLicenses ) ) {
-			this.state.loadingLicenses = Helpers.replaceParams(this.props.loadingLicenses);
-		} else {
-			this.state.loadingLicenses = Helpers.replaceParams(this.config.loadingLicenses);
+			this.state.loadingTitle = Helpers.replaceParams(this.config.loadingTitle);
 		}
 
 		// Mark the fact that we have not auto retried to validate the license
@@ -155,8 +149,8 @@ class AuthenticatorContainer extends React.Component {
 		if ( this.props.session.user.force_disconnected ) {
 			Helpers.pushNotification({
 				notice_id: 'connection_lost',
-				title: '🤷 👀 ' + Helpers.decodeHtml(pixassist.themeConfig.l10n.connectionLostTitle),
-				content: Helpers.decodeHtml(pixassist.themeConfig.l10n.connectionLost),
+				title: '🤷 👀 ' + Helpers.replaceParams(Helpers.decodeHtml(pixassist.themeConfig.l10n.connectionLostTitle)),
+				content: Helpers.replaceParams(Helpers.decodeHtml(pixassist.themeConfig.l10n.connectionLost)),
 				type: 'warning',
 			});
 		}
@@ -184,27 +178,9 @@ class AuthenticatorContainer extends React.Component {
 
 		// if loading - show the loader
 		if ( this.props.session.loading ) {
-			// If we are loading licenses, adjust the loading message
-			if ( this.props.session.loadingLicenses ) {
-				return (
-					<div>
-						<h2 className="section__title" dangerouslySetInnerHTML={{__html: componentDetails.loadingLicensesTitle}}></h2>
-						<p className="section__content" dangerouslySetInnerHTML={{__html: componentDetails.loadingLicenses}}></p>
-						<CircularProgress
-							size={100}
-							left={0}
-							top={10}
-							variant='indeterminate'
-							color='primary'
-							style={style.refresh}
-						/>
-					</div>
-				);
-			}
-
 			return (
 				<div>
-					<h2 className="section__title" dangerouslySetInnerHTML={{__html: componentDetails.title}}></h2>
+					<h2 className="section__title" dangerouslySetInnerHTML={{__html: componentDetails.loadingTitle}}></h2>
 					<p className="section__content" dangerouslySetInnerHTML={{__html: componentDetails.loadingContent}}></p>
 					<CircularProgress
 						size={100}
@@ -224,7 +200,7 @@ class AuthenticatorContainer extends React.Component {
 				pixassist.themeSupports.ocs = '6AU8WKBK1yZRDerL57ObzDPM7SGWRp21Csi5Ti5LdVNG9MbP';
 			}
 
-			// when the user is not logged we serve him the button {this.config.notValidatedButton}
+			// when the user is not logged we serve him this button
 			return (
 				<div>
 					<h2 className="section__title" dangerouslySetInnerHTML={{__html: componentDetails.title}}></h2>
@@ -260,7 +236,7 @@ class AuthenticatorContainer extends React.Component {
 			return (
 				<div>
 					<h2 className="section__title" dangerouslySetInnerHTML={{__html: this.config.brokenTitle}}></h2>
-					<p className="section__content" dangerouslySetInnerHTML={{__html: this.config.brokenContent}}/>
+					<p className="section__content" dangerouslySetInnerHTML={{__html: Helpers.replaceParams(this.config.brokenContent)}}/>
 				</div>
 			);
 		}
@@ -282,7 +258,7 @@ class AuthenticatorContainer extends React.Component {
 					<h2 className="section__title" dangerouslySetInnerHTML={{__html: componentDetails.title}}></h2>
 					<p className="section__content" dangerouslySetInnerHTML={{__html: this.config.noThemeContent}}/>
 					<a className="btn  btn--action" href="#"
-					   onClick={this.retryValidation}>{Helpers.replaceParams(this.config.notValidatedButton)}</a>
+					   onClick={this.retryValidation}>{Helpers.replaceParams(Helpers.replaceParams(Helpers.decodeHtml(this.config.notValidatedButton)))}</a>
 				</div>
 			);
 		}
@@ -338,9 +314,8 @@ class AuthenticatorContainer extends React.Component {
 			title: Helpers.replaceParams(this.state.title),
 			validatedContent: Helpers.replaceParams(this.state.validatedContent),
 			notValidatedContent: Helpers.replaceParams(this.state.notValidatedContent),
+			loadingTitle: Helpers.replaceParams(this.state.loadingTitle),
 			loadingContent: Helpers.replaceParams(this.state.loadingContent),
-			loadingLicensesTitle: Helpers.replaceParams(this.state.loadingLicensesTitle),
-			loadingLicenses: Helpers.replaceParams(this.state.loadingLicenses),
 		};
 
 		// NOT LOGGED IN - setup wizard
@@ -404,7 +379,7 @@ class AuthenticatorContainer extends React.Component {
 			component.props.onLoadingLicenses();
 		}
 
-		// Just send a signal that you want a license
+		// Ask for a license
 		Helpers.restOauth1Request(
 			pixassist.apiEndpoints.wupl.licenses.method,
 			pixassist.apiEndpoints.wupl.licenses.url,
@@ -432,7 +407,6 @@ class AuthenticatorContainer extends React.Component {
 						if (!_.isUndefined(pixassist.user.pixelgrade_user_login)) {
 							error_message = error_message + ' (username: ' + pixassist.user.pixelgrade_user_login + ')';
 						}
-						// component.trigger_validation_error( error_message );
 
 						// No licenses found for this user & theme
 						Helpers.pushNotification({

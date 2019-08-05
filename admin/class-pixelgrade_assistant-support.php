@@ -45,7 +45,7 @@ class PixelgradeAssistant_Support {
 	 */
 	public function init() {
 		// Allow others to disable this module
-		if ( false === apply_filters( 'pixcare_allow_support_module', true ) ) {
+		if ( false === apply_filters( 'pixassist_allow_support_module', true ) ) {
 			return;
 		}
 
@@ -62,31 +62,31 @@ class PixelgradeAssistant_Support {
 		add_action( 'customize_controls_print_scripts', array( $this, 'support_content' ) );
 
 		// Handle special cases where we will not load the support module
-		add_filter( 'pixcare_allow_support_module', array( $this, 'disable_module_in_special_cases' ) );
+		add_filter( 'pixassist_allow_support_module', array( $this, 'disable_module_in_special_cases' ) );
 	}
 
 	public function support_setup() {
 		// We don't show the Theme Help button and overlay if the current user can't manage options or if we are in the network admin sections on a multisite installation.
 		$allow_support = current_user_can( 'manage_options' ) && ! is_network_admin();
-		if ( false === apply_filters( 'pixcare_allow_support_module', $allow_support ) ) {
+		if ( false === apply_filters( 'pixassist_allow_support_module', $allow_support ) ) {
 			return;
 		}
 
 		if ( is_rtl() ) {
-			wp_enqueue_style( 'pixelgrade_care_style', plugin_dir_url( $this->parent->file ) . 'admin/css/pixelgrade_care-admin-rtl.css', array(), $this->parent->get_version(), 'all' );
+			wp_enqueue_style( 'pixelgrade_assistant_style', plugin_dir_url( $this->parent->file ) . 'admin/css/pixelgrade_assistant-admin-rtl.css', array(), $this->parent->get_version(), 'all' );
 		} else {
-			wp_enqueue_style( 'pixelgrade_care_style', plugin_dir_url( $this->parent->file ) . 'admin/css/pixelgrade_care-admin.css', array(), $this->parent->get_version(), 'all' );
+			wp_enqueue_style( 'pixelgrade_assistant_style', plugin_dir_url( $this->parent->file ) . 'admin/css/pixelgrade_assistant-admin.css', array(), $this->parent->get_version(), 'all' );
 		}
 
 		$suffix = ( defined( 'SCRIPT_DEBUG' ) && SCRIPT_DEBUG ) ? '' : '.min';
-		wp_enqueue_script( 'pixelgrade_care-support', plugin_dir_url( $this->parent->file ) . 'admin/js/support' . $suffix . '.js', array(
+		wp_enqueue_script( 'pixelgrade_assistant-support', plugin_dir_url( $this->parent->file ) . 'admin/js/support' . $suffix . '.js', array(
 			'jquery',
 			'wp-util',
 			'updates'
 		), $this->parent->get_version(), true );
 
-		if ( ! wp_script_is('pixelgrade_care-dashboard') ) {
-			PixelgradeAssistant_Admin::localize_js_data( 'pixelgrade_care-support', true, 'support' );
+		if ( ! wp_script_is('pixelgrade_assistant-dashboard') ) {
+			PixelgradeAssistant_Admin::localize_js_data( 'pixelgrade_assistant-support', true, 'support' );
 		}
 	}
 
@@ -122,12 +122,12 @@ class PixelgradeAssistant_Support {
 		if ( ! current_user_can( 'manage_options' ) || is_network_admin() ) {
 			return;
 		} ?>
-		<div id="pixelgrade_care_support_section"></div>
+		<div id="pixelgrade_assistant_support_section"></div>
 	<?php
 	}
 
 	protected static function get_kb_cache_key() {
-		return 'pixcare_support_' . PixelgradeAssistant_Admin::get_original_theme_slug() . '_kb';
+		return 'pixassist_support_' . PixelgradeAssistant_Admin::get_original_theme_slug() . '_kb';
 	}
 
 	/**

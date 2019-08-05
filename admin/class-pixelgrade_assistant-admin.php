@@ -21,7 +21,7 @@ class PixelgradeAssistant_Admin {
 
 	/**
 	 * The config for the active theme.
-	 * If this is false it means the current theme hasn't declared support for pixelgrade_care
+	 * If this is false it means the current theme hasn't declared support for pixelgrade_assistant
 	 *
 	 * @var      array / boolean    $theme_support
 	 * @access   private
@@ -41,7 +41,7 @@ class PixelgradeAssistant_Admin {
 	 *
 	 * @var string
 	 */
-	protected static $options_key = 'pixcare_options';
+	protected static $options_key = 'pixassist_options';
 
 	/**
 	 * The WordPress API nonce.
@@ -69,7 +69,7 @@ class PixelgradeAssistant_Admin {
 	 *
 	 * @var string
 	 */
-    protected static $pixelgrade_care_manager_api_version = 'v2';
+    protected static $pixelgrade_assistant_manager_api_version = 'v2';
 
 	/**
 	 * Internal REST API endpoints used for housekeeping.
@@ -116,7 +116,7 @@ class PixelgradeAssistant_Admin {
         add_action( 'after_setup_theme', array( $this, 'init' ), 20 );
 
         // Initialize the REST API admin endpoints
-        require_once plugin_dir_path( $this->parent->file ) . 'admin/class-pixelgrade_care-admin_rest_interface.php';
+        require_once plugin_dir_path( $this->parent->file ) . 'admin/class-pixelgrade_assistant-admin_rest_interface.php';
         $this->rest_controller = new PixelgradeAssistant_AdminRestInterface();
 
         // Register the admin REST API routes
@@ -131,7 +131,7 @@ class PixelgradeAssistant_Admin {
 	    // Fill up the WUpdates identification data for missing entities that we can deduce through other means.
 	    // This mostly addresses WordPress.org themes that don't have the WUpdates identification data.
 	    // This needs to be hooked up this early since we can't know for sure when the filter will be fired.
-	    add_filter( 'pixelgrade_care_wupdates_identification_data', array( 'PixelgradeAssistant_Admin', 'maybe_fill_up_wupdates_identification_data' ), 1000, 1 );
+	    add_filter( 'pixelgrade_assistant_wupdates_identification_data', array( 'PixelgradeAssistant_Admin', 'maybe_fill_up_wupdates_identification_data' ), 1000, 1 );
     }
 
     /**
@@ -139,83 +139,60 @@ class PixelgradeAssistant_Admin {
      */
     public function init() {
         $this->wp_nonce        = wp_create_nonce( 'wp_rest' );
-        $this->pixassist_nonce = wp_create_nonce( 'pixelgrade_care_rest' );
+        $this->pixassist_nonce = wp_create_nonce( 'pixelgrade_assistant_rest' );
 
 	    // Save the internal API endpoints in a easy to get property
-	    self::$internalApiEndpoints = apply_filters( 'pixcare_internal_api_endpoints', array(
+	    self::$internalApiEndpoints = apply_filters( 'pixassist_internal_api_endpoints', array(
 		    'globalState'        => array(
 			    'get' => array(
 				    'method' => 'GET',
-				    'url'    => esc_url_raw( rest_url() . 'pixcare/v1/global_state' ),
+				    'url'    => esc_url_raw( rest_url() . 'pixassist/v1/global_state' ),
 			    ),
 			    'set' => array(
 				    'method' => 'POST',
-				    'url'    => esc_url_raw( rest_url() . 'pixcare/v1/global_state' ),
+				    'url'    => esc_url_raw( rest_url() . 'pixassist/v1/global_state' ),
 			    ),
 		    ),
 		    'localized' => array(
 			    'get' => array(
 				    'method' => 'GET',
-				    'url'    => esc_url_raw( rest_url() . 'pixcare/v1/localized' ),
+				    'url'    => esc_url_raw( rest_url() . 'pixassist/v1/localized' ),
 			    ),
 		    ),
 
 		    'cleanup'            => array(
 			    'method' => 'POST',
-			    'url'    => esc_url_raw( rest_url() . 'pixcare/v1/cleanup' ),
+			    'url'    => esc_url_raw( rest_url() . 'pixassist/v1/cleanup' ),
 		    ),
 		    'disconnectUser'     => array(
 			    'method' => 'POST',
-			    'url'    => esc_url_raw( rest_url() . 'pixcare/v1/disconnect_user' ),
-		    ),
-
-		    // Installing and activating themes
-		    'installTheme'      => array(
-			    'method' => 'POST',
-			    'url'    => esc_url_raw( rest_url() . 'pixcare/v1/install_theme' ),
-		    ),
-		    'activateTheme'      => array(
-			    'method' => 'POST',
-			    'url'    => esc_url_raw( rest_url() . 'pixcare/v1/activate_theme' ),
-		    ),
-		    'refreshThemeLicense'      => array(
-			    'method' => 'POST',
-			    'url'    => esc_url_raw( rest_url() . 'pixcare/v1/refresh_theme_license' ),
+			    'url'    => esc_url_raw( rest_url() . 'pixassist/v1/disconnect_user' ),
 		    ),
 
 		    // Starter content needed endpoints
 		    'import'             => array(
 			    'method' => 'POST',
-			    'url'    => esc_url_raw( rest_url() . 'pixcare/v1/import' ),
+			    'url'    => esc_url_raw( rest_url() . 'pixassist/v1/import' ),
 		    ),
 		    'uploadMedia'        => array(
 			    'method' => 'POST',
-			    'url'    => esc_url_raw( rest_url() . 'pixcare/v1/upload_media' ),
+			    'url'    => esc_url_raw( rest_url() . 'pixassist/v1/upload_media' ),
 		    ),
 
-		    // WUpdates and Pixelgrade.com needed endpoints
-		    'updateLicense'      => array(
-			    'method' => 'POST',
-			    'url'    => esc_url_raw( rest_url() . 'pixcare/v1/update_license' ),
-		    ),
 		    'dataCollect'        => array(
 			    'get' => array(
 				    'method' => 'GET',
-				    'url'    => esc_url_raw( rest_url() . 'pixcare/v1/data_collect' ),
+				    'url'    => esc_url_raw( rest_url() . 'pixassist/v1/data_collect' ),
 			    ),
 			    'set' => array(
 				    'method' => 'POST',
-				    'url'    => esc_url_raw( rest_url() . 'pixcare/v1/data_collect' ),
+				    'url'    => esc_url_raw( rest_url() . 'pixassist/v1/data_collect' ),
 			    ),
-		    ),
-		    'licenseInfo'        => array(
-			    'method' => 'GET',
-			    'url'    => esc_url_raw( rest_url() . 'pixcare/v1/license_info' ),
 		    ),
 	    ) );
 
 	    // Save the external API endpoints in a easy to get property
-	    self::$externalApiEndpoints = apply_filters( 'pixcare_external_api_endpoints', array(
+	    self::$externalApiEndpoints = apply_filters( 'pixassist_external_api_endpoints', array(
 		    'pxm' => array(
 			    'getConfig'      => array(
 				    'method' => 'GET',
@@ -247,10 +224,6 @@ class PixelgradeAssistant_Admin {
 			    ),
 		    ),
 		    'wupl' => array(
-			    'customerProducts' => array(
-				    'method' => 'POST',
-				    'url' => PIXELGRADE_ASSISTANT__API_BASE . 'wp-json/wupl/v2/front/get_customer_products',
-			    ),
 			    'licenses' => array(
 				    'method' => 'POST',
 				    'url' => PIXELGRADE_ASSISTANT__API_BASE . 'wp-json/wupl/v2/front/get_licenses',
@@ -258,16 +231,6 @@ class PixelgradeAssistant_Admin {
 			    'licenseAction' => array(
 				    'method' => 'POST',
 				    'url' => PIXELGRADE_ASSISTANT__API_BASE . 'wp-json/wupl/v2/front/license_action',
-			    ),
-			    'licenseProducts' => array(
-				    'method' => 'POST',
-				    'url' => PIXELGRADE_ASSISTANT__API_BASE . 'wp-json/wupl/v2/front/get_license_products',
-			    ),
-		    ),
-		    'wupdates' => array(
-			    'saveUserFlow' => array(
-				    'method' => 'POST',
-				    'url' => 'https://wupdates.com/wp-json/datavault/v1/front/save_user_flow',
 			    ),
 		    ),
 	    ) );
@@ -285,7 +248,7 @@ class PixelgradeAssistant_Admin {
 		add_filter( 'wupdates_call_data_request', array( $this, 'add_license_to_wupdates_data' ), 10, 2 );
 		add_action( 'admin_notices', array( $this, 'admin_notices' ) );
 
-		add_action( 'admin_menu', array( $this, 'add_pixelgrade_care_menu' ) );
+		add_action( 'admin_menu', array( $this, 'add_pixelgrade_assistant_menu' ) );
 
 		add_action( 'admin_init', array( $this, 'settings_init' ) );
 
@@ -316,11 +279,6 @@ class PixelgradeAssistant_Admin {
 			$this,
 			'transient_update_license_data',
 		), 15 );
-		// Hook to update the Pixelgrade themes a customer has access to
-		add_filter( 'pre_set_site_transient_update_themes', array(
-			$this,
-			'transient_update_customer_products',
-		), 20 );
 
 		// On theme switch try and get a license and activate it, if the user is connected
 		add_action( 'after_switch_theme', array( 'PixelgradeAssistant_Admin', 'fetch_and_activate_theme_license' ), 10 );
@@ -328,37 +286,31 @@ class PixelgradeAssistant_Admin {
 		// On theme switch clear the cache for the remote config
 		add_action( 'after_switch_theme', array( 'PixelgradeAssistant_Admin', 'clear_remote_config_cache' ), 11 );
 
-		// Also, on theme switch refresh the products the connected user has access to
-		add_action( 'after_switch_theme', array( 'PixelgradeAssistant_Admin', 'update_customer_products' ), 15 );
-
-		// Also, on theme switch remember this so we can take action somewhere (like in JS).
-		add_action( 'after_switch_theme', array( 'PixelgradeAssistant_Admin', 'remember_theme_switch' ), 20 );
-
 		// If the remove config contains recommend plugins, register them with TGMPA
 		add_action( 'tgmpa_register', array( $this, 'register_required_plugins' ), 1000 );
 	}
 
     /**
-     * The first access to PixCare needs to be redirected to the setup wizard.
+     * The first access to dashboard needs to be redirected to the setup wizard.
      */
     function admin_redirects() {
         if ( ! is_admin() || ! current_user_can( 'manage_options' ) ) {
             return;
         }
 
-        $plugin_version     = get_option( 'pixelgrade_care_version' );
-        $redirect_transient = get_site_transient( '_pixcare_activation_redirect' );
+        $plugin_version     = get_option( 'pixelgrade_assistant_version' );
+        $redirect_transient = get_site_transient( '_pixassist_activation_redirect' );
 
         if ( false !== $redirect_transient || empty( $plugin_version ) ) {
             // Yay this is a fresh install and we are not on a setup page, just go there already.
-            wp_redirect( admin_url( 'index.php?page=pixelgrade_care-setup-wizard' ) );
+            wp_redirect( admin_url( 'index.php?page=pixelgrade_assistant-setup-wizard' ) );
             exit;
         }
 
         // If the user that is installing Pixelgrade Assistant is a member of pixelgrade club (has been given the plugin and no theme)
         // check if the plugin version is empty and has no other pixelgrade theme installed.
         if ( empty( $plugin_version ) && ! self::has_pixelgrade_theme() ) {
-            wp_redirect( admin_url( 'index.php?page=pixelgrade_care-setup-wizard' ) );
+            wp_redirect( admin_url( 'index.php?page=pixelgrade_assistant-setup-wizard' ) );
             exit;
         }
     }
@@ -399,7 +351,7 @@ class PixelgradeAssistant_Admin {
         // For now we will only allow it to work for the current theme (we assume only themes require licenses).
         // @todo This DOES NOT WORK if we have plugins with licenses
         if ( $slug == basename( get_template_directory() ) ) {
-            $data['license_hash'] = 'pixcare_no_license';
+            $data['license_hash'] = 'pixassist_no_license';
             $license_hash = self::get_license_mod_entry( 'license_hash' );
             if ( $license_hash ) {
                 $data['license_hash'] = $license_hash;
@@ -414,9 +366,9 @@ class PixelgradeAssistant_Admin {
      * @since    1.0.0
      */
     public function enqueue_styles() {
-        if ( self::is_pixelgrade_care_dashboard() ) {
+        if ( self::is_pixelgrade_assistant_dashboard() ) {
         	$rtl_suffix = is_rtl() ? '-rtl' : '';
-        	wp_enqueue_style( $this->parent->get_plugin_name(), plugin_dir_url( $this->parent->file ) . 'admin/css/pixelgrade_care-admin' . $rtl_suffix . '.css', array( 'dashicons' ), $this->parent->get_version(), 'all' );
+        	wp_enqueue_style( $this->parent->get_plugin_name(), plugin_dir_url( $this->parent->file ) . 'admin/css/pixelgrade_assistant-admin' . $rtl_suffix . '.css', array( 'dashicons' ), $this->parent->get_version(), 'all' );
         }
     }
 
@@ -428,14 +380,14 @@ class PixelgradeAssistant_Admin {
     public function enqueue_scripts() {
 	    $suffix = ( defined( 'SCRIPT_DEBUG' ) && SCRIPT_DEBUG ) ? '' : '.min';
 
-        if ( self::is_pixelgrade_care_dashboard() ) {
+        if ( self::is_pixelgrade_assistant_dashboard() ) {
             wp_enqueue_script( 'updates' );
-            wp_enqueue_script( 'pixelgrade_care-dashboard', plugin_dir_url( $this->parent->file ) . 'admin/js/dashboard' . $suffix . '.js', array(
+            wp_enqueue_script( 'pixelgrade_assistant-dashboard', plugin_dir_url( $this->parent->file ) . 'admin/js/dashboard' . $suffix . '.js', array(
                 'jquery',
                 'wp-util',
             ), $this->parent->get_version(), true );
 
-            self::localize_js_data( 'pixelgrade_care-dashboard', true, 'dashboard');
+            self::localize_js_data( 'pixelgrade_assistant-dashboard', true, 'dashboard');
         }
     }
 
@@ -445,11 +397,11 @@ class PixelgradeAssistant_Admin {
      * @return bool
      */
     public static function check_theme_support() {
-        if ( ! current_theme_supports( 'pixelgrade_care' ) ) {
+        if ( ! current_theme_supports( 'pixelgrade_assistant' ) ) {
             return false;
         }
 
-        $config = get_theme_support( 'pixelgrade_care' );
+        $config = get_theme_support( 'pixelgrade_assistant' );
         if ( ! is_array( $config ) ) {
             return false;
         }
@@ -467,8 +419,8 @@ class PixelgradeAssistant_Admin {
      * @return array
      */
     public static function set_theme_support() {
-	    $config = get_theme_support( 'pixelgrade_care' );
-	    // This is not a theme that declares proper support for PixCare,
+	    $config = get_theme_support( 'pixelgrade_assistant' );
+	    // This is not a theme that declares proper support for this plugin,
 	    // we will still fill in some of the data about the current theme as it might be used in places.
         if ( ! self::check_theme_support() || ! is_array( $config ) ) {
             self::$theme_support = self::validate_theme_supports( array() );
@@ -496,7 +448,7 @@ class PixelgradeAssistant_Admin {
 	/**
 	 * Adds the WP Admin menus
 	 */
-	public function add_pixelgrade_care_menu() {
+	public function add_pixelgrade_assistant_menu() {
         // First determine if we should show a "Heads Up" bubble next to the main  admin menu item.
         // We will show it when the license is expired, not connected or activated.
         $show_bubble = false;
@@ -525,31 +477,31 @@ class PixelgradeAssistant_Admin {
 		}
 
         // Show bubble if we have an update notification.
-        $new_theme_version = get_theme_mod( 'pixcare_new_theme_version' );
+        $new_theme_version = get_theme_mod( 'pixassist_new_theme_version' );
         $theme_support     = self::get_theme_support();
         if ( ! empty( $new_theme_version ) && ! empty( $theme_support['theme_version'] ) && version_compare( $theme_support['theme_version'], $new_theme_version, '<' ) ) {
             $show_bubble = true;
         }
 
         // Allow others to force or prevent the bubble from showing
-		$show_bubble = apply_filters( 'pixcare_show_menu_notification_bubble', $show_bubble );
+		$show_bubble = apply_filters( 'pixassist_show_menu_notification_bubble', $show_bubble );
 
         $bubble_markup = '';
         if ( $show_bubble ) {
             $bubble_markup = ' <span class="awaiting-mod"><span class="pending-count">!!︎</span></span>';
         }
-        add_menu_page( 'Pixelgrade', 'Pixelgrade' . $bubble_markup, 'install_themes', 'pixelgrade_care', array(
+        add_menu_page( 'Pixelgrade', 'Pixelgrade' . $bubble_markup, 'install_themes', 'pixelgrade_assistant', array(
             $this,
-            'pixelgrade_care_options_page',
+            'pixelgrade_assistant_options_page',
         ), plugin_dir_url( $this->parent->file ) . 'admin/images/pixelgrade-menu-image.svg', 2 );
-        add_submenu_page( 'pixelgrade_care', 'Dashboard', 'Dashboard', 'manage_options', 'pixelgrade_care', array(
+        add_submenu_page( 'pixelgrade_assistant', 'Dashboard', 'Dashboard', 'manage_options', 'pixelgrade_assistant', array(
             $this,
-            'pixelgrade_care_options_page',
+            'pixelgrade_assistant_options_page',
         ) );
     }
 
     /**
-     * Localize a script with or just return the `pixcare` data.
+     * Localize a script with or just return the `pixassist` data.
      *
      * @param string $script_id
      * @param bool $localize
@@ -557,7 +509,7 @@ class PixelgradeAssistant_Admin {
      *
      * @return array
      */
-    public static function localize_js_data( $script_id = 'pixelgrade_care-dashboard', $localize = true, $context = 'dashboard' ) {
+    public static function localize_js_data( $script_id = 'pixelgrade_assistant-dashboard', $localize = true, $context = 'dashboard' ) {
 	    $local_plugin = PixelgradeAssistant();
 
         if ( empty( self::$theme_support ) ) {
@@ -581,13 +533,13 @@ class PixelgradeAssistant_Admin {
 		    'apiEndpoints'   => self::$externalApiEndpoints,
 		    'shopBase'       => PIXELGRADE_ASSISTANT__SHOP_BASE,
 		    'shopBaseDomain' => PIXELGRADE_ASSISTANT__SHOP_BASE_DOMAIN,
-		    'devMode'        => pixcare_is_devmode(),
+		    'devMode'        => pixassist_is_devmode(),
 		    'themeSupports'  => self::$theme_support,
 		    'themeConfig'    => $theme_config,
 		    'themeHeaders'   => self::get_theme_headers(),
 		    'wpRest'         => array(
 			    'root'          => esc_url_raw( rest_url() ),
-			    'base'          => esc_url_raw( rest_url() . 'pixcare/v1/' ),
+			    'base'          => esc_url_raw( rest_url() . 'pixassist/v1/' ),
 			    'endpoint'      => self::$internalApiEndpoints,
 			    'nonce'         => $local_plugin->plugin_admin->wp_nonce,
 			    'pixassist_nonce' => $local_plugin->plugin_admin->pixassist_nonce,
@@ -595,7 +547,7 @@ class PixelgradeAssistant_Admin {
 		    'systemStatus'   => PixelgradeAssistant_DataCollector::get_system_status_data(),
 		    'knowledgeBase'  => PixelgradeAssistant_Support::get_knowledgeBase_data(),
 		    'siteUrl'        => home_url( '/' ),
-		    'dashboardUrl'   => admin_url( 'admin.php?page=pixelgrade_care' ),
+		    'dashboardUrl'   => admin_url( 'admin.php?page=pixelgrade_assistant' ),
 		    'adminUrl'       => admin_url(),
 		    'themesUrl'      => admin_url( 'themes.php' ),
 		    'customizerUrl'  => admin_url( 'customize.php' ),
@@ -612,21 +564,21 @@ class PixelgradeAssistant_Admin {
         /*
          * User data
          */
-        $oauth_token = get_user_meta( $current_user->ID, 'pixcare_oauth_token', true );
+        $oauth_token = get_user_meta( $current_user->ID, 'pixassist_oauth_token', true );
         if ( ! empty( $oauth_token ) ) {
             $localized_data['user']['oauth_token'] = $oauth_token;
         }
-        $oauth_token_secret = get_user_meta( $current_user->ID, 'pixcare_oauth_token_secret', true );
+        $oauth_token_secret = get_user_meta( $current_user->ID, 'pixassist_oauth_token_secret', true );
         if ( ! empty( $oauth_token_secret ) ) {
             $localized_data['user']['oauth_token_secret'] = $oauth_token_secret;
         }
-        $oauth_verifier = get_user_meta( $current_user->ID, 'pixcare_oauth_verifier', true );
+        $oauth_verifier = get_user_meta( $current_user->ID, 'pixassist_oauth_verifier', true );
         if ( ! empty( $oauth_verifier ) ) {
             $localized_data['user']['oauth_verifier'] = $oauth_verifier;
         }
-        $pixcare_user_ID = get_user_meta( $current_user->ID, 'pixcare_user_ID', true );
-        if ( ! empty( $pixcare_user_ID ) ) {
-            $localized_data['user']['pixcare_user_ID'] = $pixcare_user_ID;
+        $pixassist_user_ID = get_user_meta( $current_user->ID, 'pixassist_user_ID', true );
+        if ( ! empty( $pixassist_user_ID ) ) {
+            $localized_data['user']['pixassist_user_ID'] = $pixassist_user_ID;
         }
         $pixelgrade_user_login = get_user_meta( $current_user->ID, 'pixelgrade_user_login', true );
         if ( ! empty( $pixelgrade_user_login ) ) {
@@ -640,11 +592,11 @@ class PixelgradeAssistant_Admin {
         if ( ! empty( $pixelgrade_user_email ) ) {
             $localized_data['user']['pixelgrade_display_name'] = $pixelgrade_display_name;
         }
-        $user_force_disconnected = get_user_meta( $current_user->ID, 'pixcare_force_disconnected', true );
+        $user_force_disconnected = get_user_meta( $current_user->ID, 'pixassist_force_disconnected', true );
         if ( ! empty( $user_force_disconnected ) ) {
             $localized_data['user']['force_disconnected'] = true;
             // Delete the user meta so we don't nag the user, forever.
-            delete_user_meta( $current_user->ID, 'pixcare_force_disconnected' );
+            delete_user_meta( $current_user->ID, 'pixassist_force_disconnected' );
         } else {
             $localized_data['user']['force_disconnected'] = false;
         }
@@ -682,7 +634,7 @@ class PixelgradeAssistant_Admin {
 			    $localized_data['themeMod']['licenseExpiryDate'] = $license_exp;
 		    }
 	    }
-        $new_theme_version = get_theme_mod( 'pixcare_new_theme_version' );
+        $new_theme_version = get_theme_mod( 'pixassist_new_theme_version' );
         if ( ! empty( $new_theme_version ) ) {
             $localized_data['themeMod']['themeNewVersion'] = $new_theme_version;
         }
@@ -777,31 +729,27 @@ class PixelgradeAssistant_Admin {
     public function add_tabs() {
         $screen = get_current_screen();
         $screen->add_help_tab( array(
-            'id'      => 'pixelgrade_care_setup_wizard_tab',
+            'id'      => 'pixelgrade_assistant_setup_wizard_tab',
             'title'   => __( 'Pixelgrade Assistant Setup', '__plugin_txtd' ),
             'content' =>
                 '<h2>' . __( 'Pixelgrade Assistant Setup', '__plugin_txtd' ) . '</h2>' .
-                '<p><a href="' . esc_url( admin_url( 'index.php?page=pixelgrade_care-setup-wizard' ) ) . '" class="button button-primary">' . esc_html__( 'Setup Pixelgrade Assistant', '__plugin_txtd' ) . '</a></p>',
+                '<p><a href="' . esc_url( admin_url( 'index.php?page=pixelgrade_assistant-setup-wizard' ) ) . '" class="button button-primary">' . esc_html__( 'Setup Pixelgrade Assistant', '__plugin_txtd' ) . '</a></p>',
         ) );
     }
 
     public function settings_init() {
-        register_setting( 'pixelgrade_care', 'pixelgrade_care_settings' );
+        register_setting( 'pixelgrade_assistant', 'pixelgrade_assistant_settings' );
         add_settings_section(
-            'pixelgrade_care_section',
+            'pixelgrade_assistant_section',
             esc_html__( 'Pixelgrade Assistant description', '__plugin_txtd' ),
             null,
-            'pixelgrade_care'
+            'pixelgrade_assistant'
         );
     }
 
-    public function pixelgrade_care_settings_section_callback() {
-        echo esc_html__( 'This section description', '__plugin_txtd' );
-    }
-
-    public function pixelgrade_care_options_page() { ?>
-        <div class="pixelgrade_care-wrapper">
-            <div id="pixelgrade_care_dashboard"></div>
+    public function pixelgrade_assistant_options_page() { ?>
+        <div class="pixelgrade_assistant-wrapper">
+            <div id="pixelgrade_assistant_dashboard"></div>
         </div>
         <?php
     }
@@ -904,7 +852,7 @@ class PixelgradeAssistant_Admin {
         // THis might not be needed anymore since we have apiBase and the like
         if ( empty( $config['shop_url'] ) ) {
             // the url of the mother shop, trailing slash is required
-            $config['shop_url'] = trailingslashit( apply_filters( 'pixelgrade_care_shop_url', PIXELGRADE_ASSISTANT__API_BASE ) );
+            $config['shop_url'] = trailingslashit( apply_filters( 'pixelgrade_assistant_shop_url', PIXELGRADE_ASSISTANT__API_BASE ) );
         }
         $config['is_child'] = is_child_theme();
         $config['template'] = $theme->get_template();
@@ -927,7 +875,7 @@ class PixelgradeAssistant_Admin {
 	        $config['original_slug'] = self::get_original_theme_slug();
 	    }
 
-        return apply_filters( 'pixcare_validate_theme_supports', $config );
+        return apply_filters( 'pixassist_validate_theme_supports', $config );
     }
 
     public static function get_theme_headers() {
@@ -982,8 +930,8 @@ class PixelgradeAssistant_Admin {
 	 *
 	 * @return bool
 	 */
-	public static function is_pixelgrade_care_dashboard() {
-        if ( ! empty( $_GET['page'] ) && 'pixelgrade_care' === $_GET['page'] ) {
+	public static function is_pixelgrade_assistant_dashboard() {
+        if ( ! empty( $_GET['page'] ) && 'pixelgrade_assistant' === $_GET['page'] ) {
             return true;
         }
         return false;
@@ -1073,26 +1021,6 @@ class PixelgradeAssistant_Admin {
 		return true;
 	}
 
-	/**
-	 * Get a single entry from the state.
-	 *
-	 * @param string $option
-	 * @param mixed $default
-	 *
-	 * @return mixed|null
-	 */
-	public function get_state_option( $option, $default = null ) {
-		// Get all the state data saved in our plugin options.
-        $pixcare_state = self::get_option( 'state' );
-
-        if ( isset( $pixcare_state[ $option ] ) ) {
-            return $pixcare_state[ $option ];
-        }
-
-		// If we couldn't find the entry, we will return the default value
-        return $default;
-    }
-
     public static function sanitize_bool( $value ) {
 		if ( empty( $value ) ) {
 			return false;
@@ -1123,13 +1051,13 @@ class PixelgradeAssistant_Admin {
         if ( ! empty( $transient->response[ $slug ]['new_version'] ) ) {
             $theme_data['new_version'] = $transient->response[ $slug ]['new_version'];
         }
-        set_theme_mod( 'pixcare_new_theme_version', $theme_data['new_version'] );
+        set_theme_mod( 'pixassist_new_theme_version', $theme_data['new_version'] );
 
         return $transient;
     }
 
     public function transient_remove_theme_version( $transient ) {
-        remove_theme_mod( 'pixcare_new_theme_version' );
+        remove_theme_mod( 'pixassist_new_theme_version' );
     }
 
 	/**
@@ -1162,13 +1090,13 @@ class PixelgradeAssistant_Admin {
         if ( empty( $transient->checked ) ) {
             return $transient;
         }
-        // Check and update the the user's license details
+        // Check and update the user's license details
         self::update_theme_license_details();
         return $transient;
     }
 
 	protected static function _get_user_product_licenses_cache_key( $user_id, $hash_id = '' ) {
-		return 'pixcare_user_product_licenses_' . md5( $user_id . '_' . $hash_id );
+		return 'pixassist_user_product_licenses_' . md5( $user_id . '_' . $hash_id );
 	}
 
 	/**
@@ -1236,7 +1164,7 @@ class PixelgradeAssistant_Admin {
 	    	return false;
 	    }
 
-        $user_id      = get_user_meta( $connection_user->ID, 'pixcare_user_ID', true );
+        $user_id      = get_user_meta( $connection_user->ID, 'pixassist_user_ID', true );
         if ( empty( $user_id ) ) {
             // not authenticated
             return false;
@@ -1290,7 +1218,7 @@ class PixelgradeAssistant_Admin {
 		}
 
 		// Determine whether the user is logged in or not. If not logged in - don't bother trying to activate the theme license
-		$pixelgrade_user_id = get_user_meta( $current_user->ID, 'pixcare_user_ID', true );
+		$pixelgrade_user_id = get_user_meta( $current_user->ID, 'pixassist_user_ID', true );
 		if ( empty( $pixelgrade_user_id ) ) {
 			return false;
 		}
@@ -1300,7 +1228,7 @@ class PixelgradeAssistant_Admin {
 			return false;
 		}
 
-		// Get the user's licenses from the server (grouped by subscription or marketplace - like 'envato')
+		// Get the user's licenses from the server (grouped by subscription or marketplace - like 'free')
 		$subscriptions = self::get_user_product_licenses( $pixelgrade_user_id, $wupdates_identification['id'], true );
 		if ( empty( $subscriptions ) || is_wp_error( $subscriptions ) ) {
 			return false;
@@ -1385,172 +1313,6 @@ class PixelgradeAssistant_Admin {
 		return true;
 	}
 
-	public static function get_customer_products_cache_key( $user_id ) {
-		return 'pixcare_license_products_' . md5( $user_id );
-	}
-
-	/**
-	 * A helper function that returns and maybe 'refreshes' the products available for the customer.
-	 *
-	 * @param int $pixelgrade_user_id Optional. Defaults to current activation user.
-	 * @param bool $skip_cache Optional. Force to skip the cache and get new data from the server.
-	 *
-	 * @return array|false
-	 */
-	public static function get_customer_products( $pixelgrade_user_id = null, $skip_cache = false ) {
-		if ( empty( $pixelgrade_user_id ) ) {
-			// Get the activation user
-			$current_user = PixelgradeAssistant_Admin::get_theme_activation_user();
-			if ( ! empty( $current_user ) && ! empty( $current_user->ID ) ) {
-				$pixelgrade_user_id = get_user_meta( $current_user->ID, 'pixcare_user_ID', true );
-			}
-		}
-
-		if ( empty( $pixelgrade_user_id ) ) {
-			return false;
-		}
-
-		$data = array();
-
-		// First try and get the cached data
-		if ( ! $skip_cache ) {
-			$data = get_site_transient( self::get_customer_products_cache_key( $pixelgrade_user_id ) );
-		}
-		// The transient isn't set or is expired; we need to fetch fresh data
-		if ( $skip_cache || false === $data ) {
-			$request_args = array(
-				'method' => PixelgradeAssistant_Admin::$externalApiEndpoints['wupl']['customerProducts']['method'],
-				'timeout'   => 5,
-				'blocking'  => true,
-				'body'      => array(
-					'user_id'      => $pixelgrade_user_id,
-				),
-				'sslverify' => false,
-			);
-			// Get the user license's available products from the server
-			$response = wp_remote_request( PixelgradeAssistant_Admin::$externalApiEndpoints['wupl']['customerProducts']['url'], $request_args );
-			if ( is_wp_error( $response ) ) {
-				return false;
-			}
-			$data = json_decode( wp_remote_retrieve_body( $response ), true );
-			// Bail in case of decode error
-			if ( null === $data ) {
-				return false;
-			}
-
-			// In case we receive a new format API response, handle it correctly
-			// @todo Should remove this at some point when the API always returns this response format
-			if ( isset( $data['code'] ) && isset( $data['message'] ) && isset( $data['data'] ) ) {
-				if ( empty( $data['data']['products'] ) || 'success' !== $data['code'] ) {
-					return false;
-				}
-
-				$data = $data['data']['products'];
-			}
-
-			// We need to make sure that the product information is properly formatted
-			$data = PixelgradeAssistant_Admin::format_products( $data );
-
-			// Cache the data in a transient for 12 hours
-			set_site_transient( self::get_customer_products_cache_key( $pixelgrade_user_id ) , $data, 12 * HOUR_IN_SECONDS );
-		}
-
-		return $data;
-	}
-
-	/**
-	 * Force and update of the customer available products.
-	 *
-	 * @param int $pixelgrade_user_id Optional. Defaults to current activation user.
-	 *
-	 * @return array|false Returns the new products array or false on failure.
-	 */
-	public static function update_customer_products( $pixelgrade_user_id = null ) {
-		return self::get_customer_products( $pixelgrade_user_id, true );
-	}
-
-	public static function remember_theme_switch() {
-		PixelgradeAssistant_Admin::set_option( 'theme_switched', true );
-		PixelgradeAssistant_Admin::save_options();
-	}
-
-	/**
-	 * Clear the cached customer available products.
-	 *
-	 * @param int $pixelgrade_user_id Optional. Defaults to current activation user.
-	 *
-	 * @return bool
-	 */
-	public static function clear_customer_products_cache( $pixelgrade_user_id = null ) {
-		if ( empty( $pixelgrade_user_id ) ) {
-			// Get the activation user
-			$current_user = PixelgradeAssistant_Admin::get_theme_activation_user();
-			if ( ! empty( $current_user ) && ! empty( $current_user->ID ) ) {
-				$pixelgrade_user_id = get_user_meta( $current_user->ID, 'pixcare_user_ID', true );
-			}
-		}
-
-		if ( empty( $pixelgrade_user_id ) ) {
-			return false;
-		}
-
-		return delete_site_transient( self::get_customer_products_cache_key( $pixelgrade_user_id ) );
-	}
-
-	/**
-	 * Update the customer available products on theme update check.
-	 * Hooked into pre_set_site_transient_update_themes.
-	 *
-	 * @param object $transient
-	 *
-	 * @return object
-	 */
-	public function transient_update_customer_products( $transient ) {
-		// Nothing to do here if the checked transient entry is empty
-		if ( empty( $transient->checked ) ) {
-			return $transient;
-		}
-		// Check and update the the user's license details
-		self::update_customer_products();
-
-		return $transient;
-	}
-
-	/**
-	 * A helper functions that builds a specific array of all the products the user has access to.
-	 * For now, we assume all products are themes.
-	 *
-	 * @param array $products
-	 *
-	 * @return array
-	 */
-	public static function format_products( $products ) {
-		if ( empty( $products ) || ! is_array( $products ) ) {
-			return array();
-		}
-
-		$themes = array();
-		// Loop through the club themes and create wp theme objects for each of them
-		foreach ( $products as $key => $product ) {
-			$themes[ $key ]['id']                   = isset( $product['slug'] ) ? $product['slug'] : null;
-			$themes[ $key ]['active']               = false;
-			$themes[ $key ]['name']                 = isset( $product['title'] ) ? $product['title'] : null;
-			$themes[ $key ]['screenshot']           = isset( $product['image_html'] ) ? $product['image_html'] : null;
-			$themes[ $key ]['hasUpdate']            = false;
-			$themes[ $key ]['hasPackage']           = false;
-			$themes[ $key ]['author']               = 'pixelgrade';
-			$themes[ $key ]['actions']['customize'] = false;
-			$themes[ $key ]['installed']            = false;
-			$themes[ $key ]['slug']                 = isset( $product['slug'] ) ? $product['slug'] : null;
-			$themes[ $key ]['download_url']         = isset( $product['download_url'] ) ? $product['download_url'] : null;
-			$themes[ $key ]['demo_url']             = isset( $product['demo_url'] ) ? $product['demo_url'] : null;
-			$themes[ $key ]['image_url']            = isset( $product['image_url'] ) ? $product['image_url'] : null;
-			$themes[ $key ]['hash_id']              = isset( $product['hash_id'] ) ? $product['hash_id'] : null;
-		}
-
-		return $themes;
-	}
-
 	/**
 	 * Returns the config resulted from merging the default config with the remote one
 	 *
@@ -1612,7 +1374,7 @@ class PixelgradeAssistant_Admin {
 		}
 
 		// Allow others to have a say in it
-		$final_config = apply_filters( 'pixcare_config', $final_config, $remote_config, $default_config );
+		$final_config = apply_filters( 'pixassist_config', $final_config, $remote_config, $default_config );
 
 		return $final_config;
 	}
@@ -1654,7 +1416,7 @@ class PixelgradeAssistant_Admin {
                     'hash_id' => $theme_id,
                     // This is the Pixelgrade Assistant Manager configuration version, not the API version
                     // @todo this parameter naming is quite confusing
-                    'version' => self::$pixelgrade_care_manager_api_version,
+                    'version' => self::$pixelgrade_assistant_manager_api_version,
                 ),
                 'sslverify' => false,
             );
@@ -1669,6 +1431,14 @@ class PixelgradeAssistant_Admin {
             }
             $config = $response_data['data']['config'];
 
+            // For now, we don't need anything related to dashboard or setup wizard. We will just use the plugin defaults.
+	        if ( isset( $config['dashboard'] ) ) {
+		        unset( $config['dashboard'] );
+	        }
+	        if ( isset( $config['setupWizard'] ) ) {
+		        unset( $config['setupWizard'] );
+	        }
+
             // Sanitize it
 	        $config = self::sanitize_theme_mods_holding_content( $config, array() );
             // Cache it
@@ -1679,7 +1449,7 @@ class PixelgradeAssistant_Admin {
     }
 
 	protected static function _get_remote_config_cache_key( $theme_id ) {
-        return 'pixcare_theme_config_' . $theme_id;
+        return 'pixassist_theme_config_' . $theme_id;
     }
 
 	public static function clear_remote_config_cache() {
@@ -1701,11 +1471,11 @@ class PixelgradeAssistant_Admin {
      */
     public static function get_default_config() {
 	    // Make sure the config function is loaded
-    	if ( ! function_exists( 'pixcare_get_default_config' ) ) {
+    	if ( ! function_exists( 'pixassist_get_default_config' ) ) {
 		    require_once plugin_dir_path( PixelgradeAssistant()->file ) . 'includes/default-plugin-config.php';
 	    }
 
-        return pixcare_get_default_config( self::get_original_theme_slug() );
+        return pixassist_get_default_config( self::get_original_theme_slug() );
     }
 
 	/**
@@ -1747,11 +1517,11 @@ class PixelgradeAssistant_Admin {
 	public static function transient_maybe_cleanup_oauth_token( $transient ) {
         $current_user    = self::get_theme_activation_user();
 		if ( ! empty( $current_user ) && ! empty( $current_user->ID ) ) {
-			$user_token_meta = get_user_meta( $current_user->ID, 'pixcare_oauth_token' );
-			$user_pixcare_id = get_user_meta( $current_user->ID, 'pixcare_user_ID' );
+			$user_token_meta = get_user_meta( $current_user->ID, 'pixassist_oauth_token' );
+			$user_pixassist_id = get_user_meta( $current_user->ID, 'pixassist_user_ID' );
 
 			// If the user ID is missing, clear everything.
-			if ( $user_token_meta && empty( $user_pixcare_id ) ) {
+			if ( $user_token_meta && empty( $user_pixassist_id ) ) {
 				self::cleanup_oauth_token( $current_user->ID );
 			}
 		}
@@ -1773,9 +1543,9 @@ class PixelgradeAssistant_Admin {
 			return;
 		}
 
-	    delete_user_meta( $user_id, 'pixcare_oauth_token' );
-	    delete_user_meta( $user_id, 'pixcare_oauth_token_secret' );
-	    delete_user_meta( $user_id, 'pixcare_oauth_verifier' );
+	    delete_user_meta( $user_id, 'pixassist_oauth_token' );
+	    delete_user_meta( $user_id, 'pixassist_oauth_token_secret' );
+	    delete_user_meta( $user_id, 'pixassist_oauth_verifier' );
 
     }
 
@@ -1792,7 +1562,7 @@ class PixelgradeAssistant_Admin {
     public static function get_theme_hash_id( $fallback = false) {
         // Get the id of the current theme
         $wupdates_ids  = self::get_all_wupdates_identification_data();
-        $theme_support = get_theme_support( 'pixelgrade_care' );
+        $theme_support = get_theme_support( 'pixelgrade_assistant' );
         // Try to get the theme's name from the theme_supports array.
         if ( ! empty( $theme_support['theme_name'] ) && ! empty( $wupdates_ids[ $theme_support['theme_name'] ]['id'] ) ) {
             return $wupdates_ids[ $theme_support['theme_name'] ]['id'];
@@ -1973,7 +1743,7 @@ class PixelgradeAssistant_Admin {
 		    self::$wupdates_ids = apply_filters( 'wupdates_gather_ids', array() );
 
 		    // Allow others to have a say in it.
-		    self::$wupdates_ids = apply_filters( 'pixelgrade_care_wupdates_identification_data', self::$wupdates_ids );
+		    self::$wupdates_ids = apply_filters( 'pixelgrade_assistant_wupdates_identification_data', self::$wupdates_ids );
 	    }
 
 		return self::$wupdates_ids;
@@ -2088,63 +1858,17 @@ class PixelgradeAssistant_Admin {
     }
 
 	/**
-     * Check if the WUpdates update code is present by checking the presence of the callback filters.
-     *
-     * @global array $wp_filter Stores all of the filters.
-     *
-	 * @param string $hash_id A WUpdates hash_id to make the check specific to this one.
-	 *
-     * @return bool
-     */
-    public static function has_wupdates_update_code( $hash_id = '' ) {
-        global $wp_filter;
-        $tag = 'pre_set_site_transient_update_themes';
-        if ( ! isset( $wp_filter[ $tag ] ) ) {
-            return false;
-        }
-        $hook = $wp_filter[ $tag ];
-        foreach ( $hook->callbacks as $priority => $callbacks ) {
-            if ( ! empty( $callbacks ) ) {
-                foreach ( $callbacks as $key => $callback ) {
-                    if ( ! empty( $callback['function'] ) && is_string( $callback['function'] ) &&  false !== strpos( $callback['function'], 'wupdates_check_' . $hash_id ) ) {
-                        return true;
-                    }
-                }
-            }
-        }
-        return false;
-    }
-
-	/**
 	 * Get the license details as saved in theme mods.
 	 *
 	 * @return array
 	 */
     public static function get_license_mods() {
     	// First we grab the newer source that holds all license details.
-		$license = get_theme_mod( 'pixcare_license' );
+		$license = get_theme_mod( 'pixassist_license' );
 
 		if ( empty( $license ) ) {
 			$license = array();
 		}
-
-		// Now we will allow older entries to overwrite, since they might be the only ones holding the true info.
-	    $license_hash = get_theme_mod( 'pixcare_license_hash' );
-		if ( false !== $license_hash ) {
-			$license['license_hash'] = $license_hash;
-		}
-	    $license_status = get_theme_mod( 'pixcare_license_status' );
-	    if ( false !== $license_status ) {
-		    $license['license_status'] = $license_status;
-	    }
-	    $license_type = get_theme_mod( 'pixcare_license_type' );
-	    if ( false !== $license_type ) {
-		    $license['license_type'] = $license_type;
-	    }
-	    $license_expiry_date = get_theme_mod( 'pixcare_license_expiry_date' );
-	    if ( false !== $license_expiry_date ) {
-		    $license['license_expiry_date'] = $license_expiry_date;
-	    }
 
 	    return $license;
     }
@@ -2178,38 +1902,21 @@ class PixelgradeAssistant_Admin {
      */
     public static function set_license_mod( $license ) {
 
-    	set_theme_mod( 'pixcare_license', $license );
+    	set_theme_mod( 'pixassist_license', $license );
     }
-
-	/**
-	 * A helper function that sets a single license theme mod entry, to avoid duplicate code.
-	 *
-	 * @param string $key
-	 * @param mixed $value
-	 */
-	public static function set_license_mod_entry( $key, $value ) {
-		// First we grab all the license details.
-		$license = self::get_license_mods();
-
-		// Change the value
-		$license[ $key ] = $value;
-
-		// Write it back
-		self::set_license_mod( $license );
-	}
 
 	/**
 	 * A helper function that deletes the license theme mods.
 	 */
 	public static function delete_license_mod() {
-		remove_theme_mod( 'pixcare_license' );
+		remove_theme_mod( 'pixassist_license' );
 	}
 
 	public function admin_notices() {
         global $pagenow;
         // We only show the update notice on the dashboard
-        if ( true === apply_filters( 'pixcare_allow_dashboard_update_notice', true ) && $pagenow == 'index.php' && current_user_can( 'update_themes' ) ) {
-            $new_theme_version = get_theme_mod( 'pixcare_new_theme_version' );
+        if ( true === apply_filters( 'pixassist_allow_dashboard_update_notice', true ) && $pagenow == 'index.php' && current_user_can( 'update_themes' ) ) {
+            $new_theme_version = get_theme_mod( 'pixassist_new_theme_version' );
             $theme_name        = self::get_original_theme_name();
             $theme_support     = self::get_theme_support();
             if ( ! empty( $new_theme_version ) && ! empty( $theme_name ) && ! empty( $theme_support['theme_version'] ) && true === version_compare( $theme_support['theme_version'], $new_theme_version, '<' ) ) {

@@ -1,15 +1,15 @@
 import React from 'react';
 import ReactDOM from 'react-dom';
 
-import { MuiThemeProvider } from '@material-ui/core/styles';
+import { ThemeProvider } from '@material-ui/styles';
 import muiTheme from './components/mui-theme';
 
 import WizardWelcome from "./components/wizard/welcome";
 
 const SetupWizard = () => {
-	return <MuiThemeProvider theme={muiTheme}>
+	return <ThemeProvider theme={muiTheme}>
 			<WizardWelcome />
-		</MuiThemeProvider>
+		</ThemeProvider>
 }
 
-ReactDOM.render( <SetupWizard /> , document.getElementById('pixelgrade_care_setup_wizard'));
+ReactDOM.render( <SetupWizard /> , document.getElementById('pixelgrade_assistant_setup_wizard'));

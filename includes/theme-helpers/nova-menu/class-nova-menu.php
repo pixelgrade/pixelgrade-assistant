@@ -15,7 +15,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-class Pixcare_Nova_Menu {
+class Pixassist_Nova_Menu {
 	const MENU_ITEM_POST_TYPE = 'nova_menu_item';
 	const MENU_ITEM_LABEL_TAX = 'nova_menu_item_label';
 	const MENU_SECTION_TAX = 'nova_menu';
@@ -702,15 +702,15 @@ class Pixcare_Nova_Menu {
 	}
 
 	/**
-	 * Main Pixcare_Nova_Menu Instance
+	 * Main Pixassist_Nova_Menu Instance
 	 *
-	 * Ensures only one instance of Pixcare_Nova_Menu is loaded or can be loaded.
+	 * Ensures only one instance of Pixassist_Nova_Menu is loaded or can be loaded.
 	 *
 	 * @since  1.0.0
 	 * @static
 	 *
-	 * @see    Pixcare_Nova_Menu()
-	 * @return Pixcare_Nova_Menu
+	 * @see    Pixassist_Nova_Menu()
+	 * @return Pixassist_Nova_Menu
 	 */
 	public static function instance(  $menu_item_loop_markup = array() ) {
 		if ( is_null( self::$_instance ) ) {

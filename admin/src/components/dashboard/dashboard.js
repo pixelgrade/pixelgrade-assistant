@@ -1,5 +1,5 @@
 import React from 'react';
-import { MuiThemeProvider } from '@material-ui/core/styles';
+import { ThemeProvider } from '@material-ui/styles';
 import muiTheme from '../mui-theme';
 
 import DashboardHeader from './header';
@@ -49,11 +49,11 @@ class DashboardContainer extends React.Component {
 		};
 
 		// // This binding is necessary to make `this` work in the callback
-		this.onPixcareState = this.onPixcareState.bind(this);
+		this.onState = this.onState.bind(this);
 		this.getHeaderData = this.getHeaderData.bind(this);
 		this.addNotices = this.addNotices.bind(this);
 
-		this.disconnectPixcareUser = this.disconnectPixcareUser.bind(this);
+		this.disconnectUser = this.disconnectUser.bind(this);
 	}
 
 	componentDidMount() {
@@ -81,7 +81,7 @@ class DashboardContainer extends React.Component {
 
 		return <div>
 			{ component.props.session.is_logged // when the user is logged in we need to bound the disconnect action
-				? <DashboardHeader status={headerData.status} msg={headerData.msg} ctaOnClick={component.disconnectPixcareUser} />
+				? <DashboardHeader status={headerData.status} msg={headerData.msg} ctaOnClick={component.disconnectUser} />
 				: <DashboardHeader status={headerData.status} msg={headerData.msg} /> }
 
 			<DashboardTabs />
@@ -123,13 +123,13 @@ class DashboardContainer extends React.Component {
 		return headerData;
 	}
 
-	disconnectPixcareUser() {
+	disconnectUser() {
 		let component = this,
 			confirm = window.confirm(Helpers.replaceParams(Helpers.decodeHtml(_.get(pixassist, 'themeConfig.l10n.disconnectConfirm', ''))));
 
 		if ( confirm ) {
             // Add disabled class to the whole dashboard on disconnect
-            jQuery('#pixelgrade_care_dashboard').addClass('disabled-element').append('<div class="disabled-loader"></div>');
+            jQuery('#pixelgrade_assistant_dashboard').addClass('disabled-element').append('<div class="disabled-loader"></div>');
 
             // Clear The local Storage as well
 			clearState();
@@ -150,8 +150,8 @@ class DashboardContainer extends React.Component {
 						let localizedChangedEvent = new CustomEvent('localizedChanged', {});
 						window.dispatchEvent(localizedChangedEvent);
 
-						jQuery('#pixelgrade_care_dashboard .disabled-loader').remove();
-						jQuery('#pixelgrade_care_dashboard').removeClass('disabled-element');
+						jQuery('#pixelgrade_assistant_dashboard .disabled-loader').remove();
+						jQuery('#pixelgrade_assistant_dashboard').removeClass('disabled-element');
 
 						component.props.onDisconnect();
 
@@ -193,7 +193,7 @@ class DashboardContainer extends React.Component {
 		)
 	}
 
-	onPixcareState(state) {
+	onState(state) {
 		this.updateLocalState(state);
 	}
 
@@ -269,11 +269,11 @@ const Dashboard = connect(
 
 
 const PageContainer = () => {
-	return <MuiThemeProvider theme={muiTheme}>
+	return <ThemeProvider theme={muiTheme} injectFirst>
 			{ ( _.isUndefined( pixassist ) || _.isUndefined( pixassist.themeSupports ) || pixassist.themeSupports === null )
 				? null
 				: <Dashboard /> }
-		</MuiThemeProvider>
+		</ThemeProvider>
 };
 
 const Page = connect(

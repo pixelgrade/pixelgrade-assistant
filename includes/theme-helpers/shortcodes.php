@@ -18,21 +18,21 @@ if ( ! defined( 'ABSPATH' ) ) exit;
  */
 
 /**
- * Returns the main instance of Pixcare_Nova_Menu to prevent the need to use globals.
+ * Returns the main instance of Pixassist_Nova_Menu to prevent the need to use globals.
  *
  * @since  1.2.2
- * @return Pixcare_Nova_Menu
+ * @return Pixassist_Nova_Menu
  */
-function Pixcare_Nova_Menu() {
+function Pixassist_Nova_Menu() {
 	// Only load if we have to
-	if ( ! class_exists( 'Pixcare_Nova_Menu') ) {
+	if ( ! class_exists( 'Pixassist_Nova_Menu') ) {
 		require_once( plugin_dir_path( __FILE__ ) . 'nova-menu/class-nova-menu.php' );
 	}
-	return Pixcare_Nova_Menu::instance();
+	return Pixassist_Nova_Menu::instance();
 }
 
 // Load The Nova Menu
-$pixcare_nova_menu_instance = Pixcare_Nova_Menu();
+$pixassist_nova_menu_instance = Pixassist_Nova_Menu();
 /*------------------------*/
 
 /**
@@ -42,7 +42,7 @@ $pixcare_nova_menu_instance = Pixcare_Nova_Menu();
  *
  * @return string
  */
-function pixcare_create_page_shortcode( $atts ) {
+function pixassist_create_page_shortcode( $atts ) {
 	$output = '';
 
 	// Attributes
@@ -65,5 +65,5 @@ function pixcare_create_page_shortcode( $atts ) {
 	return $output;
 }
 // we will register the shortcode with both lovercase and uppercase
-add_shortcode( 'page', 'pixcare_create_page_shortcode' );
-add_shortcode( 'Page', 'pixcare_create_page_shortcode' );
+add_shortcode( 'page', 'pixassist_create_page_shortcode' );
+add_shortcode( 'Page', 'pixassist_create_page_shortcode' );

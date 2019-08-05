@@ -60,7 +60,7 @@ class PixelgradeAssistant_i18n {
 	public function load_plugin_textdomain() {
 
 		load_plugin_textdomain(
-			'pixelgrade_care',
+			'pixelgrade_assistant',
 			false,
 			plugin_dir_url( $this->parent->file ) . 'languages/'
 		);

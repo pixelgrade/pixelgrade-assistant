@@ -58,7 +58,7 @@ class PixelgradeAssistant_DataCollector {
 	public static function allow_data_collector() {
 		$allow_data_collector = PixelgradeAssistant_Admin::get_option( 'allow_data_collect', false );
 		// Allow others to disable this module.
-		if ( false === apply_filters( 'pixcare_allow_data_collector_module', $allow_data_collector ) ) {
+		if ( false === apply_filters( 'pixassist_allow_data_collector_module', $allow_data_collector ) ) {
 			return false;
 		}
 
@@ -71,11 +71,6 @@ class PixelgradeAssistant_DataCollector {
 	public function register_hooks() {
 		// Add filter to update wordpress minimum versions.
 		add_filter( 'pre_set_site_transient_update_themes', array( $this, 'set_core_supported_versions' ) );
-		// Filter the data that is being sent to WUpdates so we can store it in DataVault.
-		add_filter( 'wupdates_call_data_request', array( $this, 'filter_wupdates_request_data' ), 11, 2 );
-
-		// Remember the previous theme on theme switch.
-		add_action( 'after_switch_theme', array( $this, 'remember_previous_theme' ), 10, 2 );
 	}
 
 	/**
@@ -84,76 +79,28 @@ class PixelgradeAssistant_DataCollector {
 	 * @return array
 	 */
 	public static function get_system_status_data() {
-		// The setting might need to be saved at least once
+		// The setting might need to be saved at least once.
+		// We default to FALSE as in not do any data collection.
 		if ( null === PixelgradeAssistant_Admin::get_option( 'allow_data_collect' ) ) {
-			PixelgradeAssistant_Admin::set_option( 'allow_data_collect', apply_filters( 'pixcare_allow_data_collector_module', true ) );
+			PixelgradeAssistant_Admin::set_option( 'allow_data_collect', apply_filters( 'pixassist_allow_data_collector_module', false ) );
 			PixelgradeAssistant_Admin::save_options();
 		}
 
 		if ( ! self::allow_data_collector() ) {
-			return array();
+			return array(
+				'allowDataCollect' => false,
+			);
 		}
 
 		// Fetch the data via the same way we use for collecting
 		$data = self::instance( PixelgradeAssistant() );
 
 		return array(
-			'allowCollectData' => PixelgradeAssistant_Admin::get_option( 'allow_data_collect', true ),
+			'allowDataCollect' => true,
 			'installation'     => $data->get_install_data(),
 			'activePlugins'    => $data->get_active_plugins(),
-			'coreOptions'      => $data->get_core_options(),
-			'themeOptions'     => $data->get_theme_options(),
 			'system'           => $data->get_system_data(),
 		);
-	}
-
-	/**
-	 * Pass data to WUpdates which should store it in DataVault.
-	 *
-	 * @param array $data The optional data that is being passed to WUpdates
-	 * @param string $slug The product's slug
-	 *
-	 * @return array
-	 */
-	public function filter_wupdates_request_data( $data, $slug ) {
-		// We need to make sure that we are adding the data to the proper update check
-		// Each product fires this filter when it checks for updates; including this very own Pixelgrade Assistant plugin
-		// For now we will only allow it to work for the current theme (we assume only themes require licenses)
-		// This may actually suffice since we are interested in the environment data and it's the same for all
-		// @todo This may need second thinking if we have plugins with licenses
-		if ( $slug == basename( get_template_directory() ) ) {
-			$data = array_merge( $data, $this->get_post_data() );
-		}
-
-		return $data;
-	}
-
-	/**
-	 * Remember the previous theme on theme switch.
-	 *
-	 * @param $stylesheet
-	 * @param WP_Theme $theme
-	 */
-	public function remember_previous_theme( $stylesheet, $theme ) {
-		$previous_themes = get_option( 'pixcare_previous_themes', array() );
-
-		$template = time();
-		if ( ! empty( $theme ) ) {
-			$template = $theme->get_template();
-		}
-
-		$previous_themes = array(
-           $template => array(
-				'name' => $theme->get( 'Name' ),
-				'author' => $theme->get( 'Author' ),
-				'themeuri' => $theme->get( 'ThemeURI' ),
-				'authoruri' => $theme->get( 'AuthorURI' ),
-				'version' => $theme->get( 'Version' ),
-				'switch_timestamp' => time(),
-			),
-		) + $previous_themes;
-
-		update_option( 'pixcare_previous_themes', $previous_themes );
 	}
 
 	/**
@@ -162,8 +109,6 @@ class PixelgradeAssistant_DataCollector {
 	public function get_post_data() {
 		$response                   = array();
 		$response['install_data']   = $this->get_install_data( true );
-		$response['theme_options']  = $this->get_theme_options();
-		$response['core_options']   = $this->get_core_options();
 		$response['active_plugins'] = $this->get_active_plugins();
 		$response['system_data']    = $this->get_system_data();
 		$response['site_content_data'] = $this->get_site_content_data();
@@ -173,11 +118,9 @@ class PixelgradeAssistant_DataCollector {
 
 	/**
 	 *
-	 * @param bool $stats Optional. If the data is used for stats or display.
-	 *
 	 * @return array
 	 */
-	public function get_install_data( $stats = false ) {
+	public function get_install_data() {
 
 		$install_data = array();
 
@@ -223,98 +166,7 @@ class PixelgradeAssistant_DataCollector {
 			'is_viewable' => false
 		);
 
-		if ( $stats ) {
-			$install_data['site_title'] = get_bloginfo( 'name');
-			$install_data['site_description'] = get_bloginfo( 'description');
-			$install_data['stylesheet_url'] = get_bloginfo( 'stylesheet_url');
-			$install_data['language'] = get_bloginfo( 'language');
-			$install_data['rtl'] = is_rtl();
-
-			$first_registered_user = get_users( array(
-				'order' => 'ASC',
-				'orderby' => 'user_registered',
-				'number' => 1,
-				'fields' => array( 'user_registered' ),
-			) );
-			if ( ! empty( $first_registered_user[0] ) ) {
-				$install_data['creation_date'] = $first_registered_user[0]->user_registered;
-			}
-			$install_data['previous_themes'] = get_option( 'pixcare_previous_themes', array() );
-		}
-
 		return $install_data;
-	}
-
-	public function get_theme_options() {
-		$response = array();
-
-		if ( ! empty( $this->config['theme_name'] ) ) {
-			if ( function_exists( 'PixCustomifyPlugin' ) ) {
-				$customify = PixCustomifyPlugin();
-
-				$all_options = $customify->get_options_configs();
-				foreach ( $all_options as $key => $config ) {
-					// We will skip fonts for now since we don't have a proper way of detecting if their value has been changed
-					// Right now they are saved regardless.
-					if ( empty( $config['type'] ) || $config['type'] === 'font' ) {
-						continue;
-					}
-
-					if ( ! isset( $config['value'] ) ) {
-						$config['value'] = $customify->get_option( $key );
-					}
-
-					$default = null;
-					if ( isset( $config['default'] ) ) {
-						$default = $config['default'];
-					}
-					if ( $config['value'] !== null && $config['value'] !==  $default ) {
-						$response[ $key ] = $config['value'];
-					}
-				}
-			}
-
-		}
-
-		return $response;
-	}
-
-	/**
-	 * Return core options
-	 */
-	public function get_core_options() {
-		$response['core_options'] = array(
-			'users_can_register'    => get_option( 'users_can_register' ),
-			'start_of_week'         => get_option( 'start_of_week' ),
-			'use_balanceTags'       => get_option( 'use_balanceTags' ),
-			'use_smilies'           => get_option( 'use_smilies' ),
-			'require_name_email'    => get_option( 'require_name_email' ),
-			'comments_notify'       => get_option( 'comments_notify' ),
-			'posts_per_rss'         => get_option( 'posts_per_rss' ),
-			'rss_use_excerpt'       => get_option( 'rss_use_excerpt' ),
-			'posts_per_page'        => get_option( 'posts_per_page' ),
-			'date_format'           => get_option( 'date_format' ),
-			'time_format'           => get_option( 'time_format' ),
-			'comment_moderation'    => get_option( 'comment_moderation' ),
-			'moderation_notify'     => get_option( 'moderation_notify' ),
-			'permalink_structure'   => get_option( 'permalink_structure' ),
-			'blog_charset'          => get_option( 'blog_charset' ),
-			'template'              => get_option( 'template' ),
-			'stylesheet'            => get_option( 'stylesheet' ),
-			'comment_whitelist'     => get_option( 'comment_whitelist' ),
-			'comment_registration'  => get_option( 'comment_registration' ),
-			'html_type'             => get_option( 'html_type' ),
-			'default_role'          => get_option( 'default_role' ),
-			'db_version'            => get_option( 'db_version' ),
-			'blog_public'           => get_option( 'blog_public' ),
-			'default_link_category' => get_option( 'default_link_category' ),
-			'show_on_front'         => get_option( 'show_on_front' ),
-			'thread_comments'       => get_option( 'thread_comments' ),
-			'page_comments'         => get_option( 'page_comments' ),
-			'theme_switched'        => get_option( 'theme_switched' )
-		);
-
-		return $response['core_options'];
 	}
 
 	/**
@@ -487,7 +339,7 @@ class PixelgradeAssistant_DataCollector {
 	 */
 	public function is_theme_updateable() {
 		// check if we have a new theme version on record
-		$new_theme_version     = get_theme_mod( 'pixcare_new_theme_version' );
+		$new_theme_version     = get_theme_mod( 'pixassist_new_theme_version' );
 
 		if ( empty( $new_theme_version ) ) {
 			return false;
@@ -603,7 +455,7 @@ class PixelgradeAssistant_DataCollector {
 				'min_mysql_version'  => $latest_version->mysql_version,
 				'latest_wp_download' => $latest_version->download
 			);
-			update_option( 'pixcare_wordpress_minimum_supported', $wp_minimum_supported );
+			update_option( 'pixassist_wordpress_minimum_supported', $wp_minimum_supported );
 		}
 
 		return $transient;
@@ -615,12 +467,12 @@ class PixelgradeAssistant_DataCollector {
 	 * @return array
 	 */
 	private function get_core_supported_versions() {
-		$min_supportedversions = get_option( 'pixcare_wordpress_minimum_supported' );
+		$min_supportedversions = get_option( 'pixassist_wordpress_minimum_supported' );
 
 		if ( ! $min_supportedversions ) {
 			// delete the transient and get the values again
 			delete_site_transient( 'update_themes' );
-			$min_supportedversions = get_option( 'pixcare_wordpress_minimum_supported' );
+			$min_supportedversions = get_option( 'pixassist_wordpress_minimum_supported' );
 		}
 
 		return $min_supportedversions;

@@ -463,7 +463,7 @@ function pixelgrade_modify_theme_supports_by_features( $config ) {
 
 	return $config;
 }
-add_filter( 'pixcare_validate_theme_supports', 'pixelgrade_modify_theme_supports_by_features', 10, 1 );
+add_filter( 'pixassist_validate_theme_supports', 'pixelgrade_modify_theme_supports_by_features', 10, 1 );
 
 if ( ! function_exists( 'pixelgrade_user_has_access' ) ) {
 	/**

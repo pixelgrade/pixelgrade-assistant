@@ -114,7 +114,7 @@ class PixelgradeAssistant {
 		//the current plugin version
 		$this->version = $version;
 
-		$this->plugin_name = 'pixelgrade_care';
+		$this->plugin_name = 'pixelgrade_assistant';
 
 		if ( $this->php_version_check() ) {
 			// Only load and run the init function if we know PHP version can parse it.
@@ -174,37 +174,37 @@ class PixelgradeAssistant {
 		 * The class responsible for defining internationalization functionality
 		 * of the plugin.
 		 */
-		require_once plugin_dir_path( $this->file ) . 'includes/class-pixelgrade_care-i18n.php';
+		require_once plugin_dir_path( $this->file ) . 'includes/class-pixelgrade_assistant-i18n.php';
 		$this->plugin_i18n = PixelgradeAssistant_i18n::instance( $this );
 
 		/**
 		 * The class responsible for defining all logic that occurs in the admin area.
 		 */
-		require_once plugin_dir_path( $this->file ) . 'admin/class-pixelgrade_care-admin.php';
+		require_once plugin_dir_path( $this->file ) . 'admin/class-pixelgrade_assistant-admin.php';
 		$this->plugin_admin = PixelgradeAssistant_Admin::instance( $this );
 
 		/**
 		 * Import demo-data system
 		 */
-		require_once plugin_dir_path( $this->file ) . 'admin/class-pixelgrade_care-starter_content.php';
+		require_once plugin_dir_path( $this->file ) . 'admin/class-pixelgrade_assistant-starter_content.php';
 		$this->starter_content = PixelgradeAssistant_StarterContent::instance( $this );
 
 		/**
 		 * The class responsible for defining all actions that occur in the setup wizard.
 		 */
-		require_once plugin_dir_path( $this->file ) . 'admin/class-pixelgrade_care-setup_wizard.php';
+		require_once plugin_dir_path( $this->file ) . 'admin/class-pixelgrade_assistant-setup_wizard.php';
 		$this->plugin_setup_wizard = PixelgradeAssistant_SetupWizard::instance( $this );
 
 		/**
 		 * The class responsible for defining all actions that occur in the data collection section.
 		 */
-		require_once plugin_dir_path( $this->file ) . 'includes/class-pixelgrade_care-data-collector.php';
+		require_once plugin_dir_path( $this->file ) . 'includes/class-pixelgrade_assistant-data-collector.php';
 		$this->plugin_data_collector = PixelgradeAssistant_DataCollector::instance( $this );
 
 		/**
 		 * The class responsible for defining all actions that occur in support section.
 		 */
-		require_once plugin_dir_path( $this->file ) . 'admin/class-pixelgrade_care-support.php';
+		require_once plugin_dir_path( $this->file ) . 'admin/class-pixelgrade_assistant-support.php';
 		$this->plugin_support = PixelgradeAssistant_Support::instance( $this );
 
 		/**
@@ -247,7 +247,7 @@ class PixelgradeAssistant {
 		/** @var PixelgradeAssistant $local_plugin */
 		$local_plugin = PixelgradeAssistant();
 
-		require_once plugin_dir_path( $local_plugin->file ) . 'includes/class-pixelgrade_care-activator.php';
+		require_once plugin_dir_path( $local_plugin->file ) . 'includes/class-pixelgrade_assistant-activator.php';
 		PixelgradeAssistantActivator::activate();
 	}
 
@@ -258,7 +258,7 @@ class PixelgradeAssistant {
 		/** @var PixelgradeAssistant $local_plugin */
 		$local_plugin = PixelgradeAssistant();
 
-		require_once plugin_dir_path( $local_plugin->file ) . 'includes/class-pixelgrade_care-deactivator.php';
+		require_once plugin_dir_path( $local_plugin->file ) . 'includes/class-pixelgrade_assistant-deactivator.php';
 		PixelgradeAssistantDeactivator::deactivate();
 	}
 

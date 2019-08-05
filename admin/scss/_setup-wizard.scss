@@ -1,7 +1,7 @@
 $setup-bg: #F1F1F1;
 $setup-gray: #cccccc;
 
-.pixelgrade_care-setup {
+.pixelgrade_assistant-setup {
   margin: 0;
   padding: 100px 0;
 
@@ -9,7 +9,7 @@ $setup-gray: #cccccc;
 
   font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Oxygen-Sans,Ubuntu,Cantarell,"Helvetica Neue",sans-serif,"Apple Color Emoji","Segoe UI Emoji","Segoe UI Symbol";
 
-  .pixelgrade_care-wrapper {
+  .pixelgrade_assistant-wrapper {
     max-width: 720px;
     margin-top: 0;
   }
@@ -27,7 +27,7 @@ $setup-gray: #cccccc;
 .setup-wizard-theme-name {
   // @extend .theme__name;
   @extend .u-text-center;
-  
+
   margin: 0;
   margin-bottom: 30px;
 
@@ -338,7 +338,7 @@ a.import--action {
   }
 }
 
-#pixelgrade_care_setup_wizard {
+#pixelgrade_assistant_setup_wizard {
   .crown {
     width: 85px;
     height: 67px;
