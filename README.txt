@@ -3,7 +3,7 @@ Contributors: pixelgrade, vlad.olaru
 Tags: dashboard, support, pixelgrade, starter-content, demo-data, documentation
 Requires at least: 4.9.9
 Tested up to: 5.2.2
-Requires PHP: 5.4.0
+Requires PHP: 5.3.0
 Stable tag: 1.0.0
 License: GPLv3
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
