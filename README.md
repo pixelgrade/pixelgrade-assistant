@@ -27,7 +27,7 @@ We use **Gulp and npm** for all development and build tasks. So, to get started 
 * To compile everything in distribution (release) mode, run `npm run distribution`
 * After you have compiled the JS and SCSS, if you want to generate a `.zip` file of the WordPress plugin ready to install, run the `gulp zip` command.
 
-That is is. If you have suggestions or even PR, don't hesitate.
+That is it. If you have suggestions or even PR, don't hesitate.
 
 ## License
 
