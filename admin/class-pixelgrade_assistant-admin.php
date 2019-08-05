@@ -236,8 +236,6 @@ class PixelgradeAssistant_Admin {
 	public function register_hooks() {
 		add_action( 'admin_init', array( 'PixelgradeAssistant_Admin', 'set_theme_support' ), 11 );
 
-		add_action( 'admin_init', array( $this, 'admin_redirects' ), 15 );
-		add_filter( 'wupdates_call_data_request', array( $this, 'add_license_to_wupdates_data' ), 10, 2 );
 		add_action( 'admin_notices', array( $this, 'admin_notices' ) );
 
 		add_action( 'admin_menu', array( $this, 'add_pixelgrade_assistant_menu' ) );
@@ -283,31 +281,6 @@ class PixelgradeAssistant_Admin {
 	}
 
     /**
-     * The first access to dashboard needs to be redirected to the setup wizard.
-     */
-    function admin_redirects() {
-        if ( ! is_admin() || ! current_user_can( 'manage_options' ) ) {
-            return;
-        }
-
-        $plugin_version     = get_option( 'pixelgrade_assistant_version' );
-        $redirect_transient = get_site_transient( '_pixassist_activation_redirect' );
-
-        if ( false !== $redirect_transient || empty( $plugin_version ) ) {
-            // Yay this is a fresh install and we are not on a setup page, just go there already.
-            wp_redirect( admin_url( 'index.php?page=pixelgrade_assistant-setup-wizard' ) );
-            exit;
-        }
-
-        // If the user that is installing Pixelgrade Assistant is a member of pixelgrade club (has been given the plugin and no theme)
-        // check if the plugin version is empty and has no other pixelgrade theme installed.
-        if ( empty( $plugin_version ) && ! self::has_pixelgrade_theme() ) {
-            wp_redirect( admin_url( 'index.php?page=pixelgrade_assistant-setup-wizard' ) );
-            exit;
-        }
-    }
-
-    /**
      * Determine if there are any Pixelgrade themes currently installed.
      *
      * @return bool
@@ -327,29 +300,6 @@ class PixelgradeAssistant_Admin {
 
         // No themes from pixelgrade found, return false.
         return false;
-    }
-
-    /**
-     * Pass data to WUpdates which should help validate our theme license and give access to updates.
-     *
-     * @param array $data The optional data that is being passed to WUpdates.
-     * @param string $slug The product's slug.
-     *
-     * @return array
-     */
-    function add_license_to_wupdates_data( $data, $slug ) {
-        // We need to make sure that we are adding the license hash to the proper update check.
-        // Each product fires this filter when it checks for updates; including this very own Pixelgrade Assistant plugin.
-        // For now we will only allow it to work for the current theme (we assume only themes require licenses).
-        // @todo This DOES NOT WORK if we have plugins with licenses
-        if ( $slug == basename( get_template_directory() ) ) {
-            $data['license_hash'] = 'pixassist_no_license';
-            $license_hash = self::get_license_mod_entry( 'license_hash' );
-            if ( $license_hash ) {
-                $data['license_hash'] = $license_hash;
-            }
-        }
-        return $data;
     }
 
     /**
