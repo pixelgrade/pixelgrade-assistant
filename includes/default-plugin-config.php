@@ -691,7 +691,6 @@ function pixassist_get_default_config( $original_theme_slug ){
 	);
 
 	$update_core = get_site_transient( 'update_core' );
-
 	if ( ! empty( $update_core->updates ) && ! empty( $update_core->updates[0] ) ) {
 		$new_update                                     = $update_core->updates[0];
 		$config['systemStatus']['wpRecommendedVersion'] = $new_update->current;

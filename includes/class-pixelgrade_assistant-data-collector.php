@@ -101,6 +101,7 @@ class PixelgradeAssistant_DataCollector {
 	}
 
 	/**
+	 * Gather the WordPress install data for our dashboard.
 	 *
 	 * @return array
 	 */
@@ -223,15 +224,15 @@ class PixelgradeAssistant_DataCollector {
 
 		$response = array(
 			'wp_debug_mode'          => array(
-				'label' => 'WP Debug Mode Active',
+				'label' => esc_html__( 'WP Debug Mode Active', '__plugin_txtd' ),
 				'value' => ( defined( 'WP_DEBUG' ) && WP_DEBUG ) ? "true" : "false",
 			),
 			'wp_cron'                => array(
-				'label' => 'WP Cron Active',
+				'label' => esc_html__( 'WP Cron Active', '__plugin_txtd' ),
 				'value' => ! ( defined( 'DISABLE_WP_CRON' ) && DISABLE_WP_CRON ) ? "true" : "false",
 			),
 			'wp_version'             => array(
-				'label'         => 'WP Version',
+				'label'         => esc_html__( 'WP Version', '__plugin_txtd' ),
 				'value'         => get_bloginfo( 'version' ),
 				'is_viewable'   => true,
 				'is_updateable' => $this->is_wp_updateable(),
@@ -239,30 +240,30 @@ class PixelgradeAssistant_DataCollector {
 			)
 		,
 			'web_server'             => array(
-				'label' => 'Web Server',
+				'label' => esc_html__( 'Web Server', '__plugin_txtd' ),
 				'value' => $web_server,
 			),
 			'wp_memory_limit'        => array(
-				'label' => 'WP Memory Limit',
+				'label' => esc_html__( 'WP Memory Limit', '__plugin_txtd' ),
 				'value' => $wp_memory_limit,
 			), // in bytes
 			'php_post_max_size'      => array(
-				'label' => 'PHP Post Max Size',
+				'label' => esc_html__( 'PHP Post Max Size', '__plugin_txtd' ),
 				'value' => wp_convert_hr_to_bytes( ini_get( 'post_max_size' ) ), // in bytes
 			),
 			'php_max_execution_time' => array(
-				'label' => 'PHP Max Execution Time',
+				'label' => esc_html__( 'PHP Max Execution Time', '__plugin_txtd' ),
 				'value' => ini_get( 'max_execution_time' ) . ' s',
 			),
 			'php_version'            => array(
-				'label'         => 'PHP Version',
+				'label'         => esc_html__( 'PHP Version', '__plugin_txtd' ),
 				'value'         => $php_version,
 				'is_viewable'   => true,
 				'is_updateable' => $this->is_php_updateable(),
 				'download_url'  => esc_url( 'https://php.net' ),
 			),
 			'mysql_version'          => array(
-				'label'         => 'MySQL Version',
+				'label'         => esc_html__( 'MySQL Version', '__plugin_txtd' ),
 				'value'         => $wpdb->db_version(),
 				'is_viewable'   => true,
 				'is_updateable' => $this->is_mysql_updateable( $wpdb->db_version() ),
@@ -270,48 +271,17 @@ class PixelgradeAssistant_DataCollector {
 
 			),
 			'wp_locale'              => array(
-				'label'       => 'WP Locale',
+				'label'       => esc_html__( 'WP Locale', '__plugin_txtd' ),
 				'value'       => get_locale(),
 				'is_viewable' => true,
 			),
 			'db_charset'             => array(
-				'label'         => 'DB Charset',
+				'label'         => esc_html__( 'DB Charset', '__plugin_txtd' ),
 				'value'         => $db_charset, //maybe get it from a mysql connection
 				'is_viewable'   => true,
 				'is_updateable' => $this->is_db_charset_updateable( $db_charset ),
 			)
 		);
-
-		return $response;
-	}
-
-	/**
-	 * Return anonymous site content data.
-	 */
-	public function get_site_content_data() {
-
-		$response = array(
-			'post_types' => array(
-				'label' => 'Post Types',
-				'value' => array(),
-			),
-			'comments' => array (
-				'label' => 'Comments',
-				'count' => wp_count_comments(),
-			),
-		);
-
-		$args = array(
-			'public'   => true,
-		);
-		/** @var WP_Post_Type $post_type */
-		foreach ( get_post_types( $args, 'objects', 'and' ) as $post_type ) {
-			$post_type_details = array(
-				'count' => wp_count_posts( $post_type->name ),
-			);
-
-			$response['post_types']['value'][ $post_type->name ] = $post_type_details;
-		}
 
 		return $response;
 	}

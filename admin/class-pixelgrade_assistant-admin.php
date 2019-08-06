@@ -1975,7 +1975,6 @@ class PixelgradeAssistant_Admin {
      * Ensures only one instance of PixelgradeAssistantAdmin is loaded or can be loaded.
      *
      * @static
-     *
      * @param  object $parent Main PixelgradeAssistant instance.
      *
      * @return PixelgradeAssistant_Admin Main PixelgradeAssistantAdmin instance
