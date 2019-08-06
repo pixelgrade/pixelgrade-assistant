@@ -125,15 +125,7 @@ class PixelgradeAssistant_StarterContent {
 	public function rest_upload_media( $request ) {
 		$params = $request->get_params();
 
-		$display_errors = @ini_set( 'display_errors', 0 );
-
 		add_filter( 'upload_mimes', array( $this, 'allow_svg_upload' ) );
-
-		if ( ob_get_length() ) {
-			ob_get_clean();
-		}
-
-		$wp_upload_dir = wp_upload_dir();
 
 		// @todo We should do some checking and validation here
 		$group = $params['group'];
@@ -142,22 +134,17 @@ class PixelgradeAssistant_StarterContent {
 
 		$remote_id = $params['remote_id'];
 
-		$filename = $title . '.' . $params['ext']; //basename( $file_path );
-
-		$file_path = trailingslashit( $wp_upload_dir['path'] ) . $filename;
+		$filename = $title . '.' . $params['ext'];
 
 		$file_data = $this->decode_chunk( $params['file_data'] );
 
 		if ( false === $file_data ) {
-			@ini_set( 'display_errors', $display_errors );
 			wp_send_json_error( 'no data' );
 		}
 
 		$upload_file = wp_upload_bits( $filename, null, $file_data );
 
 		if ( $upload_file['error'] ) {
-			@ini_set( 'display_errors', $display_errors );
-
 			return rest_ensure_response( 'File permission error' );
 		}
 
@@ -204,8 +191,6 @@ class PixelgradeAssistant_StarterContent {
 
 			wp_update_attachment_metadata( $attachment_id, $attachment_data );
 
-			@ini_set( 'display_errors', $display_errors );
-
 			return rest_ensure_response( array(
 				'code'    => 'success',
 				'message' => '',
@@ -214,8 +199,6 @@ class PixelgradeAssistant_StarterContent {
 				),
 			) );
 		}
-
-		@ini_set( 'display_errors', $display_errors );
 
 		return rest_ensure_response( array(
 			'code'    => 'error',
@@ -234,14 +217,8 @@ class PixelgradeAssistant_StarterContent {
 	 * @return WP_REST_Response
 	 */
 	public function rest_import_step( $request ) {
+
 		$params = $request->get_params();
-
-		$display_errors = @ini_set( 'display_errors', 0 );
-
-		// clear whatever was printed before, we only need a pure json
-		if ( ob_get_length() ) {
-			ob_get_clean();
-		}
 
 		// We need to import posts without the intervention of the cache system
 		wp_defer_term_counting( true );
@@ -249,11 +226,10 @@ class PixelgradeAssistant_StarterContent {
 		wp_suspend_cache_invalidation( true );
 
 		if ( empty( $params['args'] ) || empty( $params['type'] ) || empty( $params['url'] ) ) {
-			@ini_set( 'display_errors', $display_errors );
 
 			return rest_ensure_response( array(
 				'code'    => 'missing_params',
-				'message' => 'You need to provide all the needed parameters.',
+				'message' => esc_html__( 'You need to provide all the needed parameters.', '__plugin_txtd' ),
 				'data'    => array(),
 			) );
 		}
@@ -362,8 +338,6 @@ class PixelgradeAssistant_StarterContent {
 		wp_defer_term_counting( false );
 		wp_defer_comment_counting( false );
 
-		@ini_set( 'display_errors', $display_errors );
-
 		// If we have received an error or a REST response, just pass it along
 		if ( is_wp_error( $response ) || $response instanceof WP_REST_Response ) {
 			return rest_ensure_response( $response );
@@ -450,7 +424,7 @@ class PixelgradeAssistant_StarterContent {
 		if ( null === $response_data ) {
 			return rest_ensure_response( array(
 				'code'    => 'json_error',
-				'message' => 'Something went wrong with decoding the data received.',
+				'message' => esc_html__( 'Something went wrong with decoding the data received.', '__plugin_txtd' ),
 				'data'    => array(
 					'response' => wp_remote_retrieve_body( $response ),
 				),

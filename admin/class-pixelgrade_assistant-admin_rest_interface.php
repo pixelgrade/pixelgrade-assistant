@@ -127,11 +127,6 @@ class PixelgradeAssistant_AdminRestInterface {
 	 * @return WP_REST_Response
 	 */
 	public function set_state( $request ) {
-		$display_errors = @ini_set( 'display_errors', 0 );
-		// clear whatever was printed before, we only need a pure json
-		if ( ob_get_length() ) {
-			ob_get_clean();
-		}
 
 		$user_data  = $this->get_request_user_meta( $request );
 		$theme_data = $this->get_request_theme_mod( $request );
@@ -224,8 +219,6 @@ class PixelgradeAssistant_AdminRestInterface {
 			$should_return_new_state = true;
 		}
 
-		@ini_set( 'display_errors', $display_errors );
-
 		$data = array();
 
 		if ( true === $should_return_new_state ) {
@@ -253,11 +246,6 @@ class PixelgradeAssistant_AdminRestInterface {
 	 * @return WP_REST_Response|true
 	 */
 	public function delete_state( $request = null ) {
-		$display_errors = @ini_set( 'display_errors', 0 );
-		// clear whatever was printed before, we only need a pure json
-		if ( ob_get_length() ) {
-			ob_get_clean();
-		}
 
 		$current_user = PixelgradeAssistant_Admin::get_theme_activation_user();
 		if ( ! empty( $current_user ) && ! empty( $current_user->ID ) ) {
@@ -281,8 +269,6 @@ class PixelgradeAssistant_AdminRestInterface {
 		PixelgradeAssistant_Admin::delete_license_mod();
 
 		remove_theme_mod( 'pixassist_new_theme_version' );
-
-		@ini_set( 'display_errors', $display_errors );
 
 		if ( ! empty( $request ) ) {
 			return rest_ensure_response( array(
@@ -339,11 +325,6 @@ class PixelgradeAssistant_AdminRestInterface {
 	 * @return WP_REST_Response
 	 */
 	public function set_data_collect( $request ) {
-		$display_errors = @ini_set( 'display_errors', 0 );
-		// clear whatever was printed before, we only need a pure json
-		if ( ob_get_length() ) {
-			ob_get_clean();
-		}
 
 		$params = $request->get_params();
 		if ( ! isset( $params['allow_data_collect'] ) ) {
@@ -367,8 +348,6 @@ class PixelgradeAssistant_AdminRestInterface {
 			) );
 		}
 
-		@ini_set( 'display_errors', $display_errors );
-
 		return rest_ensure_response( array(
 			'code'    => 'success',
 			'message' => esc_html__( 'Data saved successfully!', '__plugin_txtd' ),
@@ -388,12 +367,6 @@ class PixelgradeAssistant_AdminRestInterface {
 	 * @return WP_REST_Response
 	 */
 	public function cleanup( $request ) {
-		$display_errors = @ini_set( 'display_errors', 0 );
-
-		// clear whatever was printed before, we only need a pure json
-		if ( ob_get_length() ) {
-			ob_get_clean();
-		}
 
 		$params = $request->get_params();
 
@@ -429,8 +402,6 @@ class PixelgradeAssistant_AdminRestInterface {
 		// Right now we prevent the update package URL to be saved in the transient (via the WUpdates code)
 		delete_site_transient( 'update_themes' );
 
-		@ini_set( 'display_errors', $display_errors );
-
 		return rest_ensure_response( array(
 			'code'    => 'success',
 			'message' => esc_html__( 'All nice and clean!', '__plugin_txtd' ),
@@ -448,12 +419,6 @@ class PixelgradeAssistant_AdminRestInterface {
 	 * @return WP_REST_Response
 	 */
 	public function disconnect_user( $request ) {
-		$display_errors = @ini_set( 'display_errors', 0 );
-
-		// clear whatever was printed before, we only need a pure json
-		if ( ob_get_length() ) {
-			ob_get_clean();
-		}
 
 		$params = $request->get_params();
 
@@ -529,8 +494,6 @@ class PixelgradeAssistant_AdminRestInterface {
 			// Add a marker so we can tell the user what we have done, in case of forced disconnect
 			add_user_meta( $current_user->ID, 'pixassist_force_disconnected', '1' );
 		}
-
-		@ini_set( 'display_errors', $display_errors );
 
 		return rest_ensure_response( array(
 			'code'    => 'success',
