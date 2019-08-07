@@ -121,11 +121,11 @@ class SystemStatus extends React.Component {
 			} else if ( key === 'theme_version' && !_.isUndefined( entry.is_updateable ) && ! entry.is_updateable ) {
 				installDataClass = 'system-status-up-to-date';
 				installIconClass = 'c-icon c-icon--success';
-				extraInfo = Helpers.replaceParams(Helpers.decodeHtml(_.get(pixassist, 'themeConfig.systemStatus.l10n.updateAvailable', '')));
+				extraInfo = Helpers.replaceParams(Helpers.decodeHtml(_.get(pixassist, 'themeConfig.systemStatus.l10n.themeLatestVersion', '')));
 
 			}
 
-			if ( null !== entry && !_.isUndefined(entry.is_viewable) && entry.is_viewable ) {
+			if ( !_.isUndefined(entry.is_viewable) && entry.is_viewable ) {
 				installDataRows.push(<TableRow key={key}>
 					<TableCell>{entry.label}</TableCell>
 					<TableCell><span className={installIconClass}></span><span className={installDataClass}>{value}</span></TableCell>

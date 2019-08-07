@@ -5,20 +5,20 @@ Requires at least: 4.9.9
 Tested up to: 5.2.2
 Requires PHP: 5.3.0
 Stable tag: 1.0.0
-License: GPLv3
+License: GPLv3.0
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
-Help and assistance for Pixelgrade themes.
+Help and assistance for Pixelgrade WordPress themes.
 
 == Description ==
 
 Pixelgrade Assistant is a plugin to go along with any free WordPress theme made by Pixelgrade.
 
 It will elevate the whole experience of setting up your site:
-* recommended plugins
-* starter content
-* premium support access
-* theme documentation right in your WordPress dashboard
+* **recommended plugins**
+* **starter/demo content one-click import**
+* **premium support access** right in your WordPress dashboard
+* **theme documentation** right in your WordPress dashboard
 * various functionality and logic that a theme may need to do it's best work.
 
 All these facilities and enhancements are *conditioned* by having your site connected with pixelgrade.com. This way we can leverage our already existing infrastructure to best serve our free themes users also, with the efficiency required by a small team.
@@ -26,36 +26,11 @@ You can chose not to use Pixelgrade Assistant but you will not be able to access
 
 **Made with love by [Pixelgrade](https://pixelgrade.com)**
 
-== Installation ==
-
-Installing "Pixelgrade Assistant" can be done either by searching for "Pixelgrade Assistant" via the `Plugins → Add New` screen in your WordPress dashboard, or by using the following steps:
-
-1. Download the plugin via WordPress.org.
-2. Upload the ZIP file through the `Plugins → Add New → Upload` screen in your WordPress dashboard.
-3. Activate the plugin through the `Plugins` menu in WordPress.
-4. Head over to `Pixelgrade` and set things up.
-
 == Issues ==
 
 If you identify any errors or have an idea for improving the plugin, please open an [issue](https://github.com/pixelgrade/pixelgrade-assistant/issues?stage=open).
 
 If Github is not your thing but you are passionate about Backstage and want to help us make it better, don't hesitate to [reach us](https://pixelgrade.com/contact/).
-
-== Frequently Asked Questions ==
-
-= Is the site connection secure? =
-
-Yes. We use a secure authorization protocol (OAuth1.0a) for setting up the connection.
-
-= If I connect my site, do you gain access to my site? =
-
-No. Connecting your site is just a small exchange of keys meant to establish a way to securely send information, when needed. We don't have your passwords or other methods to gain access to your site.
-If you have a support question that requires us to take a look in your WordPress dashboard, we will ask you for a *temporary username and password* with admin permissions. But **that is up to you to provide.*
-
-= Is this plugin tracking me? =
-
-No. We are not tracking you or your site. We ask your permission to share with us non-specific theme usage data and information about your WordPress install so we can resolve support questions faster - we are a small team and need to be as efficient as possible.
-*It is up to you if you are willing to share this data with us.* We respect your decision. We truly appreciate it if you do, but we will do our best to serve you regardless.
 
 == Credits ==
 
@@ -82,6 +57,40 @@ This plugin makes heavy use of JavaScript libraries and packages since it's enti
 * [react-cookies](https://www.npmjs.com/package/react-cookies) - License: [MIT](http://opensource.org/licenses/mit-license.html)
 * [react-redux](https://www.npmjs.com/package/react-redux) - License: [MIT](http://opensource.org/licenses/mit-license.html)
 * [redux](https://www.npmjs.com/package/redux) - License: [MIT](http://opensource.org/licenses/mit-license.html)
+
+== Installation ==
+
+Installing "Pixelgrade Assistant" can be done either by searching for "Pixelgrade Assistant" via the `Plugins → Add New` screen in your WordPress dashboard, or by using the following steps:
+
+1. Download the plugin via WordPress.org.
+2. Upload the ZIP file through the `Plugins → Add New → Upload` screen in your WordPress dashboard.
+3. Activate the plugin through the `Plugins` menu in WordPress.
+4. Head over to `Pixelgrade` and set things up.
+
+== Frequently Asked Questions ==
+
+= Is the site connection secure? =
+
+Yes. We use a secure authorization protocol (OAuth1.0a) for setting up the connection.
+
+= If I connect my site, do you gain access to my site? =
+
+No. Connecting your site is just a small exchange of keys meant to establish a way to securely send information, when needed. We don't have your passwords or other methods to gain access to your site.
+If you have a support question that requires us to take a look in your WordPress dashboard, we will ask you for a *temporary username and password* with admin permissions. But **that is up to you to provide.*
+
+= Is this plugin tracking me? =
+
+No. We are not tracking you or your site. We ask your permission to share with us non-specific theme usage data and information about your WordPress install so we can resolve support questions faster - we are a small team and need to be as efficient as possible.
+*It is up to you if you are willing to share this data with us.* We respect your decision. We truly appreciate it if you do, but we will do our best to serve you regardless.
+
+== Screenshots ==
+
+1. Main dashboard tab
+2. Useful links tab
+3. System status tab
+4. Main theme help tab
+5. Open support ticket tab
+6. Site setup wizard
 
 == Changelog ==
 

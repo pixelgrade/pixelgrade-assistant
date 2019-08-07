@@ -27867,10 +27867,10 @@
 	        } else if (key === 'theme_version' && !isUndefined_1(entry.is_updateable) && !entry.is_updateable) {
 	          installDataClass = 'system-status-up-to-date';
 	          installIconClass = 'c-icon c-icon--success';
-	          extraInfo = Helpers.replaceParams(Helpers.decodeHtml(get_1(pixassist, 'themeConfig.systemStatus.l10n.updateAvailable', '')));
+	          extraInfo = Helpers.replaceParams(Helpers.decodeHtml(get_1(pixassist, 'themeConfig.systemStatus.l10n.themeLatestVersion', '')));
 	        }
 
-	        if (null !== entry && !isUndefined_1(entry.is_viewable) && entry.is_viewable) {
+	        if (!isUndefined_1(entry.is_viewable) && entry.is_viewable) {
 	          installDataRows.push(react.createElement(TableRow$1, {
 	            key: key
 	          }, react.createElement(TableCell$1, null, entry.label), react.createElement(TableCell$1, null, react.createElement("span", {
