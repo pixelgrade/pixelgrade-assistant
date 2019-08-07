@@ -208,17 +208,6 @@ class PixelgradeAssistant_AdminRestInterface {
 			}
 		}
 
-		// We were instructed to save an a plugin option entry in the DB
-		if ( ! empty( $_POST['option'] ) && isset( $_POST['value'] ) ) {
-			$option = wp_unslash( $_POST['option'] );
-			$value  = wp_unslash( $_POST['value'] );
-
-			PixelgradeAssistant_Admin::set_option( $option, $value );
-			PixelgradeAssistant_Admin::save_options();
-
-			$should_return_new_state = true;
-		}
-
 		$data = array();
 
 		if ( true === $should_return_new_state ) {

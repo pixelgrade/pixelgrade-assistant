@@ -96,6 +96,6 @@ if ( $portfolio_query->have_posts() ) { ?>
 	</div><!-- close .jetpack-portfolio -->
 	<?php
 } else { ?>
-	<p><em><?php _e( 'Your Portfolio Archive currently has no entries. You can start creating them on your dashboard.', '__plugin_txtd' ); ?></em></p>
+	<p><em><?php esc_html_e( 'Your Portfolio Archive currently has no entries. You can start creating them on your dashboard.', '__plugin_txtd' ); ?></em></p>
 	<?php
 }

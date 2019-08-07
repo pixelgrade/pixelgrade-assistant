@@ -372,7 +372,6 @@ function pixelgrade_check_theme_license( $capabilities = array() ) {
 	$license_hash = PixelgradeAssistant_Admin::get_license_mod_entry( 'license_hash' );
 	$license_status = PixelgradeAssistant_Admin::get_license_mod_entry( 'license_status' );
 	$license_type = PixelgradeAssistant_Admin::get_license_mod_entry( 'license_type' );
-	$license_expiry_date = PixelgradeAssistant_Admin::get_license_mod_entry( 'license_expiry_date' );
 
 	// Bail if nothing is saved.
 	if ( empty( $license_hash ) || empty( $license_status ) || empty( $license_type ) ) {
@@ -383,12 +382,6 @@ function pixelgrade_check_theme_license( $capabilities = array() ) {
 	if ( in_array( $license_status, array( 'invalid' ) ) ) {
 		return false;
 	}
-
-	// Check for expiration
-	// @todo We need to decide if we want to limit on expired license.
-//	if ( in_array( $license_status, array( 'invalid' ) ) ) {
-//		return false;
-//	}
 
 	// If we have reached thus far, the license is ok.
 	return true;

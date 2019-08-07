@@ -185,7 +185,7 @@ class Pixelgrade_Jetpack_Portfolio_Shortcode {
 		}
 
 		if ( ! file_exists( $template ) ) {
-			_doing_it_wrong( __FUNCTION__, sprintf( __( '%s does not exist.', '__plugin_txtd' ), '<code>' . $template . '</code>' ), '1.2.6' );
+			_doing_it_wrong( __FUNCTION__, sprintf( esc_html__( '%s does not exist.', '__plugin_txtd' ), '<code>' . $template . '</code>' ), '1.2.6' );
 		} else {
 			include( $template );
 		}
@@ -239,10 +239,6 @@ class Pixelgrade_Jetpack_Portfolio_Shortcode {
 		/**
 		 * Filter the class applied to project div in the portfolio
 		 *
-		 * @module custom-content-types
-		 *
-		 * @since 3.1.0
-		 *
 		 * @param string $class class name of the div.
 		 * @param int $portfolio_index_number iterator count the number of columns up starting from 0.
 		 * @param int $columns number of columns to display the content in.
@@ -264,7 +260,7 @@ class Pixelgrade_Jetpack_Portfolio_Shortcode {
 			return;
 		}
 
-		$html = '<div class="project-types"><span>' . __( 'Types', '__plugin_txtd' ) . ':</span>';
+		$html = '<div class="project-types"><span>' . esc_html__( 'Types', '__plugin_txtd' ) . ':</span>';
 		$types = array();
 		// Loop thorugh all the types
 		foreach ( $project_types as $project_type ) {
@@ -295,7 +291,7 @@ class Pixelgrade_Jetpack_Portfolio_Shortcode {
 			return false;
 		}
 
-		$html = '<div class="project-tags"><span>' . __( 'Tags', '__plugin_txtd' ) . ':</span>';
+		$html = '<div class="project-tags"><span>' . esc_html__( 'Tags', '__plugin_txtd' ) . ':</span>';
 		$tags = array();
 		// Loop thorugh all the tags
 		foreach ( $project_tags as $project_tag ) {
@@ -321,7 +317,7 @@ class Pixelgrade_Jetpack_Portfolio_Shortcode {
 	static function get_project_author() {
 		$html = '<div class="project-author">';
 		/* translators: %1$s is link to author posts, %2$s is author display name */
-		$html .= sprintf( __( '<span>Author:</span> <a href="%1$s">%2$s</a>', '__plugin_txtd' ),
+		$html .= sprintf( wp_kses_post( __( '<span>Author:</span> <a href="%1$s">%2$s</a>', '__plugin_txtd' ) ),
 			esc_url( get_author_posts_url( get_the_author_meta( 'ID' ) ) ),
 			esc_html( get_the_author() )
 		);
@@ -348,6 +344,8 @@ class Pixelgrade_Jetpack_Portfolio_Shortcode {
 			 */
 			return '<a class="portfolio-featured-image" href="' . esc_url( get_permalink( $post_id ) ) . '">' . get_the_post_thumbnail( $post_id, apply_filters( 'jetpack_portfolio_thumbnail_size', 'large' ) ) . '</a>';
 		}
+
+		return '';
 	}
 
 	/**
@@ -355,7 +353,6 @@ class Pixelgrade_Jetpack_Portfolio_Shortcode {
 	 *
 	 * Ensures only one instance of Pixelgrade_Jetpack_Portfolio_Shortcode is loaded or can be loaded.
 	 *
-	 * @since  1.0.0
 	 * @static
 	 *
 	 * @return Pixelgrade_Jetpack_Portfolio_Shortcode
@@ -366,23 +363,19 @@ class Pixelgrade_Jetpack_Portfolio_Shortcode {
 		}
 
 		return self::$_instance;
-	} // End instance ()
+	}
 
 	/**
 	 * Cloning is forbidden.
-	 *
-	 * @since 1.0.0
 	 */
 	public function __clone() {
 		_doing_it_wrong( __FUNCTION__, esc_html__( 'You should not do that!', '__plugin_txtd' ), '1.0.0' );
-	} // End __clone ()
+	}
 
 	/**
 	 * Unserializing instances of this class is forbidden.
-	 *
-	 * @since 1.0.0
 	 */
 	public function __wakeup() {
 		_doing_it_wrong( __FUNCTION__, esc_html__( 'You should not do that!', '__plugin_txtd' ),  '1.0.0' );
-	} // End __wakeup ()
+	}
 }

@@ -137,7 +137,7 @@ if ( ! class_exists( 'Jetpack_Portfolio' ) ) {
 		function settings_api_init() {
 			add_settings_field(
 				self::OPTION_NAME,
-				'<span class="cpt-options">' . __( 'Portfolio Projects', '__plugin_txtd' ) . '</span>',
+				'<span class="cpt-options">' . esc_html__( 'Portfolio Projects', '__plugin_txtd' ) . '</span>',
 				array( $this, 'setting_html' ),
 				'writing',
 				'jetpack_cpt_section'
@@ -166,7 +166,7 @@ if ( ! class_exists( 'Jetpack_Portfolio' ) ) {
 		 */
 		function setting_html() {
 			if ( current_theme_supports( self::CUSTOM_POST_TYPE ) ) : ?>
-				<p><?php printf( __( 'Your theme supports <strong>%s</strong>', '__plugin_txtd' ), self::CUSTOM_POST_TYPE ); ?></p>
+				<p><?php printf( wp_kses_post( __( 'Your theme supports <strong>%s</strong>', '__plugin_txtd' ) ), self::CUSTOM_POST_TYPE ); ?></p>
 			<?php else : ?>
 				<label for="<?php echo esc_attr( self::OPTION_NAME ); ?>">
 					<input name="<?php echo esc_attr( self::OPTION_NAME ); ?>"
@@ -180,7 +180,7 @@ if ( ! class_exists( 'Jetpack_Portfolio' ) ) {
 			if ( get_option( self::OPTION_NAME, '0' ) || current_theme_supports( self::CUSTOM_POST_TYPE ) ) :
 				printf( '<p><label for="%1$s">%2$s</label></p>',
 					esc_attr( self::OPTION_READING_SETTING ),
-					sprintf( __( 'Portfolio pages display at most %1$s projects', '__plugin_txtd' ),
+					sprintf( esc_html__( 'Portfolio pages display at most %1$s projects', '__plugin_txtd' ),
 						sprintf( '<input name="%1$s" id="%1$s" type="number" step="1" min="1" value="%2$s" class="small-text" />',
 							esc_attr( self::OPTION_READING_SETTING ),
 							esc_attr( get_option( self::OPTION_READING_SETTING, '10' ) )
@@ -381,19 +381,19 @@ if ( ! class_exists( 'Jetpack_Portfolio' ) ) {
 
 			$messages[ self::CUSTOM_POST_TYPE ] = array(
 				0  => '', // Unused. Messages start at index 1.
-				1  => sprintf( __( 'Project updated. <a href="%s">View item</a>', '__plugin_txtd' ), esc_url( get_permalink( $post->ID ) ) ),
+				1  => sprintf( wp_kses_post( __( 'Project updated. <a href="%s">View item</a>', '__plugin_txtd' ) ), esc_url( get_permalink( $post->ID ) ) ),
 				2  => esc_html__( 'Custom field updated.', '__plugin_txtd' ),
 				3  => esc_html__( 'Custom field deleted.', '__plugin_txtd' ),
 				4  => esc_html__( 'Project updated.', '__plugin_txtd' ),
 				/* translators: %s: date and time of the revision */
 				5  => isset( $_GET['revision'] ) ? sprintf( esc_html__( 'Project restored to revision from %s', '__plugin_txtd' ), wp_post_revision_title( (int) $_GET['revision'], false ) ) : false,
-				6  => sprintf( __( 'Project published. <a href="%s">View project</a>', '__plugin_txtd' ), esc_url( get_permalink( $post->ID ) ) ),
+				6  => sprintf( wp_kses_post( __( 'Project published. <a href="%s">View project</a>', '__plugin_txtd' ) ), esc_url( get_permalink( $post->ID ) ) ),
 				7  => esc_html__( 'Project saved.', '__plugin_txtd' ),
-				8  => sprintf( __( 'Project submitted. <a target="_blank" href="%s">Preview project</a>', '__plugin_txtd' ), esc_url( add_query_arg( 'preview', 'true', get_permalink( $post->ID ) ) ) ),
-				9  => sprintf( __( 'Project scheduled for: <strong>%1$s</strong>. <a target="_blank" href="%2$s">Preview project</a>', '__plugin_txtd' ),
+				8  => sprintf( wp_kses_post( __( 'Project submitted. <a target="_blank" href="%s">Preview project</a>', '__plugin_txtd' ) ), esc_url( add_query_arg( 'preview', 'true', get_permalink( $post->ID ) ) ) ),
+				9  => sprintf( wp_kses_post( __( 'Project scheduled for: <strong>%1$s</strong>. <a target="_blank" href="%2$s">Preview project</a>', '__plugin_txtd' ) ),
 					// translators: Publish box date format, see http://php.net/date
-					date_i18n( __( 'M j, Y @ G:i', '__plugin_txtd' ), strtotime( $post->post_date ) ), esc_url( get_permalink( $post->ID ) ) ),
-				10 => sprintf( __( 'Project item draft updated. <a target="_blank" href="%s">Preview project</a>', '__plugin_txtd' ), esc_url( add_query_arg( 'preview', 'true', get_permalink( $post->ID ) ) ) ),
+					date_i18n( esc_html__( 'M j, Y @ G:i', '__plugin_txtd' ), strtotime( $post->post_date ) ), esc_url( get_permalink( $post->ID ) ) ),
+				10 => sprintf( wp_kses_post( __( 'Project item draft updated. <a target="_blank" href="%s">Preview project</a>', '__plugin_txtd' ) ), esc_url( add_query_arg( 'preview', 'true', get_permalink( $post->ID ) ) ) ),
 			);
 
 			return $messages;
@@ -405,7 +405,7 @@ if ( ! class_exists( 'Jetpack_Portfolio' ) ) {
 		 */
 		function edit_admin_columns( $columns ) {
 			// change 'Title' to 'Project'
-			$columns['title'] = __( 'Project', '__plugin_txtd' );
+			$columns['title'] = esc_html__( 'Project', '__plugin_txtd' );
 			if ( current_theme_supports( 'post-thumbnails' ) ) {
 				// add featured image before 'Project'
 				$columns = array_slice( $columns, 0, 1, true ) + array( 'thumbnail' => '' ) + array_slice( $columns, 1, null, true );
@@ -700,11 +700,11 @@ if ( ! class_exists( 'Jetpack_Portfolio' ) ) {
 							<header class="portfolio-entry-header">
 								<?php
 								// Featured image
-								echo self::get_portfolio_thumbnail_link( $post_id );
+								echo self::get_portfolio_thumbnail_link( $post_id ); // phpcs:ignore
 								?>
 
 								<h2 class="portfolio-entry-title"><a href="<?php echo esc_url( get_permalink() ); ?>"
-								                                     title="<?php echo the_title_attribute(); ?>"><?php the_title(); ?></a>
+								                                     title="<?php echo the_title_attribute(); // phpcs:ignore ?>"><?php the_title(); ?></a>
 								</h2>
 
 								<div class="portfolio-entry-meta">
@@ -728,12 +728,10 @@ if ( ! class_exists( 'Jetpack_Portfolio' ) ) {
 							<?php
 							// The content
 							if ( false !== $atts['display_content'] ) {
-								if ( 'full' === $atts['display_content'] ) {
-									?>
+								if ( 'full' === $atts['display_content'] ) { ?>
 									<div class="portfolio-entry-content"><?php the_content(); ?></div>
 									<?php
-								} else {
-									?>
+								} else { ?>
 									<div class="portfolio-entry-content"><?php the_excerpt(); ?></div>
 									<?php
 								}
@@ -749,7 +747,7 @@ if ( ! class_exists( 'Jetpack_Portfolio' ) ) {
 				<?php
 			} else { ?>
 				<p>
-					<em><?php _e( 'Your Portfolio Archive currently has no entries. You can start creating them on your dashboard.', '__plugin_txtd' ); ?>
+					<em><?php esc_html_e( 'Your Portfolio Archive currently has no entries. You can start creating them on your dashboard.', '__plugin_txtd' ); ?>
 				</p></em>
 				<?php
 			}
@@ -822,7 +820,7 @@ if ( ! class_exists( 'Jetpack_Portfolio' ) ) {
 				return;
 			}
 
-			$html  = '<div class="project-types"><span>' . __( 'Types', '__plugin_txtd' ) . ':</span>';
+			$html  = '<div class="project-types"><span>' . esc_html__( 'Types', '__plugin_txtd' ) . ':</span>';
 			$types = array();
 			// Loop thorugh all the types
 			foreach ( $project_types as $project_type ) {
@@ -853,7 +851,7 @@ if ( ! class_exists( 'Jetpack_Portfolio' ) ) {
 				return false;
 			}
 
-			$html = '<div class="project-tags"><span>' . __( 'Tags', '__plugin_txtd' ) . ':</span>';
+			$html = '<div class="project-tags"><span>' . esc_html__( 'Tags', '__plugin_txtd' ) . ':</span>';
 			$tags = array();
 			// Loop thorugh all the tags
 			foreach ( $project_tags as $project_tag ) {
@@ -879,7 +877,7 @@ if ( ! class_exists( 'Jetpack_Portfolio' ) ) {
 		static function get_project_author() {
 			$html = '<div class="project-author">';
 			/* translators: %1$s is link to author posts, %2$s is author display name */
-			$html .= sprintf( __( '<span>Author:</span> <a href="%1$s">%2$s</a>', '__plugin_txtd' ),
+			$html .= sprintf( wp_kses_post( __( '<span>Author:</span> <a href="%1$s">%2$s</a>', '__plugin_txtd' ) ),
 				esc_url( get_author_posts_url( get_the_author_meta( 'ID' ) ) ),
 				esc_html( get_the_author() )
 			);

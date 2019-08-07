@@ -170,7 +170,7 @@ class PixJetpackCustomization {
 	public function __clone() {
 
 		_doing_it_wrong( __FUNCTION__, esc_html__( 'You should not do that!', '__plugin_txtd' ), '' );
-	} // End __clone ()
+	}
 
 	/**
 	 * Unserializing instances of this class is forbidden.
@@ -178,7 +178,7 @@ class PixJetpackCustomization {
 	public function __wakeup() {
 
 		_doing_it_wrong( __FUNCTION__, esc_html__( 'You should not do that!', '__plugin_txtd' ), '' );
-	} // End __wakeup ()
+	}
 }
 
-$pix_jetpack_customization = PixJetpackCustomization::instance();
+PixJetpackCustomization::instance();

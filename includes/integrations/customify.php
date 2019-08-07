@@ -82,28 +82,3 @@ function pixassist_send_cloud_stats( $custom_palette ) {
 	}
 }
 add_action( 'customify_style_manager_updated_custom_palette_in_use', 'pixassist_send_cloud_stats', 10, 1 );
-
-// Since we have the notifications system in Pixelgrade Assistant (starting with v1.5.0), we don't want older versions of Customify (2.3.3 or older) to double the notifications.
-add_filter( 'customify_get_remote_notifications', '__return_empty_array', 100, 1 );
-// Also disable all the hooks that the notifications in Customify use.
-function pixassist_disable_customify_notifications() {
-	if ( class_exists( 'Pixcloud_Admin_Notifications_Manager' ) ) {
-		$instance = Pixcloud_Admin_Notifications_Manager::instance(
-			array(
-				'plugin_name'       => 'Customify',
-				'text_domain'       => 'customify',
-				'version'           => '',
-			)
-		);
-
-		if ( ! empty( $instance ) ) {
-			remove_action( 'admin_init', array( $instance, 'maybe_load_remote_notifications' ) );
-			remove_action( 'admin_notices', array( $instance, 'display_notices' ) );
-			remove_action( 'admin_enqueue_scripts', array( $instance, 'enqueue_scripts' ) );
-			remove_action( 'wp_ajax_' . 'pixcloud_anm' . '_dismiss_admin_notice', array( $instance, 'dismiss_notice' ) );
-			remove_filter( 'customify_pixelgrade_cloud_request_data', array( $instance, 'add_data_to_request' ), 10 );
-		}
-
-	}
-}
-add_action( 'admin_init', 'pixassist_disable_customify_notifications', 5 );

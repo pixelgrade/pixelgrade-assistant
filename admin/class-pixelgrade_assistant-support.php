@@ -68,11 +68,8 @@ class PixelgradeAssistant_Support {
 			return;
 		}
 
-		if ( is_rtl() ) {
-			wp_enqueue_style( 'pixelgrade_assistant_style', plugin_dir_url( $this->parent->file ) . 'admin/css/pixelgrade_assistant-admin-rtl.css', array(), $this->parent->get_version(), 'all' );
-		} else {
-			wp_enqueue_style( 'pixelgrade_assistant_style', plugin_dir_url( $this->parent->file ) . 'admin/css/pixelgrade_assistant-admin.css', array(), $this->parent->get_version(), 'all' );
-		}
+		$rtl_suffix = is_rtl() ? '-rtl' : '';
+		wp_enqueue_style( $this->parent->get_plugin_name(), plugin_dir_url( $this->parent->file ) . 'admin/css/pixelgrade_assistant-admin' . $rtl_suffix . '.css', array( 'dashicons' ), $this->parent->get_version(), 'all' );
 
 		$suffix = ( defined( 'SCRIPT_DEBUG' ) && SCRIPT_DEBUG ) ? '' : '.min';
 		wp_enqueue_script( 'pixelgrade_assistant-support', plugin_dir_url( $this->parent->file ) . 'admin/js/support' . $suffix . '.js', array(

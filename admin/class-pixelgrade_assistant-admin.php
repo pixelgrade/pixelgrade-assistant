@@ -288,7 +288,7 @@ class PixelgradeAssistant_Admin {
     public static function has_pixelgrade_theme() {
         $themes = wp_get_themes();
         // Loop through the themes.
-        // If we find a theme from pixelgrade return true.
+        // If we find a theme from Pixelgrade, return true.
         /** @var WP_Theme $theme */
         foreach ( $themes as $theme ) {
             $theme_author = $theme->get( 'Author' );
@@ -298,7 +298,7 @@ class PixelgradeAssistant_Admin {
             }
         }
 
-        // No themes from pixelgrade found, return false.
+        // No themes from pixelgrade found.
         return false;
     }
 
@@ -428,11 +428,11 @@ class PixelgradeAssistant_Admin {
         if ( $show_bubble ) {
             $bubble_markup = ' <span class="awaiting-mod"><span class="pending-count">!!︎</span></span>';
         }
-        add_menu_page( 'Pixelgrade', 'Pixelgrade' . $bubble_markup, 'install_themes', 'pixelgrade_assistant', array(
+        add_menu_page( esc_html__( 'Pixelgrade Assistant Dashboard', '__plugin_txtd' ), esc_html__( 'Pixelgrade', '__plugin_txtd' ) . $bubble_markup, 'install_themes', 'pixelgrade_assistant', array(
             $this,
             'pixelgrade_assistant_options_page',
         ), plugin_dir_url( $this->parent->file ) . 'admin/images/pixelgrade-menu-image.svg', 2 );
-        add_submenu_page( 'pixelgrade_assistant', 'Dashboard', 'Dashboard', 'manage_options', 'pixelgrade_assistant', array(
+        add_submenu_page( 'pixelgrade_assistant', esc_html__( 'Dashboard', '__plugin_txtd' ), esc_html__( 'Dashboard', '__plugin_txtd' ), 'manage_options', 'pixelgrade_assistant', array(
             $this,
             'pixelgrade_assistant_options_page',
         ) );
@@ -668,9 +668,9 @@ class PixelgradeAssistant_Admin {
         $screen = get_current_screen();
         $screen->add_help_tab( array(
             'id'      => 'pixelgrade_assistant_setup_wizard_tab',
-            'title'   => __( 'Pixelgrade Assistant Setup', '__plugin_txtd' ),
+            'title'   => esc_html__( 'Pixelgrade Assistant Setup', '__plugin_txtd' ),
             'content' =>
-                '<h2>' . __( 'Pixelgrade Assistant Setup', '__plugin_txtd' ) . '</h2>' .
+                '<h2>' . esc_html__( 'Pixelgrade Assistant Setup', '__plugin_txtd' ) . '</h2>' .
                 '<p><a href="' . esc_url( admin_url( 'index.php?page=pixelgrade_assistant-setup-wizard' ) ) . '" class="button button-primary">' . esc_html__( 'Setup Pixelgrade Assistant', '__plugin_txtd' ) . '</a></p>',
         ) );
     }
@@ -1600,7 +1600,7 @@ class PixelgradeAssistant_Admin {
         // Next we will test for the author in the theme header
 		$theme = wp_get_theme( get_template_directory() );
 		$theme_author = $theme->get( 'Author' );
-		if ( ! empty( $theme_author ) && strtolower( $theme_author ) == 'pixelgrade' ) {
+		if ( ! empty( $theme_author ) && 'pixelgrade' === strtolower( $theme_author ) ) {
 			return true;
 		}
 
@@ -1692,7 +1692,7 @@ class PixelgradeAssistant_Admin {
 
 		$theme_headers = self::get_theme_headers();
 		// We only want to do this for themes that are ours and for themes that have a slug matching their textdomain.
-		if ( ! empty( $theme_headers['Author'] ) && strtolower( $theme_headers['Author'] ) === 'pixelgrade' &&
+		if ( ! empty( $theme_headers['Author'] ) && 'pixelgrade' === strtolower( $theme_headers['Author'] ) &&
 			! empty( $theme_headers['TextDomain'] ) && $theme_slug === $theme_headers['TextDomain'] ) {
 			// We need to know if we have made changes to the data.
 			$theme_data_changed = false;
@@ -1851,7 +1851,7 @@ class PixelgradeAssistant_Admin {
 	public function admin_notices() {
         global $pagenow;
         // We only show the update notice on the dashboard
-        if ( true === apply_filters( 'pixassist_allow_dashboard_update_notice', true ) && $pagenow == 'index.php' && current_user_can( 'update_themes' ) ) {
+        if ( true === apply_filters( 'pixassist_allow_dashboard_update_notice', true ) && 'index.php' === $pagenow && current_user_can( 'update_themes' ) ) {
             $new_theme_version = get_theme_mod( 'pixassist_new_theme_version' );
             $theme_name        = self::get_original_theme_name();
             $theme_support     = self::get_theme_support();
@@ -1909,7 +1909,7 @@ class PixelgradeAssistant_Admin {
 	 * @param array $tgmpa An array containing the TGM_Plugin_Activation instance
 	 */
 	public function force_load_tgmpa( $tgmpa ) {
-        if ( ! empty( $_REQUEST['force_tgmpa'] ) && $_REQUEST['force_tgmpa'] == 'load' ) {
+        if ( ! empty( $_REQUEST['force_tgmpa'] ) && 'load' === $_REQUEST['force_tgmpa'] ) {
             add_filter( 'tgmpa_load', '__return_true' );
         }
     }

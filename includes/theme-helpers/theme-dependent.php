@@ -11,7 +11,7 @@
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-function pixelgrade_load_theme_dependent_functionality() {
+function pixassist_load_theme_dependent_functionality() {
 	// Handle the Open Table widget and shortcode theme support
 	if ( current_theme_supports( 'pixelgrade_opentable_widget' ) ) {
 		// Add the Open Table  field to the General section in the Customizer
@@ -45,4 +45,4 @@ function pixelgrade_load_theme_dependent_functionality() {
 		add_action( 'admin_bar_menu', 'pixelgrade_subpages_admin_bar_edit_links_backend', 999 );
 	}
 }
-add_action( 'after_setup_theme', 'pixelgrade_load_theme_dependent_functionality', 20 );
+add_action( 'after_setup_theme', 'pixassist_load_theme_dependent_functionality', 20 );

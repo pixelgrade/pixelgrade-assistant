@@ -1059,7 +1059,7 @@ class PixelgradeAssistant_StarterContent {
 				$meta_url = get_post_meta( $post['ID'], '_menu_item_url', true );
 				if ( isset( $_POST['url'] ) && ! empty( $meta_url ) ) {
 					$meta_url = str_replace( $_POST['url'], site_url(), $meta_url );
-					update_post_meta( $post['ID'], '_menu_item_url', $meta_url );
+					update_post_meta( $post['ID'], '_menu_item_url', esc_url_raw( $meta_url ) );
 				}
 				break;
 			default:
@@ -1081,10 +1081,10 @@ class PixelgradeAssistant_StarterContent {
 	private function replace_demo_urls_in_content() {
 		global $wpdb;
 
-		$wpdb->query( $wpdb->prepare( "UPDATE {$wpdb->posts} SET post_content = REPLACE(post_content, %s, %s)", $_POST['url'], site_url() ) );
+		$wpdb->query( $wpdb->prepare( "UPDATE {$wpdb->posts} SET post_content = REPLACE(post_content, %s, %s)", esc_url_raw( $_POST['url'] ), site_url() ) );
 
 		// remap enclosure urls
-		$result = $wpdb->query( $wpdb->prepare( "UPDATE {$wpdb->postmeta} SET meta_value = REPLACE(meta_value, %s, %s) WHERE meta_key='enclosure'", $_POST['url'], site_url() ) );
+		$wpdb->query( $wpdb->prepare( "UPDATE {$wpdb->postmeta} SET meta_value = REPLACE(meta_value, %s, %s) WHERE meta_key='enclosure'", esc_url_raw( $_POST['url'] ), site_url() ) );
 	}
 
 	/**

@@ -111,21 +111,21 @@ class PixelgradeAssistant_DataCollector {
 
 		// install url
 		$install_data['url'] = array(
-			'label'       => 'Home URL',
+			'label'       => esc_html__( 'Home URL', '__plugin_txtd' ),
 			'value'       => home_url( '/' ),
 			'is_viewable' => true
 		);
 
 		// Theme Name
 		$install_data['theme_name'] = array(
-			'label'       => 'Theme Name',
+			'label'       => esc_html__( 'Theme Name', '__plugin_txtd' ),
 			'value'       => ( empty( $this->config['theme_name'] ) ? '' : $this->config['theme_name'] ),
 			'is_viewable' => true
 		);
 
 		// Theme Version
 		$install_data['theme_version'] = array(
-			'label'         => 'Theme Version',
+			'label'         => esc_html__( 'Theme Version', '__plugin_txtd' ),
 			'value'         => ( empty( $this->config['theme_version'] ) ? '' : $this->config['theme_version'] ),
 			'is_viewable'   => true,
 			'is_updateable' => $this->is_theme_updateable(),
@@ -133,20 +133,20 @@ class PixelgradeAssistant_DataCollector {
 
 		// Is Child THeme
 		$install_data['is_child_theme'] = array(
-			'label'       => 'Child Theme',
+			'label'       => esc_html__( 'Child Theme', '__plugin_txtd' ),
 			'value'       => ( ! empty( $this->config['is_child'] ) && $this->config['is_child'] ? 'In use' : 'Not in use' ),
 			'is_viewable' => true
 		);
 
 		// Template
 		$install_data['template'] = array(
-			'label'       => 'Template',
+			'label'       => esc_html__( 'Template', '__plugin_txtd' ),
 			'value'       => ( empty( $this->config['template'] ) ? '' : $this->config['template'] ),
 			'is_viewable' => false
 		);
 
 		$install_data['product'] = array(
-			'label'       => 'product',
+			'label'       => esc_html__( 'Product', '__plugin_txtd' ),
 			'value'       => PixelgradeAssistant_Admin::get_theme_hash_id(''),
 			'is_viewable' => false
 		);

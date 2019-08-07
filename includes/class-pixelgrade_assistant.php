@@ -289,12 +289,34 @@ class PixelgradeAssistant {
 	}
 
 	/**
+	 * Provide a useful error message when the user's PHP version is less than the required version
+	 */
+	public function notice_php_version_wrong() {
+		$allowed = array(
+			'div'    => array(
+				'class' => array(),
+				'id'    => array(),
+			),
+			'p'      => array(),
+			'br'     => array(),
+			'strong' => array(),
+		);
+		$html = '<div class="updated fade">' .
+		        sprintf( esc_html__( 'Error: plugin "%s" requires a newer version of PHP to be running.', '__plugin_txtd' ), $this->plugin_name ) .
+		        '<br/>' . sprintf( esc_html__( 'Minimal version of PHP required: %s', '__plugin_txtd' ), '<strong>' . $this->minimalRequiredPhpVersion . '</strong>' ) .
+		        '<br/>' . sprintf( esc_html__( 'Your server\'s PHP version: %s', '__plugin_txtd' ), '<strong>' . phpversion() . '</strong>' ) .
+		        '</div>';
+		echo wp_kses( $html, $allowed );
+	}
+
+	/**
 	 * PHP version check
 	 */
 	protected function php_version_check() {
 
 		if ( version_compare( phpversion(), $this->minimalRequiredPhpVersion ) < 0 ) {
 			add_action( 'admin_notices', array( $this, 'notice_php_version_wrong' ) );
+
 			return false;
 		}
 
