@@ -268,7 +268,7 @@ const Dashboard = connect(
 )(DashboardContainer);
 
 
-const PageContainer = () => {
+const DashboardPageContainer = () => {
 	return <ThemeProvider theme={muiTheme} injectFirst>
 			{ ( _.isUndefined( pixassist ) || _.isUndefined( pixassist.themeSupports ) || pixassist.themeSupports === null )
 				? null
@@ -276,9 +276,9 @@ const PageContainer = () => {
 		</ThemeProvider>
 };
 
-const Page = connect(
+const DashboardPage = connect(
 	mapStateToProps,
 	mapDispatchToProps
-)(PageContainer);
+)(DashboardPageContainer);
 
-export default Page;
+export default DashboardPage;

@@ -1,184 +1,186 @@
 button {
-    border: 0;
-    cursor: pointer;
-    background: transparent;
+  border: 0;
+  cursor: pointer;
+  background: transparent;
 
-    -webkit-appearance: none;
+  -webkit-appearance: none;
 }
 
 .btn {
-    text-decoration: none;
-    cursor: pointer;
-    -webkit-font-smoothing: antialiased;
+  text-decoration: none;
+  cursor: pointer;
+  -webkit-font-smoothing: antialiased;
 
+  position: relative;
+  transition-duration: .2s;
+  transition-timing-function: cubic-bezier(0, 0, .58, 1);
+  transition-property: transform, background, background-color, color, box-shadow, opacity;
+
+
+  &:hover:not(&--text) {
+    background-color: $accent--purple;
+    color: $white;
+
+    transform: scale(1.05) translateY(-3px);
+    box-shadow: 0 10px 20px -10px rgba(0, 0, 0, 0.7);
+  }
+
+  &--text {
+    padding: 12px 18px;
+    font-size: 14px;
+    font-weight: bold;
+    line-height: 1.35;
+    color: $dark;
+
+    opacity: .5;
+
+    &:hover, &:active {
+      color: inherit;
+      opacity: 1;
+    }
+  }
+
+  &--action {
+    display: inline-block;
+    padding: 15px 50px;
+    font-size: 16px;
+    line-height: 23px;
+    font-weight: bold;
+    text-align: center;
+    background-color: $accent--purple;
+    color: $white;
+
+    border-radius: 4px;
+
+    &.btn--small {
+      background-color: $accent--purple;
+      padding: 5px 30px;
+      font-size: 13px;
+    }
+  }
+
+  &--validated {
     position: relative;
-    transition-duration: .2s;
-    transition-timing-function: cubic-bezier(0,0,.58,1);
-    transition-property: transform,background,background-color,color,box-shadow, opacity;
+    padding-left: 55px;
+    pointer-events: none;
 
+    &:before {
+      content: "";
+
+      position: absolute;
+      left: 20px;
+      top: 50%;
+      transform: translateY(-50%);
+
+      display: block;
+      width: 30px;
+      height: 30px;
+
+      background: url("../images/icon-checked-white.svg") center center no-repeat;
+      background-size: cover;
+    }
+  }
+
+  &--small {
+    padding: 5px 30px;
+
+    border-radius: 4px;
+
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 23px;
+    text-align: center;
+
+    color: $white;
+    background-color: #23282D;
+
+    &:hover {
+      background-color: $accent--purple;
+    }
+  }
+
+  &--large {
+    padding: 21px 40px;
+
+    //font-family: $font-headings;
+
+    border-radius: 4px;
+
+    font-size: 18px;
+    font-weight: 600;
+    line-height: 23px;
+    text-align: center;
+
+    color: #FFFFFF;
+    background-color: $accent--purple;
+
+    &:hover {
+      background-color: $accent--purple;
+    }
+  }
+
+  &--full {
+    width: 100%;
 
     &:hover:not(&--text) {
-        background-color: $accent--purple;
-        color: $white;
-
-        transform: scale(1.05) translateY(-3px);
-        box-shadow: 0 10px 20px -10px rgba(0, 0, 0, 0.7);
+      transform: scale(1.02) translateY(-3px);
     }
+  }
 
-    &--text {
-        padding: 12px 18px;
-        font-size: 14px;
-        font-weight: bold;
-        line-height: 1.35;
-        color: $dark;
+  &--green {
+    background-color: $accent--green;
 
-        opacity: .5;
-
-        &:hover, &:active {
-            color: inherit;
-            opacity: 1;
-        }
+    &:hover:not(&--text) {
+      background-color: $accent--green;
     }
+  }
 
-    &--action {
-        display: inline-block;
-        padding: 15px 50px;
-        border-radius: 2px;
-        //font-family: $font-headings;
-        font-size: 16px;
-        line-height: 23px;
-        font-weight: bold;
-        text-align: center;
-        background-color: $accent--purple;
-        color: $white;
+  &--blue {
+    background-color: $accent--purple;
+  }
 
-        border-radius: 4px;
+  &--slim {
+    padding: 0;
+  }
+
+  &--disabled {
+    cursor: not-allowed;
+    opacity: .5;
+  }
+
+  &--inverted {
+    color: #201E21;
+    background-color: #FFFFFF;
+
+    &:hover {
+      color: #201E21;
+      background-color: #FFFFFF;
     }
+  }
 
-    &--validated {
-        position: relative;
-        padding-left: 55px;
-        pointer-events: none;
+  &.btn--disabled,
+  &:disabled,
+  &[disabled] {
+    opacity: .65;
+    cursor: not-allowed;
 
-        &:before {
-            content: "";
-
-            position: absolute;
-            left: 20px;
-            top: 50%;
-            transform: translateY(-50%);
-
-            display: block;
-            width: 30px;
-            height: 30px;
-
-            background: url("../images/icon-checked-white.svg") center center no-repeat;
-            background-size: cover;
-        }
+    &:hover {
+      transform: none;
+      box-shadow: none;
     }
-
-    &--small {
-        padding: 5px 30px;
-
-        //font-family: $font-headings;
-
-        border-radius: 4px;
-
-        font-size: 13px;
-        font-weight: 600;
-        line-height: 23px;
-        text-align: center;
-
-        color: #FFFFFF;
-        background-color: #23282D;
-
-        &:hover {
-            background-color: $accent--purple;
-        }
-    }
-
-    &--large {
-        padding: 21px 40px;
-
-        //font-family: $font-headings;
-
-        border-radius: 4px;
-
-        font-size: 18px;
-        font-weight: 600;
-        line-height: 23px;
-        text-align: center;
-
-        color: #FFFFFF;
-        background-color: $accent--purple;
-
-        &:hover {
-            background-color: $accent--purple;
-        }
-    }
-
-    &--full {
-        width: 100%;
-
-        &:hover:not(&--text) {
-            transform: scale(1.02) translateY(-3px);
-        }
-    }
-
-    &--green {
-        background-color: $accent--green;
-
-        &:hover:not(&--text) {
-            background-color: $accent--green;
-        }
-    }
-
-    &--blue {
-        background-color: $accent--purple;
-    }
-
-    &--slim {
-        padding: 0;
-    }
-
-    &--disabled {
-        cursor: not-allowed;
-        opacity: .5;
-    }
-
-    &--inverted {
-        color: #201E21;
-        background-color: #FFFFFF;
-
-        &:hover {
-            color: #201E21;
-            background-color: #FFFFFF;
-        }
-    }
-
-    &.btn--disabled,
-    &:disabled,
-    &[disabled] {
-        opacity: .65;
-        cursor: not-allowed;
-
-        &:hover {
-            transform: none;
-            box-shadow: none;
-        }
-    }
+  }
 }
 
- .btn--action-secondary {
- 	height: 48px;
- 	// width: 203px;
- 	border-radius: 2px;
- 	background-color: $light;
+.btn--action-secondary {
+  height: 48px;
+  // width: 203px;
+  border-radius: 2px;
+  background-color: $light;
 
- 	&:hover {
- 		background-color: $dark;
- 	}
- }
+  &:hover {
+    background-color: $dark;
+  }
+}
 
 //.switch {
 //    &.switch.switch {
@@ -199,66 +201,66 @@ button {
 //}
 
 .action-buttons {
-	display: flex;
-	justify-content: space-between;
+  display: flex;
+  justify-content: space-between;
 }
 
 .action-buttons__renew {
-	display: flex;
-	justify-content: center;
-	flex-direction: column;
+  display: flex;
+  justify-content: center;
+  flex-direction: column;
 }
 
 .btn--recheck-license,
 .btn--refresh-data {
-	position: relative;
+  position: relative;
 
-	width: auto;
-	height: auto;
-	padding: 12px 20px 12px 46px;
+  width: auto;
+  height: auto;
+  padding: 12px 20px 12px 46px;
 
-	text-align: center;
-	color: #ffffff;
-	-webkit-font-smoothing: initial;
+  text-align: center;
+  color: #ffffff;
+  -webkit-font-smoothing: initial;
 
-	&:hover {
-		color: #ffffff;
-	}
+  &:hover {
+    color: #ffffff;
+  }
 
-	&:before {
-		content: "";
+  &:before {
+    content: "";
 
-		position: absolute;
-		left: 17px;
-		top: 50%;
+    position: absolute;
+    left: 17px;
+    top: 50%;
 
-		width: 23px;
-		height: 23px;
+    width: 23px;
+    height: 23px;
 
-		background: url('../images/icon-refresh.svg') center center no-repeat;
-		background-size: 100% 100%;
+    background: url('../images/icon-refresh.svg') center center no-repeat;
+    background-size: 100% 100%;
 
-		transform: translateY(-50%);
-	}
+    transform: translateY(-50%);
+  }
 }
 
 .btn--icon-refresh {
+  position: relative;
+
+  &:before {
+    content: "";
+
+    display: inline-block;
     position: relative;
+    margin-bottom: -6px;
+    margin-right: 10px;
 
-    &:before {
-        content: "";
+    width: 23px;
+    height: 23px;
 
-        display: inline-block;
-        position: relative;
-        margin-bottom: -6px;
-        margin-right: 10px;
-
-        width: 23px;
-        height: 23px;
-
-        background: url('../images/icon-refresh.svg') center center no-repeat;
-        background-size: 100% 100%;
-    }
+    background: url('../images/icon-refresh.svg') center center no-repeat;
+    background-size: 100% 100%;
+  }
 }
 
 .btn--reset-pixassist {
@@ -279,29 +281,29 @@ button {
 
 // Already Renewed? Text
 .btn--recheck-license + span {
-	margin-top: 13px;
-	margin-bottom: -4px;
-    display: block;
+  margin-top: 13px;
+  margin-bottom: -4px;
+  display: block;
 
 
-	font-size: 12px;
-	line-height: 1;
-	text-align: center;
-	text-decoration: none;
+  font-size: 12px;
+  line-height: 1;
+  text-align: center;
+  text-decoration: none;
 
-	color: #23282D;
+  color: #23282D;
 
-	opacity: 0.6;
+  opacity: 0.6;
 }
 
 .btn--info {
-	display: inline-block;
-	height: 13px;
-	width: 13px;
-	padding: 0;
+  display: inline-block;
+  height: 13px;
+  width: 13px;
+  padding: 0;
 
-	background: url('../images/icon-info-alt.svg') center center no-repeat;
-	background-size: 100% 100%;
+  background: url('../images/icon-info-alt.svg') center center no-repeat;
+  background-size: 100% 100%;
 }
 
 .btn--feedback {

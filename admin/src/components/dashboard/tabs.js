@@ -427,7 +427,7 @@ class DashboardTabsContainer extends React.Component {
 							key={'field-' + field_key}
 							onPluginsReady={component.onPluginsReady}
 							onPluginsInstalling={component.onPluginsInstalling}
-							enable_actions={control}/>
+							enable_actions={true}/>
 						break
 					}
 

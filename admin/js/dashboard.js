@@ -33954,7 +33954,7 @@
 	                    key: 'field-' + field_key,
 	                    onPluginsReady: component.onPluginsReady,
 	                    onPluginsInstalling: component.onPluginsInstalling,
-	                    enable_actions: control
+	                    enable_actions: true
 	                  });
 	                  break;
 	                }
@@ -34376,14 +34376,14 @@
 
 	var Dashboard = connect(mapStateToProps$6, mapDispatchToProps$6)(DashboardContainer);
 
-	var PageContainer = function PageContainer() {
+	var DashboardPageContainer = function DashboardPageContainer() {
 	  return react.createElement(ThemeProvider, {
 	    theme: muiTheme,
 	    injectFirst: true
 	  }, isUndefined_1(pixassist) || isUndefined_1(pixassist.themeSupports) || pixassist.themeSupports === null ? null : react.createElement(Dashboard, null));
 	};
 
-	var Page = connect(mapStateToProps$6, mapDispatchToProps$6)(PageContainer);
+	var DashboardPage = connect(mapStateToProps$6, mapDispatchToProps$6)(DashboardPageContainer);
 
 	// Initiate the default state
 	var getDefaultState = function getDefaultState() {
@@ -34685,7 +34685,7 @@
 	(function (window) {
 	  reactDom.render(react.createElement(Provider, {
 	    store: sessionStore
-	  }, react.createElement(Page, null)), document.getElementById('pixelgrade_assistant_dashboard'));
+	  }, react.createElement(DashboardPage, null)), document.getElementById('pixelgrade_assistant_dashboard'));
 	})();
 
 }());

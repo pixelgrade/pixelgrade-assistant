@@ -279,6 +279,18 @@ $setup-gray: #cccccc;
   &:last-of-type {
     margin-bottom: 0;
   }
+
+  &.box {
+    padding-right: 20px;
+
+    &:hover {
+      background-color: #f8f8f8;
+    }
+
+    & > div > div:first-child {
+      margin-top: 10px;
+    }
+  }
 }
 
 .starter_content {

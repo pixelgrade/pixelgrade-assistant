@@ -328,7 +328,7 @@ button {
   position: relative;
   transition-duration: .2s;
   transition-timing-function: cubic-bezier(0, 0, 0.58, 1);
-  transition-property: transform,background,background-color,color,box-shadow, opacity; }
+  transition-property: transform, background, background-color, color, box-shadow, opacity; }
   .btn:hover:not(.btn--text) {
     background-color: #8E65C0;
     color: #ffffff;
@@ -347,7 +347,6 @@ button {
   .btn--action {
     display: inline-block;
     padding: 15px 50px;
-    border-radius: 2px;
     font-size: 16px;
     line-height: 23px;
     font-weight: bold;
@@ -355,6 +354,10 @@ button {
     background-color: #8E65C0;
     color: #ffffff;
     border-radius: 4px; }
+    .btn--action.btn--small {
+      background-color: #8E65C0;
+      padding: 5px 30px;
+      font-size: 13px; }
   .btn--validated {
     position: relative;
     padding-right: 55px;
@@ -377,7 +380,7 @@ button {
     font-weight: 600;
     line-height: 23px;
     text-align: center;
-    color: #FFFFFF;
+    color: #ffffff;
     background-color: #23282D; }
     .btn--small:hover {
       background-color: #8E65C0; }
@@ -1417,6 +1420,12 @@ ul.benefits {
   -webkit-mask-image: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAAGXRFWHRTb2Z0d2FyZQBBZG9iZSBJbWFnZVJlYWR5ccllPAAAAA5JREFUeNpiYGBgAAgwAAAEAAGbA+oJAAAAAElFTkSuQmCC); }
   .plugin:last-of-type {
     margin-bottom: 0; }
+  .plugin.box {
+    padding-left: 20px; }
+    .plugin.box:hover {
+      background-color: #f8f8f8; }
+    .plugin.box > div > div:first-child {
+      margin-top: 10px; }
 
 .starter_content .box {
   padding: 16px 20px; }

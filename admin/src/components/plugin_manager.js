@@ -139,18 +139,22 @@ class PluginManagerContainer extends React.Component {
 						checked = true;
 					}
 
-					let action = <Switch checked={checked} onChange={component.onChange}/>;
+					let action = (
+						<Switch checked={checked} onChange={component.onChange}/>
+					);
 
 					if ( status === 'missing' ) {
-						action =
-							<button onClick={component.eventInstallPlugin} className="btn  btn--action  btn--small">{Helpers.decodeHtml(_.get(pixassist, 'themeConfig.l10n.pluginInstallLabel', ''))}</button>;
+						action = (
+							<button onClick={component.eventInstallPlugin} className="btn  btn--action  btn--small">{Helpers.decodeHtml(_.get(pixassist, 'themeConfig.l10n.pluginInstallLabel', ''))}</button>
+						);
 					} else if ( status === 'outdated' ) {
 						/** For each plugin we need a <tr> element to trick shiny the updates system **/
 						let action_available = component.createPseudoUpdateElement(plugin.slug);
 
-						action =
+						action = (
 							<button onClick={component.eventUpdatePlugin} className="btn  btn--action  btn--small sss"
-									data-available={action_available}>{Helpers.decodeHtml(_.get(pixassist, 'themeConfig.pluginManager.l10n.updateButton', ''))}</button>;
+									data-available={action_available}>{Helpers.decodeHtml(_.get(pixassist, 'themeConfig.pluginManager.l10n.updateButton', ''))}</button>
+						);
 					}
 
 					switch ( status ) {
@@ -186,7 +190,7 @@ class PluginManagerContainer extends React.Component {
 								<h5 className="box__title">{plugin.name}</h5>
 								<p className="box__text" dangerouslySetInnerHTML={{__html: plugin.description }}></p>
 							</div>
-							<div className="box__cta">{ (component.state.enable_actions ) ? action : null }</div>
+							<div className="box__cta">{ component.state.enable_actions ? action : null }</div>
 						</div>
 					)
 				}) : 'No plugins' }

@@ -309,6 +309,13 @@ class PixelgradeAssistant_Admin {
         if ( self::is_pixelgrade_assistant_dashboard() ) {
         	$rtl_suffix = is_rtl() ? '-rtl' : '';
         	wp_enqueue_style( $this->parent->get_plugin_name(), plugin_dir_url( $this->parent->file ) . 'admin/css/pixelgrade_assistant-admin' . $rtl_suffix . '.css', array( 'dashicons' ), $this->parent->get_version(), 'all' );
+
+        	// We don't want any notices cluttering the plugin dashboard page.
+	        $css = "
+	            .notice { display: none; }
+	        ";
+
+	        wp_add_inline_style( $this->parent->get_plugin_name(), $css );
         }
     }
 

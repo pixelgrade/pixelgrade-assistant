@@ -46,7 +46,7 @@ function pixassist_get_default_config( $original_theme_slug ){
 		'pluginUpdateLabel' => esc_html__( 'Update', '__plugin_txtd' ),
 		'pluginsPlural' => esc_html__( 'Plugins', '__plugin_txtd' ),
 		'starterContentLoadLabel' => esc_html__( 'Load Starter Content', '__plugin_txtd' ),
-		'setupWizardWelcomeTitle' => esc_html__( 'Welcome to the setup wizard', '__plugin_txtd' ),
+		'setupWizardWelcomeTitle' => esc_html__( 'Welcome to the site setup wizard', '__plugin_txtd' ),
 		'setupWizardWelcomeContent' => esc_html__( 'Go through this quick setup wizard to make sure you install all the recommended plugins and pre-load the site with helpful demo content. It\'s safe and fast.', '__plugin_txtd' ),
 		'setupWizardStartButonLabel' => esc_html__( 'Let\'s Get Started!', '__plugin_txtd' ),
 		'authenticatorDashboardConnectTitle' => esc_html__( 'Connect your site to Pixelgrade', '__plugin_txtd' ),
@@ -223,6 +223,29 @@ function pixassist_get_default_config( $original_theme_slug ){
 						'authenticator' => array(
 							'type'  => 'component',
 							'value' => 'authenticator'
+						),
+					),
+				),
+				'plugins' => array(
+					'notconnected' =>  'hidden',
+					'fields' => array(
+						'title'             => array(
+							'type'  => 'h2',
+							'value' => esc_html__( 'Install the recommended plugins', '__plugin_txtd' ),
+							'value_installing' => esc_html__( 'Installing Plugins..', '__plugin_txtd' ),
+							'value_installed' => '<span class="c-icon  c-icon--large  c-icon--success-auth"></span> ' . esc_html__( 'Plugins Installed!', '__plugin_txtd' ) . ' 🤩',
+							'class' => 'section__title'
+						),
+						'head_content'   => array(
+							'type'             => 'text',
+							'value'            => esc_html__( 'Install and activate the plugins that provide recommended functionality for your site. You can add or remove plugins later on from within the WordPress dashboard.', '__plugin_txtd' ),
+							'value_installing' => wp_kses_post( __( 'Why not take a peek at our <a href="https://twitter.com/pixelgrade" target="_blank">Twitter page</a> while you wait? (opens in a new tab and the plugins aren\'t going anywhere)', '__plugin_txtd' ) ),
+							'value_installed'  => esc_html__( 'You made it! 🙌 You\'ve correctly installed and activated the plugins. You are good to jump to the next step.', '__plugin_txtd' ),
+						),
+						'plugins_component' => array(
+							'title' => esc_html__( 'Install Plugins', '__plugin_txtd' ),
+							'type'  => 'component',
+							'value' => 'plugin-manager',
 						),
 					),
 				),
