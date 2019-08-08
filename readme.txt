@@ -15,6 +15,7 @@ Help and assistance for Pixelgrade WordPress themes.
 Pixelgrade Assistant is a plugin to go along with any free WordPress theme made by Pixelgrade.
 
 It will elevate the whole experience of setting up your site:
+
 * **recommended plugins**
 * **starter/demo content one-click import**
 * **premium support access** right in your WordPress dashboard
@@ -76,11 +77,13 @@ Yes. We use a secure authorization protocol (OAuth1.0a) for setting up the conne
 = If I connect my site, do you gain access to my site? =
 
 No. Connecting your site is just a small exchange of keys meant to establish a way to securely send information, when needed. We don't have your passwords or other methods to gain access to your site.
-If you have a support question that requires us to take a look in your WordPress dashboard, we will ask you for a *temporary username and password* with admin permissions. But **that is up to you to provide.*
+
+If you have a support question that requires us to take a look in your WordPress dashboard, we will ask you for a *temporary username and password* with admin permissions. But **that is up to you to provide.**
 
 = Is this plugin tracking me? =
 
 No. We are not tracking you or your site. We ask your permission to share with us non-specific theme usage data and information about your WordPress install so we can resolve support questions faster - we are a small team and need to be as efficient as possible.
+
 *It is up to you if you are willing to share this data with us.* We respect your decision. We truly appreciate it if you do, but we will do our best to serve you regardless.
 
 == Screenshots ==
