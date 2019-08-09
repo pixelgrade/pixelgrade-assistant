@@ -49531,16 +49531,6 @@
 	  return DashboardHeaderContainer;
 	}(react.Component);
 
-	DashboardHeaderContainer.propTypes = {
-	  status: propTypes.string,
-	  msg: propTypes.string,
-	  ctaLabel: propTypes.string,
-	  ctaOnClick: propTypes.func,
-	  myAccountLabel: propTypes.string,
-	  myAccountLink: propTypes.string,
-	  helpLabel: propTypes.string,
-	  helpLink: propTypes.string
-	};
 	var DashboardHeader = connect(mapStateToProps, mapDispatchToProps)(DashboardHeaderContainer);
 
 	/* Built-in method references for those with the same name as other `lodash` methods. */
@@ -53211,13 +53201,6 @@
 	  return SystemTables;
 	}(react.Component);
 
-	SystemTables.propTypes = {
-	  installDataRows: propTypes.func,
-	  systemDataRows: propTypes.func,
-	  activePluginsRows: propTypes.func,
-	  createThemeOptionsData: propTypes.func
-	};
-
 	var SystemStatus =
 	/*#__PURE__*/
 	function (_React$Component) {
@@ -55235,19 +55218,6 @@
 	  return Notice;
 	}(react.Component);
 
-	Notice.propTypes = {
-	  notice_id: propTypes.string.isRequired,
-	  type: propTypes.string,
-	  title: propTypes.string,
-	  content: propTypes.string,
-	  loading: propTypes.bool,
-	  isDismissable: propTypes.bool,
-	  onDismiss: propTypes.func,
-	  ctaLabel: propTypes.string,
-	  ctaAction: propTypes.func,
-	  ctaLink: propTypes.string
-	};
-
 	var Notificator =
 	/*#__PURE__*/
 	function (_Component) {
@@ -55526,10 +55496,6 @@
 
 	  return Notificator;
 	}(react_4);
-
-	Notificator.propTypes = {
-	  localKey: propTypes.string
-	};
 
 	// `SameValue` abstract operation
 	// https://tc39.github.io/ecma262/#sec-samevalue
@@ -56452,10 +56418,6 @@
 	  return WPOauth1ButtonContainer;
 	}(react.Component);
 
-	WPOauth1ButtonContainer.propTypes = {
-	  onLogin: propTypes.func,
-	  createErrorNotice: propTypes.func
-	};
 	var WPOauth1Button = connect(mapStateToProps$1, mapDispatchToProps$1)(WPOauth1ButtonContainer);
 
 	var mapStateToProps$2 = function mapStateToProps(state) {
@@ -57919,13 +57881,6 @@
 	  return ProgressBar;
 	}(react_4); // TypeChecking
 
-
-	ProgressBar.propTypes = {
-	  installingClass: propTypes.string,
-	  title: propTypes.string,
-	  description: propTypes.string
-	};
-
 	var mapStateToProps$3 = function mapStateToProps(state) {
 	  return {
 	    session: state
@@ -58635,12 +58590,6 @@
 	  return StarterContentContainer;
 	}(react.Component);
 
-	StarterContentContainer.propTypes = {
-	  key: propTypes.string,
-	  name: propTypes.string,
-	  onReady: propTypes.func,
-	  onMove: propTypes.func
-	};
 	var StarterContent = connect(mapStateToProps$3, mapDispatchToProps$3)(StarterContentContainer);
 
 	var UNSCOPABLES = wellKnownSymbol('unscopables');
@@ -59347,12 +59296,6 @@
 	  return PluginManagerContainer;
 	}(react.Component);
 
-	PluginManagerContainer.propTypes = {
-	  onRender: propTypes.func,
-	  onReady: propTypes.func,
-	  onMove: propTypes.func,
-	  defaultNextButtonCallback: propTypes.func
-	};
 	var PluginManager = connect(mapStateToProps$4, mapDispatchToProps$4)(PluginManagerContainer);
 
 	var mapStateToProps$5 = function mapStateToProps(state) {
@@ -59433,10 +59376,6 @@
 	    }
 	  }, props.children);
 	}
-
-	TabContainer.propTypes = {
-	  children: propTypes.node.isRequired
-	};
 
 	var styles$m = function styles(theme) {
 	  return {

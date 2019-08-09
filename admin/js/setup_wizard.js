@@ -36197,19 +36197,6 @@
 	  return Notice;
 	}(react.Component);
 
-	Notice.propTypes = {
-	  notice_id: propTypes.string.isRequired,
-	  type: propTypes.string,
-	  title: propTypes.string,
-	  content: propTypes.string,
-	  loading: propTypes.bool,
-	  isDismissable: propTypes.bool,
-	  onDismiss: propTypes.func,
-	  ctaLabel: propTypes.string,
-	  ctaAction: propTypes.func,
-	  ctaLink: propTypes.string
-	};
-
 	var TO_STRING_TAG = wellKnownSymbol('toStringTag');
 	// ES3 wrong here
 	var CORRECT_ARGUMENTS = classofRaw(function () { return arguments; }()) == 'Arguments';
@@ -52367,10 +52354,6 @@
 	  return WPOauth1ButtonContainer;
 	}(react.Component);
 
-	WPOauth1ButtonContainer.propTypes = {
-	  onLogin: propTypes.func,
-	  createErrorNotice: propTypes.func
-	};
 	var WPOauth1Button = connect(mapStateToProps, mapDispatchToProps)(WPOauth1ButtonContainer);
 
 	var mapStateToProps$1 = function mapStateToProps(state) {
@@ -54217,12 +54200,6 @@
 	  return PluginManagerContainer;
 	}(react.Component);
 
-	PluginManagerContainer.propTypes = {
-	  onRender: propTypes.func,
-	  onReady: propTypes.func,
-	  onMove: propTypes.func,
-	  defaultNextButtonCallback: propTypes.func
-	};
 	var PluginManager = connect(mapStateToProps$2, mapDispatchToProps$2)(PluginManagerContainer);
 
 	/**
@@ -54545,13 +54522,6 @@
 
 	  return ProgressBar;
 	}(react_4); // TypeChecking
-
-
-	ProgressBar.propTypes = {
-	  installingClass: propTypes.string,
-	  title: propTypes.string,
-	  description: propTypes.string
-	};
 
 	var mapStateToProps$3 = function mapStateToProps(state) {
 	  return {
@@ -55262,12 +55232,6 @@
 	  return StarterContentContainer;
 	}(react.Component);
 
-	StarterContentContainer.propTypes = {
-	  key: propTypes.string,
-	  name: propTypes.string,
-	  onReady: propTypes.func,
-	  onMove: propTypes.func
-	};
 	var StarterContent = connect(mapStateToProps$3, mapDispatchToProps$3)(StarterContentContainer);
 
 	var WizardNextButton =
@@ -55328,13 +55292,6 @@
 
 	  return WizardNextButton;
 	}(react_4);
-	WizardNextButton.propTypes = {
-	  label: propTypes.string,
-	  classname: propTypes.string,
-	  href: propTypes.string,
-	  onclick: propTypes.func,
-	  disabled: propTypes.bool
-	};
 
 	var WizardSkipButton =
 	/*#__PURE__*/
@@ -55394,13 +55351,6 @@
 
 	  return WizardSkipButton;
 	}(react_4);
-	WizardSkipButton.propTypes = {
-	  label: propTypes.string,
-	  classname: propTypes.string,
-	  href: propTypes.string,
-	  onclick: propTypes.func,
-	  disabled: propTypes.bool
-	};
 
 	var $ = jQuery;
 
