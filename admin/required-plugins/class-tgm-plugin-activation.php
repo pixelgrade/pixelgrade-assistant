@@ -386,8 +386,7 @@ if ( ! class_exists( 'TGM_Plugin_Activation' ) ) {
 				'dashboard'                       => esc_html__( 'Return to the Dashboard', '__plugin_txtd' ),
 				'plugin_activated'                => esc_html__( 'Plugin activated successfully.', '__plugin_txtd' ),
 				'activated_successfully'          => esc_html__( 'The following plugin was activated successfully:', '__plugin_txtd' ),
-				/* translators: 1: plugin name. */
-				'plugin_already_active'           => esc_html__( 'No action taken. Plugin %1$s was already active.', '__plugin_txtd' ),
+				'plugin_already_active'           => esc_html__( 'No action taken. Plugin was already active.', '__plugin_txtd' ),
 				/* translators: 1: plugin name. */
 				'plugin_needs_higher_version'     => esc_html__( 'Plugin not activated. A higher version of %s is needed for this theme. Please update the plugin.', '__plugin_txtd' ),
 				/* translators: 1: dashboard link. */

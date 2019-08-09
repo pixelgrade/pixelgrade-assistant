@@ -239,6 +239,12 @@ const session = ( state = getDefaultState(), action ) => {
 					are_plugins_installing: false,
 					are_plugins_installed: true,
 				}};
+		case 'ON_PLUGINS_READY':
+			return {...state, ...{
+					are_plugins_installing: false,
+					are_plugins_installed: true,
+					are_plugins_ready: true,
+				}};
 		// WIZARD -> STARTER CONTENT
 		case 'STARTER_CONTENT_INSTALLING':
 			return {...state, ...{

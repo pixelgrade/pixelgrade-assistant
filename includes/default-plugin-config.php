@@ -229,23 +229,9 @@ function pixassist_get_default_config( $original_theme_slug ){
 				'plugins' => array(
 					'notconnected' =>  'hidden',
 					'fields' => array(
-						'title'             => array(
-							'type'  => 'h2',
-							'value' => esc_html__( 'Install the recommended plugins', '__plugin_txtd' ),
-							'value_installing' => esc_html__( 'Installing Plugins..', '__plugin_txtd' ),
-							'value_installed' => '<span class="c-icon  c-icon--large  c-icon--success-auth"></span> ' . esc_html__( 'Plugins Installed!', '__plugin_txtd' ) . ' 🤩',
-							'class' => 'section__title'
-						),
-						'head_content'   => array(
-							'type'             => 'text',
-							'value'            => esc_html__( 'Install and activate the plugins that provide recommended functionality for your site. You can add or remove plugins later on from within the WordPress dashboard.', '__plugin_txtd' ),
-							'value_installing' => wp_kses_post( __( 'Why not take a peek at our <a href="https://twitter.com/pixelgrade" target="_blank">Twitter page</a> while you wait? (opens in a new tab and the plugins aren\'t going anywhere)', '__plugin_txtd' ) ),
-							'value_installed'  => esc_html__( 'You made it! 🙌 You\'ve correctly installed and activated the plugins. You are good to jump to the next step.', '__plugin_txtd' ),
-						),
-						'plugins_component' => array(
-							'title' => esc_html__( 'Install Plugins', '__plugin_txtd' ),
+						'recommended_plugins' => array(
 							'type'  => 'component',
-							'value' => 'plugin-manager',
+							'value' => 'recommended-plugins'
 						),
 					),
 				),
@@ -464,7 +450,13 @@ function pixassist_get_default_config( $original_theme_slug ){
 			'activateFailedMessage' => esc_html__( 'I could not activate the plugin! You need to activate it manually from the plugins page!', '__plugin_txtd' ),
 			'pluginReady' => esc_html__( 'Plugin ready!', '__plugin_txtd' ),
 			'pluginUpdatingMessage' => esc_html__( 'Updating ...', '__plugin_txtd' ),
+			'pluginInstallingMessage' => esc_html__( 'Installing ...', '__plugin_txtd' ),
+			'pluginActivatingMessage' => esc_html__( 'Activating ...', '__plugin_txtd' ),
 			'pluginUpToDate' => esc_html__( 'Plugin up to date!', '__plugin_txtd' ),
+			'tgmpActivatedSuccessfully' => esc_html__( 'The following plugin was activated successfully:', '__plugin_txtd' ),
+			'tgmpPluginActivated' => esc_html__( 'Plugin activated successfully.', '__plugin_txtd' ),
+			'tgmpPluginAlreadyActive' => esc_html__( 'No action taken. Plugin was already active.', '__plugin_txtd' ),
+			'tgmpNotAllowed' => esc_html__( 'Sorry, you are not allowed to access this page.', '__plugin_txtd' ),
 		),
 	);
 
@@ -688,7 +680,7 @@ function pixassist_get_default_config( $original_theme_slug ){
 
 	// the authenticator config is based on the component status which can be: not_validated, loading, validated
 	$config['authentication'] = array(
-		//general strings
+		// general strings
 		'title'               => esc_html__( 'You are almost finished!', '__plugin_txtd' ),
 		// validated string
 		'validatedTitle'      => '<span class="c-icon c-icon--success"></span> ' . esc_html__( 'Site connected! You\'re all set 👌', '__plugin_txtd' ),
@@ -711,6 +703,16 @@ function pixassist_get_default_config( $original_theme_slug ){
 		// license urls
 		'buyThemeUrl'         => esc_url( trailingslashit( PIXELGRADE_ASSISTANT__SHOP_BASE ) . 'pricing' ),
 		'renewLicenseUrl'     => esc_url( trailingslashit( PIXELGRADE_ASSISTANT__SHOP_BASE ) . 'my-account' )
+	);
+
+	// the recommended plugins config is based on the component status which can be: not_validated, loading, validated
+	$config['recommendedPlugins'] = array(
+		// general strings
+		'title'               => esc_html__( 'Recommended plugins', '__plugin_txtd' ),
+		'content'               => esc_html__( '{{theme_name}} recommends these plugins so you can take full advantage of everything that it offers.', '__plugin_txtd' ),
+		// validated string
+		'validatedTitle'      => '<span class="c-icon c-icon--success"></span> ' . esc_html__( 'Recommended plugins ready 🧘️', '__plugin_txtd' ),
+		'validatedContent'    => wp_kses_post( __( 'You can rest assured that {{theme_name}} can do it\'s best for you and your site.', '__plugin_txtd' ) ),
 	);
 
 	$update_core = get_site_transient( 'update_core' );

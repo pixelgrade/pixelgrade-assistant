@@ -94,7 +94,7 @@ function compileScriptsRollup(watch) {
 			// There is no `input` option as rollup integrates into the gulp pipeline
 			plugins: [
 				replace({
-					'process.env.NODE_ENV': JSON.stringify( 'production' )
+					'process.env.NODE_ENV': JSON.stringify( 'development' )
 				}),
 				json(),
 				babel({

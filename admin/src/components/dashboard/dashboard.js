@@ -269,7 +269,7 @@ const Dashboard = connect(
 
 
 const DashboardPageContainer = () => {
-	return <ThemeProvider theme={muiTheme} injectFirst>
+	return <ThemeProvider theme={muiTheme}>
 			{ ( _.isUndefined( pixassist ) || _.isUndefined( pixassist.themeSupports ) || pixassist.themeSupports === null )
 				? null
 				: <Dashboard /> }

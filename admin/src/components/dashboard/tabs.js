@@ -14,6 +14,7 @@ import Notificator from '../notificator';
 import Authenticator from '../authenticator';
 import StarterContent from '../starter_content';
 import PluginManager from '../plugin_manager';
+import RecommendedPlugins from '../recommendedPlugins';
 import {connect} from 'react-redux';
 import Helpers from '../../helpers';
 import _ from 'lodash';
@@ -424,6 +425,20 @@ class DashboardTabsContainer extends React.Component {
 						}
 
 						field_output = <PluginManager
+							key={'field-' + field_key}
+							onPluginsReady={component.onPluginsReady}
+							onPluginsInstalling={component.onPluginsInstalling}
+							enable_actions={true}/>
+						break
+					}
+
+					case 'recommended-plugins': {
+						let control = false;
+						if (!_.isUndefined(field.control)) {
+							control = field.control;
+						}
+
+						field_output = <RecommendedPlugins
 							key={'field-' + field_key}
 							onPluginsReady={component.onPluginsReady}
 							onPluginsInstalling={component.onPluginsInstalling}

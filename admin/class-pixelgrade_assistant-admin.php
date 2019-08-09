@@ -326,10 +326,13 @@ class PixelgradeAssistant_Admin {
 	    $suffix = ( defined( 'SCRIPT_DEBUG' ) && SCRIPT_DEBUG ) ? '' : '.min';
 
         if ( self::is_pixelgrade_assistant_dashboard() ) {
+	        wp_enqueue_script( 'plugin-install' );
             wp_enqueue_script( 'updates' );
             wp_enqueue_script( 'pixelgrade_assistant-dashboard', plugin_dir_url( $this->parent->file ) . 'admin/js/dashboard' . $suffix . '.js', array(
                 'jquery',
                 'wp-util',
+	            'updates',
+	            'plugin-install'
             ), $this->parent->get_version(), true );
 
             self::localize_js_data( 'pixelgrade_assistant-dashboard', true, 'dashboard');
@@ -628,17 +631,22 @@ class PixelgradeAssistant_Admin {
             // We need to test for method existence because older versions of TGMPA don't have it.
             if ( method_exists( $tgmpa, 'is_plugin_installed' ) && $tgmpa->is_plugin_installed( $slug ) ) {
                 $tgmpa->plugins[ $slug ]['is_installed'] = true;
-                if ( method_exists( $tgmpa, 'is_plugin_active' ) && $tgmpa->is_plugin_active( $slug ) ) {
-                    $tgmpa->plugins[ $slug ]['is_active'] = true;
-                }
-                if ( method_exists( $tgmpa, 'does_plugin_have_update' ) && $tgmpa->does_plugin_have_update( $slug ) ) {
-                    $tgmpa->plugins[ $slug ]['is_up_to_date'] = false;
-                }
-                $data = get_plugin_data( WP_PLUGIN_DIR . '/' . $plugin['file_path'], false );
-                $tgmpa->plugins[ $slug ]['description']    = $data['Description'];
-                $tgmpa->plugins[ $slug ]['active_version'] = $data['Version'];
             }
-            $perm = current_user_can( 'activate_plugins' );
+	        if ( method_exists( $tgmpa, 'is_plugin_active' ) && $tgmpa->is_plugin_active( $slug ) ) {
+	        	// Once can't be active but not installed.
+		        $tgmpa->plugins[ $slug ]['is_installed'] = true;
+		        $tgmpa->plugins[ $slug ]['is_active'] = true;
+	        }
+	        if ( method_exists( $tgmpa, 'does_plugin_have_update' ) && $tgmpa->does_plugin_have_update( $slug ) ) {
+		        $tgmpa->plugins[ $slug ]['is_up_to_date'] = false;
+	        }
+
+	        if ( file_exists( WP_PLUGIN_DIR . '/' . $plugin['file_path'] ) ) {
+		        $data                                      = get_plugin_data( WP_PLUGIN_DIR . '/' . $plugin['file_path'], false );
+		        $tgmpa->plugins[ $slug ]['description']    = $data['Description'];
+		        $tgmpa->plugins[ $slug ]['active_version'] = $data['Version'];
+	        }
+
             if ( current_user_can( 'activate_plugins' ) && is_plugin_inactive( $plugin['file_path'] ) && method_exists( $tgmpa, 'get_tgmpa_url' ) ) {
                 $tgmpa->plugins[ $slug ]['activate_url'] = wp_nonce_url(
                     add_query_arg(

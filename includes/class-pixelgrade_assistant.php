@@ -109,7 +109,11 @@ class PixelgradeAssistant {
 
 		$this->plugin_name = 'pixelgrade_assistant';
 
-		if ( $this->php_version_check() ) {
+		// Handle the install and uninstall logic
+		register_activation_hook( $this->file, array( 'PixelgradeAssistant', 'install' ) );
+		register_deactivation_hook( $this->file, array( 'PixelgradeAssistant', 'uninstall' ) );
+
+		if ( $this->check() ) {
 			// Only load and run the init function if we know PHP version can parse it.
 			$this->init();
 		}
@@ -119,10 +123,6 @@ class PixelgradeAssistant {
 	 * Initialize plugin
 	 */
 	private function init() {
-
-		//Handle the install and uninstall logic
-		register_activation_hook( $this->file, array( 'PixelgradeAssistant', 'install' ) );
-		register_deactivation_hook( $this->file, array( 'PixelgradeAssistant', 'uninstall' ) );
 
 		if ( $this->is_wp_compatible() ) {
 			$this->load_modules();
@@ -139,12 +139,12 @@ class PixelgradeAssistant {
 		printf(
 			'<div class="%1$s"><p><strong>%2$s %3$s %4$s </strong></p><p>%5$s %6$s %7$s</p></div>',
 			esc_attr( 'notice notice-error' ),
-			esc_html__( 'Your Pixelgrade theme requires WordPress version', '__plugin_txtd' ),
+			esc_html__( 'Pixelgrade Assistant requires WordPress version', '__plugin_txtd' ),
 			$this->wp_support,
 			esc_html__( 'or later', '__plugin_txtd' ),
 			esc_html__( 'You\'re using an old version of WordPress', '__plugin_txtd' ),
 			$wp_version,
-			esc_html__( 'which is not compatible with the current theme. Please update to the latest version to benefit from all its features.', '__plugin_txtd' )
+			esc_html__( 'which is not compatible with the plugin. Please update to the latest version to benefit from all its features.', '__plugin_txtd' )
 		);
 	}
 
@@ -236,22 +236,16 @@ class PixelgradeAssistant {
 	/*
 	 * Install everything needed
 	 */
-	static public function install() {
-		/** @var PixelgradeAssistant $local_plugin */
-		$local_plugin = PixelgradeAssistant();
-
-		require_once plugin_dir_path( $local_plugin->file ) . 'includes/class-pixelgrade_assistant-activator.php';
+	public static function install() {
+		require_once 'class-pixelgrade_assistant-activator.php';
 		PixelgradeAssistantActivator::activate();
 	}
 
 	/*
 	 * Uninstall everything needed
 	 */
-	static public function uninstall() {
-		/** @var PixelgradeAssistant $local_plugin */
-		$local_plugin = PixelgradeAssistant();
-
-		require_once plugin_dir_path( $local_plugin->file ) . 'includes/class-pixelgrade_assistant-deactivator.php';
+	public static function uninstall() {
+		require_once 'class-pixelgrade_assistant-deactivator.php';
 		PixelgradeAssistantDeactivator::deactivate();
 	}
 
@@ -310,12 +304,36 @@ class PixelgradeAssistant {
 	}
 
 	/**
-	 * PHP version check
+	 * Check if we can load this plugin safely.
 	 */
-	protected function php_version_check() {
+	protected function check() {
 
+		// Check for minimum PHP version.
 		if ( version_compare( phpversion(), $this->minimalRequiredPhpVersion ) < 0 ) {
 			add_action( 'admin_notices', array( $this, 'notice_php_version_wrong' ) );
+
+			return false;
+		}
+
+		// We can't have it loaded with Pixelgrade Care since all sorts of nasty things would happen.
+		// Normally one should not have both plugins active, but it is best to be safe than sorry.
+		if ( defined( 'PIXELGRADE_CARE__PLUGIN_FILE' ) && class_exists( 'PixelgradeCare' ) ) {
+			add_action( 'admin_notices', function () {
+				$allowed = array(
+					'div'    => array(
+						'class' => array(),
+						'id'    => array(),
+					),
+					'p'      => array(),
+					'br'     => array(),
+					'strong' => array(),
+				);
+				$html    = '<div class="updated fade">' .
+				           sprintf( esc_html__( 'Error: plugin "%1$s" can\'t be loaded when "%2$s" is active.', '__plugin_txtd' ), 'Pixelgrade Assistant', 'Pixelgrade Care' ) .
+				           '<br/>' . sprintf( esc_html__( 'Please first deactivate "%s" if you wish to activate this plugin.', '__plugin_txtd' ), 'Pixelgrade Care' ) .
+				           '</div>';
+				echo wp_kses( $html, $allowed );
+			} );
 
 			return false;
 		}

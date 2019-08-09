@@ -258,56 +258,58 @@ $setup-gray: #cccccc;
 
 
 // Plugins list
-.plugins {
-  padding: 0;
-  list-style-type: none;
+.pixelgrade_assistant-setup {
+  .plugins {
+    padding: 0;
+    list-style-type: none;
 
-  p {
-    margin-left: 0;
-  }
-}
-
-.plugin {
-  overflow: hidden;
-  margin-bottom: 10px;
-
-  transition: .3s background ease-in-out;
-
-  // Hack to make overflow respect border-radius
-  -webkit-mask-image: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAAGXRFWHRTb2Z0d2FyZQBBZG9iZSBJbWFnZVJlYWR5ccllPAAAAA5JREFUeNpiYGBgAAgwAAAEAAGbA+oJAAAAAElFTkSuQmCC);
-
-  &:last-of-type {
-    margin-bottom: 0;
-  }
-
-  &.box {
-    padding-right: 20px;
-
-    &:hover {
-      background-color: #f8f8f8;
-    }
-
-    & > div > div:first-child {
-      margin-top: 10px;
+    p {
+      margin-left: 0;
     }
   }
-}
 
-.starter_content {
+  .plugin {
+    overflow: hidden;
+    margin-bottom: 10px;
 
-  .box {
-    padding: 16px 20px;
+    transition: .3s background ease-in-out;
 
-    &:hover {
-      background-color: #f8f8f8;
+    // Hack to make overflow respect border-radius
+    -webkit-mask-image: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAAGXRFWHRTb2Z0d2FyZQBBZG9iZSBJbWFnZVJlYWR5ccllPAAAAA5JREFUeNpiYGBgAAgwAAAEAAGbA+oJAAAAAElFTkSuQmCC);
+
+    &:last-of-type {
+      margin-bottom: 0;
     }
 
-    &:before {
-      content: none;
-    }
+    &.box {
+      padding-right: 20px;
 
-    & > div > div:first-child {
-      margin-top: 10px;
+      &:hover {
+        background-color: #f8f8f8;
+      }
+
+      & > div > div:first-child {
+        margin-top: 10px;
+      }
+    }
+  }
+
+  .starter_content {
+
+    .box {
+      padding: 16px 20px;
+
+      &:hover {
+        background-color: #f8f8f8;
+      }
+
+      &:before {
+        content: none;
+      }
+
+      & > div > div:first-child {
+        margin-top: 10px;
+      }
     }
   }
 }

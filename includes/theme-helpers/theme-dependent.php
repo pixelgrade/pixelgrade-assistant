@@ -42,7 +42,9 @@ function pixassist_load_theme_dependent_functionality() {
 	// For now we will only add the admin bar helper link for subpages if the multipage component is present and active
 	if ( class_exists( 'Pixelgrade_Multipage' ) && method_exists( 'Pixelgrade_Multipage', 'isActive' ) && Pixelgrade_Multipage::isActive() ) {
 		//Add our edit links to the admin bar, in the WP Admin dashboard
-		add_action( 'admin_bar_menu', 'pixelgrade_subpages_admin_bar_edit_links_backend', 999 );
+		add_action( 'admin_bar_menu', 'pixassist_subpages_admin_bar_edit_links_backend', 999 );
 	}
+
+	add_filter( 'jetpack_development_mode', 'pixassist_more_jetpack_development_mode_detection' );
 }
 add_action( 'after_setup_theme', 'pixassist_load_theme_dependent_functionality', 20 );

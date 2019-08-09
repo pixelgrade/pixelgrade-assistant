@@ -1,7 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom';
 import PropTypes from 'prop-types'
-import Switch from '@material-ui/core/Switch';
 import Helpers from '../helpers'
 import {connect} from 'react-redux';
 import _ from 'lodash';
@@ -20,27 +19,6 @@ const mapDispatchToProps = (dispatch) => {
 		onLoadingFinished: () => {
 			dispatch({ type: 'LOADING_DONE' });
 		},
-		onDisconnect: () => {
-			dispatch({ type: 'DISCONNECTED' });
-		},
-		onConnected: () => {
-			dispatch({ type: 'CONNECTED' });
-		},
-		onConnectError: () => {
-			dispatch({ type: 'OAUTH_CONNECT_ERROR' });
-		},
-		onLicenseFound: () => {
-			dispatch({ type: 'HAS_LICENSE' });
-		},
-		onNoLicenseFound: () => {
-			dispatch({ type: 'NO_LICENSE' });
-		},
-		onExpiredLicense: () => {
-			dispatch({ type: 'EXPIRED_LICENSE' });
-		},
-		onValidatedLicense: () => {
-			dispatch({ type: 'VALIDATED_LICENSE'});
-		},
 		onWizard: () => {
 			dispatch({ type: 'IS_SETUP_WIZARD' });
 		},
@@ -50,32 +28,11 @@ const mapDispatchToProps = (dispatch) => {
 		onUnAvailableNextButton: () => {
 			dispatch({ type: 'NEXT_BUTTON_UNAVAILABLE' })
 		},
-		onConnectURLReady: ( url, user ) => {
-			dispatch({ type: 'CONNECT_URL_READY', url: url, user: user });
-		},
-		onSupportActive: () => {
-			dispatch({ type: 'SUPPORT_ON' });
-		},
-		onSupportClosed: () => {
-			dispatch({ type: 'SUPPORT_OFF' });
-		},
 		onAvailableSkipButton: () => {
 			dispatch({ type: 'SKIP_BUTTON_AVAILABLE' })
 		},
 		onUnAvailableSkipButton: () => {
 			dispatch({ type: 'SKIP_BUTTON_UNAVAILABLE' })
-		},
-		onStarterContentInstalling: () => {
-			dispatch({ type: 'STARTER_CONTENT_INSTALLING' })
-		},
-		onStarterContentFinished: () => {
-			dispatch({ type: 'STARTER_CONTENT_DONE' })
-		},
-		onThemeSelected: ( theme_name ) => {
-			dispatch({ type: 'ON_SELECTED_THEME', theme_name: theme_name});
-		},
-		onThemeActivated: ( theme_name ) => {
-			dispatch({ type: 'ON_ACTIVATED_THEME', theme_name: theme_name});
 		},
 		onPluginsInstalling: () => {
 			dispatch({ type: 'ON_PLUGINS_INSTALLING' });
@@ -109,17 +66,17 @@ class PluginManagerContainer extends React.Component {
 		}
 
 		this.getPluginStatus = this.getPluginStatus.bind(this);
-		this.onChange = this.onChange.bind(this);
 		this.handlePluginTrigger = this.handlePluginTrigger.bind(this);
 		this.activatePlugin = this.activatePlugin.bind(this);
 		this.eventInstallPlugin = this.eventInstallPlugin.bind(this);
+		this.eventActivatePlugin = this.eventActivatePlugin.bind(this);
 		this.eventUpdatePlugin = this.eventUpdatePlugin.bind(this);
 		this.createPseudoUpdateElement = this.createPseudoUpdateElement.bind(this);
 		this.markPluginAsActive = this.markPluginAsActive.bind(this);
 	}
 
 	render() {
-		var component = this;
+		let component = this;
 
 		return <div className="plugins">
 				{
@@ -132,41 +89,37 @@ class PluginManagerContainer extends React.Component {
 
 					let plugin = component.state.plugins[plugin_slug],
 						status = component.getPluginStatus(plugin),
-						checked = false,
 						boxClasses = "plugin  box";
 
-					if ( status === 'active' ) {
-						checked = true;
-					}
-
-					let action = (
-						<Switch checked={checked} onChange={component.onChange}/>
-					);
-
-					if ( status === 'missing' ) {
-						action = (
-							<button onClick={component.eventInstallPlugin} className="btn  btn--action  btn--small">{Helpers.decodeHtml(_.get(pixassist, 'themeConfig.l10n.pluginInstallLabel', ''))}</button>
-						);
-					} else if ( status === 'outdated' ) {
-						/** For each plugin we need a <tr> element to trick shiny the updates system **/
-						let action_available = component.createPseudoUpdateElement(plugin.slug);
-
-						action = (
-							<button onClick={component.eventUpdatePlugin} className="btn  btn--action  btn--small sss"
-									data-available={action_available}>{Helpers.decodeHtml(_.get(pixassist, 'themeConfig.pluginManager.l10n.updateButton', ''))}</button>
-						);
-					}
+					let action = '';
 
 					switch ( status ) {
 						case 'active' :
 							boxClasses += "  box--plugin-validated";
 							break;
 						case 'outdated' :
+							boxClasses += "  box--warning  box--plugin-invalidated";
+
+							/** For each plugin we need a <tr> element to trick shiny the updates system **/
+							let action_available = component.createPseudoUpdateElement(plugin.slug);
+							action = (
+								<button onClick={component.eventUpdatePlugin} className="btn  btn--action  btn--small"
+										data-available={action_available}>{Helpers.decodeHtml(_.get(pixassist, 'themeConfig.pluginManager.l10n.updateButton', ''))}</button>
+							);
+							break;
 						case 'inactive' :
 							boxClasses += "  box--warning  box--plugin-invalidated";
+
+							action = (
+								<button onClick={component.eventActivatePlugin} className="btn  btn--action  btn--small">{Helpers.decodeHtml(_.get(pixassist, 'themeConfig.l10n.pluginActivateLabel', ''))}</button>
+							);
 							break;
 						case 'missing' :
 							boxClasses += "  box--neutral  box--plugin-missing  box--plugin-invalidated";
+
+							action = (
+								<button onClick={component.eventInstallPlugin} className="btn  btn--action  btn--small">{Helpers.decodeHtml(_.get(pixassist, 'themeConfig.l10n.pluginInstallLabel', ''))}</button>
+							);
 							break;
 						default :
 							break;
@@ -213,6 +166,8 @@ class PluginManagerContainer extends React.Component {
 		if ( this.props.onRender ) {
 			this.props.onRender(_.get(this.state, 'plugins', {}));
 		}
+
+		this.checkPluginsReady();
 	}
 
 	componentWillUnmount() {
@@ -229,6 +184,10 @@ class PluginManagerContainer extends React.Component {
 	}
 
 	componentWillUpdate( nextProps, nextState, nextContext ) {
+		this.checkPluginsReady();
+	}
+
+	checkPluginsReady() {
 		let plugins_ready = true,
 			component = this;
 
@@ -241,7 +200,7 @@ class PluginManagerContainer extends React.Component {
 			Object.keys(this.state.plugins).map(function ( i, j ) {
 				var plugin = component.state.plugins[i];
 
-				if (!_.get(plugin,'is_installed', false) || !_.get(plugin,'is_active', false) || !_.get(plugin,'is_up_to_date', false)) {
+				if ( !_.get(plugin,'is_active', false) || !_.get(plugin,'is_up_to_date', false)) {
 					plugins_ready = false;
 				}
 
@@ -258,7 +217,7 @@ class PluginManagerContainer extends React.Component {
 			plugins_ready = true;
 		}
 
-		if ( plugins_ready === true && !this.state.ready ) {
+		if ( plugins_ready === true && ! this.state.ready ) {
 			this.setState({ready: true});
 
 			this.props.onReady();
@@ -308,32 +267,46 @@ class PluginManagerContainer extends React.Component {
 		$plugin.addClass('box--plugin-missing').removeClass('box--warning');
 
 		setTimeout( function() {
-			$text.text('Installing ...');
+			$text.text(Helpers.decodeHtml(_.get(pixassist, 'themeConfig.pluginManager.l10n.pluginInstallingMessage', '')));
 			$plugin.addClass('box--plugin-installing');
 		}, 200);
 
 		let cb = function () {
 			var self = this;
-			wp.ajax.settings.url = install_url;
-			wp.ajax.send({type: 'GET'}).always(function ( res ) {
-				$plugin.removeClass('box--plugin-installing');
-				// If the plugin was installed we can activate it now
-				// We determine this by searching for certain strings that TGMPA outputs.
-				if ( res.indexOf('Plugin installed successfully.') !== false || res.indexOf('Successfully installed the plugin') !== false || res.indexOf('Sorry, you are not allowed to access this page.') ) {
-					$plugin.addClass('box--plugin-installed');
-					component.markPluginAsInstalled($plugin.data('slug'));
 
-					component.activatePlugin(plugin_el, activate_url);
-				} else {
-					$plugin.addClass('box--error');
-					$plugin.removeClass('box--plugin-validated').addClass('box--plugin-invalidated');
-					$text.text(Helpers.decodeHtml(_.get(pixassist, 'themeConfig.pluginManager.l10n.installFailedMessage', '')));
-					component.markPluginAsFailed($plugin.data('slug'));
+			wp.updates.installPlugin(
+				{
+					slug: $plugin.data('slug'),
+					success: function ( response ) {
+						$plugin.removeClass('box--plugin-installing');
+
+						$plugin.addClass('box--plugin-installed');
+						component.markPluginAsInstalled($plugin.data('slug'));
+
+						if ( response.activateUrl ) {
+							// The plugin needs to be activated
+							component.activatePlugin(plugin_el, activate_url);
+						} else {
+							// The plugin is already active.
+							$plugin.removeClass('box--plugin-invalidated').addClass('box--plugin-validated');
+							$text.text(Helpers.decodeHtml(_.get(pixassist, 'themeConfig.pluginManager.l10n.pluginReady', '')));
+							component.markPluginAsActive($plugin.data('slug'));
+						}
+
+						self.next();
+					},
+					error: function ( error ) {
+						$plugin.removeClass('box--plugin-installing');
+
+						$plugin.addClass('box--error');
+						$plugin.removeClass('box--plugin-validated').addClass('box--plugin-invalidated');
+						$text.text(Helpers.decodeHtml(_.get(pixassist, 'themeConfig.pluginManager.l10n.installFailedMessage', '')));
+						component.markPluginAsFailed($plugin.data('slug'));
+
+						self.next();
+					}
 				}
-
-				self.next();
-			});
-			wp.ajax.settings.url = temp;
+			);
 		};
 
 		component.queue.add(cb);
@@ -352,7 +325,7 @@ class PluginManagerContainer extends React.Component {
 		$plugin.addClass('box--plugin-installed').removeClass('box--warning');
 
 		setTimeout( function() {
-			$text.text( 'Activating...');
+			$text.text(Helpers.decodeHtml(_.get(pixassist, 'themeConfig.pluginManager.l10n.pluginActivatingMessage', '')));
 			$plugin.addClass('box--plugin-activating');
 		}, 200);
 
@@ -365,13 +338,17 @@ class PluginManagerContainer extends React.Component {
 			}).always(function (res) {
 				$plugin.removeClass('box--plugin-activating');
 				// If we get the `Sorry, you are not allowed to access this page.` message it means that the plugin is already OK.
-				if ( res.indexOf('The following plugin was activated successfully') || res.indexOf('Sorry, you are not allowed to access this page.') ) {
+				if ( res.indexOf('<div id="message" class="updated"><p>') > -1
+					|| res.indexOf('<p>' . _.get(pixassist, 'themeConfig.pluginManager.l10n.tgmpActivatedSuccessfully', '')) > -1
+					|| res.indexOf('<p>' . _.get(pixassist, 'themeConfig.pluginManager.l10n.tgmpPluginActivated', '')) > -1
+					|| res.indexOf('<p>' . _.get(pixassist, 'themeConfig.pluginManager.l10n.tgmpPluginAlreadyActive', '')) > -1
+					|| res.indexOf(_.get(pixassist, 'themeConfig.pluginManager.l10n.tgmpNotAllowed', '')) > -1 ) {
 					$plugin.removeClass('box--plugin-invalidated').addClass('box--plugin-validated');
 					$text.text(Helpers.decodeHtml(_.get(pixassist, 'themeConfig.pluginManager.l10n.pluginReady', '')));
 					component.markPluginAsActive($plugin.data('slug'));
 				} else {
 					$plugin.addClass('box--error');
-					$plugin.removeClass('box--plugin-validated').addClass('box--plugin-invalidated');
+					$plugin.removeClass('box--plugin-validated').removeClass('box--plugin-installed').addClass('box--plugin-invalidated');
 					$text.text(Helpers.decodeHtml(_.get(pixassist, 'themeConfig.pluginManager.l10n.activateFailedMessage', '')));
 					component.markPluginAsFailed($plugin.data('slug'));
 				}
@@ -469,17 +446,21 @@ class PluginManagerContainer extends React.Component {
 		}
 	}
 
-	onChange( e ) {
-		// var box = jQuery(e.target).parents('.box');
-	}
-
 	/**
 	 * @param e
 	 * @private
 	 */
 	eventInstallPlugin(e ) {
-		let plugin = jQuery(e.target).parents('.box'),
+		let $target = jQuery(e.target),
+			plugin = $target.parents('.box'),
 			event;
+
+		wp.updates.maybeRequestFilesystemCredentials( e );
+
+		// Hide the button
+		if ( $target.is('button') ) {
+			$target.fadeOut();
+		}
 
 		if ( window.CustomEvent ) {
 			event = new CustomEvent('handle_plugin', {detail: {action: 'install'}});
@@ -499,9 +480,46 @@ class PluginManagerContainer extends React.Component {
 	 * @param e
 	 * @private
 	 */
-	eventUpdatePlugin(e) {
-		let plugin = jQuery(e.target).parents('.box'),
+	eventActivatePlugin(e ) {
+		let $target = jQuery(e.target),
+			plugin = $target.parents('.box'),
 			event;
+
+		// Hide the button
+		if ( $target.is('button') ) {
+			$target.fadeOut();
+		}
+
+		if ( window.CustomEvent ) {
+			event = new CustomEvent('handle_plugin', {detail: {action: 'activate'}});
+		} else {
+			event = document.createEvent('CustomEvent');
+			event.initCustomEvent('handle_plugin', true, true, {action: 'activate'});
+		}
+
+		if ( _.size(plugin) ) {
+			plugin = Helpers.getFirstItem(plugin);
+			// debugger;
+			plugin.dispatchEvent(event);
+		}
+	}
+
+
+	/**
+	 * @param e
+	 * @private
+	 */
+	eventUpdatePlugin(e) {
+		let $target = jQuery(e.target),
+			plugin = $target.parents('.box'),
+			event;
+
+		wp.updates.maybeRequestFilesystemCredentials( e );
+
+		// Hide the button
+		if ( $target.is('button') ) {
+			$target.fadeOut();
+		}
 
 		if ( window.CustomEvent ) {
 			event = new CustomEvent('handle_plugin', {detail: {action: 'update'}});
@@ -548,19 +566,19 @@ class PluginManagerContainer extends React.Component {
 	}
 
 	getPluginStatus(plugin ) {
-		if ( !plugin.is_installed ) {
-			return 'missing';
-		}
-
-		if ( !plugin.is_active ) {
-			return 'inactive';
-		}
-
 		if ( !plugin.is_up_to_date ) {
 			return 'outdated';
 		}
 
-		return 'active';
+		if ( plugin.is_active ) {
+			return 'active';
+		}
+
+		if ( plugin.is_installed ) {
+			return 'inactive';
+		}
+
+		return 'missing';
 	}
 }
 
