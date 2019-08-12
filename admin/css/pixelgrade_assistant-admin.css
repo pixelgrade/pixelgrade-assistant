@@ -2031,15 +2031,14 @@ input:-ms-input-placeholder {
   content: "\f347"; }
 
 .accordion-list > li > a:not(.external-link).open-nav {
-  color: #8E65C0;
-  background: white; }
+  background: #8E65C0;
+  color: white; }
   .accordion-list > li > a:not(.external-link).open-nav:before {
     content: '\f343';
-    color: #8E65C0; }
+    color: white; }
 
 .related-article-rendered {
   padding: 20px;
-  background: #f1f1f1;
   border-top: 1px solid #dddddd; }
 
 .ticket-submit-wrapper {

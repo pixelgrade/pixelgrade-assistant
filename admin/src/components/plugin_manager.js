@@ -161,7 +161,7 @@ class PluginManagerContainer extends React.Component {
 		}
 	}
 
-	componentWillMount(){
+	UNSAFE_componentWillMount(){
 
 		if ( this.props.onRender ) {
 			this.props.onRender(_.get(this.state, 'plugins', {}));

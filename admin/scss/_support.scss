@@ -460,12 +460,13 @@ input:-ms-input-placeholder {
       }
 
       &.open-nav {
-        color: $accent--purple;
-        background: white;
+        background: $accent--purple;
+        color: white;
+        font-weight: bold;
 
         &:before {
           content: '\f343';
-          color: $accent--purple;
+          color: white;
         }
       }
     }
@@ -474,7 +475,6 @@ input:-ms-input-placeholder {
 
 .related-article-rendered {
   padding: 20px;
-  background: $grey;
   border-top: 1px solid $borders;
 }
 

@@ -240,8 +240,6 @@ class PixelgradeAssistant_Admin {
 
 		add_action( 'admin_menu', array( $this, 'add_pixelgrade_assistant_menu' ) );
 
-		add_action( 'admin_init', array( $this, 'settings_init' ) );
-
 		add_action( 'current_screen', array( $this, 'add_tabs' ) );
 
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_styles' ) );
@@ -331,6 +329,7 @@ class PixelgradeAssistant_Admin {
             wp_enqueue_script( 'pixelgrade_assistant-dashboard', plugin_dir_url( $this->parent->file ) . 'admin/js/dashboard' . $suffix . '.js', array(
                 'jquery',
                 'wp-util',
+	            'wp-a11y',
 	            'updates',
 	            'plugin-install'
             ), $this->parent->get_version(), true );
@@ -683,21 +682,11 @@ class PixelgradeAssistant_Admin {
         $screen = get_current_screen();
         $screen->add_help_tab( array(
             'id'      => 'pixelgrade_assistant_setup_wizard_tab',
-            'title'   => esc_html__( 'Pixelgrade Assistant Setup', '__plugin_txtd' ),
+            'title'   => esc_html__( 'Pixelgrade Assistant', '__plugin_txtd' ),
             'content' =>
-                '<h2>' . esc_html__( 'Pixelgrade Assistant Setup', '__plugin_txtd' ) . '</h2>' .
+                '<h2>' . esc_html__( 'Pixelgrade Assistant Site Setup', '__plugin_txtd' ) . '</h2>' .
                 '<p><a href="' . esc_url( admin_url( 'index.php?page=pixelgrade_assistant-setup-wizard' ) ) . '" class="button button-primary">' . esc_html__( 'Setup Pixelgrade Assistant', '__plugin_txtd' ) . '</a></p>',
         ) );
-    }
-
-    public function settings_init() {
-        register_setting( 'pixelgrade_assistant', 'pixelgrade_assistant_settings' );
-        add_settings_section(
-            'pixelgrade_assistant_section',
-            esc_html__( 'Pixelgrade Assistant description', '__plugin_txtd' ),
-            null,
-            'pixelgrade_assistant'
-        );
     }
 
     public function pixelgrade_assistant_options_page() { ?>

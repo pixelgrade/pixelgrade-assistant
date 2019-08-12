@@ -163,7 +163,7 @@ class StarterContentContainer extends React.Component {
 	}
 
 	// @todo This is a deprecated component function and we should find a way to not use it.
-	componentWillMount () {
+	UNSAFE_componentWillMount () {
 		// Others may pass this prop to the component and expect us to fire it.
 		if ( this.props.onRender ) {
 			this.props.onRender();

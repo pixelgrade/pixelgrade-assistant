@@ -72,7 +72,7 @@ class SupportDashboardContainer extends React.Component {
 		this.updateLocalState = this.updateLocalState.bind(this);
 	};
 
-	componentWillMount() {
+	UNSAFE_componentWillMount() {
 		let component = this;
 
 		// Update the state of the licenses

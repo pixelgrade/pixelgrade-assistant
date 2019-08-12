@@ -75,6 +75,7 @@ class PixelgradeAssistant_Support {
 		wp_enqueue_script( 'pixelgrade_assistant-support', plugin_dir_url( $this->parent->file ) . 'admin/js/support' . $suffix . '.js', array(
 			'jquery',
 			'wp-util',
+			'wp-a11y',
 			'updates'
 		), $this->parent->get_version(), true );
 

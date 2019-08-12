@@ -52,25 +52,8 @@ class PixelgradeAssistant_SetupWizard {
 	 * Register the hooks related to this module.
 	 */
 	public function register_hooks() {
-		add_action( 'current_screen', array( $this, 'add_tabs' ) );
 		add_action( 'admin_menu', array( $this, 'add_admin_menu' ) );
 		add_action( 'admin_init', array( $this, 'setup_wizard' ) );
-	}
-
-	/**
-	 * Add Contextual help tabs.
-	 */
-	public function add_tabs() {
-		$screen = get_current_screen();
-
-		$screen->add_help_tab( array(
-			'id'      => 'pixelgrade_assistant_setup_wizard_tab',
-			'title'   => esc_html__( 'Pixelgrade Assistant Setup', '__plugin_txtd' ),
-			'content' =>
-				'<h2>' . esc_html__( 'Pixelgrade Assistant Setup', '__plugin_txtd' ) . '</h2>' .
-				'<p><a href="' . esc_url( admin_url( 'index.php?page=pixelgrade_assistant-setup-wizard' ) ) . '" class="button button-primary">' . esc_html__( 'Setup Pixelgrade Assistant', '__plugin_txtd' ) . '</a></p>'
-
-		) );
 	}
 
 	public function add_admin_menu() {
@@ -87,10 +70,14 @@ class PixelgradeAssistant_SetupWizard {
 		wp_enqueue_style( $this->parent->get_plugin_name(), plugin_dir_url( $this->parent->file ) . 'admin/css/pixelgrade_assistant-admin' . $rtl_suffix . '.css', array( 'dashicons' ), $this->parent->get_version(), 'all' );
 
 		$suffix = ( defined( 'SCRIPT_DEBUG' ) && SCRIPT_DEBUG ) ? '' : '.min';
+		wp_enqueue_script( 'plugin-install' );
+		wp_enqueue_script( 'updates' );
 		wp_enqueue_script( 'pixelgrade_assistant-setup-wizard', plugin_dir_url( $this->parent->file ) . 'admin/js/setup_wizard' . $suffix . '.js', array(
 			'jquery',
 			'wp-util',
-			'updates'
+			'wp-a11y',
+			'plugin-install',
+			'updates',
 		), $this->parent->get_version(), true );
 
 		PixelgradeAssistant_Admin::localize_js_data( 'pixelgrade_assistant-setup-wizard' );

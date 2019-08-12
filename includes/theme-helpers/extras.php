@@ -377,12 +377,12 @@ if ( ! function_exists( 'pixassist_modify_theme_supports_by_features' ) ) {
 
 			// Remove any "Lite" from the theme name.
 			if ( false !== strpos( strtolower( $config['theme_name'] ), 'lite' ) ) {
-				$config['theme_name'] = preg_replace( '#[\s-_]*lite#i', '', $config['theme_name'] );
+				$config['theme_name'] = preg_replace( '#[\s\-_]*lite#i', '', $config['theme_name'] );
 			}
 
 			// Remove any "Lite" from the theme title.
 			if ( false !== strpos( strtolower( $config['theme_title'] ), 'lite' ) ) {
-				$config['theme_title'] = preg_replace( '#[\s-_]*lite#i', '', $config['theme_title'] );
+				$config['theme_title'] = preg_replace( '#[\s\-_]*lite#i', '', $config['theme_title'] );
 			}
 
 			if ( PixelgradeAssistant_Admin::is_wporg_theme() || PixelgradeAssistant_Admin::get_theme_type() === 'theme_modular' ) {
@@ -401,9 +401,7 @@ if ( ! function_exists( 'pixassist_modify_theme_supports_by_features' ) ) {
 					$classes[] = 'free';
 				}
 
-				$classes = array_map( 'esc_attr', $classes );
-
-				$config['theme_title'] .= ' <span class="' . join( ' ', $classes ) . '">' . $theme_title_suffix . '</span>';
+				$config['theme_title'] .= ' <span class="' . esc_attr( join( ' ', $classes ) ) . '">' . $theme_title_suffix . '</span>';
 			}
 		}
 
