@@ -123,7 +123,7 @@ class PixelgradeAssistant_Admin {
 	    // Fill up the WUpdates identification data for missing entities that we can deduce through other means.
 	    // This mostly addresses WordPress.org themes that don't have the WUpdates identification data.
 	    // This needs to be hooked up this early since we can't know for sure when the filter will be fired.
-	    add_filter( 'pixelgrade_assistant_wupdates_identification_data', array( 'PixelgradeAssistant_Admin', 'maybe_fill_up_wupdates_identification_data' ), 1000, 1 );
+	    add_filter( 'wupdates_gather_ids', array( 'PixelgradeAssistant_Admin', 'maybe_fill_up_wupdates_identification_data' ), 1000, 1 );
     }
 
     /**
