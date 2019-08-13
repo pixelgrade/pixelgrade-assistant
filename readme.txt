@@ -97,6 +97,9 @@ No. We are not tracking you or your site. We ask your permission to share with u
 
 == Changelog ==
 
+= 1.1.1 =
+* Minor fix for better theme compatibility.
+
 = 1.1.0 =
 * Added the "Recommended Plugins" section to the dashboard also
 * Compatibility and stability improvements
