@@ -1940,14 +1940,15 @@ class PixelgradeAssistant_Admin {
 
 			// Filter plugins that do not apply.
 			foreach ($config['requiredPlugins']['plugins'] as $key => $value) {
+				// We need to make sure that the plugins are not previously registered.
+				// The remote config has precedence.
+				if ( ! empty( $value['slug'] ) && ! empty( $tgmpa->plugins[ $value['slug'] ] ) ) {
+					unset( $tgmpa->plugins[ $value['slug'] ] );
+				}
+
 				if ( empty( $value['slug'] ) || ! self::isApplicableToCurrentThemeType( $value ) ) {
 					unset($config['requiredPlugins']['plugins'][ $key ]);
 					continue;
-				}
-
-				// We need to also make sure that the plugins are not previously registered.
-				if ( ! empty( $tgmpa->plugins[ $value['slug'] ] ) ) {
-					unset( $tgmpa->plugins[ $value['slug'] ] );
 				}
 			}
 

@@ -596,11 +596,11 @@
 
 	var reactIs_production_min = createCommonjsModule(function (module, exports) {
 	Object.defineProperty(exports,"__esModule",{value:!0});
-	var b="function"===typeof Symbol&&Symbol.for,c=b?Symbol.for("react.element"):60103,d=b?Symbol.for("react.portal"):60106,e=b?Symbol.for("react.fragment"):60107,f=b?Symbol.for("react.strict_mode"):60108,g=b?Symbol.for("react.profiler"):60114,h=b?Symbol.for("react.provider"):60109,k=b?Symbol.for("react.context"):60110,l=b?Symbol.for("react.async_mode"):60111,m=b?Symbol.for("react.concurrent_mode"):60111,n=b?Symbol.for("react.forward_ref"):60112,p=b?Symbol.for("react.suspense"):60113,q=b?Symbol.for("react.memo"):
-	60115,r=b?Symbol.for("react.lazy"):60116;function t(a){if("object"===typeof a&&null!==a){var u=a.$$typeof;switch(u){case c:switch(a=a.type,a){case l:case m:case e:case g:case f:case p:return a;default:switch(a=a&&a.$$typeof,a){case k:case n:case h:return a;default:return u}}case r:case q:case d:return u}}}function v(a){return t(a)===m}exports.typeOf=t;exports.AsyncMode=l;exports.ConcurrentMode=m;exports.ContextConsumer=k;exports.ContextProvider=h;exports.Element=c;exports.ForwardRef=n;
-	exports.Fragment=e;exports.Lazy=r;exports.Memo=q;exports.Portal=d;exports.Profiler=g;exports.StrictMode=f;exports.Suspense=p;exports.isValidElementType=function(a){return "string"===typeof a||"function"===typeof a||a===e||a===m||a===g||a===f||a===p||"object"===typeof a&&null!==a&&(a.$$typeof===r||a.$$typeof===q||a.$$typeof===h||a.$$typeof===k||a.$$typeof===n)};exports.isAsyncMode=function(a){return v(a)||t(a)===l};exports.isConcurrentMode=v;exports.isContextConsumer=function(a){return t(a)===k};
-	exports.isContextProvider=function(a){return t(a)===h};exports.isElement=function(a){return "object"===typeof a&&null!==a&&a.$$typeof===c};exports.isForwardRef=function(a){return t(a)===n};exports.isFragment=function(a){return t(a)===e};exports.isLazy=function(a){return t(a)===r};exports.isMemo=function(a){return t(a)===q};exports.isPortal=function(a){return t(a)===d};exports.isProfiler=function(a){return t(a)===g};exports.isStrictMode=function(a){return t(a)===f};
-	exports.isSuspense=function(a){return t(a)===p};
+	var b="function"===typeof Symbol&&Symbol.for,c=b?Symbol.for("react.element"):60103,d=b?Symbol.for("react.portal"):60106,e=b?Symbol.for("react.fragment"):60107,f=b?Symbol.for("react.strict_mode"):60108,g=b?Symbol.for("react.profiler"):60114,h=b?Symbol.for("react.provider"):60109,k=b?Symbol.for("react.context"):60110,l=b?Symbol.for("react.async_mode"):60111,m=b?Symbol.for("react.concurrent_mode"):60111,n=b?Symbol.for("react.forward_ref"):60112,p=b?Symbol.for("react.suspense"):60113,q=b?Symbol.for("react.suspense_list"):
+	60120,r=b?Symbol.for("react.memo"):60115,t=b?Symbol.for("react.lazy"):60116,v=b?Symbol.for("react.fundamental"):60117,w=b?Symbol.for("react.responder"):60118;function x(a){if("object"===typeof a&&null!==a){var u=a.$$typeof;switch(u){case c:switch(a=a.type,a){case l:case m:case e:case g:case f:case p:return a;default:switch(a=a&&a.$$typeof,a){case k:case n:case h:return a;default:return u}}case t:case r:case d:return u}}}function y(a){return x(a)===m}exports.typeOf=x;exports.AsyncMode=l;
+	exports.ConcurrentMode=m;exports.ContextConsumer=k;exports.ContextProvider=h;exports.Element=c;exports.ForwardRef=n;exports.Fragment=e;exports.Lazy=t;exports.Memo=r;exports.Portal=d;exports.Profiler=g;exports.StrictMode=f;exports.Suspense=p;
+	exports.isValidElementType=function(a){return "string"===typeof a||"function"===typeof a||a===e||a===m||a===g||a===f||a===p||a===q||"object"===typeof a&&null!==a&&(a.$$typeof===t||a.$$typeof===r||a.$$typeof===h||a.$$typeof===k||a.$$typeof===n||a.$$typeof===v||a.$$typeof===w)};exports.isAsyncMode=function(a){return y(a)||x(a)===l};exports.isConcurrentMode=y;exports.isContextConsumer=function(a){return x(a)===k};exports.isContextProvider=function(a){return x(a)===h};
+	exports.isElement=function(a){return "object"===typeof a&&null!==a&&a.$$typeof===c};exports.isForwardRef=function(a){return x(a)===n};exports.isFragment=function(a){return x(a)===e};exports.isLazy=function(a){return x(a)===t};exports.isMemo=function(a){return x(a)===r};exports.isPortal=function(a){return x(a)===d};exports.isProfiler=function(a){return x(a)===g};exports.isStrictMode=function(a){return x(a)===f};exports.isSuspense=function(a){return x(a)===p};
 	});
 
 	unwrapExports(reactIs_production_min);
@@ -644,7 +644,7 @@
 	var reactIs_3 = reactIs.isValidElementType;
 	var reactIs_4 = reactIs.isContextConsumer;
 
-	var hasSymbol = typeof Symbol === 'function';
+	var hasSymbol = typeof Symbol === 'function' && Symbol.for;
 	var nested = hasSymbol ? Symbol.for('mui.nested') : '__THEME_NESTED__';
 
 	/**
@@ -2669,7 +2669,7 @@
 	function () {
 	  function Jss(options) {
 	    this.id = instanceCounter++;
-	    this.version = "10.0.0-alpha.23";
+	    this.version = "10.0.0-alpha.24";
 	    this.plugins = new PluginsRegistry();
 	    this.options = {
 	      id: {
@@ -3282,9 +3282,9 @@
 	  };
 	}
 
-	var px = hasCSSTOMSupport ? window.CSS.px : 'px';
-	var ms = hasCSSTOMSupport ? window.CSS.ms : 'ms';
-	var percent = hasCSSTOMSupport ? window.CSS.percent : '%';
+	var px = hasCSSTOMSupport && CSS ? CSS.px : 'px';
+	var ms = hasCSSTOMSupport && CSS ? CSS.ms : 'ms';
+	var percent = hasCSSTOMSupport && CSS ? CSS.percent : '%';
 	/**
 	 * Generated jss-plugin-default-unit CSS property units
 	 *
@@ -4019,7 +4019,7 @@
 	function supportedValue(property, value) {
 	  // For server-side rendering.
 	  var prefixedValue = value;
-	  if (!el$1) return value; // It is a string or a number as a string like '1'.
+	  if (!el$1 || property === 'content') return value; // It is a string or a number as a string like '1'.
 	  // We want only prefixable values here.
 	  // eslint-disable-next-line no-restricted-globals
 
@@ -4395,8 +4395,7 @@
 	      });
 	      return stylesWithOverrides;
 	    },
-	    options: {},
-	    themingEnabled: themingEnabled
+	    options: {}
 	  };
 	}
 
@@ -4605,10 +4604,9 @@
 	    meta: classNamePrefix,
 	    classNamePrefix: classNamePrefix
 	  };
-	  var listenToTheme = stylesCreator.themingEnabled || typeof name === 'string';
 	  return function () {
 	    var props = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
-	    var theme = (listenToTheme ? useTheme() : null) || defaultTheme;
+	    var theme = useTheme() || defaultTheme;
 
 	    var stylesOptions = _extends({}, react.useContext(StylesContext), {}, stylesOptions2);
 
@@ -4802,8 +4800,8 @@
 	  var theme = react.useMemo(function () {
 	    var output = outerTheme === null ? localTheme : mergeOuterLocalTheme(outerTheme, localTheme);
 
-	    if (outerTheme !== null && output) {
-	      output[nested] = true;
+	    if (output != null) {
+	      output[nested] = outerTheme !== null;
 	    }
 
 	    return output;
@@ -6043,10 +6041,11 @@
 	      _ref$htmlFontSize = _ref.htmlFontSize,
 	      htmlFontSize = _ref$htmlFontSize === void 0 ? 16 : _ref$htmlFontSize,
 	      allVariants = _ref.allVariants,
-	      other = _objectWithoutProperties(_ref, ["fontFamily", "fontSize", "fontWeightLight", "fontWeightRegular", "fontWeightMedium", "fontWeightBold", "htmlFontSize", "allVariants"]);
+	      pxToRem2 = _ref.pxToRem,
+	      other = _objectWithoutProperties(_ref, ["fontFamily", "fontSize", "fontWeightLight", "fontWeightRegular", "fontWeightMedium", "fontWeightBold", "htmlFontSize", "allVariants", "pxToRem"]);
 	  var coef = fontSize / 14;
 
-	  var pxToRem = function pxToRem(size) {
+	  var pxToRem = pxToRem2 || function (size) {
 	    return "".concat(size / htmlFontSize * coef, "rem");
 	  };
 
@@ -6081,6 +6080,7 @@
 	    htmlFontSize: htmlFontSize,
 	    pxToRem: pxToRem,
 	    round: round,
+	    // TODO To remove in v5?
 	    fontFamily: fontFamily,
 	    fontSize: fontSize,
 	    fontWeightLight: fontWeightLight,
@@ -6303,9 +6303,9 @@
 	    },
 	    text: {
 	      primary: "#463850",
-	      secondary: "#78717D" // error: will use the default color
+	      secondary: "#78717D"
+	    } // error: will use the default color
 
-	    }
 	  },
 	  typography: {
 	    fontSize: 16,
@@ -8467,69 +8467,39 @@
 	  return Subscription;
 	}();
 
-	var Provider =
-	/*#__PURE__*/
-	function (_Component) {
-	  _inheritsLoose(Provider, _Component);
-
-	  function Provider(props) {
-	    var _this;
-
-	    _this = _Component.call(this, props) || this;
-	    var store = props.store;
-	    _this.notifySubscribers = _this.notifySubscribers.bind(_assertThisInitialized(_this));
+	function Provider(_ref) {
+	  var store = _ref.store,
+	      context = _ref.context,
+	      children = _ref.children;
+	  var contextValue = react_7(function () {
 	    var subscription = new Subscription(store);
-	    subscription.onStateChange = _this.notifySubscribers;
-	    _this.state = {
+	    subscription.onStateChange = subscription.notifyNestedSubs;
+	    return {
 	      store: store,
 	      subscription: subscription
 	    };
-	    _this.previousState = store.getState();
-	    return _this;
-	  }
+	  }, [store]);
+	  var previousState = react_7(function () {
+	    return store.getState();
+	  }, [store]);
+	  react_6(function () {
+	    var subscription = contextValue.subscription;
+	    subscription.trySubscribe();
 
-	  var _proto = Provider.prototype;
-
-	  _proto.componentDidMount = function componentDidMount() {
-	    this._isMounted = true;
-	    this.state.subscription.trySubscribe();
-
-	    if (this.previousState !== this.props.store.getState()) {
-	      this.state.subscription.notifyNestedSubs();
+	    if (previousState !== store.getState()) {
+	      subscription.notifyNestedSubs();
 	    }
-	  };
 
-	  _proto.componentWillUnmount = function componentWillUnmount() {
-	    if (this.unsubscribe) this.unsubscribe();
-	    this.state.subscription.tryUnsubscribe();
-	    this._isMounted = false;
-	  };
-
-	  _proto.componentDidUpdate = function componentDidUpdate(prevProps) {
-	    if (this.props.store !== prevProps.store) {
-	      this.state.subscription.tryUnsubscribe();
-	      var subscription = new Subscription(this.props.store);
-	      subscription.onStateChange = this.notifySubscribers;
-	      this.setState({
-	        store: this.props.store,
-	        subscription: subscription
-	      });
-	    }
-	  };
-
-	  _proto.notifySubscribers = function notifySubscribers() {
-	    this.state.subscription.notifyNestedSubs();
-	  };
-
-	  _proto.render = function render() {
-	    var Context = this.props.context || ReactReduxContext;
-	    return react.createElement(Context.Provider, {
-	      value: this.state
-	    }, this.props.children);
-	  };
-
-	  return Provider;
-	}(react_4);
+	    return function () {
+	      subscription.tryUnsubscribe();
+	      subscription.onStateChange = null;
+	    };
+	  }, [contextValue, previousState]);
+	  var Context = context || ReactReduxContext;
+	  return react.createElement(Context.Provider, {
+	    value: contextValue
+	  }, children);
+	}
 
 	Provider.propTypes = {
 	  store: propTypes.shape({
@@ -8854,6 +8824,7 @@
 	        var unsubscribeWrapper = function unsubscribeWrapper() {
 	          didUnsubscribe = true;
 	          subscription.tryUnsubscribe();
+	          subscription.onStateChange = null;
 
 	          if (lastThrownError) {
 	            // It's possible that we caught an error due to a bad mapState function, but the
@@ -9031,7 +9002,7 @@
 	var defaultMapStateToPropsFactories = [whenMapStateToPropsIsFunction, whenMapStateToPropsIsMissing];
 
 	function defaultMergeProps(stateProps, dispatchProps, ownProps) {
-	  return _extends({}, ownProps, stateProps, dispatchProps);
+	  return _extends({}, ownProps, {}, stateProps, {}, dispatchProps);
 	}
 	function wrapMergePropsFunc(mergeProps) {
 	  return function initMergePropsProxy(dispatch, _ref) {
@@ -10550,7 +10521,7 @@
 	      textAlign: 'justify'
 	    },
 
-	    /* Styles applied to the root element if `align="nowrap"`. */
+	    /* Styles applied to the root element if `nowrap={true}`. */
 	    noWrap: {
 	      overflow: 'hidden',
 	      textOverflow: 'ellipsis',
@@ -10636,12 +10607,11 @@
 	      noWrap = _props$noWrap === void 0 ? false : _props$noWrap,
 	      _props$paragraph = props.paragraph,
 	      paragraph = _props$paragraph === void 0 ? false : _props$paragraph,
-	      theme = props.theme,
 	      _props$variant = props.variant,
 	      variant = _props$variant === void 0 ? 'body1' : _props$variant,
 	      _props$variantMapping = props.variantMapping,
 	      variantMapping = _props$variantMapping === void 0 ? defaultVariantMapping : _props$variantMapping,
-	      other = _objectWithoutProperties(props, ["align", "classes", "className", "color", "component", "display", "gutterBottom", "noWrap", "paragraph", "theme", "variant", "variantMapping"]);
+	      other = _objectWithoutProperties(props, ["align", "classes", "className", "color", "component", "display", "gutterBottom", "noWrap", "paragraph", "variant", "variantMapping"]);
 
 	  var Component = component || (paragraph ? 'p' : variantMapping[variant] || defaultVariantMapping[variant]) || 'span';
 	  return react.createElement(Component, _extends({
@@ -10650,8 +10620,7 @@
 	  }, other));
 	});
 	var Typography$1 = withStyles$1(styles$4, {
-	  name: 'MuiTypography',
-	  withTheme: true
+	  name: 'MuiTypography'
 	})(Typography);
 
 	var styles$5 = function styles(theme) {
@@ -11096,7 +11065,7 @@
 
 	    /* Styles applied to the root element if `variant="indeterminate"`. */
 	    indeterminate: {
-	      animation: '$mui-progress-circular-rotate 1.4s linear infinite'
+	      animation: '$circular-rotate 1.4s linear infinite'
 	    },
 
 	    /* Styles applied to the root element if `color="primary"`. */
@@ -11126,18 +11095,18 @@
 
 	    /* Styles applied to the `circle` svg path if `variant="indeterminate"`. */
 	    circleIndeterminate: {
-	      animation: '$mui-progress-circular-dash 1.4s ease-in-out infinite',
+	      animation: '$circular-dash 1.4s ease-in-out infinite',
 	      // Some default value that looks fine waiting for the animation to kicks in.
 	      strokeDasharray: '80px, 200px',
 	      strokeDashoffset: '0px' // Add the unit to fix a Edge 16 and below bug.
 
 	    },
-	    '@keyframes mui-progress-circular-rotate': {
+	    '@keyframes circular-rotate': {
 	      '100%': {
 	        transform: 'rotate(360deg)'
 	      }
 	    },
-	    '@keyframes mui-progress-circular-dash': {
+	    '@keyframes circular-dash': {
 	      '0%': {
 	        strokeDasharray: '1px, 200px',
 	        strokeDashoffset: '0px'
@@ -13038,7 +13007,12 @@
 	        return str;
 	    }
 
-	    var string = typeof str === 'string' ? str : String(str);
+	    var string = str;
+	    if (typeof str === 'symbol') {
+	        string = Symbol.prototype.toString.call(str);
+	    } else if (typeof str !== 'string') {
+	        string = String(str);
+	    }
 
 	    if (charset === 'iso-8859-1') {
 	        return escape(string).replace(/%u[0-9a-f]{4}/gi, function ($0) {
@@ -13144,19 +13118,27 @@
 	var replace = String.prototype.replace;
 	var percentTwenties = /%20/g;
 
-	var formats = {
-	    'default': 'RFC3986',
-	    formatters: {
-	        RFC1738: function (value) {
-	            return replace.call(value, percentTwenties, '+');
-	        },
-	        RFC3986: function (value) {
-	            return value;
-	        }
-	    },
+
+
+	var Format = {
 	    RFC1738: 'RFC1738',
 	    RFC3986: 'RFC3986'
 	};
+
+	var formats = utils.assign(
+	    {
+	        'default': Format.RFC3986,
+	        formatters: {
+	            RFC1738: function (value) {
+	                return replace.call(value, percentTwenties, '+');
+	            },
+	            RFC3986: function (value) {
+	                return String(value);
+	            }
+	        }
+	    },
+	    Format
+	);
 
 	var has$4 = Object.prototype.hasOwnProperty;
 
@@ -13181,6 +13163,7 @@
 
 	var toISO = Date.prototype.toISOString;
 
+	var defaultFormat = formats['default'];
 	var defaults = {
 	    addQueryPrefix: false,
 	    allowDots: false,
@@ -13190,7 +13173,8 @@
 	    encode: true,
 	    encoder: utils.encode,
 	    encodeValuesOnly: false,
-	    formatter: formats.formatters[formats['default']],
+	    format: defaultFormat,
+	    formatter: formats.formatters[defaultFormat],
 	    // deprecated
 	    indices: false,
 	    serializeDate: function serializeDate(date) { // eslint-disable-line func-name-matching
@@ -13198,6 +13182,14 @@
 	    },
 	    skipNulls: false,
 	    strictNullHandling: false
+	};
+
+	var isNonNullishPrimitive = function isNonNullishPrimitive(v) { // eslint-disable-line func-name-matching
+	    return typeof v === 'string'
+	        || typeof v === 'number'
+	        || typeof v === 'boolean'
+	        || typeof v === 'symbol'
+	        || typeof v === 'bigint'; // eslint-disable-line valid-typeof
 	};
 
 	var stringify = function stringify( // eslint-disable-line func-name-matching
@@ -13232,7 +13224,7 @@
 	        obj = '';
 	    }
 
-	    if (typeof obj === 'string' || typeof obj === 'number' || typeof obj === 'boolean' || utils.isBuffer(obj)) {
+	    if (isNonNullishPrimitive(obj) || utils.isBuffer(obj)) {
 	        if (encoder) {
 	            var keyValue = encodeValuesOnly ? prefix : encoder(prefix, defaults.encoder, charset);
 	            return [formatter(keyValue) + '=' + formatter(encoder(obj, defaults.encoder, charset))];
@@ -13569,7 +13561,7 @@
 
 	    // Get the parent
 
-	    var segment = brackets.exec(key);
+	    var segment = options.depth > 0 && brackets.exec(key);
 	    var parent = segment ? key.slice(0, segment.index) : key;
 
 	    // Stash the parent if it exists
@@ -13589,7 +13581,7 @@
 	    // Loop through children appending to the array until we hit depth
 
 	    var i = 0;
-	    while ((segment = child.exec(key)) !== null && i < options.depth) {
+	    while (options.depth > 0 && (segment = child.exec(key)) !== null && i < options.depth) {
 	        i += 1;
 	        if (!options.plainObjects && has$5.call(Object.prototype, segment[1].slice(1, -1))) {
 	            if (!options.allowPrototypes) {
@@ -13631,7 +13623,8 @@
 	        comma: typeof opts.comma === 'boolean' ? opts.comma : defaults$1.comma,
 	        decoder: typeof opts.decoder === 'function' ? opts.decoder : defaults$1.decoder,
 	        delimiter: typeof opts.delimiter === 'string' || utils.isRegExp(opts.delimiter) ? opts.delimiter : defaults$1.delimiter,
-	        depth: typeof opts.depth === 'number' ? opts.depth : defaults$1.depth,
+	        // eslint-disable-next-line no-implicit-coercion, no-extra-parens
+	        depth: (typeof opts.depth === 'number' || opts.depth === false) ? +opts.depth : defaults$1.depth,
 	        ignoreQueryPrefix: opts.ignoreQueryPrefix === true,
 	        interpretNumericEntities: typeof opts.interpretNumericEntities === 'boolean' ? opts.interpretNumericEntities : defaults$1.interpretNumericEntities,
 	        parameterLimit: typeof opts.parameterLimit === 'number' ? opts.parameterLimit : defaults$1.parameterLimit,
