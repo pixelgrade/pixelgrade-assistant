@@ -412,7 +412,7 @@ class AuthenticatorContainer extends React.Component {
 						Helpers.pushNotification({
 							notice_id: 'no_licenses_found',
 							title: Helpers.decodeHtml(pixassist.themeConfig.l10n.validationErrorTitle),
-							content: error_message,
+							content: Helpers.decodeHtml(error_message),
 							type: 'warning'
 						});
 					}
@@ -426,7 +426,7 @@ class AuthenticatorContainer extends React.Component {
 					Helpers.pushNotification({
 						notice_id: 'no_licenses_found',
 						title: Helpers.decodeHtml(pixassist.themeConfig.l10n.validationErrorTitle),
-						content: e.message,
+						content: Helpers.decodeHtml(component.config.noThemeLicense),
 						type: 'warning'
 					});
 				}
@@ -439,7 +439,7 @@ class AuthenticatorContainer extends React.Component {
 				Helpers.pushNotification({
 					notice_id: 'no_licenses_found',
 					title: Helpers.decodeHtml(pixassist.themeConfig.l10n.validationErrorTitle),
-					content: e.message,
+					content: Helpers.decodeHtml(component.config.noThemeLicense),
 					type: 'warning'
 				});
 

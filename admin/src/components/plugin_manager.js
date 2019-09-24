@@ -339,9 +339,9 @@ class PluginManagerContainer extends React.Component {
 				$plugin.removeClass('box--plugin-activating');
 				// If we get the `Sorry, you are not allowed to access this page.` message it means that the plugin is already OK.
 				if ( res.indexOf('<div id="message" class="updated"><p>') > -1
-					|| res.indexOf('<p>' . _.get(pixassist, 'themeConfig.pluginManager.l10n.tgmpActivatedSuccessfully', '')) > -1
-					|| res.indexOf('<p>' . _.get(pixassist, 'themeConfig.pluginManager.l10n.tgmpPluginActivated', '')) > -1
-					|| res.indexOf('<p>' . _.get(pixassist, 'themeConfig.pluginManager.l10n.tgmpPluginAlreadyActive', '')) > -1
+					|| res.indexOf('<p>' + _.get(pixassist, 'themeConfig.pluginManager.l10n.tgmpActivatedSuccessfully', '')) > -1
+					|| res.indexOf('<p>' + _.get(pixassist, 'themeConfig.pluginManager.l10n.tgmpPluginActivated', '')) > -1
+					|| res.indexOf('<p>' + _.get(pixassist, 'themeConfig.pluginManager.l10n.tgmpPluginAlreadyActive', '')) > -1
 					|| res.indexOf(_.get(pixassist, 'themeConfig.pluginManager.l10n.tgmpNotAllowed', '')) > -1 ) {
 					$plugin.removeClass('box--plugin-invalidated').addClass('box--plugin-validated');
 					$text.text(Helpers.decodeHtml(_.get(pixassist, 'themeConfig.pluginManager.l10n.pluginReady', '')));

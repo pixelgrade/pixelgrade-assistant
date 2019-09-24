@@ -11,6 +11,9 @@
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
+// Make sure the Genericons is registered
+require_once( plugin_dir_path( __FILE__ ) . 'jetpack-fallbacks/genericons.php' );
+
 function pixassist_load_theme_dependent_functionality() {
 	// Handle the Open Table widget and shortcode theme support
 	if ( current_theme_supports( 'pixelgrade_opentable_widget' ) ) {
@@ -26,17 +29,27 @@ function pixassist_load_theme_dependent_functionality() {
 		);
 	}
 
-	// Handle the case when the current theme asks for the Jetpack Portfolio but Jetpack is not active
-	// If the plugin is active we will leave it up to the user to deactivate the CPT via the Jetpack settings
-	if ( current_theme_supports( 'jetpack-portfolio' ) && ! class_exists( 'Jetpack' ) && ! defined( 'JETPACK__VERSION' ) ) {
-		require_once( plugin_dir_path( __FILE__ ) . 'jetpack-fallbacks/custom-content-types.php' );
-		require_once( plugin_dir_path( __FILE__ ) . 'jetpack-fallbacks/portfolios.php' );
-	}
+	// During requests to activate plugins we don't want to load the fallbacks since it would result in fatal errors.
+	if ( empty( $_REQUEST['tgmpa-activate'] ) ) {
 
-	if ( current_theme_supports( 'pixelgrade_jetpack_portfolio_shortcode' ) ) {
-		// Fire up things
-		require_once( plugin_dir_path( __FILE__ ) . 'jetpack-fallbacks/portfolio-shortcode/class-jetpack-portfolio-shortcode.php' );
-		add_action( 'init', array( 'Pixelgrade_Jetpack_Portfolio_Shortcode', 'instance' ), 12 );
+		// Handle the case when the current theme asks for the Jetpack Portfolio but Jetpack is not active
+		// If the plugin is active we will leave it up to the user to deactivate the CPT via the Jetpack settings
+		if ( current_theme_supports( 'jetpack-portfolio' ) && ! class_exists( 'Jetpack' ) && ! defined( 'JETPACK__VERSION' ) ) {
+			require_once( plugin_dir_path( __FILE__ ) . 'jetpack-fallbacks/custom-content-types.php' );
+			require_once( plugin_dir_path( __FILE__ ) . 'jetpack-fallbacks/portfolios.php' );
+		}
+
+		// Load Social Menu functionality, even if Jetpack is not active/configured
+		if ( ! function_exists( 'jetpack_social_menu_init' ) || ! function_exists( 'jetpack_social_menu' ) ) {
+			// Start the process
+			require_once( plugin_dir_path( __FILE__ ) . 'jetpack-fallbacks/social-menu.php' );
+		}
+
+		if ( current_theme_supports( 'pixelgrade_jetpack_portfolio_shortcode' ) ) {
+			// Fire up things
+			require_once( plugin_dir_path( __FILE__ ) . 'jetpack-fallbacks/portfolio-shortcode/class-jetpack-portfolio-shortcode.php' );
+			add_action( 'init', array( 'Pixelgrade_Jetpack_Portfolio_Shortcode', 'instance' ), 12 );
+		}
 	}
 
 	// For now we will only add the admin bar helper link for subpages if the multipage component is present and active
