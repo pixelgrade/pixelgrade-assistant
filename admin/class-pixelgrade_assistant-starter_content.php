@@ -176,7 +176,12 @@ class PixelgradeAssistant_StarterContent {
 				$starter_content['media'][ $group ] = array();
 			}
 
-			// Remember the attachment ID
+			// If we have previously imported this attachment, delete the previous attachment.
+			if ( ! empty( $starter_content['media'][ $group ][ $remote_id ] ) ) {
+				wp_delete_attachment( absint( $starter_content['media'][ $group ][ $remote_id ] ), true );
+			}
+
+			// Remember the new attachment ID
 			$starter_content['media'][ $group ][ $remote_id ] = $attachment_id;
 
 			// Save the data in the DB
@@ -1206,12 +1211,13 @@ class PixelgradeAssistant_StarterContent {
 
 		if ( ! empty( $starter_content['media']['placeholders'] ) ) {
 			foreach ( $starter_content['media']['placeholders'] as $old_id => $new_id ) {
-				$imported_ids[ $old_id ] = array(
-					'id'    => $new_id,
-					'sizes' => array(
+				$sizes = $this->get_image_thumbnails_urls( $new_id );
+				if ( ! empty( $sizes ) ) {
+					$imported_ids[ $old_id ] = array(
+						'id'    => $new_id,
 						'sizes' => $this->get_image_thumbnails_urls( $new_id ),
-					)
-				);
+					);
+				}
 			}
 		}
 
@@ -1225,10 +1231,13 @@ class PixelgradeAssistant_StarterContent {
 
 		if ( ! empty( $starter_content['media']['ignored'] ) ) {
 			foreach ( $starter_content['media']['ignored'] as $old_id => $new_id ) {
-				$imported_ids[ $old_id ] = array(
-					'id'    => $new_id,
-					'sizes' => $this->get_image_thumbnails_urls( $new_id ),
-				);
+				$sizes = $this->get_image_thumbnails_urls( $new_id );
+				if ( ! empty( $sizes ) ) {
+					$imported_ids[ $old_id ] = array(
+						'id'    => $new_id,
+						'sizes' => $this->get_image_thumbnails_urls( $new_id ),
+					);
+				}
 			}
 		}
 

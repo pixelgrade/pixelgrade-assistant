@@ -277,22 +277,21 @@ class StarterContentContainer extends React.Component {
 	importMedia(data) {
 		var component = this;
 
-		// now placeholders, no fun
+		// no placeholders, no fun
 		if ( _.isEmpty(data.placeholders) ) {
 			return;
 		}
 
 		// maybe they are cached?
-		if ( component.hasPlaceholders() ) {
-			console.log('Media exists');
-			Helpers.pushNotification({
-				notice_id: 'sce-media-exists',
-				title: Helpers.decodeHtml(_.get(pixassist, 'themeConfig.starterContent.l10n.mediaAlreadyExistsTitle', '')),
-				content: Helpers.decodeHtml(_.get(pixassist, 'themeConfig.starterContent.l10n.mediaAlreadyExistsContent', '')),
-				type: 'info',
-			});
-			return;
-		}
+		// if ( component.hasPlaceholders() ) {
+		// 	Helpers.pushNotification({
+		// 		notice_id: 'sce-media-exists',
+		// 		title: Helpers.decodeHtml(_.get(pixassist, 'themeConfig.starterContent.l10n.mediaAlreadyExistsTitle', '')),
+		// 		content: Helpers.decodeHtml(_.get(pixassist, 'themeConfig.starterContent.l10n.mediaAlreadyExistsContent', '')),
+		// 		type: 'info',
+		// 	});
+		// 	return;
+		// }
 
 		{Object.keys(data).map(function (group_i) {
 			var group = data[group_i];

@@ -27759,7 +27759,7 @@
 	            Helpers.pushNotification({
 	              notice_id: 'no_licenses_found',
 	              title: Helpers.decodeHtml(pixassist.themeConfig.l10n.validationErrorTitle),
-	              content: error_message,
+	              content: Helpers.decodeHtml(error_message),
 	              type: 'warning'
 	            });
 	          }
@@ -27772,7 +27772,7 @@
 	          Helpers.pushNotification({
 	            notice_id: 'no_licenses_found',
 	            title: Helpers.decodeHtml(pixassist.themeConfig.l10n.validationErrorTitle),
-	            content: e.message,
+	            content: Helpers.decodeHtml(component.config.noThemeLicense),
 	            type: 'warning'
 	          });
 	        }
@@ -27784,7 +27784,7 @@
 	        Helpers.pushNotification({
 	          notice_id: 'no_licenses_found',
 	          title: Helpers.decodeHtml(pixassist.themeConfig.l10n.validationErrorTitle),
-	          content: e.message,
+	          content: Helpers.decodeHtml(component.config.noThemeLicense),
 	          type: 'warning'
 	        });
 	      }, function (response) {
@@ -29084,7 +29084,7 @@
 	        }).always(function (res) {
 	          $plugin.removeClass('box--plugin-activating'); // If we get the `Sorry, you are not allowed to access this page.` message it means that the plugin is already OK.
 
-	          if (res.indexOf('<div id="message" class="updated"><p>') > -1 || res.indexOf('<p>'._.get(pixassist, 'themeConfig.pluginManager.l10n.tgmpActivatedSuccessfully', '')) > -1 || res.indexOf('<p>'._.get(pixassist, 'themeConfig.pluginManager.l10n.tgmpPluginActivated', '')) > -1 || res.indexOf('<p>'._.get(pixassist, 'themeConfig.pluginManager.l10n.tgmpPluginAlreadyActive', '')) > -1 || res.indexOf(get_1(pixassist, 'themeConfig.pluginManager.l10n.tgmpNotAllowed', '')) > -1) {
+	          if (res.indexOf('<div id="message" class="updated"><p>') > -1 || res.indexOf('<p>' + get_1(pixassist, 'themeConfig.pluginManager.l10n.tgmpActivatedSuccessfully', '')) > -1 || res.indexOf('<p>' + get_1(pixassist, 'themeConfig.pluginManager.l10n.tgmpPluginActivated', '')) > -1 || res.indexOf('<p>' + get_1(pixassist, 'themeConfig.pluginManager.l10n.tgmpPluginAlreadyActive', '')) > -1 || res.indexOf(get_1(pixassist, 'themeConfig.pluginManager.l10n.tgmpNotAllowed', '')) > -1) {
 	            $plugin.removeClass('box--plugin-invalidated').addClass('box--plugin-validated');
 	            $text.text(Helpers.decodeHtml(get_1(pixassist, 'themeConfig.pluginManager.l10n.pluginReady', '')));
 	            component.markPluginAsActive($plugin.data('slug'));
@@ -30038,23 +30038,21 @@
 	  }, {
 	    key: "importMedia",
 	    value: function importMedia(data) {
-	      var component = this; // now placeholders, no fun
+	      var component = this; // no placeholders, no fun
 
 	      if (isEmpty_1(data.placeholders)) {
 	        return;
 	      } // maybe they are cached?
+	      // if ( component.hasPlaceholders() ) {
+	      // 	Helpers.pushNotification({
+	      // 		notice_id: 'sce-media-exists',
+	      // 		title: Helpers.decodeHtml(_.get(pixassist, 'themeConfig.starterContent.l10n.mediaAlreadyExistsTitle', '')),
+	      // 		content: Helpers.decodeHtml(_.get(pixassist, 'themeConfig.starterContent.l10n.mediaAlreadyExistsContent', '')),
+	      // 		type: 'info',
+	      // 	});
+	      // 	return;
+	      // }
 
-
-	      if (component.hasPlaceholders()) {
-	        console.log('Media exists');
-	        Helpers.pushNotification({
-	          notice_id: 'sce-media-exists',
-	          title: Helpers.decodeHtml(get_1(pixassist, 'themeConfig.starterContent.l10n.mediaAlreadyExistsTitle', '')),
-	          content: Helpers.decodeHtml(get_1(pixassist, 'themeConfig.starterContent.l10n.mediaAlreadyExistsContent', '')),
-	          type: 'info'
-	        });
-	        return;
-	      }
 
 	      {
 	        Object.keys(data).map(function (group_i) {
