@@ -2,7 +2,7 @@
 Contributors: pixelgrade, vlad.olaru
 Tags: dashboard, support, pixelgrade, starter-content, demo-data, documentation
 Requires at least: 4.9.9
-Tested up to: 5.2.2
+Tested up to: 5.2.3
 Requires PHP: 5.3.0
 Stable tag: 1.1.1
 License: GPLv3.0
@@ -96,6 +96,11 @@ No. We are not tracking you or your site. We ask your permission to share with u
 6. Site setup wizard
 
 == Changelog ==
+
+= 1.1.2 =
+* Fixed an issue with importing demo content images.
+* Fixed an issue with activating recommended plugins
+* Fixed some JS errors.
 
 = 1.1.1 =
 * Minor fix for better theme compatibility.
