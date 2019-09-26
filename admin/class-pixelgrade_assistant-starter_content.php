@@ -178,7 +178,10 @@ class PixelgradeAssistant_StarterContent {
 
 			// If we have previously imported this attachment, delete the previous attachment.
 			if ( ! empty( $starter_content['media'][ $group ][ $remote_id ] ) ) {
-				wp_delete_attachment( absint( $starter_content['media'][ $group ][ $remote_id ] ), true );
+				$previous_attachment_metadata = wp_get_attachment_metadata( $starter_content['media'][ $group ][ $remote_id ] );
+				if ( ! empty( $previous_attachment_metadata['imported_with_pixassist'] ) ) {
+					wp_delete_attachment( absint( $starter_content['media'][ $group ][ $remote_id ] ), true );
+				}
 			}
 
 			// Remember the new attachment ID
