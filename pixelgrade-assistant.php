@@ -3,7 +3,7 @@
  * Plugin Name:       Pixelgrade Assistant
  * Plugin URI:        https://github.com/pixelgrade/pixelgrade-assistant
  * Description:       We care about giving you the best experience with your free Pixelgrade theme.
- * Version:           1.1.1
+ * Version:           1.1.2
  * Author:            Pixelgrade
  * Author URI:        https://pixelgrade.com
  * License:           GPL-3.0
@@ -41,7 +41,7 @@ function PixelgradeAssistant() {
 	 */
 	require_once plugin_dir_path( __FILE__ ) . 'includes/class-pixelgrade_assistant.php';
 
-	$instance = PixelgradeAssistant::instance( __FILE__, '1.1.1' );
+	$instance = PixelgradeAssistant::instance( __FILE__, '1.1.2' );
 
 	return $instance;
 }
