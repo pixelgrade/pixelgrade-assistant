@@ -53,6 +53,11 @@ class PixelgradeAssistant {
 	public $plugin_data_collector = null;
 
 	/**
+	 * @var PixelgradeAssistant_Notifications
+	 */
+	public $plugin_notifications = null;
+
+	/**
 	 * The only instance.
 	 * @var     PixelgradeAssistant
 	 * @access  protected
@@ -200,6 +205,12 @@ class PixelgradeAssistant {
 		 */
 		require_once plugin_dir_path( $this->file ) . 'admin/class-pixelgrade_assistant-support.php';
 		$this->plugin_support = PixelgradeAssistant_Support::instance( $this );
+
+		/**
+		 * The class responsible for various admin notifications.
+		 */
+		require_once plugin_dir_path( $this->file ) . 'admin/class-pixelgrade_assistant-notifications.php';
+		$this->plugin_notifications = PixelgradeAssistant_Notifications::instance( $this );
 
 		/**
 		 * Various specific integrations that have custom logic.

@@ -39,9 +39,11 @@ stylesAdmin.description = 'Compiles admin css files';
 gulp.task( 'styles-admin', stylesAdmin );
 
 function stylesAdminRtl() {
-	return gulp.src( './admin/css/pixelgrade_assistant-admin.css' )
+	return gulp.src( ['./admin/css/pixelgrade_assistant-admin.css', './admin/css/notices.css'] )
 		.pipe( plugins.rtlcss() )
-		.pipe( plugins.rename( 'pixelgrade_assistant-admin-rtl.css' ) )
+		.pipe( plugins.rename( function (path) {
+			path.basename += "-rtl";
+		} ) )
 		.pipe( gulp.dest( dest_CSS.admin ) );
 }
 stylesAdminRtl.description = 'Generate admin pixelgrade_assistant-admin-rtl.css file based on admin pixelgrade_assistant-admin.css';
@@ -189,6 +191,12 @@ function compile_support(watch) {
 	return rebundle_support();
 }
 
+function copyOtherScripts() {
+	return gulp.src('./admin/src/admin-notices.js')
+		.pipe(gulp.dest('./admin/js'));
+}
+gulp.task('copy_other_scripts', function() { return copyOtherScripts(); });
+
 function watch_dashboard() {
 	return compile_dashboard(true);
 }
@@ -227,12 +235,12 @@ gulp.task( 'compile_production_support', scriptCompileProductionSupportSequence 
 
 // Compile all - no minify
 function scriptCompileSequence(cb) {
-	return gulp.parallel( 'compile_dashboard', 'compile_wizard', 'compile_support' )(cb);
+	return gulp.parallel( 'compile_dashboard', 'compile_wizard', 'compile_support', 'copy_other_scripts' )(cb);
 }
 gulp.task( 'compile', scriptCompileSequence );
 
 function scriptCompileProductionSequence(cb) {
-	gulp.series( 'apply-prod-environment', 'compile_scripts_rollup', 'compile_production_support' )(cb);
+	gulp.series( 'apply-prod-environment', 'compile_scripts_rollup', 'compile_production_support', 'copy_other_scripts' )(cb);
 }
 gulp.task( 'compile_production', scriptCompileProductionSequence );
 

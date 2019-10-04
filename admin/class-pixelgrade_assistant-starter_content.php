@@ -444,17 +444,6 @@ class PixelgradeAssistant_StarterContent {
 		}
 
 		foreach ( $response_data['data']['posts'] as $i => $post ) {
-			if ( $this->the_slug_exists( $post['post_name'], $post['post_type'] ) ) {
-				// If the we have already imported this post, keep the data
-				if ( isset( $starter_content['post_types'][ $args['post_type'] ][ $post['ID'] ] ) ) {
-					$imported_ids[ $post['ID'] ] = $starter_content['post_types'][ $args['post_type'] ][ $post['ID'] ];
-				} else {
-					// At least remember something about this post
-					$imported_ids[ $post['ID'] ] = $post['ID'];
-				}
-				continue;
-			}
-
 			$post_args = array(
 				'import_id'             => $post['ID'],
 				'post_title'            => wp_strip_all_tags( $post['post_title'] ),
@@ -473,6 +462,23 @@ class PixelgradeAssistant_StarterContent {
 					'imported_with_pixassist' => true
 				)
 			);
+
+			// Now decide what to do if the post slug already exists
+			if ( $existing_post_id = $this->the_slug_exists( $post['post_name'], $post['post_type'] ) ) {
+
+				if ( apply_filters( 'pixassist_sce_should_overwrite_existing_post', false, $existing_post_id, $post ) ) {
+					$post_args['ID'] = $existing_post_id;
+				} else {
+					if ( isset( $starter_content['post_types'][ $args['post_type'] ][ $post['ID'] ] ) ) {
+						// If the we have already imported this post, keep the data
+						$imported_ids[ $post['ID'] ] = $starter_content['post_types'][ $args['post_type'] ][ $post['ID'] ];
+					} else {
+						// At least remember something about this post
+						$imported_ids[ $post['ID'] ] = $post['ID'];
+					}
+					continue;
+				}
+			}
 
 			if ( ! empty( $post['meta'] ) ) {
 
@@ -530,6 +536,9 @@ class PixelgradeAssistant_StarterContent {
 					}
 				}
 			}
+
+			// Allow others to have a say in it.
+			$post_args = apply_filters( 'pixassist_sce_insert_post_args', $post_args, $post );
 
 			$post_id = wp_insert_post( $post_args );
 

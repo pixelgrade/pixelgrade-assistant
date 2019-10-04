@@ -2032,7 +2032,8 @@ input:-ms-input-placeholder {
 
 .accordion-list > li > a:not(.external-link).open-nav {
   background: #8E65C0;
-  color: white; }
+  color: white;
+  font-weight: bold; }
   .accordion-list > li > a:not(.external-link).open-nav:before {
     content: '\f343';
     color: white; }

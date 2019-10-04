@@ -30,7 +30,17 @@ function pixassist_load_theme_dependent_functionality() {
 	}
 
 	// During requests to activate plugins we don't want to load the fallbacks since it would result in fatal errors.
-	if ( empty( $_REQUEST['tgmpa-activate'] ) ) {
+	$should_load_jetpack_fallbacks = true;
+	if ( ! empty( $_REQUEST['tgmpa-activate'] ) ) {
+		$should_load_jetpack_fallbacks = false;
+	} else {
+		global $pagenow;
+		if ( 'plugins.php' === $pagenow && ( isset( $_REQUEST['action'] ) || isset( $_POST['action'] ) ) ) {
+			$should_load_jetpack_fallbacks = false;
+		}
+	}
+
+	if ( $should_load_jetpack_fallbacks ) {
 
 		// Handle the case when the current theme asks for the Jetpack Portfolio but Jetpack is not active
 		// If the plugin is active we will leave it up to the user to deactivate the CPT via the Jetpack settings

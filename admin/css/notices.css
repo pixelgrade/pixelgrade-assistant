@@ -1,0 +1,204 @@
+.pixassist-notice *, .pixassist-notice :before, .pixassist-notice :after {
+  box-sizing: border-box; }
+
+.pixassist-notice[class] {
+  display: block;
+  padding-top: 20px;
+  padding-bottom: 20px;
+  font-size: 14px;
+  line-height: 1.5; }
+  .pixassist-notice[class] p {
+    font: inherit;
+    padding: 0; }
+  .pixassist-notice[class] h2 {
+    font-size: 18px;
+    line-height: 1.32;
+    padding: 0;
+    margin-top: 0;
+    margin-bottom: 6px; }
+  @media screen and (max-width: 782px) {
+    .wp-core-ui .pixassist-notice[class] {
+      padding-right: 0; } }
+
+.pixassist-notice__screenshot {
+  width: 20%;
+  height: auto;
+  max-width: 160px;
+  display: inline-block;
+  vertical-align: top;
+  border: 1px solid #DFE8EF; }
+  @media only screen and (max-width: 1160px) {
+    .pixassist-notice__screenshot {
+      margin-bottom: 10px; } }
+  @media only screen and (max-width: 1024px) {
+    .pixassist-notice__screenshot {
+      display: none; } }
+
+.pixassist-notice .pixassist-notice__body {
+  max-width: 780px;
+  display: inline-block;
+  padding-left: 16px;
+  padding-right: 40px; }
+  @media only screen and (max-width: 1024px) {
+    .pixassist-notice .pixassist-notice__body {
+      max-width: 100%; } }
+
+.pixassist-notice.is-dismissible .pixassist-notice__body {
+  max-width: 740px;
+  padding-right: 0px; }
+
+.pixassist-notice-button {
+  position: relative;
+  overflow: hidden; }
+  .pixassist-notice-button.button:before {
+    margin: 0px 5px -1px -6px;
+    color: white; }
+  .pixassist-notice-button.button.updated-message:before {
+    content: "\f12a"; }
+  .pixassist-notice-button:active {
+    transform: perspective(1px) translateY(2px) translateZ(0);
+    transition-duration: .05s;
+    box-shadow: none; }
+  .pixassist-notice-button.state--error {
+    background-color: #E3004A;
+    border-color: #a00;
+    text-shadow: none; }
+    .pixassist-notice-button.state--error:hover {
+      background-color: #c10240; }
+  .pixassist-notice-button:disabled {
+    cursor: not-allowed; }
+  .pixassist-notice-button + .button {
+    margin-left: 5px; }
+
+.wp-core-ui .pixassist-notice-button, .wp-core-ui .pixassist-notice-button + .button {
+  line-height: 1.5;
+  text-align: center;
+  height: auto;
+  padding-top: 6px;
+  padding-bottom: 6px;
+  padding-left: 16px;
+  padding-right: 16px;
+  margin-top: 5px;
+  white-space: normal; }
+  @media screen and (max-width: 782px) {
+    .wp-core-ui .pixassist-notice-button, .wp-core-ui .pixassist-notice-button + .button {
+      width: 100%;
+      margin: 0;
+      margin-top: 10px; } }
+  .wp-core-ui .pixassist-notice-button.updating-message:before, .wp-core-ui .pixassist-notice-button + .button.updating-message:before {
+    color: #00a0d2; }
+
+.wp-core-ui .button-primary.state--plugin-installing {
+  cursor: wait !important;
+  color: #fff !important;
+  text-shadow: 0 -1px 1px #006799, 1px 0 1px #006799, 0 1px 1px #006799, -1px 0 1px #006799 !important; }
+
+.notice {
+  display: none; }
+
+.state--plugin-invalidated[class] {
+  -webkit-animation: shake 0.8s 0.1s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+          animation: shake 0.8s 0.1s cubic-bezier(0.36, 0.07, 0.19, 0.97) both; }
+
+@-webkit-keyframes shake {
+  10%, 90% {
+    transform: translate3d(-1px, 0, 0); }
+  20%, 80% {
+    transform: translate3d(2px, 0, 0); }
+  30%, 50%, 70% {
+    transform: translate3d(-4px, 0, 0); }
+  40%, 60% {
+    transform: translate3d(4px, 0, 0); } }
+
+@keyframes shake {
+  10%, 90% {
+    transform: translate3d(-1px, 0, 0); }
+  20%, 80% {
+    transform: translate3d(2px, 0, 0); }
+  30%, 50%, 70% {
+    transform: translate3d(-4px, 0, 0); }
+  40%, 60% {
+    transform: translate3d(4px, 0, 0); } }
+
+.pixassist-notice__body .step {
+  display: none; }
+  .pixassist-notice__body .step.initial-step {
+    display: initial; }
+
+.pixassist-notice__body .feedback-message {
+  width: 100%;
+  min-height: 100px; }
+
+.animated {
+  -webkit-animation-duration: 1s;
+          animation-duration: 1s;
+  -webkit-animation-fill-mode: both;
+          animation-fill-mode: both; }
+
+.animated.infinite {
+  -webkit-animation-iteration-count: infinite;
+          animation-iteration-count: infinite; }
+
+.animated.delay-1s {
+  -webkit-animation-delay: 1s;
+          animation-delay: 1s; }
+
+.animated.delay-2s {
+  -webkit-animation-delay: 2s;
+          animation-delay: 2s; }
+
+.animated.delay-3s {
+  -webkit-animation-delay: 3s;
+          animation-delay: 3s; }
+
+.animated.delay-4s {
+  -webkit-animation-delay: 4s;
+          animation-delay: 4s; }
+
+.animated.delay-5s {
+  -webkit-animation-delay: 5s;
+          animation-delay: 5s; }
+
+.animated.fast {
+  -webkit-animation-duration: 800ms;
+          animation-duration: 800ms; }
+
+.animated.faster {
+  -webkit-animation-duration: 500ms;
+          animation-duration: 500ms; }
+
+.animated.slow {
+  -webkit-animation-duration: 2s;
+          animation-duration: 2s; }
+
+.animated.slower {
+  -webkit-animation-duration: 3s;
+          animation-duration: 3s; }
+
+@media (print), (prefers-reduced-motion: reduce) {
+  .animated {
+    -webkit-animation-duration: 1ms !important;
+            animation-duration: 1ms !important;
+    transition-duration: 1ms !important;
+    -webkit-animation-iteration-count: 1 !important;
+            animation-iteration-count: 1 !important; } }
+
+@keyframes shake {
+  from,
+  to {
+    transform: translate3d(0, 0, 0); }
+  10%,
+  30%,
+  50%,
+  70%,
+  90% {
+    transform: translate3d(-10px, 0, 0); }
+  20%,
+  40%,
+  60%,
+  80% {
+    transform: translate3d(10px, 0, 0); } }
+
+.shake {
+  -webkit-animation-name: shake;
+          animation-name: shake; }
