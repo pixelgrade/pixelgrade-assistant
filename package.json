@@ -1,11 +1,11 @@
 {
   "name": "pixelgrade_assistant",
-  "version": "1.5.0",
+  "version": "1.1.4",
   "description": "Caring is the coolest thing",
   "main": "admin/js/dashboard.js",
   "repository": "git+https://github.com/pixelgrade/pixelgrade-assistant.git",
   "author": "Pixelgrade",
-  "license": "GPL-2.0+",
+  "license": "GPL-3.0",
   "keywords": [
     "Pixelgrade",
     "Dashboard"
