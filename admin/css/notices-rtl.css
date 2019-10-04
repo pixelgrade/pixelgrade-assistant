@@ -85,13 +85,13 @@
       width: 100%;
       margin: 0;
       margin-top: 10px; } }
-  .wp-core-ui .pixassist-notice-button.updating-message:before, .wp-core-ui .pixassist-notice-button + .button.updating-message:before {
-    color: #00a0d2; }
+  .wp-core-ui .pixassist-notice-button.updating-message, .wp-core-ui .pixassist-notice-button + .button.updating-message {
+    cursor: wait !important; }
+    .wp-core-ui .pixassist-notice-button.updating-message:before, .wp-core-ui .pixassist-notice-button + .button.updating-message:before {
+      color: #00a0d2; }
 
-.wp-core-ui .button-primary.state--plugin-installing {
-  cursor: wait !important;
-  color: #fff !important;
-  text-shadow: 0 -1px 1px #006799, -1px 0 1px #006799, 0 1px 1px #006799, 1px 0 1px #006799 !important; }
+.wp-core-ui .button-primary.updating-message:before {
+  color: #fff; }
 
 .notice {
   display: none; }

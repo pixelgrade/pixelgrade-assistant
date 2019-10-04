@@ -1,9 +1,6 @@
 (function ($) {
 	$(document).ready(function () {
-		var $noticesContainer = $( '.pixassist-notice' ),
-			$dismissButton = $noticesContainer.find( '.button.dismiss' ),
-			$buttonText = $noticesContainer.find( '.pixassist-notice-button__text' ),
-			$status = $noticesContainer.find( '.js-plugin-message' );
+		var $noticesContainer = $( '.pixassist-notice' );
 
 		var $ratingContainer = $( '.pixassist-notice.rating-notice' );
 		if ( $ratingContainer.length ) {

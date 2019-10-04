@@ -164,17 +164,20 @@ $pixassist-notice-mobile-spacing: 10px;
         margin-top: 10px;
       }
 
-      &.updating-message:before {
-        color: #00a0d2;
+      &.updating-message {
+        cursor: wait !important;
+
+        &:before {
+          color: #00a0d2;
+        }
       }
     }
   }
 
   .button-primary {
-    &.state--plugin-installing {
-      cursor: wait !important;
-      color: #fff !important;
-      text-shadow: 0 -1px 1px #006799, 1px 0 1px #006799, 0 1px 1px #006799, -1px 0 1px #006799 !important;
+
+    &.updating-message:before {
+      color: #fff;
     }
   }
 }

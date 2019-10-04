@@ -222,11 +222,11 @@ class PixelgradeAssistant_Notifications {
 					<div class="step no-step">
 						<h2><?php esc_html_e( 'Now you got us curious 🤔 Could you describe the areas that let you down?', '__plugin_txtd' ); ?></h2>
 						<p class="feedback-message-wrapper">
-							<textarea class="feedback-message js-pixassist-feedbackmsg-handle" required placeholder="<?php esc_html_e( 'Tell us about your experience with setting up the theme, customizating styles, creating posts and pages, playing with your pet, and anything in between.', '__plugin_txtd' ); ?>"></textarea>
+							<textarea class="feedback-message js-pixassist-feedbackmsg-handle" placeholder="<?php esc_html_e( 'Tell us about your experience with setting up the theme, customizating styles, creating posts and pages, playing with your pet, and anything in between.', '__plugin_txtd' ); ?>"></textarea>
 						</p>
-						<a class="pixassist-notice-button js-pixassist-submitfeedback-handle button button-primary" href="#">
-							<span class="pixassist-notice-button__text"><?php esc_html_e( 'Send my feedback', '__plugin_txtd' ); ?></span>
-						</a>
+						<button type="submit" class="pixassist-notice-button js-pixassist-submitfeedback-handle button button-primary">
+							<span class="screen-reader-text"><?php esc_html_e( 'Submit feedback message.', '__plugin_txtd' ); ?></span><?php esc_html_e( 'Send my feedback', '__plugin_txtd' ); ?>
+						</button>
 						<a class="pixassist-notice-button js-pixassist-notnow-handle button" href="#">
 							<span class="pixassist-notice-button__text"><?php esc_html_e( 'Not now', '__plugin_txtd' ); ?></span>
 						</a>
