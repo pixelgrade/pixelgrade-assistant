@@ -30042,7 +30042,8 @@
 
 	      if (isEmpty_1(data.placeholders)) {
 	        return;
-	      } // maybe they are cached?
+	      } // No cache for now. We will just overwrite the existing ones imported by us.
+	      // maybe they are cached?
 	      // if ( component.hasPlaceholders() ) {
 	      // 	Helpers.pushNotification({
 	      // 		notice_id: 'sce-media-exists',
@@ -30075,7 +30076,16 @@
 	                }).then(function (response) {
 	                  return response.json();
 	                }).then(function (attachment) {
-	                  if (attachment.code !== 'success') ; else {
+	                  if (attachment.code !== 'success') {
+	                    console.log('Failed to get media with id ' + attach_id + ' (error message: ' + attachment.message + '). Continuing...');
+	                    component.queue.next();
+	                  } else {
+	                    if (isEmpty_1(attachment.data.media.title) || isEmpty_1(attachment.data.media.ext) || isEmpty_1(attachment.data.media.mime_type)) {
+	                      console.log('Got back for media with id ' + attach_id + ' malformed data. Continuing...');
+	                      component.queue.next();
+	                      return;
+	                    }
+
 	                    Helpers.$ajax(pixassist.wpRest.endpoint.uploadMedia.url, pixassist.wpRest.endpoint.uploadMedia.method, {
 	                      title: attachment.data.media.title,
 	                      remote_id: attach_id,
@@ -30083,10 +30093,10 @@
 	                      ext: attachment.data.media.ext,
 	                      group: group_i
 	                    }, function (response) {
-	                      if ('success' === response.code) {
+	                      if (!isUndefined_1(response.code) && 'success' === response.code) {
 	                        component.imported.media[group_i][attach_id] = response.data.attachmentID;
 	                      } else {
-	                        console.log(response.data.error);
+	                        console.log(response);
 	                      }
 
 	                      component.queue.next();

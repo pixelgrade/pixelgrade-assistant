@@ -282,6 +282,8 @@ class StarterContentContainer extends React.Component {
 			return;
 		}
 
+		// No cache for now. We will just overwrite the existing ones imported by us.
+
 		// maybe they are cached?
 		// if ( component.hasPlaceholders() ) {
 		// 	Helpers.pushNotification({
@@ -314,8 +316,14 @@ class StarterContentContainer extends React.Component {
 						})
 						.then((attachment) => {
 							if ( attachment.code !== 'success' ) {
-								// @todo We should so something here
+								console.log('Failed to get media with id '+ attach_id + ' (error message: '+attachment.message+'). Continuing...');
+								component.queue.next();
 							} else {
+								if ( _.isEmpty( attachment.data.media.title ) || _.isEmpty( attachment.data.media.ext ) || _.isEmpty( attachment.data.media.mime_type ) ) {
+									console.log('Got back for media with id '+ attach_id + ' malformed data. Continuing...');
+									component.queue.next();
+									return;
+								}
 
 								Helpers.$ajax(
 									pixassist.wpRest.endpoint.uploadMedia.url,
@@ -328,10 +336,10 @@ class StarterContentContainer extends React.Component {
 										group: group_i
 									},
 									function (response) {
-										if ('success' === response.code) {
+										if ( !_.isUndefined( response.code ) && 'success' === response.code) {
 											component.imported.media[group_i][attach_id] = response.data.attachmentID;
 										} else {
-											console.log(response.data.error);
+											console.log(response);
 										}
 
 										component.queue.next();
