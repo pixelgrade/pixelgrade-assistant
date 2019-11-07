@@ -1758,6 +1758,8 @@ class PixelgradeAssistant_Admin {
 					'timber-lite' => 'JkElr',
 					'rosa' => 'vexXr',
 					'rosa-lite' => 'vexXr',
+					'rosa2' => 'JxLn7',
+					'rosa2-lite' => 'JxLn7',
 					'border' => 'M1a0M',
 					'border-lite' => 'M1a0M',
 					'mies' => 'MXBzv',
