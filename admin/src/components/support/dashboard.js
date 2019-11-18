@@ -1,6 +1,6 @@
 import React from 'react';
 import { ThemeProvider } from '@material-ui/styles';
-import muiTheme from '../mui-theme';
+import ourTheme from '../mui-theme';
 
 import SupportButton from './button';
 import SupportPage from './modal';
@@ -189,7 +189,7 @@ const SupportDashboard = connect(
 
 const SupportContainer = () => {
 	return (
-		<ThemeProvider theme={muiTheme} injectFirst>
+		<ThemeProvider theme={ourTheme} injectFirst>
 			<SupportDashboard />
 		</ThemeProvider>
 	);

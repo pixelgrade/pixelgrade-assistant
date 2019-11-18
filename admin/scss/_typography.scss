@@ -1,73 +1,73 @@
 @mixin content_links {
-    color: $dark;
-    text-decoration: none;
-    text-shadow:
-        0.05em 0 0 white, -0.05em 0 0 white,
-        0 0.05em 0 white, 0 -0.05em 0 white,
-        0.1em 0 0 white, -0.1em 0 0 white,
-        0 0.1em 0 white, 0 -0.1em 0 white;
-    background-image: linear-gradient(to right, rgba(0, 0, 0, 0.15) 0%, rgba(0, 0, 0, 0.15) 100%);
-    background-repeat: repeat-x;
-    background-position: bottom 0em center;
-    background-size: 2px 0.15em;
+  color: $dark;
+  text-decoration: none;
+  text-shadow: 0.05em 0 0 white, -0.05em 0 0 white,
+  0 0.05em 0 white, 0 -0.05em 0 white,
+  0.1em 0 0 white, -0.1em 0 0 white,
+  0 0.1em 0 white, 0 -0.1em 0 white;
+  background-image: linear-gradient(to right, rgba(0, 0, 0, 0.15) 0%, rgba(0, 0, 0, 0.15) 100%);
+  background-repeat: repeat-x;
+  background-position: bottom 0em center;
+  background-size: 2px 0.15em;
 
-    transition: all 0.15s ease;
+  transition: all 0.15s ease;
 
-    &:hover {
-        color: $accent--purple;
-        // background-image: linear-gradient(to right, rgba(0, 0, 0, 0.35) 0%, rgba(0, 0, 0, 0.35) 100%);
-    }
+  &:hover {
+    color: $accent--purple;
+    // background-image: linear-gradient(to right, rgba(0, 0, 0, 0.35) 0%, rgba(0, 0, 0, 0.35) 100%);
+  }
 }
 
-.entry-content {
-	h1, h2, h3, h4 {
-        //font-family: 'Galano Classic';
-        font-weight: bold;
-        margin-top: 0;
+.pixassist-support-modal-wrapper,
+.pixelgrade_assistant-wrapper {
+  .entry-content {
+    h1, h2, h3, h4 {
+      font-weight: bold;
+      margin-top: 0;
     }
 
     &.section {
-        h1, h2, h3, h4 {
-            margin-bottom: -14px; //bring it closer to the next <p>
-        }
+      h1, h2, h3, h4 {
+        margin-bottom: -14px; //bring it closer to the next <p>
+      }
     }
 
     h1 {
-        font-size: 36px;
-        font-weight: 700;
-        line-height: 1.5;
-        margin-top: 28px;
-        // margin-bottom: -14px;
+      font-size: 36px;
+      font-weight: 700;
+      line-height: 1.5;
+      margin-top: 28px;
+      // margin-bottom: -14px;
 
     }
 
     .entry-title h1 {
-        font-size: 28px;
-        line-height: 1.4;
-        margin-top: 0;
+      font-size: 28px;
+      line-height: 1.4;
+      margin-top: 0;
     }
 
     h2 {
-        font-size: 23px;
-        line-height: 1.33;
-        margin-top: 28px;
-        margin-bottom: 0;
-        // margin-bottom: 30px;
+      font-size: 23px;
+      line-height: 1.33;
+      margin-top: 28px;
+      margin-bottom: 0;
+      // margin-bottom: 30px;
     }
 
     h3 {
-        font-size: 20px;
-        line-height: 1.45;
-        margin-top: 28px;
-        // margin-bottom: 0;
+      font-size: 20px;
+      line-height: 1.45;
+      margin-top: 28px;
+      // margin-bottom: 0;
     }
 
     h4 {
-        font-size: 18px;
-        line-height: 1.5;
-        margin-top: 28px;
-        color: $darker;
-        // margin-bottom: 0;
+      font-size: 18px;
+      line-height: 1.5;
+      margin-top: 28px;
+      color: $darker;
+      // margin-bottom: 0;
     }
 
     /**
@@ -82,57 +82,58 @@
     line-height: inherit;
 
     p {
-    	margin-top: 20px;
-    	margin-bottom: 0;
-        // padding-top: calc(1rem - .5em);
-        // padding-bottom: calc(1rem - .5em);
-        // margin-bottom: calc(48px - 2rem);
-        font-size: inherit;
-        line-height: inherit;
+      margin-top: 20px;
+      margin-bottom: 0;
+      // padding-top: calc(1rem - .5em);
+      // padding-bottom: calc(1rem - .5em);
+      // margin-bottom: calc(48px - 2rem);
+      font-size: inherit;
+      line-height: inherit;
 
-        & + .btn {
-            // margin-top: 28px;
-        }
+      & + .btn {
+        // margin-top: 28px;
+      }
 
-        &.section__content + .btn {
-            // margin-top: 0;
-        }
+      &.section__content + .btn {
+        // margin-top: 0;
+      }
     }
 
     > div > p:first-child,
     > p:first-child {
-        margin-top: 0;
+      margin-top: 0;
     }
 
     dd, ol, ul {
-        margin-left: 36px;
-        margin-bottom: 36px;
+      margin-left: 36px;
+      margin-bottom: 36px;
 
-        li {
-            margin-bottom: 12px;
-            list-style: disc;
-        }
+      li {
+        margin-bottom: 12px;
+        list-style: disc;
+      }
     }
 
     a:not(.btn) {
-	    @include content_links;
-        color: $accent--purple;
+      @include content_links;
+      color: $accent--purple;
     }
 
-	code, kbd {
-		padding: 5px 8px;
-		background: #eaeaea;
-	}
+    code, kbd {
+      padding: 5px 8px;
+      background: #eaeaea;
+    }
 
-	pre {
-		overflow: auto;
-		padding: 15px 18px;
-		background: #eaeaea;
-	}
+    pre {
+      overflow: auto;
+      padding: 15px 18px;
+      background: #eaeaea;
+    }
 
-	pre code {
-		padding: 0;
-	}
+    pre code {
+      padding: 0;
+    }
+  }
 }
 
 .pixassist-support-modal-wrapper, .pixelgrade_assistant-wrapper {

@@ -1,25 +1,31 @@
-.header-toolbar {
+.pixassist-support-modal-wrapper,
+.pixelgrade_assistant-wrapper {
+  .header-toolbar {
     display: flex;
     justify-content: space-between;
     margin-bottom: 7px;
-}
+  }
 
-.header-toolbar__wing {
+  .header-toolbar__wing {
     display: flex;
     align-items: center;
-}
+  }
 
-.header-toolbar__wing--right {
+  .header-toolbar__wing--right {
     .btn {
-        opacity: 1;
+      opacity: 1;
+
+      &:hover {
+        transform: scale(1.05) translateY(-3px);
+      }
     }
 
     .btn:last-child {
-        padding-right: 0;
+      padding-right: 0;
     }
-}
+  }
 
-.theme__name {
+  .theme__name {
     margin: 0;
     //font-family: $font-headings;
     font-size: 36px;
@@ -32,31 +38,31 @@
     align-items: center;
 
     span {
-        margin-left: 8px;
-        padding: 4px 12px;
-        border-radius: 8px;
-        font-size: 14px;
-        font-weight: 300;
-        line-height: 1;
-        background-color: $accent--green;
-        color: white;
-        text-transform: capitalize;
+      margin-left: 8px;
+      padding: 4px 12px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 300;
+      line-height: 1;
+      background-color: $accent--green;
+      color: white;
+      text-transform: capitalize;
 
-        &.free {
+      &.free {
 
-        }
+      }
 
-        &.pro {
-            background-color: $accent--purple;
-        }
-        
-        &.woo {
-            background-color: #96588a;
-        }
+      &.pro {
+        background-color: $accent--purple;
+      }
+
+      &.woo {
+        background-color: #96588a;
+      }
     }
-}
+  }
 
-.theme__status {
+  .theme__status {
     margin-left: 21px;
     //font-family: $font-headings;
     font-size: 14px;
@@ -64,6 +70,26 @@
     color: $dark;
 
     &--ok:before {
+      content: "";
+
+      position: relative;
+      top: 2px;
+
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      margin-right: 5px;
+
+      background: url("../images/icon-checked.svg") center center no-repeat;
+      background-size: cover;
+    }
+  }
+
+  .theme__status {
+
+    &--ok,
+    &--not-ok {
+      &:before {
         content: "";
 
         position: relative;
@@ -74,36 +100,17 @@
         height: 14px;
         margin-right: 5px;
 
-        background: url("../images/icon-checked.svg") center center no-repeat;
+        background: center center no-repeat;
         background-size: cover;
-    }
-}
-
-.theme__status {
-
-    &--ok,
-    &--not-ok {
-        &:before {
-            content: "";
-
-            position: relative;
-            top: 2px;
-
-            display: inline-block;
-            width: 14px;
-            height: 14px;
-            margin-right: 5px;
-
-            background: center center no-repeat;
-            background-size: cover;
-        }
+      }
     }
 
     &--ok:before {
-        background-image: url("../images/icon-checked.svg");
+      background-image: url("../images/icon-checked.svg");
     }
 
     &--not-ok:before {
-        background-image: url("../images/icon-warning-yellow.svg");
+      background-image: url("../images/icon-warning-yellow.svg");
     }
+  }
 }

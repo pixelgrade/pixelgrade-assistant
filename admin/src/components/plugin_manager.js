@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom';
 import PropTypes from 'prop-types'
 import Helpers from '../helpers'
 import {connect} from 'react-redux';
+import Checkbox from '@material-ui/core/Checkbox';
 import _ from 'lodash';
 
 const mapStateToProps = (state) => {
@@ -54,15 +55,44 @@ class PluginManagerContainer extends React.Component {
 
 		this.state = {
 			plugins: pixassist.themeConfig.pluginManager.tgmpaPlugins,
-			enable_actions: true,
+			enableIndividualActions: true,
+			groupByRequired: false,
 			ready: false
 		};
 
 		// we need a callback queue system in order to execute the plugin actions in order.
 		this.queue = new Helpers.Queue;
 
-		if ( ! _.isUndefined( this.props.enable_actions ) ) {
-			this.state.enable_actions = this.props.enable_actions;
+		if ( ! _.isUndefined( this.props.enableIndividualActions ) ) {
+			this.state.enableIndividualActions = this.props.enableIndividualActions;
+		}
+
+		// Regardless if have individual actions, we treat plugins as a list to choose from (i.e. with checkboxes) and all need to be selected or not.
+		let pluginSlugs = Object.keys(this.state.plugins);
+		for( let idx=0; idx < pluginSlugs.length; idx++ ) {
+			// If we are in the dashboard, all are selected because they have individual controls.
+			if ( !(window.location.search.indexOf('setup-wizard') > -1) ) {
+				this.state.plugins[pluginSlugs[idx]].selected = true;
+				continue;
+			}
+
+			// Required plugins are always selected.
+			if ( this.state.plugins[pluginSlugs[idx]].required ) {
+				this.state.plugins[pluginSlugs[idx]].selected = true;
+			} else if ( typeof this.state.plugins[ pluginSlugs[idx] ].selected === "undefined" ) {
+				// Recommended plugins are not selected by default, unless they come with the selected state already.
+				this.state.plugins[pluginSlugs[idx]].selected = false;
+			}
+
+			// Regardless of selected initial state, we have a few cases when a plugin is selected no matter what. Like when it is active.
+			let status = this.getPluginStatus(this.state.plugins[pluginSlugs[idx]]);
+			if ( 'active' === status || 'outdated' === status ) {
+				this.state.plugins[pluginSlugs[idx]].selected = true;
+			}
+		}
+
+		if ( ! _.isUndefined( this.props.groupByRequired ) ) {
+			this.state.groupByRequired = this.props.groupByRequired;
 		}
 
 		this.getPluginStatus = this.getPluginStatus.bind(this);
@@ -73,32 +103,97 @@ class PluginManagerContainer extends React.Component {
 		this.eventUpdatePlugin = this.eventUpdatePlugin.bind(this);
 		this.createPseudoUpdateElement = this.createPseudoUpdateElement.bind(this);
 		this.markPluginAsActive = this.markPluginAsActive.bind(this);
+		this.updatePluginsList = this.updatePluginsList.bind(this);
+		this.handlePluginSelect = this.handlePluginSelect.bind(this);
 	}
 
 	render() {
-		let component = this;
+		let component = this,
+			sortedPluginSlugs = [];
 
-		return <div className="plugins">
+		if ( !_.isUndefined(this.state.plugins) && !_.isEmpty(this.state.plugins) ) {
+			sortedPluginSlugs = Object.keys(this.state.plugins);
+			// First, we want to sort plugins by their order, ascending.
+			sortedPluginSlugs.sort( function( a, b ) {
+				if ( _.isNil( component.state.plugins[a].order ) ) {
+					component.state.plugins[a].order = 10;
+				} else {
+					component.state.plugins[a].order = _.toNumber( component.state.plugins[a].order );
+				}
+				if ( _.isNil( component.state.plugins[b].order ) ) {
+					component.state.plugins[b].order = 10;
+				} else {
+					component.state.plugins[b].order = _.toNumber( component.state.plugins[b].order );
+				}
+
+				if ( component.state.plugins[a].order < component.state.plugins[b].order ) {
+					return -1;
+				}
+
+				if ( component.state.plugins[a].order > component.state.plugins[b].order ) {
+					return 1;
+				}
+
+				return 0;
+			} )
+
+			// Second, we want to sort plugins by their required status. First the required ones, and then the recommended ones.
+			sortedPluginSlugs.sort( function( a, b ) {
+				if ( component.state.plugins[a].required && !component.state.plugins[b].required ) {
+					return -1;
+				}
+
+				if ( !component.state.plugins[a].required && component.state.plugins[b].required ) {
+					return 1;
+				}
+
+				return 0;
+			} )
+		}
+
+		let containerClasses = "plugins";
+		if ( !component.state.enableIndividualActions ) {
+			containerClasses += "  no-individual-actions no-status-icons";
+		}
+
+		let currentRequiredGroup = false;
+
+		return <div className={containerClasses}>
 				{
-				!_.isUndefined(this.state.plugins) && !_.isEmpty(this.state.plugins) ?
-				Object.keys(this.state.plugins).map(function ( plugin_slug, j ) {
-					if ( 'pixelgrade-assistant' === plugin_slug ) {
-						// we should not reinstall or change the Pixelgrade Assistant plugin
+				!_.isEmpty(sortedPluginSlugs) ?
+					sortedPluginSlugs.map(function ( plugin_slug, j ) {
+					if ( 'pixelgrade-care' === plugin_slug ) {
+						// we should not reinstall or change the Pixelgrade Care plugin
 						return true;
 					}
 
 					let plugin = component.state.plugins[plugin_slug],
 						status = component.getPluginStatus(plugin),
-						boxClasses = "plugin  box";
-
-					let action = '';
+						boxClasses = "plugin  box",
+						action = '';
 
 					switch ( status ) {
 						case 'active' :
 							boxClasses += "  box--plugin-validated";
 							break;
 						case 'outdated' :
-							boxClasses += "  box--warning  box--plugin-invalidated";
+							// We will not mark plugins as invalid when they have an update available and individual actions are not enabled.
+							if ( !component.state.enableIndividualActions ) {
+								boxClasses += "  box--plugin-validated";
+								break;
+							}
+
+							if ( plugin.required ) {
+								boxClasses += "  box--plugin-invalidated";
+
+								if ( component.state.enableIndividualActions ) {
+									boxClasses += "  box--warning";
+								} else {
+									boxClasses += "  box--neutral";
+								}
+							} else {
+								boxClasses += "  box--neutral";
+							}
 
 							/** For each plugin we need a <tr> element to trick shiny the updates system **/
 							let action_available = component.createPseudoUpdateElement(plugin.slug);
@@ -108,14 +203,34 @@ class PluginManagerContainer extends React.Component {
 							);
 							break;
 						case 'inactive' :
-							boxClasses += "  box--warning  box--plugin-invalidated";
+							if ( plugin.required ) {
+								boxClasses += "  box--plugin-invalidated";
+
+								if ( component.state.enableIndividualActions ) {
+									boxClasses += "  box--warning";
+								} else {
+									boxClasses += "  box--neutral";
+								}
+							} else {
+								boxClasses += "  box--neutral";
+							}
 
 							action = (
 								<button onClick={component.eventActivatePlugin} className="btn  btn--action  btn--small">{Helpers.decodeHtml(_.get(pixassist, 'themeConfig.l10n.pluginActivateLabel', ''))}</button>
 							);
 							break;
 						case 'missing' :
-							boxClasses += "  box--neutral  box--plugin-missing  box--plugin-invalidated";
+							if ( plugin.required ) {
+								if ( component.state.enableIndividualActions ) {
+									boxClasses += "  box--warning";
+								} else {
+									boxClasses += "  box--neutral";
+								}
+
+								boxClasses += "  box--plugin-invalidated";
+							} else {
+								boxClasses += "  box--neutral";
+							}
 
 							action = (
 								<button onClick={component.eventInstallPlugin} className="btn  btn--action  btn--small">{Helpers.decodeHtml(_.get(pixassist, 'themeConfig.l10n.pluginInstallLabel', ''))}</button>
@@ -126,65 +241,167 @@ class PluginManagerContainer extends React.Component {
 					}
 
 					let data_activate_url = '',
-						data_install_url = '';
+						data_install_url = '',
+						data_source_type = 'repo', // By default we assume plugins are from the WordPress.org repo.
+						plugin_author = '';
 
-					if ( ! _.isUndefined( plugin.install_url ) ) {
+					if ( !_.isNil( plugin.install_url ) ) {
 						data_install_url = plugin.install_url.replace(/&amp;/g, '&');
 					}
 
-					if ( ! _.isUndefined( plugin.activate_url ) ) {
+					if ( !_.isNil( plugin.activate_url ) ) {
 						data_activate_url = plugin.activate_url.replace(/&amp;/g, '&');
 					}
 
+					if ( 'external' === _.get(plugin, 'source_type', false) ) {
+						data_source_type = 'external';
+					}
+
+					if ( !!plugin.author ) {
+						plugin_author = (
+							<span className="plugin-author"> by {plugin.author}</span>
+						);
+					}
+
+					let checkbox = '',
+						cta = '';
+					// If the individual actions are not enabled, then it means we treat the plugins as a list, so we need to add checkboxes to each.
+					if ( !component.state.enableIndividualActions ) {
+						let checkboxDisabled = false;
+
+						if ( plugin.required ) {
+							// If this is a required plugin, disable the checkbox.
+							checkboxDisabled = true;
+						} else if ( 'active' === status || 'outdated' === status ) {
+							// If this plugin is already active, or is outdated (still active), disable the checkbox as we will do nothing to it.
+							checkboxDisabled = true;
+						}
+
+						checkbox = (
+							<div className="box__checkbox">
+								<Checkbox
+									disabled={checkboxDisabled}
+									checked={plugin.selected}
+									onChange={component.handlePluginSelect(plugin_slug)}
+									value={plugin_slug}
+									color="primary"
+								/>
+							</div>
+						)
+					} else {
+						cta = (
+							<div className="box__cta">{action}</div>
+						)
+					}
+
+					let groupLabel = '';
+					if ( component.state.groupByRequired ) {
+						const pluginGroup = plugin.required ? 'required' : 'recommended';
+
+						// We start a new group and output the label.
+						if ( currentRequiredGroup !== pluginGroup ) {
+							currentRequiredGroup = pluginGroup;
+
+							groupLabel = (
+								<p className={"required-group__label  required-group--" + pluginGroup}>{Helpers.decodeHtml(_.get(pixassist, 'themeConfig.pluginManager.l10n.groupByRequiredLabels.' + currentRequiredGroup, ''))}</p>
+							)
+						}
+					}
+
 					return (
-						<div key={plugin_slug} className={boxClasses} data-status={status} data-slug={plugin.slug} data-real_slug={plugin.file_path}
-						     data-activate_url={data_activate_url} data-install_url={data_install_url} >
+						<React.Fragment key={plugin_slug}>
+							{groupLabel}
+							<div className={boxClasses}
+								 data-status={status}
+								 data-source_type={data_source_type}
+								 data-slug={plugin.slug}
+								 data-real_slug={plugin.file_path}
+								 data-activate_url={data_activate_url}
+								 data-install_url={data_install_url} >
+								{checkbox}
 							<div className="box__body">
-								<h5 className="box__title">{plugin.name}</h5>
+									<h5 className="box__title">{plugin.name}{plugin_author}</h5>
 								<p className="box__text" dangerouslySetInnerHTML={{__html: plugin.description }}></p>
 							</div>
-							<div className="box__cta">{ component.state.enable_actions ? action : null }</div>
+								{cta}
 						</div>
+						</React.Fragment>
 					)
-				}) : 'No plugins' }
+					})
+					:
+					<p>{Helpers.decodeHtml(_.get(pixassist, 'themeConfig.pluginManager.l10n.noPlugins', ''))}</p>
+				}
 			</div>
 	}
 
 	componentDidMount() {
+		let component = this;
+
 		let componentNode = ReactDOM.findDOMNode(this),
 			plugins = componentNode.getElementsByClassName('plugin');
 
 		if ( plugins.length > 0 ) {
+			// Listen for the event to start the action for each plugin.
 			for ( var i = 0; i < plugins.length; i++ ) {
-				plugins[i].addEventListener('handle_plugin', this.handlePluginTrigger);
+				plugins[i].addEventListener('handle_plugin', component.handlePluginTrigger);
 			}
 		}
+
+		// add an event listener for the localized pixassist data change
+		window.addEventListener('localizedChanged', component.updatePluginsList);
 	}
 
 	UNSAFE_componentWillMount(){
+		let component = this;
 
-		if ( this.props.onRender ) {
-			this.props.onRender(_.get(this.state, 'plugins', {}));
+		if ( component.props.onRender ) {
+			component.props.onRender(_.get(this.state, 'plugins', {}));
 		}
 
-		this.checkPluginsReady();
+		component.checkPluginsReady();
 	}
 
 	componentWillUnmount() {
+		let component = this;
+
 		// Make sure to remove the DOM listener when the component is unmounted
 		let componentNode = ReactDOM.findDOMNode(this),
 			plugins = componentNode.getElementsByClassName('plugin');
 
 		if ( _.size(plugins) ) {
 			for ( var i = 0; i < _.size(plugins); i++ ) {
-				plugins[i].removeEventListener('handle_plugin', this.handlePluginTrigger);
+				plugins[i].removeEventListener('handle_plugin', component.handlePluginTrigger);
 			}
 		}
 
+		window.removeEventListener( 'localizedChanged', component.updatePluginsList )
 	}
 
-	componentWillUpdate( nextProps, nextState, nextContext ) {
+	componentDidUpdate( nextProps, nextState, nextContext ) {
 		this.checkPluginsReady();
+	}
+
+	updatePluginsList(event) {
+		let component = this;
+
+		component.setState({plugins: pixassist.themeConfig.pluginManager.tgmpaPlugins});
+
+		component.checkPluginsReady();
+	}
+
+	handlePluginSelect = plugin_slug => event => {
+		let component = this,
+			plugins = component.state.plugins;
+
+		plugins[plugin_slug].selected = event.target.checked;
+
+		component.setState({plugins: plugins});
+
+		// We need to rerender the entire plugins components, so the step button will update.
+		if ( component.props.onRender && window.location.search.indexOf('setup-wizard') > -1 ) {
+			component.props.onRender(plugins);
+		}
+
 	}
 
 	checkPluginsReady() {
@@ -200,13 +417,13 @@ class PluginManagerContainer extends React.Component {
 			Object.keys(this.state.plugins).map(function ( i, j ) {
 				var plugin = component.state.plugins[i];
 
-				if ( !_.get(plugin,'is_active', false) || !_.get(plugin,'is_up_to_date', false)) {
+				if ( !_.get(plugin,'is_active', false) && plugin.selected ) {
 					plugins_ready = false;
 				}
 
 				// In case of failure we will mark the plugin as ready, but only in the setup wizard so the continue button becomes available.
 				if ( window.location.search.indexOf('setup-wizard') > -1 ) {
-					if (!!_.get(plugin, 'is_failed', false)) {
+					if (!!_.get(plugin, 'is_failed', false) && plugin.selected) {
 						plugins_ready = true;
 					}
 				}
@@ -222,6 +439,10 @@ class PluginManagerContainer extends React.Component {
 
 			this.props.onReady();
 		}
+
+		if ( plugins_ready === false && this.state.ready ) {
+			this.setState({ready: false});
+		}
 	}
 
 	/**
@@ -229,22 +450,29 @@ class PluginManagerContainer extends React.Component {
 	 * @returns {boolean}
 	 */
 	handlePluginTrigger(ev ) {
-		let plugin_el = ev.target,
+		let component = this,
+			plugin_el = ev.target,
 			$plugin = jQuery(ev.target),
-			status = $plugin.data('status'),
+			slug = $plugin.data('slug'),
+			status = component.getPluginStatus(component.state.plugins[slug]),
 			activate_url = $plugin.data('activate_url');
+
+		// Even if we don't show checkboxes (enableIndividualActions is true), plugins should still pe selected.
+		if ( !component.state.plugins[slug].selected ) {
+			return false;
+		}
 
 		if ( status === 'missing' ) {
 			this.installPlugin(plugin_el);
 			return false;
 		}
 
-		if ( status === 'outdated' ) {
+		if ( status === 'outdated' && !(window.location.search.indexOf('setup-wizard') > -1) ) {
 			this.updatePlugin(plugin_el, activate_url);
 			return false;
 		}
 
-		if ( status !== 'active' ) {
+		if ( !(status === 'active' || status === 'outdated' ) ) {
 			this.activatePlugin(plugin_el, activate_url);
 		} else {
 			this.markPluginAsActive($plugin.data('slug'));
@@ -259,12 +487,9 @@ class PluginManagerContainer extends React.Component {
 	installPlugin(plugin_el ) {
 		var component = this,
 			$plugin = jQuery(plugin_el),
-			activate_url = $plugin.data('activate_url'),
-			install_url = $plugin.data('install_url'),
-			temp = wp.ajax.settings.url,
 			$text = $plugin.find('.box__text');
 
-		$plugin.addClass('box--plugin-missing').removeClass('box--warning');
+		$plugin.addClass('box--plugin-invalidated box--plugin-missing').removeClass('box--warning box--neutral');
 
 		setTimeout( function() {
 			$text.text(Helpers.decodeHtml(_.get(pixassist, 'themeConfig.pluginManager.l10n.pluginInstallingMessage', '')));
@@ -277,20 +502,26 @@ class PluginManagerContainer extends React.Component {
 			wp.updates.installPlugin(
 				{
 					slug: $plugin.data('slug'),
+					pixassist_plugin_install: true, // We need a bulletproof way of detecting the AJAX request, server-side.
+					plugin_source_type: $plugin.data('source_type'),
+					force_tgmpa: 'load', // We need to put this flag so the TGMPA will be loaded - see PixelgradeCare_Admin::force_load_tgmpa()
+
 					success: function ( response ) {
 						$plugin.removeClass('box--plugin-installing');
 
 						$plugin.addClass('box--plugin-installed');
 						component.markPluginAsInstalled($plugin.data('slug'));
+						$plugin.data('status', 'inactive');
 
 						if ( response.activateUrl ) {
 							// The plugin needs to be activated
-							component.activatePlugin(plugin_el, activate_url);
+							component.activatePlugin(plugin_el, $plugin.data('activate_url'));
 						} else {
 							// The plugin is already active.
 							$plugin.removeClass('box--plugin-invalidated').addClass('box--plugin-validated');
 							$text.text(Helpers.decodeHtml(_.get(pixassist, 'themeConfig.pluginManager.l10n.pluginReady', '')));
 							component.markPluginAsActive($plugin.data('slug'));
+							$plugin.data('status', 'active');
 						}
 
 						self.next();
@@ -322,7 +553,7 @@ class PluginManagerContainer extends React.Component {
 			temp = wp.ajax.settings.url,
 			$text = $plugin.find('.box__text');
 
-		$plugin.addClass('box--plugin-installed').removeClass('box--warning');
+		$plugin.addClass('box--plugin-invalidated box--plugin-installed').removeClass('box--warning box--neutral');
 
 		setTimeout( function() {
 			$text.text(Helpers.decodeHtml(_.get(pixassist, 'themeConfig.pluginManager.l10n.pluginActivatingMessage', '')));
@@ -335,16 +566,23 @@ class PluginManagerContainer extends React.Component {
 			wp.ajax.send({
 				type: 'GET',
 				cache: false,
-			}).always(function (res) {
+			}).always(function (response) {
 				$plugin.removeClass('box--plugin-activating');
+
+				// Sometimes res can be an object.
+				if ( !_.isNil( response.responseText ) ) {
+					response = response.responseText;
+				}
+
 				// If we get the `Sorry, you are not allowed to access this page.` message it means that the plugin is already OK.
-				if ( res.indexOf('<div id="message" class="updated"><p>') > -1
-					|| res.indexOf('<p>' + _.get(pixassist, 'themeConfig.pluginManager.l10n.tgmpActivatedSuccessfully', '')) > -1
-					|| res.indexOf('<p>' + _.get(pixassist, 'themeConfig.pluginManager.l10n.tgmpPluginActivated', '')) > -1
-					|| res.indexOf('<p>' + _.get(pixassist, 'themeConfig.pluginManager.l10n.tgmpPluginAlreadyActive', '')) > -1
-					|| res.indexOf(_.get(pixassist, 'themeConfig.pluginManager.l10n.tgmpNotAllowed', '')) > -1 ) {
+				if ( response.indexOf('<div id="message" class="updated"><p>') > -1
+					|| response.indexOf('<p>' + _.get(pixassist, 'themeConfig.pluginManager.l10n.tgmpActivatedSuccessfully', '')) > -1
+					|| response.indexOf('<p>' + _.get(pixassist, 'themeConfig.pluginManager.l10n.tgmpPluginActivated', '')) > -1
+					|| response.indexOf('<p>' + _.get(pixassist, 'themeConfig.pluginManager.l10n.tgmpPluginAlreadyActive', '')) > -1
+					|| response.indexOf(_.get(pixassist, 'themeConfig.pluginManager.l10n.tgmpNotAllowed', '')) > -1 ) {
 					$plugin.removeClass('box--plugin-invalidated').addClass('box--plugin-validated');
 					$text.text(Helpers.decodeHtml(_.get(pixassist, 'themeConfig.pluginManager.l10n.pluginReady', '')));
+					$plugin.data('status', 'active');
 					component.markPluginAsActive($plugin.data('slug'));
 				} else {
 					$plugin.addClass('box--error');
@@ -368,7 +606,7 @@ class PluginManagerContainer extends React.Component {
 			realPluginSlug = $plugin.data('real_slug'),
 			$text = $plugin.find('.box__text');
 
-		$plugin.addClass('box--plugin-installed').removeClass('box--warning');
+		$plugin.addClass('box--plugin-invalidated box--plugin-installed').removeClass('box--warning box--neutral');
 
 		setTimeout( function() {
 			$text.text(Helpers.decodeHtml(_.get(pixassist, 'themeConfig.pluginManager.l10n.pluginUpdatingMessage', '')));
@@ -377,20 +615,23 @@ class PluginManagerContainer extends React.Component {
 
 		let cb = function () {
 			var self = this;
-			wp.updates.updatePlugin({
+
+			let args = {
 				slug: slug,
 				plugin: realPluginSlug,
 				abort_if_destination_exists: false,
-				success: function (res) {
+				pixassist_plugin_update: true, // We need a bulletproof way of detecting the AJAX request, server-side.
+				plugin_source_type: $plugin.data('source_type'),
+				force_tgmpa: 'load', // We need to put this flag so the TGMPA will be loaded - see PixelgradeCare_Admin::force_load_tgmpa()
+				success: function (response) {
 					$plugin.removeClass('box--plugin-updating');
-					if ( !_.isUndefined(res.activateUrl) && !_.isEmpty(res.activateUrl)) {
-						component.activatePlugin(plugin_el, res.activateUrl);
-					} else {
 						$plugin.removeClass('box--plugin-invalidated').addClass('box--plugin-validated');
-						$text.text(Helpers.decodeHtml(_.get(pixassist, 'themeConfig.pluginManager.l10n.pluginUpToDate', '')));
-					}
+					$text.text(Helpers.decodeHtml(_.get(pixassist, 'themeConfig.pluginManager.l10n.pluginUpToDate', '')));
 
 					component.markPluginAsUpdated($plugin.data('slug'));
+
+					// We will always attempt to activate since we don't know if it needs to, based on the response.
+					component.activatePlugin(plugin_el, $plugin.data('activate_url'));
 
 					self.next();
 				},
@@ -404,7 +645,11 @@ class PluginManagerContainer extends React.Component {
 
 					self.next();
 				}
-			});
+			};
+
+			jQuery(document).trigger( 'wp-plugin-updating', args );
+
+			wp.updates.ajax( 'update-plugin', args );
 		}
 
 		component.queue.add(cb);
@@ -566,7 +811,7 @@ class PluginManagerContainer extends React.Component {
 	}
 
 	getPluginStatus(plugin ) {
-		if ( !plugin.is_up_to_date ) {
+		if ( plugin.is_active && !plugin.is_up_to_date ) {
 			return 'outdated';
 		}
 

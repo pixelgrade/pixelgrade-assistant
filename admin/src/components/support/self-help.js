@@ -391,6 +391,11 @@ class SupportSelfHelpContainer extends React.Component {
 					}
 
 					case 'starter-content': {
+						// Do not display anything if there are no Starter Content sources.
+						if (!_.size(_.get(pixassist, 'themeConfig.starterContent.demos', []))) {
+							break;
+						}
+
 						let control = false;
 
 						if (!_.isUndefined(field.control)) {

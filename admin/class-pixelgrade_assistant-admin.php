@@ -276,6 +276,11 @@ class PixelgradeAssistant_Admin {
 
 		// If the remove config contains recommend plugins, register them with TGMPA
 		add_action( 'tgmpa_register', array( $this, 'register_required_plugins' ), 1000 );
+
+		// Prevent TGMPA admin notices since we manage plugins in the Pixelgrade Care dashboard.
+		add_filter( 'tgmpa_show_admin_notices', array( $this, 'prevent_tgmpa_notices' ), 10, 1 );
+
+		add_filter( 'plugins_api', array( $this, 'handle_external_required_plugins_ajax_install' ), 100, 3 );
 	}
 
     /**
@@ -307,13 +312,6 @@ class PixelgradeAssistant_Admin {
         if ( self::is_pixelgrade_assistant_dashboard() ) {
         	$rtl_suffix = is_rtl() ? '-rtl' : '';
         	wp_enqueue_style( $this->parent->get_plugin_name(), plugin_dir_url( $this->parent->file ) . 'admin/css/pixelgrade_assistant-admin' . $rtl_suffix . '.css', array( 'dashicons' ), $this->parent->get_version(), 'all' );
-
-        	// We don't want any notices cluttering the plugin dashboard page.
-	        $css = "
-	            .notice { display: none; }
-	        ";
-
-	        wp_add_inline_style( $this->parent->get_plugin_name(), $css );
         }
     }
 
@@ -429,6 +427,39 @@ class PixelgradeAssistant_Admin {
         if ( ! empty( $new_theme_version ) && ! empty( $theme_support['theme_version'] ) && version_compare( $theme_support['theme_version'], $new_theme_version, '<' ) ) {
             $show_bubble = true;
         }
+
+        // Show bubble if there are required plugins not activated.
+		/** @var TGM_Plugin_Activation $tgmpa */
+		global $tgmpa;
+		// Bail if we have nothing to work with
+		if ( ! empty( $tgmpa ) && ! empty( $tgmpa->plugins ) ) {
+			foreach ( $tgmpa->plugins as $slug => $plugin ) {
+				if ( $tgmpa->is_plugin_active( $slug ) && false === $tgmpa->does_plugin_have_update( $slug ) ) {
+					continue;
+				}
+
+				if ( ! $tgmpa->is_plugin_installed( $slug ) ) {
+					if ( true === $plugin['required'] ) {
+						$show_bubble = true;
+						break;
+					}
+				} else {
+					if ( ! $tgmpa->is_plugin_active( $slug ) && $tgmpa->can_plugin_activate( $slug ) ) {
+						if ( true === $plugin['required'] ) {
+							$show_bubble = true;
+							break;
+						}
+					}
+
+					if ( $tgmpa->does_plugin_require_update( $slug ) || false !== $tgmpa->does_plugin_have_update( $slug ) ) {
+						if ( true === $plugin['required'] ) {
+							$show_bubble = true;
+							break;
+						}
+					}
+				}
+			}
+		}
 
         // Allow others to force or prevent the bubble from showing
 		$show_bubble = apply_filters( 'pixassist_show_menu_notification_bubble', $show_bubble );
@@ -627,23 +658,60 @@ class PixelgradeAssistant_Admin {
             $tgmpa->plugins[ $slug ]['is_installed']  = false;
             $tgmpa->plugins[ $slug ]['is_active']     = false;
             $tgmpa->plugins[ $slug ]['is_up_to_date'] = true;
+            $tgmpa->plugins[ $slug ]['is_update_required'] = false;
             // We need to test for method existence because older versions of TGMPA don't have it.
             if ( method_exists( $tgmpa, 'is_plugin_installed' ) && $tgmpa->is_plugin_installed( $slug ) ) {
                 $tgmpa->plugins[ $slug ]['is_installed'] = true;
+	            if ( method_exists( $tgmpa, 'is_plugin_active' ) && $tgmpa->is_plugin_active( $slug ) ) {
+		            // One can't be active but not installed.
+		            $tgmpa->plugins[ $slug ]['is_installed'] = true;
+		            $tgmpa->plugins[ $slug ]['is_active'] = true;
+	            }
+
+                if ( method_exists( $tgmpa, 'does_plugin_have_update' ) && $tgmpa->does_plugin_have_update( $slug ) && current_user_can( 'update_plugins' ) ) {
+                    $tgmpa->plugins[ $slug ]['is_up_to_date'] = false;
+
+	                if ( method_exists( $tgmpa, 'does_plugin_require_update' ) && $tgmpa->does_plugin_require_update( $slug ) ) {
+		                $tgmpa->plugins[ $slug ]['is_update_required'] = true;
+	                }
+                }
+
+	            if ( file_exists( WP_PLUGIN_DIR . '/' . $plugin['file_path'] ) ) {
+		            $data                                      = get_plugin_data( WP_PLUGIN_DIR . '/' . $plugin['file_path'], false );
+		            $tgmpa->plugins[ $slug ]['description']    = $data['Description'];
+		            $tgmpa->plugins[ $slug ]['author']         = $data['Author'];
+		            $tgmpa->plugins[ $slug ]['active_version'] = $data['Version'];
+	            }
             }
-	        if ( method_exists( $tgmpa, 'is_plugin_active' ) && $tgmpa->is_plugin_active( $slug ) ) {
-	        	// Once can't be active but not installed.
-		        $tgmpa->plugins[ $slug ]['is_installed'] = true;
-		        $tgmpa->plugins[ $slug ]['is_active'] = true;
-	        }
-	        if ( method_exists( $tgmpa, 'does_plugin_have_update' ) && $tgmpa->does_plugin_have_update( $slug ) ) {
-		        $tgmpa->plugins[ $slug ]['is_up_to_date'] = false;
+
+            // We use this to order plugins.
+	        $tgmpa->plugins[ $slug ]['order'] = 10;
+	        if ( ! empty( $plugin['order'] ) ) {
+		        $tgmpa->plugins[ $slug ]['order'] = intval( $plugin['order'] );
 	        }
 
-	        if ( file_exists( WP_PLUGIN_DIR . '/' . $plugin['file_path'] ) ) {
-		        $data                                      = get_plugin_data( WP_PLUGIN_DIR . '/' . $plugin['file_path'], false );
-		        $tgmpa->plugins[ $slug ]['description']    = $data['Description'];
-		        $tgmpa->plugins[ $slug ]['active_version'] = $data['Version'];
+	        // If the plugin is already configured with details (maybe delivered remote), we will overwrite any existing one.
+	        if ( ! empty( $plugin['description'] ) ) {
+		        $tgmpa->plugins[ $slug ]['description'] = $plugin['description'];
+	        }
+
+	        if ( empty( $tgmpa->plugins[ $slug ]['description'] ) ) {
+		        $tgmpa->plugins[ $slug ]['description'] = '';
+	        }
+
+	        if ( ! empty( $plugin['author'] ) ) {
+		        $tgmpa->plugins[ $slug ]['author'] = $plugin['author'];
+	        }
+
+	        // Make sure that if we receive a selected attribute, it is a boolean.
+	        if ( isset( $tgmpa->plugins[ $slug ]['selected'] ) ) {
+		        $tgmpa->plugins[ $slug ]['selected'] = self::sanitize_bool( $tgmpa->plugins[ $slug ]['selected'] );
+	        }
+
+	        // Add the optional description link details
+	        if ( ! empty( $plugin['descriptionLink']['url'] ) ) {
+		        $label = esc_html__( 'Learn more', '__plugin_txtd' );
+		        $tgmpa->plugins[ $slug ]['description'] .= ' <a class="description-link" href="' . esc_url( $plugin['descriptionLink']['url'] ) . '" target="_blank">' . esc_html( $label ) . '</a>';
 	        }
 
             if ( current_user_can( 'activate_plugins' ) && is_plugin_inactive( $plugin['file_path'] ) && method_exists( $tgmpa, 'get_tgmpa_url' ) ) {
@@ -685,7 +753,7 @@ class PixelgradeAssistant_Admin {
             'title'   => esc_html__( 'Pixelgrade Assistant', '__plugin_txtd' ),
             'content' =>
                 '<h2>' . esc_html__( 'Pixelgrade Assistant Site Setup', '__plugin_txtd' ) . '</h2>' .
-                '<p><a href="' . esc_url( admin_url( 'index.php?page=pixelgrade_assistant-setup-wizard' ) ) . '" class="button button-primary">' . esc_html__( 'Setup Pixelgrade Assistant', '__plugin_txtd' ) . '</a></p>',
+                '<p><a href="' . esc_url( admin_url( 'admin.php?page=pixelgrade_assistant-setup-wizard' ) ) . '" class="button button-primary">' . esc_html__( 'Setup Pixelgrade Assistant', '__plugin_txtd' ) . '</a></p>',
         ) );
     }
 
@@ -1065,6 +1133,12 @@ class PixelgradeAssistant_Admin {
 				),
 				'sslverify' => false,
 			);
+
+			// Increase timeout if the target URL is a development one so we can account for slow local (development) installations.
+			if ( self::is_development_url( PixelgradeAssistant_Admin::$externalApiEndpoints['wupl']['licenses']['url'] ) ) {
+				$request_args['timeout'] = 10;
+			}
+
 			// Get the user's licenses from the server
 			$response = wp_remote_request( PixelgradeAssistant_Admin::$externalApiEndpoints['wupl']['licenses']['url'], $request_args );
 			if ( is_wp_error( $response ) ) {
@@ -1232,6 +1306,12 @@ class PixelgradeAssistant_Admin {
 				'body'      => $data,
 				'sslverify' => false,
 			);
+
+			// Increase timeout if the target URL is a development one so we can account for slow local (development) installations.
+			if ( self::is_development_url( PixelgradeAssistant_Admin::$externalApiEndpoints['wupl']['licenseAction']['url'] ) ) {
+				$request_args['timeout'] = 10;
+			}
+
 			// Activate the license
 			$response = wp_remote_request( PixelgradeAssistant_Admin::$externalApiEndpoints['wupl']['licenseAction']['url'], $request_args );
 			if ( is_wp_error( $response ) ) {
@@ -1360,6 +1440,13 @@ class PixelgradeAssistant_Admin {
                 ),
                 'sslverify' => false,
             );
+
+            // Increase timeout when using the PIXELGRADE_ASSISTANT__SKIP_CONFIG_CACHE constant so we can account for slow local (development) installations.
+	        // Also do this if the target URL is a development one.
+	        if ( ( defined( 'PIXELGRADE_ASSISTANT__SKIP_CONFIG_CACHE' ) && PIXELGRADE_ASSISTANT__SKIP_CONFIG_CACHE === true ) || self::is_development_url( PixelgradeAssistant_Admin::$externalApiEndpoints['pxm']['getConfig']['url'] ) ) {
+		        $request_args['timeout'] = 10;
+	        }
+
             $response = wp_remote_request( PixelgradeAssistant_Admin::$externalApiEndpoints['pxm']['getConfig']['url'], $request_args  );
             if ( is_wp_error( $response ) ) {
                 return false;
@@ -1417,6 +1504,71 @@ class PixelgradeAssistant_Admin {
 
         return pixassist_get_default_config( self::get_original_theme_slug() );
     }
+
+	public static function is_development_url( $url ) {
+		$stoppers = array(
+			'^10.0.',
+			'^127.0.',
+			'^localhost',
+			'^192.168.',
+			':8080$',
+			':8888$',
+			'.example$',
+			'.invalid$',
+			'.localhost',
+			'~',
+			'.myftpupload.com$',
+			'.myraidbox.de$',
+			'.cafe24.com$',
+			'.no-ip.org$',
+			'.pressdns.com$',
+			'.home.pl$',
+			'.xip.io$',
+			'.tw1.ru$',
+			'.pantheonsite.io$',
+			'.wpengine.com$',
+			'.accessdomain.com$',
+			'.atwebpages.com$',
+			'.testpagejack.com$',
+			'.hosting-test.net$',
+			'webhostbox.net',
+			'amazonaws.com',
+			'ovh.net$',
+			'.rhcloud.com$',
+			'tempurl.com$',
+			'x10host.com$',
+			'^www.test.',
+			'^test.',
+			'^dev.',
+			'^staging.',
+			'no.web.ip',
+			'^[^\.]*$',
+			//this removes urls not containing any dot in it like "stest" or "localhost"
+			'^[[:digit:]]+\.[[:digit:]]+\.[[:digit:]]+\.[[:digit:]]+',
+			//this removes urls starting with an IPv4
+			'^[[:alnum:]-]+\.dev',
+			//this removes any url with the .dev domain - i.e test.dev, pixelgrade.dev/test
+			'^[[:alnum:]-]+\.local',
+			//this removes any url with the .local domain - i.e test.local, pixelgrade.local/test
+			'^[[:alnum:]-]+\.test',
+			//this removes any url with the .local domain - i.e test.local, pixelgrade.local/test
+			'^[[:alnum:]-]+\.invalid',
+			//this removes any url with the .local domain - i.e test.local, pixelgrade.local/test
+			'^[[:alnum:]-]+\.localhost',
+			//this removes any url with the .local domain - i.e test.local, pixelgrade.local/test
+			'^[[:alnum:]-]+\.example',
+			//this removes any url with the .local domain - i.e test.local, pixelgrade.local/test
+		);
+
+		foreach ( $stoppers as $regex ) {
+			if ( preg_match( '#' . $regex . '#i', $url ) ) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
 
 	/**
 	 * Merge two arrays recursively first by key
@@ -1945,7 +2097,7 @@ class PixelgradeAssistant_Admin {
 				// We need to make sure that the plugins are not previously registered.
 				// The remote config has precedence.
 				if ( ! empty( $value['slug'] ) && ! empty( $tgmpa->plugins[ $value['slug'] ] ) ) {
-					unset( $tgmpa->plugins[ $value['slug'] ] );
+					$tgmpa->deregister( $value['slug'] );
 				}
 
 				if ( empty( $value['slug'] ) || ! self::isApplicableToCurrentThemeType( $value ) ) {
@@ -1976,8 +2128,66 @@ class PixelgradeAssistant_Admin {
 		return false;
 	}
 
+	public function prevent_tgmpa_notices( $show ) {
+		// Current screen is not always available, most notably on the customizer screen.
+		if ( ! function_exists( 'get_current_screen' ) ) {
+			return $show;
+		}
+
+		$screen = get_current_screen();
+
+		// We will allow the notifications in the Plugins page.
+		if ( 'plugins' === $screen->base ) { // WPCS: CSRF ok.
+			// Plugins bulk update screen.
+			return $show;
+		}
+
+		return false;
+	}
+
+	/**
+	 * Since the core AJAX function wp_ajax_install_plugin(), that handles the AJAX installing of plugins,
+	 * only knows to install plugins from the WordPress.org repo, we need to handle the external plugins installation.
+	 * Like from WUpdates.
+	 *
+	 * @param $res
+	 * @param $action
+	 * @param $args
+	 *
+	 * @return mixed
+	 */
+	public function handle_external_required_plugins_ajax_install( $res, $action, $args ) {
+		// This is a key we only put from the Pixelgrade Care JS. So we know that the current request is one of ours.
+		if ( empty( $_POST['pixassist_plugin_install'] ) ) {
+			return $res;
+		}
+
+		// Do nothing if this is not an external plugin.
+		if ( empty( $_POST['plugin_source_type'] ) || 'external' !== $_POST['plugin_source_type'] ) {
+			return $res;
+		}
+
+		// Get the TGMPA instance
+		$tgmpa = call_user_func( array( get_class( $GLOBALS['tgmpa'] ), 'get_instance' ) );
+		// If the slug doesn't correspond to a TGMPA registered plugin or it has no source URL, bail.
+		if ( empty( $tgmpa->plugins[ $_POST['slug'] ] ) || empty( $tgmpa->plugins[ $_POST['slug'] ]['source'] ) ) {
+			return $res;
+		}
+
+		// Manufacture a minimal response.
+		$res = array(
+			'slug' => $_POST['slug'],
+			'name' => ! empty( $tgmpa->plugins[ $_POST['slug'] ]['name'] ) ? $tgmpa->plugins[ $_POST['slug'] ]['name'] : $_POST['slug'],
+			'version' => '0.0.1', // We don't really know the plugin version.
+			'download_link' => $tgmpa->plugins[ $_POST['slug'] ]['source'],
+		);
+
+		// The response must be an object.
+		return (object) $res;
+	}
+
     /**
-     * Main PixelgradeAssistantAdmin Instance
+     * Main PixelgradeCareAdmin Instance
      *
      * Ensures only one instance of PixelgradeAssistantAdmin is loaded or can be loaded.
      *

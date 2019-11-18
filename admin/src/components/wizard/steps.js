@@ -78,15 +78,15 @@ class StepsContainer extends Component {
 		this.onState = this.onState.bind(this);
 		this.defaultNextButtonCallback = this.defaultNextButtonCallback.bind(this);
 		this.defaultSkipButtonCallback = this.defaultSkipButtonCallback.bind(this);
+		this.startPluginsInstall = this.startPluginsInstall.bind(this);
 
 		this.onPluginsReady = this.onPluginsReady.bind(this);
-
 		this.onPluginsInstalling = this.onPluginsInstalling.bind(this);
 		this.onPluginsRender = this.onPluginsRender.bind(this);
 
-		this.onStarterContentReady = this.onStarterContentReady.bind(this);
 		this.onStarterImporting = this.onStarterImporting.bind(this);
 		this.startContentImport = this.startContentImport.bind(this);
+		this.onStarterContentReady = this.onStarterContentReady.bind(this);
 		this.onStarterContentRender = this.onStarterContentRender.bind(this);
 
 		this.state = this.initialState = {
@@ -122,6 +122,13 @@ class StepsContainer extends Component {
 		let component = this,
 			{loading, step_index} = this.state;
 
+		// Remove the Starter Content step if we have no sources.
+		if ( !_.size(_.get(pixassist, 'themeConfig.starterContent.demos', [])) ) {
+			pixassist.themeConfig.setupWizard = _.filter( pixassist.themeConfig.setupWizard, function (value, key ) {
+				return key !== 'support'; // I know... this key is just what the doctor ordered :(
+			} );
+		}
+
 		let step_key = Object.keys(pixassist.themeConfig.setupWizard)[step_index],
 			step_config = pixassist.themeConfig.setupWizard[step_key],
 			blocks = step_config.blocks,
@@ -146,6 +153,12 @@ class StepsContainer extends Component {
 						{ Object.keys(pixassist.themeConfig.setupWizard).map(function (key, int_key) {
 							// Bail if this is not applicable to the current theme type.
 							if ( !component.isApplicableToCurrentThemeType(pixassist.themeConfig.setupWizard[key])){
+								return;
+							}
+
+							// For some steps there are extra cases when we should bail
+							// Do not display anything if there are no Starter Content sources.
+							if (key === 'support' && !_.size(_.get(pixassist, 'themeConfig.starterContent.demos', []))) {
 								return;
 							}
 
@@ -185,7 +198,13 @@ class StepsContainer extends Component {
 										return;
 									}
 
-									// Handle the the case when the block has a notconnected behaviour, meaning that Pixelgrade Assistant is not connected (not logged in).
+									// For some steps there are extra cases when we should bail
+									// Do not display anything if there are no Starter Content sources.
+									if (block_key === 'support' && !_.size(_.get(pixassist, 'themeConfig.starterContent.demos', []))) {
+										return;
+									}
+
+									// Handle the the case when the block has a notconnected behaviour, meaning that Pixelgrade Care is not connected (not logged in).
 									if ( !_.isUndefined( block.notconnected ) ) {
 										if ( !_.get(component.props, 'session.is_logged', false) ) {
 											switch (block.notconnected) {
@@ -310,7 +329,7 @@ class StepsContainer extends Component {
 															value = field.value_installing;
 														}
 
-														if (component.props.session.are_plugins_installed) {
+														if (component.props.session.are_plugins_installed && component.props.session.did_plugins_install) {
 															value = field.value_installed;
 														}
 													}
@@ -355,7 +374,7 @@ class StepsContainer extends Component {
 															value = field.value_installing;
 														}
 
-														if (component.props.session.are_plugins_installed) {
+														if (component.props.session.are_plugins_installed && component.props.session.did_plugins_install) {
 															value = field.value_installed;
 														}
 													}
@@ -449,12 +468,18 @@ class StepsContainer extends Component {
 																onRender={component.onPluginsRender}
 																onMove={component.onPluginsInstalling}
 																defaultNextButtonCallback={component.defaultNextButtonCallback}
-																enable_actions={false}
+																enableIndividualActions={false}
+																groupByRequired={true}
 															/>
 															break
 														}
 
 														case 'starter-content': {
+															// Do not display anything if there are no Starter Content sources.
+															if (!_.size(_.get(pixassist, 'themeConfig.starterContent.demos', []))) {
+																break;
+															}
+
 															field_output = <StarterContent
 																key={'field-' + field_key}
 																name={field_key}
@@ -608,6 +633,10 @@ class StepsContainer extends Component {
 			plugins = component.getElementsByClassName('plugin'),
 			event = null;
 
+		if ( !!this.state.nextButtonDisable ) {
+			return;
+		}
+
 		if (window.CustomEvent) {
 			event = new CustomEvent( 'handle_plugin', { detail: {action: 'activate'} } );
 		} else {
@@ -649,11 +678,13 @@ class StepsContainer extends Component {
 		Object.keys(plugins).map(function ( i, j ) {
 			var plugin = plugins[i];
 
-			if (!_.get(plugin,'is_installed', false)) {
+			if (!_.get(plugin,'is_installed', false) && plugin.selected) {
 				mustInstallPlugins = true;
-			} else if (!_.get(plugin,'is_active', false)) {
+			} else if (!_.get(plugin,'is_active', false) && plugin.selected ) {
 				mustActivatePlugins = true;
-			} else if (!_.get(plugin,'is_up_to_date', false)) {
+			}
+
+			if (_.get(plugin,'is_update_required', false) && plugin.selected) {
 				mustUpdatePlugins = true;
 			}
 		});

@@ -1,6 +1,6 @@
 import React from 'react';
 import { ThemeProvider } from '@material-ui/styles';
-import muiTheme from '../mui-theme';
+import ourTheme from '../mui-theme';
 
 import DashboardHeader from './header';
 import DashboardTabs from './tabs';
@@ -54,6 +54,7 @@ class DashboardContainer extends React.Component {
 		this.addNotices = this.addNotices.bind(this);
 
 		this.disconnectUser = this.disconnectUser.bind(this);
+		this.updateHeaderData = this.updateHeaderData.bind(this);
 	}
 
 	componentDidMount() {
@@ -61,18 +62,27 @@ class DashboardContainer extends React.Component {
 
 		// Add an event listener that will get triggered when the theme is updated.
 		// When the theme is updated - change the header details (status & message).
-		window.addEventListener('updatedTheme', function(e) {
-			let newHeaderData = {
-				status: 'ok',
-				msg: Helpers.decodeHtml(pixassist.themeConfig.l10n.themeValidationNoticeOk)
-			};
+		window.addEventListener('updatedTheme', component.updateHeaderData);
 
-			component.setState({
-				headerData: newHeaderData
-			});
-		});
+		// add an event listener for the localized pixassist data change
+		window.addEventListener('localizedChanged', component.updateHeaderData);
 
 		component.addNotices();
+	}
+
+	componentWillUnmount() {
+		let component = this;
+
+		window.removeEventListener( 'updatedTheme', component.updateHeaderData );
+		window.removeEventListener( 'localizedChanged', component.updateHeaderData );
+	}
+
+	updateHeaderData(e) {
+		let component = this;
+
+		component.setState({
+			headerData: component.getHeaderData(),
+		});
 	}
 
 	render() {
@@ -269,7 +279,7 @@ const Dashboard = connect(
 
 
 const DashboardPageContainer = () => {
-	return <ThemeProvider theme={muiTheme}>
+	return <ThemeProvider theme={ourTheme}>
 			{ ( _.isUndefined( pixassist ) || _.isUndefined( pixassist.themeSupports ) || pixassist.themeSupports === null )
 				? null
 				: <Dashboard /> }

@@ -30,6 +30,7 @@ function pixassist_get_default_config( $original_theme_slug ){
 		'themeNameChangedTitle'         => esc_html__( 'Your theme NAME is changed!', '__plugin_txtd' ),
 		'themeNameChanged'              => sprintf( esc_html__( 'The next time you update your theme this name will be changed back to "%s"', '__plugin_txtd' ), $original_theme_slug ),
 		'childThemeNameChanged'         => sprintf( esc_html__( 'On your next update, your parent theme name will be changed back to its original one: "%1$s". To avoid issues with your child theme, you will need to update the style.css file of both your parent and child theme with the original name: "%1$s".', '__plugin_txtd' ), $original_theme_slug ),
+		'forceDisconnected'             => esc_html__( 'Unfortunately, we\'ve lost your connection with pixelgrade.com. Just reconnect and all will be back to normal.', '__plugin_txtd' ),
 		'connectionLostTitle'         => esc_html__( 'Your connection is out of sight!', '__plugin_txtd' ),
 		'connectionLost'             => esc_html__( 'Unfortunately, we\'ve lost your connection with {{shopdomain}}. Just reconnect and all will be back to normal.', '__plugin_txtd' ),
 		'connectButtonLabel'         => esc_html__( 'Connect to {{shopdomain}}', '__plugin_txtd' ),
@@ -44,8 +45,8 @@ function pixassist_get_default_config( $original_theme_slug ){
 		'pluginInstallLabel' => esc_html__( 'Install', '__plugin_txtd' ),
 		'pluginActivateLabel' => esc_html__( 'Activate', '__plugin_txtd' ),
 		'pluginUpdateLabel' => esc_html__( 'Update', '__plugin_txtd' ),
-		'pluginsPlural' => esc_html__( 'Plugins', '__plugin_txtd' ),
-		'starterContentLoadLabel' => esc_html__( 'Load Starter Content', '__plugin_txtd' ),
+		'pluginsPlural' => esc_html__( 'selected plugins', '__plugin_txtd' ),
+		'starterContentLoadLabel' => esc_html__( 'Load starter content', '__plugin_txtd' ),
 		'setupWizardWelcomeTitle' => esc_html__( 'Welcome to the site setup wizard', '__plugin_txtd' ),
 		'setupWizardWelcomeContent' => esc_html__( 'Go through this quick setup wizard to make sure you install all the recommended plugins and pre-load the site with helpful demo content. It\'s safe and fast.', '__plugin_txtd' ),
 		'setupWizardStartButonLabel' => esc_html__( 'Let\'s Get Started!', '__plugin_txtd' ),
@@ -53,8 +54,8 @@ function pixassist_get_default_config( $original_theme_slug ){
 		'authenticatorDashboardConnectContent' => wp_kses_post( __( 'Securely connect to {{shopdomain}}, create <strong>a free account</strong>, and make sure you don\'t miss any of the following perks.
 					<ul class="benefits">
 						<li><i></i><span><strong>Hand-picked plugins</strong> to boost your website.</span></li>
-						<li><i></i><span><strong>Starter Content</strong> to make your website look like the demo.</span></li>
-						<li><i></i><span><strong>Premium Support</strong> to guide you through everything you need.</span></li>
+						<li><i></i><span><strong>Starter content</strong> to make your website look like the demo.</span></li>
+						<li><i></i><span><strong>Premium support</strong> to guide you through everything you need.</span></li>
                     </ul>', '__plugin_txtd' ) ),
 		'authenticatorDashboardConnectLoadingContent' => esc_html__( 'Take a break while you securely authorize Pixelgrade Assistant to connect to {{shopdomain}}. It\'s going to happen in a newly open browser window or tab, just so you know.', '__plugin_txtd' ),
 		'authenticatorDashboardConnectedSuccessTitle' => esc_html__( 'Yaaay, site connected! 👏', '__plugin_txtd' ),
@@ -91,16 +92,16 @@ function pixassist_get_default_config( $original_theme_slug ){
 					'fields' => array(
 						'title'             => array(
 							'type'  => 'h2',
-							'value' => esc_html__( 'Install the recommended plugins', '__plugin_txtd' ),
-							'value_installing' => esc_html__( 'Installing Plugins..', '__plugin_txtd' ),
-							'value_installed' => '<span class="c-icon  c-icon--large  c-icon--success-auth"></span> ' . esc_html__( 'Plugins Installed!', '__plugin_txtd' ) . ' 🤩',
+							'value' => esc_html__( 'Set up the right plugins', '__plugin_txtd' ),
+							'value_installing' => esc_html__( 'Setting up plugins..', '__plugin_txtd' ),
+							'value_installed' => '<span class="c-icon  c-icon--large  c-icon--success-auth"></span> ' . esc_html__( 'All done with plugins!', '__plugin_txtd' ) . ' 🤩',
 							'class' => 'section__title'
 						),
 						'head_content'   => array(
 							'type'             => 'text',
 							'value'            => esc_html__( 'Install and activate the plugins that provide recommended functionality for your site. You can add or remove plugins later on from within the WordPress dashboard.', '__plugin_txtd' ),
 							'value_installing' => wp_kses_post( __( 'Why not take a peek at our <a href="https://twitter.com/pixelgrade" target="_blank">Twitter page</a> while you wait? (opens in a new tab and the plugins aren\'t going anywhere)', '__plugin_txtd' ) ),
-							'value_installed'  => esc_html__( 'You made it! 🙌 You\'ve correctly installed and activated the plugins. You are good to jump to the next step.', '__plugin_txtd' ),
+							'value_installed'  => esc_html__( 'You made it! 🙌 You\'ve installed and activated the plugins. You are good to jump to the next step.', '__plugin_txtd' ),
 						),
 						'plugins_component' => array(
 							'title' => esc_html__( 'Install Plugins', '__plugin_txtd' ),
@@ -113,7 +114,7 @@ function pixassist_get_default_config( $original_theme_slug ){
 		),
 
 		'support'   =>  array(
-			'stepName'  =>  esc_html__( 'Starter Content', '__plugin_txtd' ),
+			'stepName'  =>  esc_html__( 'Starter content', '__plugin_txtd' ),
 			'nextText'  =>  esc_html__( 'Next Step', '__plugin_txtd' ),
 			'blocks'    =>  array(
 				'support'   =>  array(
@@ -121,14 +122,14 @@ function pixassist_get_default_config( $original_theme_slug ){
 					'fields' => array(
 						'title'          => array(
 							'type'  => 'h2',
-							'value' => esc_html__( 'Load Starter Content', '__plugin_txtd' ),
-							'value_installing' => esc_html__( 'Loading Starter Content..', '__plugin_txtd' ),
-							'value_installed' => '<span class="c-icon  c-icon--large  c-icon--success-auth"></span> ' . esc_html__( 'Starter Content Loaded!', '__plugin_txtd' ),
+							'value' => esc_html__( 'Load starter content', '__plugin_txtd' ),
+							'value_installing' => esc_html__( 'Loading starter content..', '__plugin_txtd' ),
+							'value_installed' => '<span class="c-icon  c-icon--large  c-icon--success-auth"></span> ' . esc_html__( 'Starter content loaded!', '__plugin_txtd' ),
 							'class' => 'section__title',
 						),
 						'head_content'   => array(
 							'type'             => 'text',
-							'value'            => esc_html__( 'Use the starter content to make your site look as eye-candy as the theme\'s demo. The importer helps you have a strong starting point for your content and speed up the entire process.', '__plugin_txtd' ),
+							'value'            => esc_html__( 'Use the demo content to make your site look as eye-candy as the theme\'s demo. The importer helps you have a strong starting point for your content and speed up the entire process.', '__plugin_txtd' ),
 							'value_installing' => wp_kses_post( __( 'Why not join our <a href="https://www.facebook.com/groups/PixelGradeUsersGroup/" target="_blank">Facebook Group</a> while you wait? (opens in a new tab)', '__plugin_txtd' ) ),
 							'value_installed'  => esc_html__( 'Mission accomplished! 👍 You\'ve successfully imported the starter content, so you\'re good to move forward. Have fun!', '__plugin_txtd' ),
 						),
@@ -172,7 +173,7 @@ function pixassist_get_default_config( $original_theme_slug ){
 						),
 						'cta'   => array(
 							'type'  => 'button',
-							'class' => 'btn--large',
+							'class' => 'btn btn--large',
 							'label' => esc_html__( 'View and Customize', '__plugin_txtd' ),
 							'url'   => '{{customizer_url}}?return=' . urlencode( admin_url( 'admin.php?page=pixelgrade_assistant' ) )
 						),
@@ -240,14 +241,14 @@ function pixassist_get_default_config( $original_theme_slug ){
                     'fields' => array(
 	                    'title'          => array(
 		                    'type'  => 'h2',
-		                    'value' => esc_html__( 'Starter Content', '__plugin_txtd' ),
-		                    'value_installing' => esc_html__( 'Starter Content Installing..', '__plugin_txtd' ),
-		                    'value_installed' => '<span class="c-icon  c-icon--large  c-icon--success-auth"></span> ' . esc_html__( 'Starter Content Installed!', '__plugin_txtd' ),
+		                    'value' => esc_html__( 'Starter content', '__plugin_txtd' ),
+		                    'value_installing' => esc_html__( 'Starter content importing..', '__plugin_txtd' ),
+		                    'value_installed' => '<span class="c-icon  c-icon--large  c-icon--success-auth"></span> ' . esc_html__( 'Starter content imported!', '__plugin_txtd' ),
 		                    'class' => 'section__title',
 	                    ),
 	                    'head_content'   => array(
 		                    'type'             => 'text',
-		                    'value'            => esc_html__( 'Use the starter content to make your site look as eye-candy as the theme\'s demo. The importer helps you have a strong starting point for your content and speed up the entire process.', '__plugin_txtd' ),
+		                    'value'            => esc_html__( 'Use the demo content to make your site look as eye-candy as the theme\'s demo. The importer helps you have a strong starting point for your content and speed up the entire process.', '__plugin_txtd' ),
 		                    'value_installing' => wp_kses_post( __( 'Why not join our <a href="https://www.facebook.com/groups/PixelGradeUsersGroup/" target="_blank">Facebook Group</a> while you wait? (opens in a new tab)', '__plugin_txtd' ) ),
 		                    'value_installed'  => esc_html__( 'Mission accomplished! 👍 You\'ve successfully imported the starter content, so you\'re good to move forward. Have fun!', '__plugin_txtd' ),
 	                    ),
@@ -279,7 +280,7 @@ function pixassist_get_default_config( $original_theme_slug ){
 						),
 						'cta'     => array(
 							'type'  => 'button',
-							'class' => 'btn--action  btn--green',
+							'class' => 'btn btn--action  btn--green',
 							'label' => esc_html__( 'Access the Customizer', '__plugin_txtd' ),
 							'url'   => '{{customizer_url}}',
 							'target' => '', // we don't want the default _blank target
@@ -316,7 +317,7 @@ function pixassist_get_default_config( $original_theme_slug ){
 						'cta'     => array(
 							'type'  => 'button',
 							'label' => esc_html__( 'Changing Colors', '__plugin_txtd' ),
-							'class' => 'btn--action btn--small  btn--blue',
+							'class' => 'btn btn--action btn--small  btn--blue',
 							'url'   => trailingslashit( PIXELGRADE_ASSISTANT__SHOP_BASE ) . 'docs/design-and-style/style-changes/changing-colors/'
 						),
 					),
@@ -337,7 +338,7 @@ function pixassist_get_default_config( $original_theme_slug ){
 						'cta'     => array(
 							'type'  => 'button',
 							'label' => esc_html__( 'Changing Fonts', '__plugin_txtd' ),
-							'class' => 'btn--action btn--small  btn--blue',
+							'class' => 'btn btn--action btn--small  btn--blue',
 							'url'   => trailingslashit( PIXELGRADE_ASSISTANT__SHOP_BASE ) . 'docs/design-and-style/style-changes/changing-fonts/'
 						),
 					),
@@ -358,7 +359,7 @@ function pixassist_get_default_config( $original_theme_slug ){
 						'cta'     => array(
 							'type'  => 'button',
 							'label' => esc_html__( 'Using the Custom CSS Editor', '__plugin_txtd' ),
-							'class' => 'btn--action btn--small  btn--blue',
+							'class' => 'btn btn--action btn--small  btn--blue',
 							'url'   => trailingslashit( PIXELGRADE_ASSISTANT__SHOP_BASE ) . 'docs/design-and-style/custom-code/using-custom-css-editor'
 						),
 					),
@@ -379,7 +380,7 @@ function pixassist_get_default_config( $original_theme_slug ){
 						'cta'     => array(
 							'type'  => 'button',
 							'label' => esc_html__( 'Using a Child Theme', '__plugin_txtd' ),
-							'class' => 'btn--action btn--small  btn--blue',
+							'class' => 'btn btn--action btn--small  btn--blue',
 							'url'   => trailingslashit( PIXELGRADE_ASSISTANT__SHOP_BASE ) . 'docs/getting-started/using-child-theme'
 						),
 					),
@@ -410,8 +411,6 @@ function pixassist_get_default_config( $original_theme_slug ){
 				),
 			),
 		),
-
-
 	);
 
 	$config['systemStatus'] = array(
@@ -457,19 +456,24 @@ function pixassist_get_default_config( $original_theme_slug ){
 			'tgmpPluginActivated' => esc_html__( 'Plugin activated successfully.', '__plugin_txtd' ),
 			'tgmpPluginAlreadyActive' => esc_html__( 'No action taken. Plugin was already active.', '__plugin_txtd' ),
 			'tgmpNotAllowed' => esc_html__( 'Sorry, you are not allowed to access this page.', '__plugin_txtd' ),
+			'groupByRequiredLabels' => array(
+				'required' => esc_html__( 'Core plugins needed for your website (required).', '__plugin_txtd' ),
+				'recommended' => esc_html__( 'Recommended plugins to enhance your website (optional).', '__plugin_txtd' ),
+			),
+			'noPlugins' => esc_html__( 'No plugins needed at this time.', '__plugin_txtd' ),
 		),
 	);
 
 	$config['starterContent'] = array(
 		'l10n' => array(
-			'importTitle' => esc_html__( '{{theme_name}} Demo Content', '__plugin_txtd' ),
+			'importTitle' => esc_html__( '{{theme_name}} demo content', '__plugin_txtd' ),
 			'importContentDescription' => esc_html__( 'Import the content from the theme demo.', '__plugin_txtd' ),
 			'noSources' => esc_html__( 'Unfortunately, we don\'t have any starter content sources right now.', '__plugin_txtd' ),
-			'alreadyImportedConfirm' => esc_html__( 'The Starter Content was already imported! Are you sure you want to import it again?', '__plugin_txtd' ),
+			'alreadyImportedConfirm' => esc_html__( 'Starter content was already imported! Are you sure you want to import it again?', '__plugin_txtd' ),
 			'alreadyImportedDenied' => esc_html__( 'It\'s OK!', '__plugin_txtd' ),
 			'importingData' => esc_html__( 'Getting data ...', '__plugin_txtd' ),
 			'somethingWrong' => esc_html__( 'Something went wrong!', '__plugin_txtd' ),
-			'errorMessage' => esc_html__( "Starter Content is not available right now!\nPlease try again later!", '__plugin_txtd' ),
+			'errorMessage' => esc_html__( "Starter content is not available right now!\nPlease try again later!", '__plugin_txtd' ),
 			'mediaAlreadyExistsTitle' => esc_html__( 'Media already exists!', '__plugin_txtd' ),
 			'mediaAlreadyExistsContent' => esc_html__( 'We won\'t import again as there is no need to!', '__plugin_txtd' ),
 			'mediaImporting' => esc_html__( 'Importing media: ', '__plugin_txtd' ),
@@ -566,7 +570,7 @@ function pixassist_get_default_config( $original_theme_slug ){
 						'changeTopic'       => array(
 							'type'  => 'button',
 							'label' => esc_html__( 'Change Topic', '__plugin_txtd' ),
-							'class' => 'btn__dark',
+							'class' => 'btn btn__dark',
 							'url'   => '#'
 						),
 						'descriptionHeader' => array(
@@ -633,12 +637,12 @@ function pixassist_get_default_config( $original_theme_slug ){
 						'submitTicket'    => array(
 							'type'  => 'button',
 							'label' => esc_html__( 'Submit ticket', '__plugin_txtd' ),
-							'class' => 'btn__dark'
+							'class' => 'btn btn__dark'
 						),
 						'cancelSubmitTicket'    => array(
 							'type'  => 'button',
 							'label' => esc_html__( 'Cancel', '__plugin_txtd' ),
-							'class' => 'btn__dark'
+							'class' => 'btn btn__dark'
 						),
 					),
 				),
@@ -708,14 +712,15 @@ function pixassist_get_default_config( $original_theme_slug ){
 	// the recommended plugins config is based on the component status which can be: not_validated, loading, validated
 	$config['recommendedPlugins'] = array(
 		// general strings
-		'title'               => esc_html__( 'Recommended plugins', '__plugin_txtd' ),
+		'title'               => esc_html__( 'Manage plugins', '__plugin_txtd' ),
 		'content'               => esc_html__( '{{theme_name}} recommends these plugins so you can take full advantage of everything that it offers.', '__plugin_txtd' ),
 		// validated string
-		'validatedTitle'      => '<span class="c-icon c-icon--success"></span> ' . esc_html__( 'Recommended plugins ready 🧘️', '__plugin_txtd' ),
-		'validatedContent'    => wp_kses_post( __( 'You can rest assured that {{theme_name}} can do it\'s best for you and your site.', '__plugin_txtd' ) ),
+		'validatedTitle'      => '<span class="c-icon c-icon--success"></span> ' . esc_html__( 'Plugins ready 🧘️', '__plugin_txtd' ),
+		'validatedContent'    => wp_kses_post( __( 'You can rest assured that {{theme_name}} can do its best for you and your site.', '__plugin_txtd' ) ),
 	);
 
 	$update_core = get_site_transient( 'update_core' );
+
 	if ( ! empty( $update_core->updates ) && ! empty( $update_core->updates[0] ) ) {
 		$new_update                                     = $update_core->updates[0];
 		$config['systemStatus']['wpRecommendedVersion'] = $new_update->current;

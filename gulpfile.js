@@ -7,6 +7,7 @@ var plugin = 'pixelgrade-assistant',
 	fs = require('fs'),
 	del = require('del'),
 	cp = require('child_process'),
+	cleanCSS = require('gulp-clean-css'),
 	commandExistsSync = require('command-exists').sync;
 
 var u = plugins.util,
@@ -33,6 +34,8 @@ function stylesAdmin() {
 	return gulp.src( source_SCSS.admin )
 		.pipe( plugins.sass( {'sourcemap': false, style: 'compact'} ).on( 'error', logError ) )
 		.pipe( plugins.autoprefixer() )
+		.pipe(plugins.replace(/^@charset \"UTF-8\";\n/gm, ''))
+		.pipe(cleanCSS())
 		.pipe( gulp.dest( dest_CSS.admin ) );
 }
 stylesAdmin.description = 'Compiles admin css files';
@@ -41,6 +44,8 @@ gulp.task( 'styles-admin', stylesAdmin );
 function stylesAdminRtl() {
 	return gulp.src( ['./admin/css/pixelgrade_assistant-admin.css', './admin/css/notices.css'] )
 		.pipe( plugins.rtlcss() )
+		.pipe(plugins.replace(/^@charset \"UTF-8\";\n/gm, ''))
+		.pipe(cleanCSS())
 		.pipe( plugins.rename( function (path) {
 			path.basename += "-rtl";
 		} ) )
@@ -53,6 +58,8 @@ function stylesClub() {
 	return gulp.src( './admin/scss/club/*.scss' )
 		.pipe( plugins.sass( {'sourcemap': false, style: 'compact'} ).on( 'error', logError ) )
 		.pipe( plugins.autoprefixer() )
+		.pipe(plugins.replace(/^@charset \"UTF-8\";\n/gm, ''))
+		.pipe(cleanCSS())
 		.pipe( gulp.dest( './admin/css/club' ) );
 }
 stylesClub.description = 'Compiles club related css files';
@@ -115,7 +122,8 @@ function compileScriptsRollup(watch) {
 					],
 					browser: true,
 					namedExports: {
-						'react-is': ['ForwardRef','isForwardRef','isValidElementType','isContextConsumer'],
+						'node_modules/react-is/index.js': ['ForwardRef','isForwardRef','isValidElementType','isContextConsumer'],
+						'node_modules/react-redux/node_modules/react-is/index.js': ['ForwardRef','isForwardRef','isValidElementType','isContextConsumer'],
 						'react': ['isValidElement','Children','cloneElement','Component','useLayoutEffect',
 							'useEffect','useMemo','useContext','useReducer','useRef'],
 						'react-dom': ['findDOMNode','unstable_batchedUpdates'],
@@ -235,7 +243,7 @@ gulp.task( 'compile_production_support', scriptCompileProductionSupportSequence 
 
 // Compile all - no minify
 function scriptCompileSequence(cb) {
-	return gulp.parallel( 'compile_dashboard', 'compile_wizard', 'compile_support', 'copy_other_scripts' )(cb);
+	return gulp.parallel( 'compile_scripts_rollup', 'compile_production_support', 'copy_other_scripts' )(cb);
 }
 gulp.task( 'compile', scriptCompileSequence );
 

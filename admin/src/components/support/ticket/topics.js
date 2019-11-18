@@ -93,7 +93,7 @@ class SupportTopicsContainer extends React.Component {
 		let response = [];
 		let component = this;
 
-		// Create the topics lists. They are defined in Pixcare Manager.
+		// Create the topics lists. They are defined in Pixassist Manager.
 		if (_.get(pixassist, 'themeConfig.knowledgeBase.openTicket', false)) {
 			let topics = _.get(pixassist, 'themeConfig.knowledgeBase.openTicket.blocks.topics.fields.topics.fields', {});
 			Object.keys(topics).map(function(key, index){

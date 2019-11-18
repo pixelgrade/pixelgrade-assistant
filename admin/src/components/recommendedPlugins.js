@@ -47,7 +47,8 @@ class RecommendedPluginsContainer extends React.Component {
 
 				<PluginManager
 					onReady={component.props.onPluginsReady}
-					enable_actions={true}
+					enableIndividualActions={true}
+					groupByRequired={true}
 				/>
 			</div>
 		);

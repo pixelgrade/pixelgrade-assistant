@@ -57,7 +57,7 @@ class PixelgradeAssistant_SetupWizard {
 	}
 
 	public function add_admin_menu() {
-		add_submenu_page( null, '', '', 'manage_options', 'pixelgrade_assistant-setup-wizard', null );
+		add_submenu_page( 'pixelgrade_assistant', '', '', 'manage_options', 'pixelgrade_assistant-setup-wizard', null );
 	}
 
 	public function setup_wizard() {

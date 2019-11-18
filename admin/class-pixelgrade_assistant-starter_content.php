@@ -422,6 +422,11 @@ class PixelgradeAssistant_StarterContent {
 			'sslverify' => false,
 		);
 
+		// Increase timeout if the target URL is a development one so we can account for slow local (development) installations.
+		if ( PixelgradeAssistant_Admin::is_development_url( $request_url ) ) {
+			$request_args['timeout'] = 10;
+		}
+
 		// We will do a blocking request
 		$response = wp_remote_request( $request_url, $request_args );
 		if ( is_wp_error( $response ) ) {
@@ -643,6 +648,11 @@ class PixelgradeAssistant_StarterContent {
 			'body'      => $request_data,
 			'sslverify' => false,
 		);
+
+		// Increase timeout if the target URL is a development one so we can account for slow local (development) installations.
+		if ( PixelgradeAssistant_Admin::is_development_url( $request_url ) ) {
+			$request_args['timeout'] = 10;
+		}
 
 		// We will do a blocking request
 		$response = wp_remote_request( $request_url, $request_args );
@@ -891,6 +901,11 @@ class PixelgradeAssistant_StarterContent {
 			'body'      => $request_data,
 			'sslverify' => false,
 		);
+
+		// Increase timeout if the target URL is a development one so we can account for slow local (development) installations.
+		if ( PixelgradeAssistant_Admin::is_development_url( $request_url ) ) {
+			$request_args['timeout'] = 10;
+		}
 
 		// We will do a blocking request
 		$response = wp_remote_request( $request_url, $request_args );
@@ -1327,8 +1342,10 @@ class PixelgradeAssistant_StarterContent {
 
 	private function the_slug_exists( $post_name, $post_type ) {
 		global $wpdb;
-		if ( $wpdb->get_row( "SELECT post_name FROM $wpdb->posts WHERE post_name = '" . $post_name . "' AND post_type = '" . $post_type . "'", 'ARRAY_A' ) ) {
-			return true;
+
+		$post_id = $wpdb->get_var( "SELECT ID FROM $wpdb->posts WHERE post_name = '" . $post_name . "' AND post_type = '" . $post_type . "' LIMIT 1" );
+		if ( ! empty( $post_id ) ) {
+			return $post_id;
 		} else {
 			return false;
 		}

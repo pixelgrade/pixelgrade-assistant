@@ -64,7 +64,7 @@ class DashboardHeaderContainer extends React.Component {
 			<div className="header-toolbar__wing  header-toolbar__wing--right">
 				<a className="btn  btn--text" href={this.props.myAccountLink} target="_blank">{this.props.myAccountLabel}</a>
 				{ ( !_.isUndefined( this.props.ctaOnClick ) )
-					? <div><a className="btn  btn--text" onClick={this.props.ctaOnClick}>{this.props.ctaLabel}</a></div>
+					? <a className="btn  btn--text" onClick={this.props.ctaOnClick}>{this.props.ctaLabel}</a>
 					:'' }
 
 			</div>

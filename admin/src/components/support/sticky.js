@@ -66,6 +66,11 @@ class StickyContainer extends React.Component {
 		super(props);
 		this.state = {};
 
+		// If we have been instructed to disable ticket submission, we will do so.
+		if ( !!_.get(pixassist.themeConfig, 'knowledgeBase.openTicket.disableTicketSubmission', false) ) {
+			this.state.disabled_submit = true;
+		}
+
 		this.handleSuccessfulHelp = this.handleSuccessfulHelp.bind(this);
 		this.handleUnsuccessfulHelp = this.handleUnsuccessfulHelp.bind(this);
 		this.handleSubmitTicket = this.handleSubmitTicket.bind(this);

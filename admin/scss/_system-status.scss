@@ -59,13 +59,13 @@
     opacity: 0.12;
   }
   .MuiSwitch-colorPrimary.Mui-checked {
-    color: #8E65C0;
+    color: $accent--purple;
   }
   .MuiSwitch-colorPrimary.Mui-disabled {
     color: #bdbdbd;
   }
   .MuiSwitch-colorPrimary.Mui-checked + .MuiSwitch-track {
-    background-color: #8E65C0;
+    background-color: $accent--purple;
   }
   .MuiSwitch-colorPrimary.Mui-disabled + .MuiSwitch-track {
     background-color: #000;

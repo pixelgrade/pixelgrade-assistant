@@ -125,7 +125,7 @@ class StarterContentContainer extends React.Component {
 		this.importWidgets = this.importWidgets.bind(this);
 		this.importPreSettings = this.importPreSettings.bind(this);
 		this.importPostSettings = this.importPostSettings.bind(this);
-		this.updateDemoContentUrl = this.updateDemoContentUrl.bind(this);
+		this.updateCurrentDemo = this.updateCurrentDemo.bind(this);
 	}
 
 	render() {
@@ -135,17 +135,19 @@ class StarterContentContainer extends React.Component {
 			return <div className="box box--neutral">{Helpers.decodeHtml(_.get(pixassist, 'themeConfig.starterContent.l10n.noSources', ''))}</div>;
 		}
 
-		let installingClass = 'box  box--neutral  box--theme  box--plugin-invalidated plugin';
+		let installingClass = 'box plugin';
+
+		installingClass += '  ' + component.state.demoClass;
 
 		let description = _.get(component, 'state.description', Helpers.decodeHtml(_.get(pixassist, 'themeConfig.starterContent.l10n.importContentDescription', '')) );
 
-		if ( component.props.session.is_sc_installing ) {
-			installingClass = 'box  box--neutral  box--theme  box--plugin-invalidated box--plugin-installing plugin';
-		}
-
-		if ( component.props.session.is_sc_done ) {
-			installingClass = 'box  box--neutral  box--theme  box--plugin-invalidated box--plugin-validated plugin';
-		}
+		// if ( component.props.session.is_sc_installing ) {
+		// 	installingClass = 'box plugin box--plugin-invalidated box--plugin-installing';
+		// }
+		//
+		// if ( component.props.session.is_sc_done ) {
+		// 	installingClass = 'box plugin box--plugin-validated';
+		// }
 
 		// Set the title for the progressBar
 		let progressTitle = _.get(component, 'state.title', Helpers.replaceParams(Helpers.decodeHtml(_.get(pixassist, 'themeConfig.starterContent.l10n.importContentDescription', ''))));
@@ -174,20 +176,25 @@ class StarterContentContainer extends React.Component {
 		let component = this;
 
 		// add an event listener for the localized pixassist data change
-		window.addEventListener('localizedChanged', component.updateDemoContentUrl);
+		window.addEventListener('localizedChanged', component.updateCurrentDemo);
 	}
 
 	componentWillUnmount() {
 		let component = this;
 
-		window.removeEventListener( 'localizedChanged', component.updateDemoContentUrl )
+		window.removeEventListener( 'localizedChanged', component.updateCurrentDemo )
 	}
 
-	updateDemoContentUrl(event){
+	updateCurrentDemo(event){
 		let component = this;
 
 		if (_.size(_.get(pixassist, 'themeConfig.starterContent.demos', []))) {
-			component.setState({value: Helpers.getFirstItem(pixassist.themeConfig.starterContent.demos).url});
+			let firstFoundDemo = Helpers.getFirstItem(_.get(pixassist, 'themeConfig.starterContent.demos', [])); // the selected demo from where we will import
+			component.setState({
+				value: firstFoundDemo.url,
+				title: _.get(firstFoundDemo, 'title', pixassist.themeSupports.theme_name + ' Demo Content'),
+				description: _.get(firstFoundDemo, 'description', 'Import the content from the theme demo.')
+			});
 		}
 	}
 
@@ -219,7 +226,7 @@ class StarterContentContainer extends React.Component {
 		component.props.onStarterContentInstalling();
 
 		// Enable the import animation
-		component.setState({ importing: true, demoClass: 'box--plugin-installing', description: Helpers.decodeHtml(_.get(pixassist, 'themeConfig.starterContent.l10n.importingData', ''))});
+		component.setState({ importing: true, demoClass: 'box--plugin-invalidated box--plugin-installing', description: Helpers.decodeHtml(_.get(pixassist, 'themeConfig.starterContent.l10n.importingData', ''))});
 
 		// First we need to get the available data from the remote server
 		// @todo Should use a more standard helper for this one
@@ -319,8 +326,9 @@ class StarterContentContainer extends React.Component {
 								console.log('Failed to get media with id '+ attach_id + ' (error message: '+attachment.message+'). Continuing...');
 								component.queue.next();
 							} else {
-								if ( _.isEmpty( attachment.data.media.title ) || _.isEmpty( attachment.data.media.ext ) || _.isEmpty( attachment.data.media.mime_type ) ) {
-									console.log('Got back for media with id '+ attach_id + ' malformed data. Continuing...');
+
+								if ( !attachment.data.media.title || !attachment.data.media.ext || !attachment.data.media.mime_type ) {
+									console.log('Got back malformed data for media with id '+ attach_id + '. Continuing...');
 									component.queue.next();
 									return;
 								}

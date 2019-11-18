@@ -1,4 +1,7 @@
-.box {
+.pixassist-support-modal-wrapper,
+.pixelgrade_assistant-wrapper {
+  .box {
+
     position: relative;
 
     display: flex;
@@ -6,7 +9,8 @@
     flex-wrap: nowrap;
     align-items: center;
     margin: 20px 0;
-    padding: 16px 52px;
+    // padding: 16px 52px;
+    padding: 11px 52px 13px;
 
     border-radius: 4px;
 
@@ -14,94 +18,106 @@
     color: $white;
 
     &:before {
-        content: "";
+      content: "";
 
-        position: absolute;
-        left: 18px;
-        top: 50%;
-        transform: translateY(-50%);
-        z-index: 1;
+      position: absolute;
+      left: 18px;
+      top: 50%;
+      transform: translateY(-50%);
+      z-index: 1;
 
-        background: center center no-repeat;
-        background-size: cover;
+      background: center center no-repeat;
+      background-size: cover;
 
-        width: 20px;
-        height: 20px;
+      width: 20px;
+      height: 20px;
     }
 
     &--neutral {
-        color: $dark--light;
-        border: 1px solid $borders-alt;
+      color: $dark--light;
+      border: 1px solid $borders-alt;
+
+      &:before {
+        color: $dark-grey;
+        border-color: $dark-grey;
+        background-color: white;
+
+        width: 6px;
+        height: 6px;
+
+        border: 7px solid;
+        border-radius: 50%;
+      }
     }
 
     &--validated, &--success {
-        background-color: #3BB371;
+      background-color: #3BB371;
 
-        &:before {
-            background-image: url('../images/icon-checked-white.svg');
-        }
+      &:before {
+        background-image: url('../images/icon-checked-white.svg');
+      }
     }
 
     &--error {
-        background-color: #E3004A;
+      background-color: #E3004A;
 
-        &:before {
-            background-image: url('../images/icon-error-white.svg');
-        }
+      &:before {
+        background-image: url('../images/icon-error-white.svg');
+      }
     }
 
     &--info {
-        background-color: #00A9DE;
+      background-color: #00A9DE;
 
-        &:before {
-            background-image: url('../images/icon-info-white.svg');
-        }
+      &:before {
+        background-image: url('../images/icon-info-white.svg');
+      }
     }
 
     &--warning {
-        background-color: #FFBF4D;
+      background-color: #FFBF4D;
 
-        &:before {
-            background-image: url('../images/icon-warning-white.svg');
-        }
+      &:before {
+        background-image: url('../images/icon-warning-white.svg');
+      }
     }
 
     &--validated,
     &--error,
     &--info,
     &--warning {
-        border: 0;
-        color: white;
+      border: 0;
+      color: white;
     }
 
     a {
-        color: white;
+      color: white;
     }
 
-    & > *:not(.box__filler){
-        position: relative;
-        z-index: 1;
+    & > *:not(.box__filler) {
+      position: relative;
+      z-index: 1;
     }
-}
+  }
 
-.box__body {
+  .box__body {
     flex: 1 1 auto;
-}
+  }
 
-.box__cta {
+  .box__cta {
     margin-left: 20px;
-	flex-shrink: 0;
-}
+    flex-shrink: 0;
+  }
 
-.box__close-icon {
+  .box__close-icon {
     position: absolute !important;
     right: 20px;
     top: auto;
 
     font-size: 18px;
-}
+  }
 
-.box__title {
+  .box__title {
     margin: 0;
 
     //font-family: $font-headings;
@@ -112,13 +128,16 @@
     color: inherit;
 
     -webkit-font-smoothing: antialiased;
-}
 
-.box__text,
-.entry-content p.box__text {
+    .plugin-author {
+      font-weight: initial;
+    }
+  }
+
+  .box__text,
+  .entry-content p.box__text {
     margin: 0;
     // margin-bottom: -4px;
-
     //font-family: $font-body;
     font-size: 14px;
     font-weight: 300;
@@ -127,9 +146,9 @@
     color: inherit;
 
 
-}
+  }
 
-.box__filler {
+  .box__filler {
     position: absolute;
     top: 0;
     left: 0;
@@ -143,54 +162,51 @@
     width: 0;
 
     background-color: $accent--purple;
-}
+  }
 
 
+  // Plugin box situation
 
-
-
-// Plugin box situation
-
-.box--plugin-missing,
-.box--plugin-installing,
-.box--plugin-activating,
-.box--plugin-updating,
-.box--theme {
+  .box--plugin-missing,
+  .box--plugin-installing,
+  .box--plugin-activating,
+  .box--plugin-updating,
+  .box--theme {
     &:before {
-        width: 6px;
-        height: 6px;
+      width: 6px;
+      height: 6px;
 
-        border: 7px solid;
-        border-radius: 50%;
+      border: 7px solid;
+      border-radius: 50%;
     }
-}
+  }
 
-.box--theme[class][class]:after {
-	transition-delay: 0s;
-}
+  .box--theme[class][class]:after {
+    transition-delay: 0s;
+  }
 
-.box--theme.box--plugin-activating[class]:after {
-	transition-duration: .3s;
-}
+  .box--theme.box--plugin-activating[class]:after {
+    transition-duration: .3s;
+  }
 
-[class].box.box--theme:before {
-	content: "";
-	position: static;
-	transform: none;
-	margin-right: 20px;
-}
+  [class].box.box--theme:before {
+    content: "";
+    position: static;
+    transform: none;
+    margin-right: 20px;
+  }
 
-.box--plugin-missing:before {
+  .box--plugin-missing:before {
     border-color: $borders-alt;
-}
+  }
 
-.box--plugin-activating,
-.box--plugin-installing,
-.box--plugin-updating {
+  .box--plugin-activating,
+  .box--plugin-installing,
+  .box--plugin-updating {
     border: 0;
 
     background-color: #eee;
-    background-image: linear-gradient(-45deg, rgba(255,255,255,0.3) 25%,rgba(0,0,0,0) 25%,rgba(0,0,0,0) 50%,rgba(255,255,255,0.3) 50%,rgba(255,255,255,0.3) 75%,rgba(0,0,0,0) 75%,rgba(0,0,0,0));
+    background-image: linear-gradient(-45deg, rgba(255, 255, 255, 0.3) 25%, rgba(0, 0, 0, 0) 25%, rgba(0, 0, 0, 0) 50%, rgba(255, 255, 255, 0.3) 50%, rgba(255, 255, 255, 0.3) 75%, rgba(0, 0, 0, 0) 75%, rgba(0, 0, 0, 0));
     background-size: 50px 50px;
 
     animation: progress-bg-anim 2s linear infinite;
@@ -198,109 +214,111 @@
 
 
     &:before {
-        border-color: #ffffff;
-        background-color: #9660C6;
+      border-color: #ffffff;
+      background-color: #9660C6;
     }
-}
+  }
 
-.box--plugin-installing {
+  .box--plugin-installing {
     color: $dark--light;
-}
+  }
 
-@-webkit-keyframes progress-bg-anim {
+  @-webkit-keyframes progress-bg-anim {
     0% {
-        background-position: 0 0;
+      background-position: 0 0;
     }
 
     100% {
-        background-position: 50px 50px;
+      background-position: 50px 50px;
     }
-}
+  }
 
-@keyframes progress-bg-anim {
+  @keyframes progress-bg-anim {
     0% {
-        background-position: 0 0;
+      background-position: 0 0;
     }
 
     100% {
-        background-position: 50px 50px;
+      background-position: 50px 50px;
     }
-}
+  }
 
-.box--plugin-invalidated,
-.box--plugin-validated {
+  .box--plugin-invalidated,
+  .box--plugin-validated {
     transition: color .3s ease-in-out;
 
     &:after {
-        content: "";
+      content: "";
 
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        z-index: 0;
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
 
-        background-color: $accent--purple;
+      background-color: $accent--purple;
 
-        pointer-events: none;
+      pointer-events: none;
     }
-}
+  }
 
-.box--plugin-invalidated:after {
+  .box--plugin-invalidated:after {
     transform: translateX(-100%);
-}
+  }
 
-.box--plugin-installing:after {
+  .box--plugin-installing:after {
     transition: 60s transform ease-out;
     transform: translateX(-20%);
-}
+  }
 
-@for $i from 2 through 20 {
+  @for $i from 2 through 20 {
     .box--plugin-installing:nth-of-type(#{$i}):after {
-        transition-delay: 2s * $i;
+      transition-delay: 2s * $i;
     }
-}
+  }
 
-.box--plugin-installed {
+  .box--plugin-installed {
     &:after {
-        transition: .2s transform ease-in-out;
-        transform: translateX(-10%);
+      transition: .2s transform ease-in-out;
+      transform: translateX(-10%);
     }
 
     &.box--plugin-installed:after {
-        transition-delay: 0s;
+      transition-delay: 0s;
     }
-}
+  }
 
-.box--plugin-activating {
+  .box--plugin-activating {
     color: white;
 
     &:after {
-        transition: 20s transform ease-out;
-        transform: translateX(-5%);
+      transition: 20s transform ease-out;
+      transform: translateX(-5%);
     }
 
     &.box--plugin-activating:after {
-        transition-delay: 0s;
+      transition-delay: 0s;
     }
-}
+  }
 
-.box--plugin-validated {
+  .box--plugin-validated {
     color: white;
     border: 0;
 
     &:before {
-        width: 20px;
-        height: 20px;
+      width: 20px;
+      height: 20px;
 
-        background-image: url('../images/icon-checked-white.svg');
-        background-color: transparent;
-        border: 0;
+      background-image: url('../images/icon-checked-white.svg');
+      background-color: transparent;
+      border: 0;
     }
 
     &:after {
-        transition-duration: .3s;
-        transform: translateX(0%);
+      transition-duration: .3s;
+      transform: translateX(0%);
     }
+  }
+
 }

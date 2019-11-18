@@ -172,6 +172,12 @@ class PixelgradeAssistant_Support {
 		$request_args['body']['kb_current_product_sku'] = PixelgradeAssistant_Admin::get_original_theme_slug();
 		$request_args['body']['hash_id'] = PixelgradeAssistant_Admin::get_theme_hash_id();
 		$request_args['body']['type'] = PixelgradeAssistant_Admin::get_theme_type();
+
+		// Increase timeout if the target URL is a development one so we can account for slow local (development) installations.
+		if ( PixelgradeAssistant_Admin::is_development_url( PixelgradeAssistant_Admin::$externalApiEndpoints['pxm']['getHTKBCategories']['url'] ) ) {
+			$request_args['timeout'] = 10;
+		}
+
 		$categories = wp_remote_request( PixelgradeAssistant_Admin::$externalApiEndpoints['pxm']['getHTKBCategories']['url'], $request_args );
 
 		if ( is_wp_error( $categories ) ) {

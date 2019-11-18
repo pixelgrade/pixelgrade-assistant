@@ -9,7 +9,12 @@
  * @subpackage PixelgradeAssistant/ThemeHelpers
  */
 
-if ( ! defined( 'ABSPATH' ) ) exit;
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
+// Load the OpenTable custom widget and shortcode code
+require_once( plugin_dir_path( __FILE__ ) . 'wp-open-table/wp-open-table.php' );
 
 // Make sure the Genericons is registered
 require_once( plugin_dir_path( __FILE__ ) . 'jetpack-fallbacks/genericons.php' );
@@ -23,10 +28,8 @@ function pixassist_load_theme_dependent_functionality() {
 		// Register the [ot_reservation_widget] shortcode
 		add_shortcode( 'ot_reservation_widget', 'pixelgrade_ot_reservation_widget_shortcode' );
 
-		// Register the Open Table widget
-		add_action( 'widgets_init',
-			create_function('', 'return register_widget("Open_Table_Widget");')
-		);
+		// Register the widget
+		add_action( 'widgets_init', 'pixassist_register_open_table_widget' );
 	}
 
 	// During requests to activate plugins we don't want to load the fallbacks since it would result in fatal errors.
@@ -47,6 +50,13 @@ function pixassist_load_theme_dependent_functionality() {
 		if ( current_theme_supports( 'jetpack-portfolio' ) && ! class_exists( 'Jetpack' ) && ! defined( 'JETPACK__VERSION' ) ) {
 			require_once( plugin_dir_path( __FILE__ ) . 'jetpack-fallbacks/custom-content-types.php' );
 			require_once( plugin_dir_path( __FILE__ ) . 'jetpack-fallbacks/portfolios.php' );
+		}
+
+		// Handle the case when the current theme asks for the Jetpack Nova Restaurant but Jetpack is not active
+		// If the plugin is active we will leave it up to the user to deactivate the CPT via the Jetpack settings
+		if ( current_theme_supports( 'nova_menu_item' ) && ! class_exists( 'Nova_Restaurant' ) ) {
+			require_once( plugin_dir_path( __FILE__ ) . 'jetpack-fallbacks/custom-content-types.php' );
+			require_once( plugin_dir_path( __FILE__ ) . 'jetpack-fallbacks/nova-restaurant/nova.php' );
 		}
 
 		// Load Social Menu functionality, even if Jetpack is not active/configured
@@ -71,3 +81,7 @@ function pixassist_load_theme_dependent_functionality() {
 	add_filter( 'jetpack_development_mode', 'pixassist_more_jetpack_development_mode_detection' );
 }
 add_action( 'after_setup_theme', 'pixassist_load_theme_dependent_functionality', 20 );
+
+function pixassist_register_open_table_widget() {
+	register_widget( 'Pixassist_Open_Table_Widget' );
+}

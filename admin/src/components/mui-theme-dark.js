@@ -1,8 +1,8 @@
 import { createMuiTheme } from '@material-ui/core/styles';
 
-const ourTheme = createMuiTheme({
+const muiTheme = createMuiTheme({
 	palette: {
-		type: "light",
+		type: 'dark',
 		primary: {
 			// light: '#B76CED',
 			main: '#8E65C0',
@@ -15,10 +15,6 @@ const ourTheme = createMuiTheme({
 			// dark: will be calculated from palette.secondary.main,
 			// contrastText: '#ffcc00',
 		},
-		text: {
-			primary: "#463850",
-			secondary: "#78717D"
-		}
 		// error: will use the default color
 	},
 	typography: {
@@ -55,7 +51,6 @@ const ourTheme = createMuiTheme({
 	MuiButtonBase: {
 		disableRipple: true, // No more ripple, on the whole application!
 	},
-	themeName: 'Pixelgrade Assistant Theme'
 });
 
-export default ourTheme;
+export default muiTheme;

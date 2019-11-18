@@ -150,7 +150,13 @@ class DashboardTabsContainer extends React.Component {
 						return;
 					}
 
-					// Handle the the case when the block has a notconnected behaviour, meaning that Pixelgrade Assistant is not connected (not logged in).
+					// For some steps there are extra cases when we should bail
+					// Do not display anything if there are no Starter Content sources.
+					if (block_key === 'starterContent' && !_.size(_.get(pixassist, 'themeConfig.starterContent.demos', []))) {
+						return;
+					}
+
+					// Handle the the case when the block has a notconnected behaviour, meaning that Pixelgrade Care is not connected (not logged in).
 					if ( ! _.isUndefined( block.notconnected ) ) {
 
 						if ( !_.get(component.props, 'session.is_logged', false) ) {
@@ -447,6 +453,11 @@ class DashboardTabsContainer extends React.Component {
 					}
 
 					case 'starter-content': {
+						// Do not display anything if there are no Starter Content sources.
+						if (!_.size(_.get(pixassist, 'themeConfig.starterContent.demos', []))) {
+							break;
+						}
+
 						let control = false;
 
 						if (!_.isUndefined(field.control)) {

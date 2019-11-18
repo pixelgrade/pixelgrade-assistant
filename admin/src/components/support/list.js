@@ -80,7 +80,8 @@ class SupportListContainer extends React.Component {
 				   className={component.props.support.active_article_id !== data[key]._id.toString() ? 'related-article-title' : 'related-article-title open-nav' }
 				   onClick={component.handleArticleClick} id={data[key]._id} dangerouslySetInnerHTML={{__html: data[key]._source.post_title}}></a>
 				<a href={data[key]._source.external_url} target="_blank" className="external-link"></a>
-				<div className={component.props.support.active_article_id !== data[key]._id.toString() ? 'hidden' : 'related-article-rendered entry-content' } dangerouslySetInnerHTML={{__html: data[key]._source.post_content}}></div>
+				<div
+					className={component.props.support.active_article_id !== data[key]._id.toString() ? 'hidden' : 'related-article-rendered entry-content' } dangerouslySetInnerHTML={{__html: data[key]._source.post_content}}></div>
 			</li>);
 		});
 

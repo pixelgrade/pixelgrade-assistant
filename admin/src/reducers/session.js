@@ -231,6 +231,7 @@ const session = ( state = getDefaultState(), action ) => {
 		// WIZARD -> Plugins
 		case 'ON_PLUGINS_INSTALLING':
 			return {...state, ...{
+					did_plugins_install: true,
 					are_plugins_installing: true,
 					are_plugins_installed: false,
 				}};

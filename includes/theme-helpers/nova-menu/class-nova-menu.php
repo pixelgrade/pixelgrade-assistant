@@ -6,8 +6,8 @@
  *
  * @see 	    https://pixelgrade.com
  * @author 		Pixelgrade
- * @package 	PixelgradeAssistant
- * @subpackage  PixelgradeAssistant/ThemeHelpers
+ * @package 	PixelgradeCare
+ * @subpackage  PixelgradeCare/ThemeHelpers
  * @version     1.0.3
  */
 
@@ -263,7 +263,7 @@ class Pixassist_Nova_Menu {
 			return '';
 		}
 
-		return '<li class="screen-reader-text">' . "\n";
+		return '<li class="screen-reader-text">' . PHP_EOL;
 	}
 
 	/**
@@ -311,7 +311,7 @@ class Pixassist_Nova_Menu {
 	}
 
 	/**
-	 * Query to retrieve entries from the Portfolio post_type.
+	 * Query to retrieve entries from the Nova Menu post_type.
 	 *
 	 * @return object
 	 */
@@ -446,7 +446,7 @@ class Pixassist_Nova_Menu {
 
 					<?php
                     if ( $has_highlight_title ) {
-                        echo '<span class="menu-list__item-highlight-title">' . $highlight_title . '</span>' . "\n";
+                        echo '<span class="menu-list__item-highlight-title">' . $highlight_title . '</span>' . PHP_EOL;
                     } ?>
 
 						<div class="menu-list__item-title">
@@ -462,7 +462,7 @@ class Pixassist_Nova_Menu {
 								$before .= '<a href="' . esc_url( get_permalink() ) .'" title="' . esc_attr( the_title_attribute( ) ) . '">';
 								$after = '</a>' . $after;
 							}
-							echo $before . $title . $after; // phpcs:ignore ?>
+							echo $before . $title . $after; ?>
 
 							<?php
 							if ( 'dotted' == $atts['style'] ) {
@@ -471,7 +471,7 @@ class Pixassist_Nova_Menu {
 
 						</div>
 
-                        <div class="menu-list__item-prices"><?php echo $this->get_menu_item_price( $post_id, $menu_item_index_number, $atts ); // phpcs:ignore ?></div>
+                        <div class="menu-list__item-prices"><?php echo $this->get_menu_item_price( $post_id, $menu_item_index_number, $atts ); ?></div>
 
 						<div class="menu-list__item-desc">
 							<?php
@@ -490,7 +490,7 @@ class Pixassist_Nova_Menu {
 						<div class="menu-list__item-meta">
 							<?php
 							if ( false !== $atts['display_labels'] ) {
-								echo $this->the_menu_item_labels( $post_id, $featured_labels ); // phpcs:ignore
+								echo $this->the_menu_item_labels( $post_id, $featured_labels );
 							} ?>
 							<?php edit_post_link( esc_html__( 'Edit', '__plugin_txtd' ), '<span class="edit-link">', '</span>' ); ?>
 						</div><!-- .entry-meta -->
@@ -619,7 +619,7 @@ class Pixassist_Nova_Menu {
 				$price = trim( $price, '*' );
 			}
 
-			$html .= '<span class="' . esc_attr( implode( ' ', $class ) ) . '">' . $price . '</span>';
+			$html .= '<span class="' . implode( ' ', $class ) . '">' . $price . '</span>';
 		}
 
 		return $html;
@@ -648,7 +648,7 @@ class Pixassist_Nova_Menu {
 			if ( ! in_array( $menu_item_label->slug, $exclude_labels ) ) {
 				$term_name = $menu_item_label->name;
 				$term_slug = $menu_item_label->slug;
-				$labels[]  = '<span class="' . esc_attr( $term_slug ) . '">' . esc_html( $term_name ) . '</span>';
+				$labels[]  = '<span class="' . $term_slug . '">' . $term_name . '</span>';
 			}
 		}
 		$html .= ' ' . implode( ', ', $labels );
@@ -723,19 +723,23 @@ class Pixassist_Nova_Menu {
 		}
 
 		return self::$_instance;
-	}
+	} // End instance ()
 
 	/**
 	 * Cloning is forbidden.
+	 *
+	 * @since 1.0.0
 	 */
 	public function __clone() {
 		_doing_it_wrong( __FUNCTION__, esc_html__( 'You should not do that!', '__plugin_txtd' ), esc_html( $this->_version ) );
-	}
+	} // End __clone ()
 
 	/**
 	 * Unserializing instances of this class is forbidden.
+	 *
+	 * @since 1.0.0
 	 */
 	public function __wakeup() {
 		_doing_it_wrong( __FUNCTION__, esc_html__( 'You should not do that!', '__plugin_txtd' ),  esc_html( $this->_version ) );
-	}
+	} // End __wakeup ()
 }
