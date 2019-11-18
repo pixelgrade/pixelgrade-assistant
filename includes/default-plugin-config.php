@@ -458,7 +458,7 @@ function pixassist_get_default_config( $original_theme_slug ){
 			'tgmpNotAllowed' => esc_html__( 'Sorry, you are not allowed to access this page.', '__plugin_txtd' ),
 			'groupByRequiredLabels' => array(
 				'required' => esc_html__( 'Core plugins needed for your website (required).', '__plugin_txtd' ),
-				'recommended' => esc_html__( 'Recommended plugins to enhance your website (optional).', '__plugin_txtd' ),
+				'recommended' => esc_html__( 'Recommended plugins to enhance your website.', '__plugin_txtd' ),
 			),
 			'noPlugins' => esc_html__( 'No plugins needed at this time.', '__plugin_txtd' ),
 		),

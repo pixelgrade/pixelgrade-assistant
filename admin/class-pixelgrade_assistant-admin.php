@@ -2104,6 +2104,9 @@ class PixelgradeAssistant_Admin {
 					unset($config['requiredPlugins']['plugins'][ $key ]);
 					continue;
 				}
+
+				// Make sure that the plugin is not required, only recommended.
+				$config['requiredPlugins']['plugins'][ $key ]['required'] = false;
 			}
 
 			tgmpa( $config['requiredPlugins']['plugins'], $tgmpa_config );
