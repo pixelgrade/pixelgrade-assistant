@@ -54,6 +54,12 @@ class PixelgradeAssistant_SetupWizard {
 	public function register_hooks() {
 		add_action( 'admin_menu', array( $this, 'add_admin_menu' ) );
 		add_action( 'admin_init', array( $this, 'setup_wizard' ) );
+
+		// Handle the previous URL for the setup wizard:
+		// index.php?page=pixelgrade_assistant-setup-wizard
+		// instead of the new
+		// admin.php?page=pixelgrade_assistant-setup-wizard
+		add_action( 'admin_page_access_denied', array( $this, 'redirect_to_correct_url' ), 0 );
 	}
 
 	public function add_admin_menu() {
@@ -91,6 +97,13 @@ class PixelgradeAssistant_SetupWizard {
 		$this->setup_wizard_content();
 		$this->setup_wizard_footer();
 		exit;
+	}
+
+	public function redirect_to_correct_url() {
+		if ( ! empty( $_GET['page'] ) && 'pixelgrade_assistant-setup-wizard' === $_GET['page'] ) {
+			wp_safe_redirect( admin_url( 'admin.php?page=pixelgrade_assistant-setup-wizard' ) );
+			return;
+		}
 	}
 
 	/**
