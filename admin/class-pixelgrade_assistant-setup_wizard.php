@@ -100,7 +100,7 @@ class PixelgradeAssistant_SetupWizard {
 	}
 
 	public function redirect_to_correct_url() {
-		if ( ! empty( $_GET['page'] ) && 'pixelgrade_assistant-setup-wizard' === $_GET['page'] ) {
+		if ( ! empty( $_GET['page'] ) && 'pixelgrade_assistant-setup-wizard' === $_GET['page'] && 0 === strpos( wp_unslash( $_SERVER['REQUEST_URI'] ), '/wp-admin/index.php' ) ) {
 			wp_safe_redirect( admin_url( 'admin.php?page=pixelgrade_assistant-setup-wizard' ) );
 			return;
 		}
