@@ -110,8 +110,7 @@ class PixelgradeAssistant_SetupWizard {
 	 * Setup Wizard Header.
 	 */
 	public function setup_wizard_header() {
-		global $title, $hook_suffix, $current_screen, $wp_locale, $pagenow,
-		       $update_title, $total_update_count, $parent_file;
+		global $hook_suffix, $current_screen;
 
 		if ( empty( $current_screen ) ) {
 			set_current_screen();

@@ -2,9 +2,9 @@
 Contributors: pixelgrade, vlad.olaru
 Tags: dashboard, support, pixelgrade, starter-content, demo-data, documentation
 Requires at least: 4.9.9
-Tested up to: 5.2.3
+Tested up to: 5.3.0
 Requires PHP: 5.4.0
-Stable tag: 1.1.5
+Stable tag: 1.2.0
 License: GPLv3.0
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -96,6 +96,12 @@ No. We are not tracking you or your site. We ask your permission to share with u
 6. Site setup wizard
 
 == Changelog ==
+
+= 1.2.0 =
+* Better recommended plugins management.
+* Fixed a couple of edge cases regarding setup wizard.
+* Force all recommended plugins to be recommended, not required.
+* Updated npm packages to the latest versions.
 
 = 1.1.5 =
 * Better handling for error during the import of the starter content (demo content).

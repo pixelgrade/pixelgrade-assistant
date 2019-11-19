@@ -1,6 +1,6 @@
 {
   "name": "pixelgrade_assistant",
-  "version": "1.1.4",
+  "version": "1.2.0",
   "description": "Caring is the coolest thing",
   "main": "admin/js/dashboard.js",
   "repository": "git+https://github.com/pixelgrade/pixelgrade-assistant.git",
