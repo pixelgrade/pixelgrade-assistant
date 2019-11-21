@@ -204,7 +204,7 @@ class StepsContainer extends Component {
 										return;
 									}
 
-									// Handle the the case when the block has a notconnected behaviour, meaning that Pixelgrade Care is not connected (not logged in).
+									// Handle the the case when the block has a notconnected behaviour, meaning that Pixelgrade Assistant is not connected (not logged in).
 									if ( !_.isUndefined( block.notconnected ) ) {
 										if ( !_.get(component.props, 'session.is_logged', false) ) {
 											switch (block.notconnected) {

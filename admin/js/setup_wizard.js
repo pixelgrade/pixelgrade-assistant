@@ -30395,7 +30395,7 @@
 	    });
 
 	    _this.state = {
-	      plugins: pixassist.themeConfig.pluginManager.tgmpaPlugins,
+	      plugins: _this.standardizePlugins(pixassist.themeConfig.pluginManager.tgmpaPlugins),
 	      enableIndividualActions: true,
 	      groupByRequired: false,
 	      ready: false
@@ -30405,32 +30405,6 @@
 
 	    if (!isUndefined_1(_this.props.enableIndividualActions)) {
 	      _this.state.enableIndividualActions = _this.props.enableIndividualActions;
-	    } // Regardless if have individual actions, we treat plugins as a list to choose from (i.e. with checkboxes) and all need to be selected or not.
-
-
-	    var pluginSlugs = Object.keys(_this.state.plugins);
-
-	    for (var idx = 0; idx < pluginSlugs.length; idx++) {
-	      // If we are in the dashboard, all are selected because they have individual controls.
-	      if (!(window.location.search.indexOf('setup-wizard') > -1)) {
-	        _this.state.plugins[pluginSlugs[idx]].selected = true;
-	        continue;
-	      } // Required plugins are always selected.
-
-
-	      if (_this.state.plugins[pluginSlugs[idx]].required) {
-	        _this.state.plugins[pluginSlugs[idx]].selected = true;
-	      } else if (typeof _this.state.plugins[pluginSlugs[idx]].selected === "undefined") {
-	        // Recommended plugins are not selected by default, unless they come with the selected state already.
-	        _this.state.plugins[pluginSlugs[idx]].selected = false;
-	      } // Regardless of selected initial state, we have a few cases when a plugin is selected no matter what. Like when it is active.
-
-
-	      var status = _this.getPluginStatus(_this.state.plugins[pluginSlugs[idx]]);
-
-	      if ('active' === status || 'outdated' === status) {
-	        _this.state.plugins[pluginSlugs[idx]].selected = true;
-	      }
 	    }
 
 	    if (!isUndefined_1(_this.props.groupByRequired)) {
@@ -30727,11 +30701,42 @@
 	      this.checkPluginsReady();
 	    }
 	  }, {
+	    key: "standardizePlugins",
+	    value: function standardizePlugins(plugins) {
+	      // Regardless if have individual actions, we treat plugins as a list to choose from (i.e. with checkboxes) and all need to be selected or not.
+	      var pluginSlugs = Object.keys(plugins);
+
+	      for (var idx = 0; idx < pluginSlugs.length; idx++) {
+	        // If we are in the dashboard, all are selected because they have individual controls.
+	        if (!(window.location.search.indexOf('setup-wizard') > -1)) {
+	          plugins[pluginSlugs[idx]].selected = true;
+	          continue;
+	        } // Required plugins are always selected.
+
+
+	        if (plugins[pluginSlugs[idx]].required) {
+	          plugins[pluginSlugs[idx]].selected = true;
+	        } else if (typeof plugins[pluginSlugs[idx]].selected === "undefined") {
+	          // Recommended plugins are not selected by default, unless they come with the selected state already.
+	          plugins[pluginSlugs[idx]].selected = false;
+	        } // Regardless of selected initial state, we have a few cases when a plugin is selected no matter what. Like when it is active.
+
+
+	        var status = this.getPluginStatus(plugins[pluginSlugs[idx]]);
+
+	        if ('active' === status || 'outdated' === status) {
+	          plugins[pluginSlugs[idx]].selected = true;
+	        }
+	      }
+
+	      return plugins;
+	    }
+	  }, {
 	    key: "updatePluginsList",
 	    value: function updatePluginsList(event) {
 	      var component = this;
 	      component.setState({
-	        plugins: pixassist.themeConfig.pluginManager.tgmpaPlugins
+	        plugins: component.standardizePlugins(pixassist.themeConfig.pluginManager.tgmpaPlugins)
 	      });
 	      component.checkPluginsReady();
 	    }
@@ -32673,7 +32678,7 @@
 
 	        if (block_key === 'support' && !size_1(get_1(pixassist, 'themeConfig.starterContent.demos', []))) {
 	          return;
-	        } // Handle the the case when the block has a notconnected behaviour, meaning that Pixelgrade Care is not connected (not logged in).
+	        } // Handle the the case when the block has a notconnected behaviour, meaning that Pixelgrade Assistant is not connected (not logged in).
 
 
 	        if (!isUndefined_1(block.notconnected)) {

@@ -54,7 +54,7 @@ class PluginManagerContainer extends React.Component {
 		super(props);
 
 		this.state = {
-			plugins: pixassist.themeConfig.pluginManager.tgmpaPlugins,
+			plugins: this.standardizePlugins( pixassist.themeConfig.pluginManager.tgmpaPlugins ),
 			enableIndividualActions: true,
 			groupByRequired: false,
 			ready: false
@@ -65,30 +65,6 @@ class PluginManagerContainer extends React.Component {
 
 		if ( ! _.isUndefined( this.props.enableIndividualActions ) ) {
 			this.state.enableIndividualActions = this.props.enableIndividualActions;
-		}
-
-		// Regardless if have individual actions, we treat plugins as a list to choose from (i.e. with checkboxes) and all need to be selected or not.
-		let pluginSlugs = Object.keys(this.state.plugins);
-		for( let idx=0; idx < pluginSlugs.length; idx++ ) {
-			// If we are in the dashboard, all are selected because they have individual controls.
-			if ( !(window.location.search.indexOf('setup-wizard') > -1) ) {
-				this.state.plugins[pluginSlugs[idx]].selected = true;
-				continue;
-			}
-
-			// Required plugins are always selected.
-			if ( this.state.plugins[pluginSlugs[idx]].required ) {
-				this.state.plugins[pluginSlugs[idx]].selected = true;
-			} else if ( typeof this.state.plugins[ pluginSlugs[idx] ].selected === "undefined" ) {
-				// Recommended plugins are not selected by default, unless they come with the selected state already.
-				this.state.plugins[pluginSlugs[idx]].selected = false;
-			}
-
-			// Regardless of selected initial state, we have a few cases when a plugin is selected no matter what. Like when it is active.
-			let status = this.getPluginStatus(this.state.plugins[pluginSlugs[idx]]);
-			if ( 'active' === status || 'outdated' === status ) {
-				this.state.plugins[pluginSlugs[idx]].selected = true;
-			}
 		}
 
 		if ( ! _.isUndefined( this.props.groupByRequired ) ) {
@@ -381,10 +357,38 @@ class PluginManagerContainer extends React.Component {
 		this.checkPluginsReady();
 	}
 
+	standardizePlugins( plugins ) {
+		// Regardless if have individual actions, we treat plugins as a list to choose from (i.e. with checkboxes) and all need to be selected or not.
+		let pluginSlugs = Object.keys(plugins);
+		for( let idx=0; idx < pluginSlugs.length; idx++ ) {
+			// If we are in the dashboard, all are selected because they have individual controls.
+			if ( !(window.location.search.indexOf('setup-wizard') > -1) ) {
+				plugins[pluginSlugs[idx]].selected = true;
+				continue;
+			}
+
+			// Required plugins are always selected.
+			if ( plugins[pluginSlugs[idx]].required ) {
+				plugins[pluginSlugs[idx]].selected = true;
+			} else if ( typeof plugins[ pluginSlugs[idx] ].selected === "undefined" ) {
+				// Recommended plugins are not selected by default, unless they come with the selected state already.
+				plugins[pluginSlugs[idx]].selected = false;
+			}
+
+			// Regardless of selected initial state, we have a few cases when a plugin is selected no matter what. Like when it is active.
+			let status = this.getPluginStatus(plugins[pluginSlugs[idx]]);
+			if ( 'active' === status || 'outdated' === status ) {
+				plugins[pluginSlugs[idx]].selected = true;
+			}
+		}
+
+		return plugins;
+	}
+
 	updatePluginsList(event) {
 		let component = this;
 
-		component.setState({plugins: pixassist.themeConfig.pluginManager.tgmpaPlugins});
+		component.setState({plugins: component.standardizePlugins( pixassist.themeConfig.pluginManager.tgmpaPlugins )});
 
 		component.checkPluginsReady();
 	}
