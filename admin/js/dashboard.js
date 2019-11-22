@@ -5935,6 +5935,12 @@
 	  };
 	}
 
+	function _classCallCheck$1(instance, Constructor) {
+	  if (!(instance instanceof Constructor)) {
+	    throw new TypeError("Cannot call a class as a function");
+	  }
+	}
+
 	function toVal(mix) {
 		var k, y, str='';
 		if (mix) {
@@ -9118,28 +9124,6 @@
 	  }
 	});
 
-	var defineProperty$1 = objectDefineProperty.f;
-
-	var FunctionPrototype = Function.prototype;
-	var FunctionPrototypeToString = FunctionPrototype.toString;
-	var nameRE = /^\s*function ([^ (]*)/;
-	var NAME = 'name';
-
-	// Function instances `.name` property
-	// https://tc39.github.io/ecma262/#sec-function-instances-name
-	if (descriptors && !(NAME in FunctionPrototype)) {
-	  defineProperty$1(FunctionPrototype, NAME, {
-	    configurable: true,
-	    get: function () {
-	      try {
-	        return FunctionPrototypeToString.call(this).match(nameRE)[1];
-	      } catch (error) {
-	        return '';
-	      }
-	    }
-	  });
-	}
-
 	// `Object.keys` method
 	// https://tc39.github.io/ecma262/#sec-object.keys
 	var objectKeys = Object.keys || function keys(O) {
@@ -9255,7 +9239,7 @@
 	  return target;
 	};
 
-	var defineProperty$2 = objectDefineProperty.f;
+	var defineProperty$1 = objectDefineProperty.f;
 
 
 
@@ -9263,7 +9247,7 @@
 
 	var setToStringTag = function (it, TAG, STATIC) {
 	  if (it && !has(it = STATIC ? it : it.prototype, TO_STRING_TAG$2)) {
-	    defineProperty$2(it, TO_STRING_TAG$2, { configurable: true, value: TAG });
+	    defineProperty$1(it, TO_STRING_TAG$2, { configurable: true, value: TAG });
 	  }
 	};
 
@@ -10048,7 +10032,7 @@
 	  return result;
 	};
 
-	var defineProperty$3 = objectDefineProperty.f;
+	var defineProperty$2 = objectDefineProperty.f;
 	var getOwnPropertyNames$1 = objectGetOwnPropertyNames.f;
 
 
@@ -10088,7 +10072,7 @@
 	      , thisIsRegExp ? this : RegExpPrototype, RegExpWrapper);
 	  };
 	  var proxy = function (key) {
-	    key in RegExpWrapper || defineProperty$3(RegExpWrapper, key, {
+	    key in RegExpWrapper || defineProperty$2(RegExpWrapper, key, {
 	      configurable: true,
 	      get: function () { return NativeRegExp[key]; },
 	      set: function (it) { NativeRegExp[key] = it; }
@@ -10124,6 +10108,45 @@
 	    return '/' + p + '/' + f;
 	  }, { unsafe: true });
 	}
+
+	var notARegexp = function (it) {
+	  if (isRegexp(it)) {
+	    throw TypeError("The method doesn't accept regular expressions");
+	  } return it;
+	};
+
+	var MATCH$2 = wellKnownSymbol('match');
+
+	var correctIsRegexpLogic = function (METHOD_NAME) {
+	  var regexp = /./;
+	  try {
+	    '/./'[METHOD_NAME](regexp);
+	  } catch (e) {
+	    try {
+	      regexp[MATCH$2] = false;
+	      return '/./'[METHOD_NAME](regexp);
+	    } catch (f) { /* empty */ }
+	  } return false;
+	};
+
+	var nativeEndsWith = ''.endsWith;
+	var min$2 = Math.min;
+
+	// `String.prototype.endsWith` method
+	// https://tc39.github.io/ecma262/#sec-string.prototype.endswith
+	_export({ target: 'String', proto: true, forced: !correctIsRegexpLogic('endsWith') }, {
+	  endsWith: function endsWith(searchString /* , endPosition = @length */) {
+	    var that = String(requireObjectCoercible(this));
+	    notARegexp(searchString);
+	    var endPosition = arguments.length > 1 ? arguments[1] : undefined;
+	    var len = toLength(that.length);
+	    var end = endPosition === undefined ? len : min$2(toLength(endPosition), len);
+	    var search = String(searchString);
+	    return nativeEndsWith
+	      ? nativeEndsWith.call(that, search, end)
+	      : that.slice(end - search.length, end) === search;
+	  }
+	});
 
 	var nativeExec = RegExp.prototype.exec;
 	// This always refers to the native implementation, because the
@@ -10324,7 +10347,7 @@
 	};
 
 	var max$1 = Math.max;
-	var min$2 = Math.min;
+	var min$3 = Math.min;
 	var floor$1 = Math.floor;
 	var SUBSTITUTION_SYMBOLS = /\$([$&'`]|\d\d?|<[^>]*>)/g;
 	var SUBSTITUTION_SYMBOLS_NO_NAMED = /\$([$&'`]|\d\d?)/g;
@@ -10380,7 +10403,7 @@
 	        result = results[i];
 
 	        var matched = String(result[0]);
-	        var position = max$1(min$2(toInteger(result.index), S.length), 0);
+	        var position = max$1(min$3(toInteger(result.index), S.length), 0);
 	        var captures = [];
 	        // NOTE: This is equivalent to
 	        //   captures = result.slice(1).map(maybeToString)
@@ -10441,7 +10464,7 @@
 	});
 
 	var arrayPush = [].push;
-	var min$3 = Math.min;
+	var min$4 = Math.min;
 	var MAX_UINT32 = 0xFFFFFFFF;
 
 	// babel-minify transpiles RegExp('x', 'y') -> /x/y and it causes SyntaxError
@@ -10544,7 +10567,7 @@
 	        var e;
 	        if (
 	          z === null ||
-	          (e = min$3(toLength(splitter.lastIndex + (SUPPORTS_Y ? 0 : q)), S.length)) === p
+	          (e = min$4(toLength(splitter.lastIndex + (SUPPORTS_Y ? 0 : q)), S.length)) === p
 	        ) {
 	          q = advanceStringIndex(S, q, unicodeMatching);
 	        } else {
@@ -13101,7 +13124,7 @@
 
 	var isNumber_1 = isNumber;
 
-	var defineProperty$4 = (function() {
+	var defineProperty$3 = (function() {
 	  try {
 	    var func = _getNative(Object, 'defineProperty');
 	    func({}, '', {});
@@ -13109,7 +13132,7 @@
 	  } catch (e) {}
 	}());
 
-	var _defineProperty$2 = defineProperty$4;
+	var _defineProperty$2 = defineProperty$3;
 
 	/**
 	 * The base implementation of `assignValue` and `assignMergeValue` without
@@ -24364,7 +24387,7 @@
 
 
 	  var notify500Error = function notify500Error(e) {
-	    var link = pixassist.themeConfig.l10n.Error500Link;
+	    var link = get_1(pixassist, 'themeConfig.l10n.Error500Link', '');
 
 	    if (typeof e.status === "number") {
 	      link += '#error_' + e.status;
@@ -24375,7 +24398,7 @@
 	    pushNotification({
 	      notice_id: '500_error',
 	      title: 'We encountered a server problem',
-	      content: pixassist.themeConfig.l10n.Error500Text,
+	      content: get_1(pixassist, 'themeConfig.l10n.Error500Text', ''),
 	      type: 'error',
 	      ctaLabel: 'Find Solutions',
 	      ctaLink: link
@@ -24389,7 +24412,7 @@
 
 
 	  var notify400Error = function notify400Error(e) {
-	    var link = pixassist.themeConfig.l10n.Error400Link;
+	    var link = get_1(pixassist, 'themeConfig.l10n.Error400Link', '');
 
 	    if (typeof e.status === "number") {
 	      link += '#error_' + e.status;
@@ -24400,7 +24423,7 @@
 	    pushNotification({
 	      notice_id: '400_error',
 	      title: 'We encountered a server problem',
-	      content: pixassist.themeConfig.l10n.Error400Text,
+	      content: get_1(pixassist, 'themeConfig.l10n.Error400Text', ''),
 	      type: 'error',
 	      ctaLabel: 'Find Solutions',
 	      ctaLink: link
@@ -24486,14 +24509,14 @@
 
 	  var replaceParams = function replaceParams(string) {
 	    var replacers = {
-	      "{{theme_name}}": pixassist.themeSupports.theme_name,
-	      "{{username}}": pixassist.user.name,
+	      "{{theme_name}}": get_1(pixassist, 'themeSupports.theme_name', 'Theme'),
+	      "{{username}}": get_1(pixassist, 'user.name', 'Name'),
 	      // This is the name of the current user, in this installation
 	      "{{shopdomain}}": pixassist.shopBaseDomain
 	    }; // Let's see if we have the display name of the customer from our shop
 
 	    if (!isUndefined_1(pixassist.user.pixelgrade_display_name)) {
-	      replacers["{{username}}"] = pixassist.user.pixelgrade_display_name;
+	      replacers["{{username}}"] = get_1(pixassist, 'user.pixelgrade_display_name', 'Name');
 	    }
 
 	    var re = new RegExp(Object.keys(replacers).join("|"), "gi");
@@ -25006,6 +25029,10 @@
 	    return lib_1(encodedHtmlText);
 	  };
 
+	  var trailingslashit = function trailingslashit(url) {
+	    return url + (url.endsWith("/") ? "" : "/");
+	  };
+
 	  return {
 	    // notifications
 	    pushNotification: pushNotification,
@@ -25033,7 +25060,8 @@
 	    getLicense: getLicense,
 	    compareVersion: compareVersion,
 	    getFirstItem: getFirstItem,
-	    decodeHtml: decodeHtml
+	    decodeHtml: decodeHtml,
+	    trailingslashit: trailingslashit
 	  };
 	}(window);
 
@@ -25077,11 +25105,11 @@
 	    key: "defaultProps",
 	    get: function get() {
 	      return {
-	        ctaLabel: Helpers.decodeHtml(pixassist.themeConfig.l10n.disconnectLabel),
+	        ctaLabel: Helpers.decodeHtml(get_1(pixassist, 'themeConfig.l10n.disconnectLabel', 'Disconnect')),
 	        onClick: null,
-	        myAccountLabel: Helpers.decodeHtml(pixassist.themeConfig.l10n.myAccountBtn),
+	        myAccountLabel: Helpers.decodeHtml(get_1(pixassist, 'themeConfig.l10n.myAccountBtn', 'My account')),
 	        myAccountLink: pixassist.shopBase + 'my-account',
-	        helpLabel: Helpers.decodeHtml(pixassist.themeConfig.l10n.needHelpBtn),
+	        helpLabel: Helpers.decodeHtml(get_1(pixassist, 'themeConfig.l10n.needHelpBtn', 'Help')),
 	        helpDesc: pixassist.themeSupports.support_url
 	      };
 	    }
@@ -25133,6 +25161,28 @@
 	}(react.Component);
 
 	var DashboardHeader = connect(mapStateToProps, mapDispatchToProps)(DashboardHeaderContainer);
+
+	var defineProperty$4 = objectDefineProperty.f;
+
+	var FunctionPrototype = Function.prototype;
+	var FunctionPrototypeToString = FunctionPrototype.toString;
+	var nameRE = /^\s*function ([^ (]*)/;
+	var NAME = 'name';
+
+	// Function instances `.name` property
+	// https://tc39.github.io/ecma262/#sec-function-instances-name
+	if (descriptors && !(NAME in FunctionPrototype)) {
+	  defineProperty$4(FunctionPrototype, NAME, {
+	    configurable: true,
+	    get: function () {
+	      try {
+	        return FunctionPrototypeToString.call(this).match(nameRE)[1];
+	      } catch (error) {
+	        return '';
+	      }
+	    }
+	  });
+	}
 
 	/* Built-in method references for those with the same name as other `lodash` methods. */
 	var nativeMax$2 = Math.max;
@@ -25218,7 +25268,7 @@
 	var castArray_1 = castArray;
 
 	var max$2 = Math.max;
-	var min$4 = Math.min;
+	var min$5 = Math.min;
 	var MAX_SAFE_INTEGER$3 = 0x1FFFFFFFFFFFFF;
 	var MAXIMUM_ALLOWED_LENGTH_EXCEEDED = 'Maximum allowed length exceeded';
 
@@ -25239,7 +25289,7 @@
 	      actualDeleteCount = len - actualStart;
 	    } else {
 	      insertCount = argumentsLength - 2;
-	      actualDeleteCount = min$4(max$2(toInteger(deleteCount), 0), len - actualStart);
+	      actualDeleteCount = min$5(max$2(toInteger(deleteCount), 0), len - actualStart);
 	    }
 	    if (len + insertCount - actualDeleteCount > MAX_SAFE_INTEGER$3) {
 	      throw TypeError(MAXIMUM_ALLOWED_LENGTH_EXCEEDED);
@@ -25449,6 +25499,36 @@
 	  name: 'MuiFormGroup'
 	})(FormGroup);
 
+	// Supports determination of isControlled().
+	// Controlled input accepts its current value as a prop.
+	//
+	// @see https://facebook.github.io/react/docs/forms.html#controlled-components
+	// @param value
+	// @returns {boolean} true if string (including '') or number (including zero)
+	function hasValue(value) {
+	  return value != null && !(Array.isArray(value) && value.length === 0);
+	} // Determine if field is empty or filled.
+	// Response determines if label is presented above field or as placeholder.
+	//
+	// @param obj
+	// @param SSR
+	// @returns {boolean} False when not present or empty string.
+	//                    True when any number or string with length.
+
+	function isFilled(obj) {
+	  var SSR = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : false;
+	  return obj && (hasValue(obj.value) && obj.value !== '' || SSR && hasValue(obj.defaultValue) && obj.defaultValue !== '');
+	} // Determine if an Input is adorned on start.
+	// It's corresponding to the left with LTR.
+	//
+	// @param obj
+	// @returns {boolean} False when no adornments.
+	//                    True when adorned at the start.
+
+	function isAdornedStart(obj) {
+	  return obj.startAdornment;
+	}
+
 	// It should to be noted that this function isn't equivalent to `text-transform: capitalize`.
 	//
 	// A strict capitalization should uppercase the first letter of each word a the sentence.
@@ -25458,17 +25538,199 @@
 	  return string.charAt(0).toUpperCase() + string.slice(1);
 	}
 
+	function isMuiElement(element, muiNames) {
+	  return react.isValidElement(element) && muiNames.indexOf(element.type.muiName) !== -1;
+	}
+
 	/**
 	 * @ignore - internal component.
 	 */
 
 	var FormControlContext = react.createContext();
-
 	function useFormControl() {
 	  return react.useContext(FormControlContext);
 	}
 
-	var styles$1 = function styles(theme) {
+	var styles$1 = {
+	  /* Styles applied to the root element. */
+	  root: {
+	    display: 'inline-flex',
+	    flexDirection: 'column',
+	    position: 'relative',
+	    // Reset fieldset default style.
+	    minWidth: 0,
+	    padding: 0,
+	    margin: 0,
+	    border: 0,
+	    verticalAlign: 'top' // Fix alignment issue on Safari.
+
+	  },
+
+	  /* Styles applied to the root element if `margin="normal"`. */
+	  marginNormal: {
+	    marginTop: 16,
+	    marginBottom: 8
+	  },
+
+	  /* Styles applied to the root element if `margin="dense"`. */
+	  marginDense: {
+	    marginTop: 8,
+	    marginBottom: 4
+	  },
+
+	  /* Styles applied to the root element if `fullWidth={true}`. */
+	  fullWidth: {
+	    width: '100%'
+	  }
+	};
+	/**
+	 * Provides context such as filled/focused/error/required for form inputs.
+	 * Relying on the context provides high flexibility and ensures that the state always stays
+	 * consistent across the children of the `FormControl`.
+	 * This context is used by the following components:
+	 *
+	 *  - FormLabel
+	 *  - FormHelperText
+	 *  - Input
+	 *  - InputLabel
+	 *
+	 * You can find one composition example below and more going to [the demos](/components/text-fields/#components).
+	 *
+	 * ```jsx
+	 * <FormControl>
+	 *   <InputLabel htmlFor="my-input">Email address</InputLabel>
+	 *   <Input id="my-input" aria-describedby="my-helper-text" />
+	 *   <FormHelperText id="my-helper-text">We'll never share your email.</FormHelperText>
+	 * </FormControl>
+	 * ```
+	 *
+	 * ⚠️Only one input can be used within a FormControl.
+	 */
+
+	var FormControl = react.forwardRef(function FormControl(props, ref) {
+	  var children = props.children,
+	      classes = props.classes,
+	      className = props.className,
+	      _props$component = props.component,
+	      Component = _props$component === void 0 ? 'div' : _props$component,
+	      _props$disabled = props.disabled,
+	      disabled = _props$disabled === void 0 ? false : _props$disabled,
+	      _props$error = props.error,
+	      error = _props$error === void 0 ? false : _props$error,
+	      _props$fullWidth = props.fullWidth,
+	      fullWidth = _props$fullWidth === void 0 ? false : _props$fullWidth,
+	      _props$hiddenLabel = props.hiddenLabel,
+	      hiddenLabel = _props$hiddenLabel === void 0 ? false : _props$hiddenLabel,
+	      _props$margin = props.margin,
+	      margin = _props$margin === void 0 ? 'none' : _props$margin,
+	      _props$color = props.color,
+	      color = _props$color === void 0 ? 'primary' : _props$color,
+	      _props$required = props.required,
+	      required = _props$required === void 0 ? false : _props$required,
+	      _props$variant = props.variant,
+	      variant = _props$variant === void 0 ? 'standard' : _props$variant,
+	      other = _objectWithoutProperties(props, ["children", "classes", "className", "component", "disabled", "error", "fullWidth", "hiddenLabel", "margin", "color", "required", "variant"]);
+
+	  var _React$useState = react.useState(function () {
+	    // We need to iterate through the children and find the Input in order
+	    // to fully support server-side rendering.
+	    var initialAdornedStart = false;
+
+	    if (children) {
+	      react.Children.forEach(children, function (child) {
+	        if (!isMuiElement(child, ['Input', 'Select'])) {
+	          return;
+	        }
+
+	        var input = isMuiElement(child, ['Select']) ? child.props.input : child;
+
+	        if (input && isAdornedStart(input.props)) {
+	          initialAdornedStart = true;
+	        }
+	      });
+	    }
+
+	    return initialAdornedStart;
+	  }),
+	      adornedStart = _React$useState[0],
+	      setAdornedStart = _React$useState[1];
+
+	  var _React$useState2 = react.useState(function () {
+	    // We need to iterate through the children and find the Input in order
+	    // to fully support server-side rendering.
+	    var initialFilled = false;
+
+	    if (children) {
+	      react.Children.forEach(children, function (child) {
+	        if (!isMuiElement(child, ['Input', 'Select'])) {
+	          return;
+	        }
+
+	        if (isFilled(child.props, true)) {
+	          initialFilled = true;
+	        }
+	      });
+	    }
+
+	    return initialFilled;
+	  }),
+	      filled = _React$useState2[0],
+	      setFilled = _React$useState2[1];
+
+	  var _React$useState3 = react.useState(false),
+	      focused = _React$useState3[0],
+	      setFocused = _React$useState3[1];
+
+	  if (disabled && focused) {
+	    setFocused(false);
+	  }
+
+	  var registerEffect;
+
+	  var onFilled = react.useCallback(function () {
+	    setFilled(true);
+	  }, []);
+	  var onEmpty = react.useCallback(function () {
+	    setFilled(false);
+	  }, []);
+	  var childContext = {
+	    adornedStart: adornedStart,
+	    setAdornedStart: setAdornedStart,
+	    color: color,
+	    disabled: disabled,
+	    error: error,
+	    filled: filled,
+	    focused: focused,
+	    hiddenLabel: hiddenLabel,
+	    margin: margin,
+	    onBlur: function onBlur() {
+	      setFocused(false);
+	    },
+	    onEmpty: onEmpty,
+	    onFilled: onFilled,
+	    onFocus: function onFocus() {
+	      setFocused(true);
+	    },
+	    registerEffect: registerEffect,
+	    required: required,
+	    variant: variant
+	  };
+	  return react.createElement(FormControlContext.Provider, {
+	    value: childContext
+	  }, react.createElement(Component, _extends({
+	    className: clsx(classes.root, className, margin !== 'none' && classes["margin".concat(capitalize(margin))], fullWidth && classes.fullWidth),
+	    ref: ref
+	  }, other), children));
+	});
+	var FormControl$1 = withStyles$1(styles$1, {
+	  name: 'MuiFormControl'
+	})(FormControl);
+
+	function useFormControl$1() {
+	  return react.useContext(FormControlContext);
+	}
+
+	var styles$2 = function styles(theme) {
 	  return {
 	    /* Styles applied to the root element. */
 	    root: {
@@ -25640,11 +25902,11 @@
 	    ref: ref
 	  }, other));
 	});
-	var Typography$1 = withStyles$1(styles$1, {
+	var Typography$1 = withStyles$1(styles$2, {
 	  name: 'MuiTypography'
 	})(Typography);
 
-	var styles$2 = function styles(theme) {
+	var styles$3 = function styles(theme) {
 	  return {
 	    /* Styles applied to the root element. */
 	    root: {
@@ -25714,7 +25976,7 @@
 	      value = props.value,
 	      other = _objectWithoutProperties(props, ["checked", "classes", "className", "control", "disabled", "inputRef", "label", "labelPlacement", "name", "onChange", "value"]);
 
-	  var muiFormControl = useFormControl();
+	  var muiFormControl = useFormControl$1();
 	  var disabled = disabledProp;
 
 	  if (typeof disabled === 'undefined' && typeof control.props.disabled !== 'undefined') {
@@ -25741,7 +26003,7 @@
 	    className: clsx(classes.label, disabled && classes.disabled)
 	  }, label));
 	});
-	var FormControlLabel$1 = withStyles$1(styles$2, {
+	var FormControlLabel$1 = withStyles$1(styles$3, {
 	  name: 'MuiFormControlLabel'
 	})(FormControlLabel);
 
@@ -25966,7 +26228,432 @@
 	  };
 	}
 
+	var config = {
+	  disabled: false
+	};
+
 	var TransitionGroupContext = react.createContext(null);
+
+	var UNMOUNTED = 'unmounted';
+	var EXITED = 'exited';
+	var ENTERING = 'entering';
+	var ENTERED = 'entered';
+	var EXITING = 'exiting';
+	/**
+	 * The Transition component lets you describe a transition from one component
+	 * state to another _over time_ with a simple declarative API. Most commonly
+	 * it's used to animate the mounting and unmounting of a component, but can also
+	 * be used to describe in-place transition states as well.
+	 *
+	 * ---
+	 *
+	 * **Note**: `Transition` is a platform-agnostic base component. If you're using
+	 * transitions in CSS, you'll probably want to use
+	 * [`CSSTransition`](https://reactcommunity.org/react-transition-group/css-transition)
+	 * instead. It inherits all the features of `Transition`, but contains
+	 * additional features necessary to play nice with CSS transitions (hence the
+	 * name of the component).
+	 *
+	 * ---
+	 *
+	 * By default the `Transition` component does not alter the behavior of the
+	 * component it renders, it only tracks "enter" and "exit" states for the
+	 * components. It's up to you to give meaning and effect to those states. For
+	 * example we can add styles to a component when it enters or exits:
+	 *
+	 * ```jsx
+	 * import { Transition } from 'react-transition-group';
+	 *
+	 * const duration = 300;
+	 *
+	 * const defaultStyle = {
+	 *   transition: `opacity ${duration}ms ease-in-out`,
+	 *   opacity: 0,
+	 * }
+	 *
+	 * const transitionStyles = {
+	 *   entering: { opacity: 1 },
+	 *   entered:  { opacity: 1 },
+	 *   exiting:  { opacity: 0 },
+	 *   exited:  { opacity: 0 },
+	 * };
+	 *
+	 * const Fade = ({ in: inProp }) => (
+	 *   <Transition in={inProp} timeout={duration}>
+	 *     {state => (
+	 *       <div style={{
+	 *         ...defaultStyle,
+	 *         ...transitionStyles[state]
+	 *       }}>
+	 *         I'm a fade Transition!
+	 *       </div>
+	 *     )}
+	 *   </Transition>
+	 * );
+	 * ```
+	 *
+	 * There are 4 main states a Transition can be in:
+	 *  - `'entering'`
+	 *  - `'entered'`
+	 *  - `'exiting'`
+	 *  - `'exited'`
+	 *
+	 * Transition state is toggled via the `in` prop. When `true` the component
+	 * begins the "Enter" stage. During this stage, the component will shift from
+	 * its current transition state, to `'entering'` for the duration of the
+	 * transition and then to the `'entered'` stage once it's complete. Let's take
+	 * the following example (we'll use the
+	 * [useState](https://reactjs.org/docs/hooks-reference.html#usestate) hook):
+	 *
+	 * ```jsx
+	 * function App() {
+	 *   const [inProp, setInProp] = useState(false);
+	 *   return (
+	 *     <div>
+	 *       <Transition in={inProp} timeout={500}>
+	 *         {state => (
+	 *           // ...
+	 *         )}
+	 *       </Transition>
+	 *       <button onClick={() => setInProp(true)}>
+	 *         Click to Enter
+	 *       </button>
+	 *     </div>
+	 *   );
+	 * }
+	 * ```
+	 *
+	 * When the button is clicked the component will shift to the `'entering'` state
+	 * and stay there for 500ms (the value of `timeout`) before it finally switches
+	 * to `'entered'`.
+	 *
+	 * When `in` is `false` the same thing happens except the state moves from
+	 * `'exiting'` to `'exited'`.
+	 */
+
+	var Transition =
+	/*#__PURE__*/
+	function (_React$Component) {
+	  _inheritsLoose(Transition, _React$Component);
+
+	  function Transition(props, context) {
+	    var _this;
+
+	    _this = _React$Component.call(this, props, context) || this;
+	    var parentGroup = context; // In the context of a TransitionGroup all enters are really appears
+
+	    var appear = parentGroup && !parentGroup.isMounting ? props.enter : props.appear;
+	    var initialStatus;
+	    _this.appearStatus = null;
+
+	    if (props.in) {
+	      if (appear) {
+	        initialStatus = EXITED;
+	        _this.appearStatus = ENTERING;
+	      } else {
+	        initialStatus = ENTERED;
+	      }
+	    } else {
+	      if (props.unmountOnExit || props.mountOnEnter) {
+	        initialStatus = UNMOUNTED;
+	      } else {
+	        initialStatus = EXITED;
+	      }
+	    }
+
+	    _this.state = {
+	      status: initialStatus
+	    };
+	    _this.nextCallback = null;
+	    return _this;
+	  }
+
+	  Transition.getDerivedStateFromProps = function getDerivedStateFromProps(_ref, prevState) {
+	    var nextIn = _ref.in;
+
+	    if (nextIn && prevState.status === UNMOUNTED) {
+	      return {
+	        status: EXITED
+	      };
+	    }
+
+	    return null;
+	  }; // getSnapshotBeforeUpdate(prevProps) {
+	  //   let nextStatus = null
+	  //   if (prevProps !== this.props) {
+	  //     const { status } = this.state
+	  //     if (this.props.in) {
+	  //       if (status !== ENTERING && status !== ENTERED) {
+	  //         nextStatus = ENTERING
+	  //       }
+	  //     } else {
+	  //       if (status === ENTERING || status === ENTERED) {
+	  //         nextStatus = EXITING
+	  //       }
+	  //     }
+	  //   }
+	  //   return { nextStatus }
+	  // }
+
+
+	  var _proto = Transition.prototype;
+
+	  _proto.componentDidMount = function componentDidMount() {
+	    this.updateStatus(true, this.appearStatus);
+	  };
+
+	  _proto.componentDidUpdate = function componentDidUpdate(prevProps) {
+	    var nextStatus = null;
+
+	    if (prevProps !== this.props) {
+	      var status = this.state.status;
+
+	      if (this.props.in) {
+	        if (status !== ENTERING && status !== ENTERED) {
+	          nextStatus = ENTERING;
+	        }
+	      } else {
+	        if (status === ENTERING || status === ENTERED) {
+	          nextStatus = EXITING;
+	        }
+	      }
+	    }
+
+	    this.updateStatus(false, nextStatus);
+	  };
+
+	  _proto.componentWillUnmount = function componentWillUnmount() {
+	    this.cancelNextCallback();
+	  };
+
+	  _proto.getTimeouts = function getTimeouts() {
+	    var timeout = this.props.timeout;
+	    var exit, enter, appear;
+	    exit = enter = appear = timeout;
+
+	    if (timeout != null && typeof timeout !== 'number') {
+	      exit = timeout.exit;
+	      enter = timeout.enter; // TODO: remove fallback for next major
+
+	      appear = timeout.appear !== undefined ? timeout.appear : enter;
+	    }
+
+	    return {
+	      exit: exit,
+	      enter: enter,
+	      appear: appear
+	    };
+	  };
+
+	  _proto.updateStatus = function updateStatus(mounting, nextStatus) {
+	    if (mounting === void 0) {
+	      mounting = false;
+	    }
+
+	    if (nextStatus !== null) {
+	      // nextStatus will always be ENTERING or EXITING.
+	      this.cancelNextCallback();
+	      var node = reactDom.findDOMNode(this);
+
+	      if (nextStatus === ENTERING) {
+	        this.performEnter(node, mounting);
+	      } else {
+	        this.performExit(node);
+	      }
+	    } else if (this.props.unmountOnExit && this.state.status === EXITED) {
+	      this.setState({
+	        status: UNMOUNTED
+	      });
+	    }
+	  };
+
+	  _proto.performEnter = function performEnter(node, mounting) {
+	    var _this2 = this;
+
+	    var enter = this.props.enter;
+	    var appearing = this.context ? this.context.isMounting : mounting;
+	    var timeouts = this.getTimeouts();
+	    var enterTimeout = appearing ? timeouts.appear : timeouts.enter; // no enter animation skip right to ENTERED
+	    // if we are mounting and running this it means appear _must_ be set
+
+	    if (!mounting && !enter || config.disabled) {
+	      this.safeSetState({
+	        status: ENTERED
+	      }, function () {
+	        _this2.props.onEntered(node);
+	      });
+	      return;
+	    }
+
+	    this.props.onEnter(node, appearing);
+	    this.safeSetState({
+	      status: ENTERING
+	    }, function () {
+	      _this2.props.onEntering(node, appearing);
+
+	      _this2.onTransitionEnd(node, enterTimeout, function () {
+	        _this2.safeSetState({
+	          status: ENTERED
+	        }, function () {
+	          _this2.props.onEntered(node, appearing);
+	        });
+	      });
+	    });
+	  };
+
+	  _proto.performExit = function performExit(node) {
+	    var _this3 = this;
+
+	    var exit = this.props.exit;
+	    var timeouts = this.getTimeouts(); // no exit animation skip right to EXITED
+
+	    if (!exit || config.disabled) {
+	      this.safeSetState({
+	        status: EXITED
+	      }, function () {
+	        _this3.props.onExited(node);
+	      });
+	      return;
+	    }
+
+	    this.props.onExit(node);
+	    this.safeSetState({
+	      status: EXITING
+	    }, function () {
+	      _this3.props.onExiting(node);
+
+	      _this3.onTransitionEnd(node, timeouts.exit, function () {
+	        _this3.safeSetState({
+	          status: EXITED
+	        }, function () {
+	          _this3.props.onExited(node);
+	        });
+	      });
+	    });
+	  };
+
+	  _proto.cancelNextCallback = function cancelNextCallback() {
+	    if (this.nextCallback !== null) {
+	      this.nextCallback.cancel();
+	      this.nextCallback = null;
+	    }
+	  };
+
+	  _proto.safeSetState = function safeSetState(nextState, callback) {
+	    // This shouldn't be necessary, but there are weird race conditions with
+	    // setState callbacks and unmounting in testing, so always make sure that
+	    // we can cancel any pending setState callbacks after we unmount.
+	    callback = this.setNextCallback(callback);
+	    this.setState(nextState, callback);
+	  };
+
+	  _proto.setNextCallback = function setNextCallback(callback) {
+	    var _this4 = this;
+
+	    var active = true;
+
+	    this.nextCallback = function (event) {
+	      if (active) {
+	        active = false;
+	        _this4.nextCallback = null;
+	        callback(event);
+	      }
+	    };
+
+	    this.nextCallback.cancel = function () {
+	      active = false;
+	    };
+
+	    return this.nextCallback;
+	  };
+
+	  _proto.onTransitionEnd = function onTransitionEnd(node, timeout, handler) {
+	    this.setNextCallback(handler);
+	    var doesNotHaveTimeoutOrListener = timeout == null && !this.props.addEndListener;
+
+	    if (!node || doesNotHaveTimeoutOrListener) {
+	      setTimeout(this.nextCallback, 0);
+	      return;
+	    }
+
+	    if (this.props.addEndListener) {
+	      this.props.addEndListener(node, this.nextCallback);
+	    }
+
+	    if (timeout != null) {
+	      setTimeout(this.nextCallback, timeout);
+	    }
+	  };
+
+	  _proto.render = function render() {
+	    var status = this.state.status;
+
+	    if (status === UNMOUNTED) {
+	      return null;
+	    }
+
+	    var _this$props = this.props,
+	        children = _this$props.children,
+	        childProps = _objectWithoutPropertiesLoose(_this$props, ["children"]); // filter props for Transtition
+
+
+	    delete childProps.in;
+	    delete childProps.mountOnEnter;
+	    delete childProps.unmountOnExit;
+	    delete childProps.appear;
+	    delete childProps.enter;
+	    delete childProps.exit;
+	    delete childProps.timeout;
+	    delete childProps.addEndListener;
+	    delete childProps.onEnter;
+	    delete childProps.onEntering;
+	    delete childProps.onEntered;
+	    delete childProps.onExit;
+	    delete childProps.onExiting;
+	    delete childProps.onExited;
+
+	    if (typeof children === 'function') {
+	      // allows for nested Transitions
+	      return react.createElement(TransitionGroupContext.Provider, {
+	        value: null
+	      }, children(status, childProps));
+	    }
+
+	    var child = react.Children.only(children);
+	    return (// allows for nested Transitions
+	      react.createElement(TransitionGroupContext.Provider, {
+	        value: null
+	      }, react.cloneElement(child, childProps))
+	    );
+	  };
+
+	  return Transition;
+	}(react.Component);
+
+	Transition.contextType = TransitionGroupContext;
+	Transition.propTypes =  {};
+
+	function noop() {}
+
+	Transition.defaultProps = {
+	  in: false,
+	  mountOnEnter: false,
+	  unmountOnExit: false,
+	  appear: false,
+	  enter: true,
+	  exit: true,
+	  onEnter: noop,
+	  onEntering: noop,
+	  onEntered: noop,
+	  onExit: noop,
+	  onExiting: noop,
+	  onExited: noop
+	};
+	Transition.UNMOUNTED = 0;
+	Transition.EXITED = 1;
+	Transition.ENTERING = 2;
+	Transition.ENTERED = 3;
+	Transition.EXITING = 4;
 
 	/**
 	 * Given `this.props.children`, return an object mapping key to child.
@@ -26287,7 +26974,7 @@
 
 	var DURATION = 550;
 	var DELAY_RIPPLE = 80;
-	var styles$3 = function styles(theme) {
+	var styles$4 = function styles(theme) {
 	  return {
 	    /* Styles applied to the root element. */
 	    root: {
@@ -26565,12 +27252,12 @@
 	  Component.muiName = 'MuiTouchRipple';
 	  return Component;
 	}
-	var TouchRipple$1 = withStyles$1(styles$3, {
+	var TouchRipple$1 = withStyles$1(styles$4, {
 	  flip: false,
 	  name: 'MuiTouchRipple'
 	})(withMuiName(react.memo(TouchRipple)));
 
-	var styles$4 = {
+	var styles$5 = {
 	  /* Styles applied to the root element. */
 	  root: {
 	    display: 'inline-flex',
@@ -26860,11 +27547,11 @@
 	    center: centerRipple
 	  }, TouchRippleProps))) : null);
 	});
-	var ButtonBase$1 = withStyles$1(styles$4, {
+	var ButtonBase$1 = withStyles$1(styles$5, {
 	  name: 'MuiButtonBase'
 	})(ButtonBase);
 
-	var styles$5 = function styles(theme) {
+	var styles$6 = function styles(theme) {
 	  return {
 	    /* Styles applied to the root element. */
 	    root: {
@@ -26991,11 +27678,11 @@
 	    className: classes.label
 	  }, children));
 	});
-	var IconButton$1 = withStyles$1(styles$5, {
+	var IconButton$1 = withStyles$1(styles$6, {
 	  name: 'MuiIconButton'
 	})(IconButton);
 
-	var styles$6 = {
+	var styles$7 = {
 	  root: {
 	    padding: 9
 	  },
@@ -27049,7 +27736,7 @@
 	      setCheckedState = _React$useState[1];
 
 	  var checked = isControlled ? checkedProp : checkedState;
-	  var muiFormControl = useFormControl();
+	  var muiFormControl = useFormControl$1();
 
 	  var handleFocus = function handleFocus(event) {
 	    if (onFocus) {
@@ -27118,11 +27805,11 @@
 	    value: value
 	  }, inputProps)), checked ? checkedIcon : icon);
 	}); // NB: If changed, please update Checkbox, Switch and Radio
-	var SwitchBase$1 = withStyles$1(styles$6, {
+	var SwitchBase$1 = withStyles$1(styles$7, {
 	  name: 'PrivateSwitchBase'
 	})(SwitchBase);
 
-	var styles$7 = function styles(theme) {
+	var styles$8 = function styles(theme) {
 	  return {
 	    /* Styles applied to the root element. */
 	    root: {
@@ -27307,7 +27994,7 @@
 	    className: classes.track
 	  }));
 	});
-	var Switch$1 = withStyles$1(styles$7, {
+	var Switch$1 = withStyles$1(styles$8, {
 	  name: 'MuiSwitch'
 	})(Switch);
 
@@ -27329,7 +28016,7 @@
 	  return t * t;
 	}
 
-	var styles$8 = function styles(theme) {
+	var styles$9 = function styles(theme) {
 	  return {
 	    /* Styles applied to the root element. */
 	    root: {
@@ -27479,7 +28166,7 @@
 	    strokeWidth: thickness
 	  })));
 	});
-	var CircularProgress$1 = withStyles$1(styles$8, {
+	var CircularProgress$1 = withStyles$1(styles$9, {
 	  name: 'MuiCircularProgress',
 	  flip: false
 	})(CircularProgress);
@@ -27490,7 +28177,7 @@
 
 	var TableContext = react.createContext();
 
-	var styles$9 = function styles(theme) {
+	var styles$a = function styles(theme) {
 	  return {
 	    /* Styles applied to the root element. */
 	    root: {
@@ -27539,7 +28226,7 @@
 	    className: clsx(classes.root, className, stickyHeader && classes.stickyHeader)
 	  }, other)));
 	});
-	var Table$1 = withStyles$1(styles$9, {
+	var Table$1 = withStyles$1(styles$a, {
 	  name: 'MuiTable'
 	})(Table);
 
@@ -27549,7 +28236,7 @@
 
 	var Tablelvl2Context = react.createContext();
 
-	var styles$a = {
+	var styles$b = {
 	  /* Styles applied to the root element. */
 	  root: {
 	    display: 'table-row-group'
@@ -27572,11 +28259,11 @@
 	    ref: ref
 	  }, other)));
 	});
-	var TableBody$1 = withStyles$1(styles$a, {
+	var TableBody$1 = withStyles$1(styles$b, {
 	  name: 'MuiTableBody'
 	})(TableBody);
 
-	var styles$b = {
+	var styles$c = {
 	  /* Styles applied to the root element. */
 	  root: {
 	    display: 'table-header-group'
@@ -27599,11 +28286,11 @@
 	    ref: ref
 	  }, other)));
 	});
-	var TableHead$1 = withStyles$1(styles$b, {
+	var TableHead$1 = withStyles$1(styles$c, {
 	  name: 'MuiTableHead'
 	})(TableHead);
 
-	var styles$c = function styles(theme) {
+	var styles$d = function styles(theme) {
 	  return {
 	    /* Styles applied to the root element. */
 	    root: _extends({}, theme.typography.body2, {
@@ -27757,11 +28444,11 @@
 	    scope: scope
 	  }, other));
 	});
-	var TableCell$1 = withStyles$1(styles$c, {
+	var TableCell$1 = withStyles$1(styles$d, {
 	  name: 'MuiTableCell'
 	})(TableCell);
 
-	var styles$d = function styles(theme) {
+	var styles$e = function styles(theme) {
 	  return {
 	    /* Styles applied to the root element. */
 	    root: {
@@ -27818,7 +28505,7 @@
 	    }[tablelvl2.variant], hover && classes.hover, selected && classes.selected)
 	  }, other));
 	});
-	var TableRow$1 = withStyles$1(styles$d, {
+	var TableRow$1 = withStyles$1(styles$e, {
 	  name: 'MuiTableRow'
 	})(TableRow);
 
@@ -28393,7 +29080,7 @@
 	  return cancel;
 	}
 
-	var styles$e = {
+	var styles$f = {
 	  width: 99,
 	  height: 99,
 	  position: 'absolute',
@@ -28437,12 +29124,12 @@
 	    onChange(scrollbarHeight.current);
 	  }, [onChange]);
 	  return react.createElement("div", _extends({
-	    style: styles$e,
+	    style: styles$f,
 	    ref: nodeRef
 	  }, other));
 	}
 
-	var styles$f = function styles(theme) {
+	var styles$g = function styles(theme) {
 	  return {
 	    root: {
 	      position: 'absolute',
@@ -28482,11 +29169,11 @@
 	    ref: ref
 	  }, other));
 	});
-	var TabIndicator$1 = withStyles$1(styles$f, {
+	var TabIndicator$1 = withStyles$1(styles$g, {
 	  name: 'PrivateTabIndicator'
 	})(TabIndicator);
 
-	var styles$g = function styles(theme) {
+	var styles$h = function styles(theme) {
 	  return {
 	    /* Styles applied to the root element. */
 	    root: {
@@ -28570,7 +29257,7 @@
 	  }, other), children, titleAccess ? react.createElement("title", null, titleAccess) : null);
 	});
 	SvgIcon.muiName = 'SvgIcon';
-	var SvgIcon$1 = withStyles$1(styles$g, {
+	var SvgIcon$1 = withStyles$1(styles$h, {
 	  name: 'MuiSvgIcon'
 	})(SvgIcon);
 
@@ -28601,7 +29288,7 @@
 	  d: "M8.59 16.34l4.58-4.59-4.58-4.59L10 5.75l6 6-6 6z"
 	}));
 
-	var styles$h = {
+	var styles$i = {
 	  root: {
 	    width: 40,
 	    flexShrink: 0
@@ -28652,11 +29339,11 @@
 	    tabIndex: null
 	  }, other), direction === 'left' ? _ref : _ref2);
 	});
-	var TabScrollButton$1 = withStyles$1(styles$h, {
+	var TabScrollButton$1 = withStyles$1(styles$i, {
 	  name: 'PrivateTabScrollButton'
 	})(TabScrollButton);
 
-	var styles$i = function styles(theme) {
+	var styles$j = function styles(theme) {
 	  return {
 	    /* Styles applied to the root element. */
 	    root: {
@@ -29042,11 +29729,11 @@
 	    role: "tablist"
 	  }, children), mounted && indicator), conditionalElements.scrollButtonEnd);
 	});
-	var Tabs$1 = withStyles$1(styles$i, {
+	var Tabs$1 = withStyles$1(styles$j, {
 	  name: 'MuiTabs'
 	})(Tabs);
 
-	var styles$j = function styles(theme) {
+	var styles$k = function styles(theme) {
 	  var _extends2;
 
 	  return {
@@ -29182,11 +29869,11 @@
 	    className: classes.wrapper
 	  }, icon, label), indicator);
 	});
-	var Tab$2 = withStyles$1(styles$j, {
+	var Tab$2 = withStyles$1(styles$k, {
 	  name: 'MuiTab'
 	})(Tab$1);
 
-	var styles$k = function styles(theme) {
+	var styles$l = function styles(theme) {
 	  var elevations = {};
 	  theme.shadows.forEach(function (shadow, index) {
 	    elevations["elevation".concat(index)] = {
@@ -29223,11 +29910,11 @@
 	    ref: ref
 	  }, other));
 	});
-	var Paper$1 = withStyles$1(styles$k, {
+	var Paper$1 = withStyles$1(styles$l, {
 	  name: 'MuiPaper'
 	})(Paper);
 
-	var styles$l = function styles(theme) {
+	var styles$m = function styles(theme) {
 	  var backgroundColorDefault = theme.palette.type === 'light' ? theme.palette.grey[100] : theme.palette.grey[900];
 	  return {
 	    /* Styles applied to the root element. */
@@ -29316,7 +30003,7 @@
 	    ref: ref
 	  }, other));
 	});
-	var AppBar$1 = withStyles$1(styles$l, {
+	var AppBar$1 = withStyles$1(styles$m, {
 	  name: 'MuiAppBar'
 	})(AppBar);
 
@@ -29353,7 +30040,7 @@
 	            alert('We\'ve hit a snag, it seems (' + response.code + ').\nSomething about: ' + response.message);
 	          }
 	        }, function (e) {
-	          alert(Helpers.decodeHtml(pixassist.themeConfig.l10n.internalErrorContent));
+	          alert(Helpers.decodeHtml(get_1(pixassist, 'themeConfig.l10n.internalErrorContent', '')));
 	        });
 	      }
 	    });
@@ -30392,7 +31079,7 @@
 	      } else if (this.props.session.oauth_error === true) {
 	        return react.createElement("span", {
 	          className: "btn  btn--action btn--disabled box--error"
-	        }, pixassist.themeConfig.authentication.loadingError);
+	        }, get_1(pixassist, 'themeConfig.authentication.loadingError', ''));
 	      } else if (!get_1(this.props.session, 'connect_url', false)) {
 	        return react.createElement("a", {
 	          className: "btn  btn--action btn--disabled"
@@ -30813,18 +31500,18 @@
 	        if (!_this.props.session.hasOriginalDirName) {
 	          Helpers.pushNotification({
 	            notice_id: 'theme_directory_changed',
-	            title: '😭 ' + Helpers.decodeHtml(pixassist.themeConfig.l10n.themeDirectoryChangedTitle),
-	            content: Helpers.decodeHtml(pixassist.themeConfig.l10n.themeDirectoryChanged),
+	            title: '😭 ' + Helpers.decodeHtml(get_1(pixassist, 'themeConfig.l10n.themeDirectoryChangedTitle', '')),
+	            content: Helpers.decodeHtml(get_1(pixassist, 'themeConfig.l10n.themeDirectoryChanged', '')),
 	            type: 'error'
 	          });
 	        } // If the theme's name has been changed throw a notice
 
 
 	        if (!_this.props.session.hasOriginalStyleName) {
-	          var content = pixassist.themeSupports.is_child ? pixassist.themeConfig.l10n.childThemeNameChanged : pixassist.themeConfig.l10n.themeNameChanged;
+	          var content = pixassist.themeSupports.is_child ? get_1(pixassist, 'themeConfig.l10n.childThemeNameChanged', '') : get_1(pixassist, 'themeConfig.l10n.themeNameChanged', '');
 	          Helpers.pushNotification({
 	            notice_id: 'theme_name_changed',
-	            title: '😱 ' + Helpers.decodeHtml(pixassist.themeConfig.l10n.themeNameChangedTitle),
+	            title: '😱 ' + Helpers.decodeHtml(get_1(pixassist, 'themeConfig.l10n.themeNameChangedTitle', '')),
 	            content: Helpers.decodeHtml(content),
 	            type: 'error'
 	          });
@@ -30835,8 +31522,8 @@
 	      if (_this.props.session.user.force_disconnected) {
 	        Helpers.pushNotification({
 	          notice_id: 'connection_lost',
-	          title: '🤷 👀 ' + Helpers.replaceParams(Helpers.decodeHtml(pixassist.themeConfig.l10n.connectionLostTitle)),
-	          content: Helpers.replaceParams(Helpers.decodeHtml(pixassist.themeConfig.l10n.connectionLost)),
+	          title: '🤷 👀 ' + Helpers.replaceParams(Helpers.decodeHtml(get_1(pixassist, 'themeConfig.l10n.connectionLostTitle', ''))),
+	          content: Helpers.replaceParams(Helpers.decodeHtml(get_1(pixassist, 'themeConfig.l10n.connectionLost', ''))),
 	          type: 'warning'
 	        });
 	      } // If we're in the setup wizard - render a slightly different page
@@ -30954,7 +31641,7 @@
 
 	          Helpers.pushNotification({
 	            notice_id: 'no_licenses_found',
-	            title: Helpers.decodeHtml(pixassist.themeConfig.l10n.validationErrorTitle),
+	            title: Helpers.decodeHtml(get_1(pixassist, 'themeConfig.l10n.validationErrorTitle', '')),
 	            content: Helpers.decodeHtml(component.config.noThemeLicense),
 	            type: 'warning'
 	          });
@@ -30966,7 +31653,7 @@
 
 	        Helpers.pushNotification({
 	          notice_id: 'no_licenses_found',
-	          title: Helpers.decodeHtml(pixassist.themeConfig.l10n.validationErrorTitle),
+	          title: Helpers.decodeHtml(get_1(pixassist, 'themeConfig.l10n.validationErrorTitle', '')),
 	          content: Helpers.decodeHtml(component.config.noThemeLicense),
 	          type: 'warning'
 	        });
@@ -31063,10 +31750,10 @@
 	                  // Active License & Update Available notification
 	                  Helpers.pushNotification({
 	                    notice_id: 'outdated_theme',
-	                    title: pixassist.themeConfig.l10n.themeUpdateAvailableTitle,
-	                    content: pixassist.themeConfig.l10n.themeUpdateAvailableContent,
+	                    title: get_1(pixassist, 'themeConfig.l10n.themeUpdateAvailableTitle', ''),
+	                    content: get_1(pixassist, 'themeConfig.l10n.themeUpdateAvailableContent', ''),
 	                    type: 'info',
-	                    ctaLabel: pixassist.themeConfig.l10n.themeUpdateButton,
+	                    ctaLabel: get_1(pixassist, 'themeConfig.l10n.themeUpdateButton', ''),
 	                    ctaAction: Helpers.clickUpdateTheme
 	                  });
 	                } // Dispatch the loading finished
@@ -31113,8 +31800,8 @@
 	        // This means that there is no product related to this hash ID. Nicely inform the user!
 	        Helpers.pushNotification({
 	          notice_id: 'hash_id_not_found',
-	          title: Helpers.decodeHtml(pixassist.themeConfig.l10n.validationErrorTitle),
-	          content: Helpers.decodeHtml(pixassist.themeConfig.l10n.hashidNotFoundNotice),
+	          title: Helpers.decodeHtml(get_1(pixassist, 'themeConfig.l10n.validationErrorTitle', '')),
+	          content: Helpers.decodeHtml(get_1(pixassist, 'themeConfig.l10n.hashidNotFoundNotice', '')),
 	          type: 'error'
 	        }); // Dispatch the loading finished action
 
@@ -31410,7 +32097,7 @@
 
 	      Helpers.pushNotification({
 	        notice_id: 'undefined_error',
-	        title: Helpers.decodeHtml(pixassist.themeConfig.l10n.validationErrorTitle),
+	        title: Helpers.decodeHtml(get_1(pixassist, 'themeConfig.l10n.validationErrorTitle', '')),
 	        content: message,
 	        type: 'error'
 	      });
@@ -31835,6 +32522,32 @@
 	  });
 	}
 
+	var test$1 = [];
+	var nativeSort = test$1.sort;
+
+	// IE8-
+	var FAILS_ON_UNDEFINED = fails(function () {
+	  test$1.sort(undefined);
+	});
+	// V8 bug
+	var FAILS_ON_NULL = fails(function () {
+	  test$1.sort(null);
+	});
+	// Old WebKit
+	var SLOPPY_METHOD$2 = sloppyArrayMethod('sort');
+
+	var FORCED$5 = FAILS_ON_UNDEFINED || !FAILS_ON_NULL || SLOPPY_METHOD$2;
+
+	// `Array.prototype.sort` method
+	// https://tc39.github.io/ecma262/#sec-array.prototype.sort
+	_export({ target: 'Array', proto: true, forced: FORCED$5 }, {
+	  sort: function sort(comparefn) {
+	    return comparefn === undefined
+	      ? nativeSort.call(toObject$1(this))
+	      : nativeSort.call(toObject$1(this), aFunction$1(comparefn));
+	  }
+	});
+
 	/**
 	 * The base implementation of `_.sortBy` which uses `comparer` to define the
 	 * sort order of `array` and replaces criteria objects with their corresponding
@@ -32051,79 +32764,32 @@
 
 	var sortBy_1 = sortBy;
 
-	/**
-	 * Creates a function like `_.assign`.
-	 *
-	 * @private
-	 * @param {Function} assigner The function to assign values.
-	 * @returns {Function} Returns the new assigner function.
-	 */
-	function createAssigner(assigner) {
-	  return _baseRest(function(object, sources) {
-	    var index = -1,
-	        length = sources.length,
-	        customizer = length > 1 ? sources[length - 1] : undefined,
-	        guard = length > 2 ? sources[2] : undefined;
+	/** Used for built-in method references. */
+	var arrayProto$1 = Array.prototype;
 
-	    customizer = (assigner.length > 3 && typeof customizer == 'function')
-	      ? (length--, customizer)
-	      : undefined;
-
-	    if (guard && _isIterateeCall(sources[0], sources[1], guard)) {
-	      customizer = length < 3 ? undefined : customizer;
-	      length = 1;
-	    }
-	    object = Object(object);
-	    while (++index < length) {
-	      var source = sources[index];
-	      if (source) {
-	        assigner(object, source, index, customizer);
-	      }
-	    }
-	    return object;
-	  });
-	}
-
-	var _createAssigner = createAssigner;
+	/* Built-in method references for those with the same name as other `lodash` methods. */
+	var nativeJoin$1 = arrayProto$1.join;
 
 	/**
-	 * This method is like `_.assign` except that it iterates over own and
-	 * inherited source properties.
-	 *
-	 * **Note:** This method mutates `object`.
+	 * Converts all elements in `array` into a string separated by `separator`.
 	 *
 	 * @static
 	 * @memberOf _
 	 * @since 4.0.0
-	 * @alias extend
-	 * @category Object
-	 * @param {Object} object The destination object.
-	 * @param {...Object} [sources] The source objects.
-	 * @returns {Object} Returns `object`.
-	 * @see _.assign
+	 * @category Array
+	 * @param {Array} array The array to convert.
+	 * @param {string} [separator=','] The element separator.
+	 * @returns {string} Returns the joined string.
 	 * @example
 	 *
-	 * function Foo() {
-	 *   this.a = 1;
-	 * }
-	 *
-	 * function Bar() {
-	 *   this.c = 3;
-	 * }
-	 *
-	 * Foo.prototype.b = 2;
-	 * Bar.prototype.d = 4;
-	 *
-	 * _.assignIn({ 'a': 0 }, new Foo, new Bar);
-	 * // => { 'a': 1, 'b': 2, 'c': 3, 'd': 4 }
+	 * _.join(['a', 'b', 'c'], '~');
+	 * // => 'a~b~c'
 	 */
-	var assignIn = _createAssigner(function(object, source) {
-	  _copyObject(source, keysIn_1(source), object);
-	});
+	function join$1(array, separator) {
+	  return array == null ? '' : nativeJoin$1.call(array, separator);
+	}
 
-	var assignIn_1 = assignIn;
-
-	var extend = assignIn_1;
+	var join_1 = join$1;
 
 	var ProgressBar =
 	/*#__PURE__*/
@@ -32140,8 +32806,6 @@
 	    key: "render",
 	    value: function render() {
 	      return react.createElement("div", {
-	        className: "plugins starter_content"
-	      }, react.createElement("div", {
 	        className: this.props.installingClass
 	      }, react.createElement("div", {
 	        className: "bullet"
@@ -32149,12 +32813,3999 @@
 	        className: "box__title"
 	      }, this.props.title), react.createElement("div", {
 	        className: "box__text"
-	      }, this.props.description))));
+	      }, this.props.description)));
 	    }
 	  }]);
 
 	  return ProgressBar;
 	}(react_4); // TypeChecking
+
+	/**
+	 * @ignore - internal component.
+	 */
+
+	var RadioButtonUncheckedIcon = createSvgIcon(react.createElement("path", {
+	  d: "M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8z"
+	}));
+
+	/**
+	 * @ignore - internal component.
+	 */
+
+	var RadioButtonCheckedIcon = createSvgIcon(react.createElement("path", {
+	  d: "M8.465 8.465C9.37 7.56 10.62 7 12 7C14.76 7 17 9.24 17 12C17 13.38 16.44 14.63 15.535 15.535C14.63 16.44 13.38 17 12 17C9.24 17 7 14.76 7 12C7 10.62 7.56 9.37 8.465 8.465Z"
+	}));
+
+	var styles$n = function styles(theme) {
+	  return {
+	    root: {
+	      position: 'relative',
+	      display: 'flex',
+	      '&$checked $layer': {
+	        transform: 'scale(1)',
+	        transition: theme.transitions.create('transform', {
+	          easing: theme.transitions.easing.easeOut,
+	          duration: theme.transitions.duration.shortest
+	        })
+	      }
+	    },
+	    layer: {
+	      left: 0,
+	      position: 'absolute',
+	      transform: 'scale(0)',
+	      transition: theme.transitions.create('transform', {
+	        easing: theme.transitions.easing.easeIn,
+	        duration: theme.transitions.duration.shortest
+	      })
+	    },
+	    checked: {}
+	  };
+	};
+	/**
+	 * @ignore - internal component.
+	 */
+
+	var _ref$1 = react.createElement(RadioButtonUncheckedIcon, null);
+
+	function RadioButtonIcon(props) {
+	  var checked = props.checked,
+	      classes = props.classes;
+	  return react.createElement("div", {
+	    className: clsx(classes.root, checked && classes.checked)
+	  }, _ref$1, react.createElement(RadioButtonCheckedIcon, {
+	    className: classes.layer
+	  }));
+	}
+	var RadioButtonIcon$1 = withStyles$1(styles$n, {
+	  name: 'PrivateRadioButtonIcon'
+	})(RadioButtonIcon);
+
+	/**
+	 * Safe chained function
+	 *
+	 * Will only create a new function if needed,
+	 * otherwise will pass back existing functions or null.
+	 *
+	 * @param {function} functions to chain
+	 * @returns {function|null}
+	 */
+	function createChainedFunction() {
+	  for (var _len = arguments.length, funcs = new Array(_len), _key = 0; _key < _len; _key++) {
+	    funcs[_key] = arguments[_key];
+	  }
+
+	  return funcs.reduce(function (acc, func) {
+	    if (func == null) {
+	      return acc;
+	    }
+
+	    return function chainedFunction() {
+	      for (var _len2 = arguments.length, args = new Array(_len2), _key2 = 0; _key2 < _len2; _key2++) {
+	        args[_key2] = arguments[_key2];
+	      }
+
+	      acc.apply(this, args);
+	      func.apply(this, args);
+	    };
+	  }, function () {});
+	}
+
+	/**
+	 * @ignore - internal component.
+	 */
+
+	var RadioGroupContext = react.createContext();
+
+	var styles$o = function styles(theme) {
+	  return {
+	    /* Styles applied to the root element. */
+	    root: {
+	      color: theme.palette.text.secondary
+	    },
+
+	    /* Pseudo-class applied to the root element if `checked={true}`. */
+	    checked: {},
+
+	    /* Pseudo-class applied to the root element if `disabled={true}`. */
+	    disabled: {},
+
+	    /* Styles applied to the root element if `color="primary"`. */
+	    colorPrimary: {
+	      '&$checked': {
+	        color: theme.palette.primary.main,
+	        '&:hover': {
+	          backgroundColor: fade(theme.palette.primary.main, theme.palette.action.hoverOpacity),
+	          // Reset on touch devices, it doesn't add specificity
+	          '@media (hover: none)': {
+	            backgroundColor: 'transparent'
+	          }
+	        }
+	      },
+	      '&$disabled': {
+	        color: theme.palette.action.disabled
+	      }
+	    },
+
+	    /* Styles applied to the root element if `color="secondary"`. */
+	    colorSecondary: {
+	      '&$checked': {
+	        color: theme.palette.secondary.main,
+	        '&:hover': {
+	          backgroundColor: fade(theme.palette.secondary.main, theme.palette.action.hoverOpacity),
+	          // Reset on touch devices, it doesn't add specificity
+	          '@media (hover: none)': {
+	            backgroundColor: 'transparent'
+	          }
+	        }
+	      },
+	      '&$disabled': {
+	        color: theme.palette.action.disabled
+	      }
+	    }
+	  };
+	};
+	var defaultCheckedIcon = react.createElement(RadioButtonIcon$1, {
+	  checked: true
+	});
+	var defaultIcon = react.createElement(RadioButtonIcon$1, null);
+	var Radio = react.forwardRef(function Radio(props, ref) {
+	  var checkedProp = props.checked,
+	      classes = props.classes,
+	      _props$color = props.color,
+	      color = _props$color === void 0 ? 'secondary' : _props$color,
+	      _props$disabled = props.disabled,
+	      disabled = _props$disabled === void 0 ? false : _props$disabled,
+	      nameProp = props.name,
+	      onChangeProp = props.onChange,
+	      other = _objectWithoutProperties(props, ["checked", "classes", "color", "disabled", "name", "onChange"]);
+
+	  var radioGroup = react.useContext(RadioGroupContext);
+	  var checked = checkedProp;
+	  var onChange = createChainedFunction(onChangeProp, radioGroup && radioGroup.onChange);
+	  var name = nameProp;
+
+	  if (radioGroup) {
+	    if (typeof checked === 'undefined') {
+	      checked = radioGroup.value === props.value;
+	    }
+
+	    if (typeof name === 'undefined') {
+	      name = radioGroup.name;
+	    }
+	  }
+
+	  return react.createElement(SwitchBase$1, _extends({
+	    color: color,
+	    type: "radio",
+	    icon: defaultIcon,
+	    checkedIcon: defaultCheckedIcon,
+	    classes: {
+	      root: clsx(classes.root, classes["color".concat(capitalize(color))]),
+	      checked: classes.checked,
+	      disabled: classes.disabled
+	    },
+	    name: name,
+	    checked: checked,
+	    onChange: onChange,
+	    ref: ref,
+	    disabled: disabled
+	  }, other));
+	});
+	var Radio$1 = withStyles$1(styles$o, {
+	  name: 'MuiRadio'
+	})(Radio);
+
+	function formControlState(_ref) {
+	  var props = _ref.props,
+	      states = _ref.states,
+	      muiFormControl = _ref.muiFormControl;
+	  return states.reduce(function (acc, state) {
+	    acc[state] = props[state];
+
+	    if (muiFormControl) {
+	      if (typeof props[state] === 'undefined') {
+	        acc[state] = muiFormControl[state];
+	      }
+	    }
+
+	    return acc;
+	  }, {});
+	}
+
+	function getStyleValue(computedStyle, property) {
+	  return parseInt(computedStyle[property], 10) || 0;
+	}
+
+	var useEnhancedEffect$3 = typeof window !== 'undefined' ? react.useLayoutEffect : react.useEffect;
+	var styles$p = {
+	  /* Styles applied to the shadow textarea element. */
+	  shadow: {
+	    // Visibility needed to hide the extra text area on iPads
+	    visibility: 'hidden',
+	    // Remove from the content flow
+	    position: 'absolute',
+	    // Ignore the scrollbar width
+	    overflow: 'hidden',
+	    height: 0,
+	    top: 0,
+	    left: 0,
+	    // Create a new layer, increase the isolation of the computed values
+	    transform: 'translateZ(0)'
+	  }
+	};
+	var TextareaAutosize = react.forwardRef(function TextareaAutosize(props, ref) {
+	  var onChange = props.onChange,
+	      rows = props.rows,
+	      rowsMax = props.rowsMax,
+	      style = props.style,
+	      value = props.value,
+	      other = _objectWithoutProperties(props, ["onChange", "rows", "rowsMax", "style", "value"]);
+
+	  var _React$useRef = react.useRef(value != null),
+	      isControlled = _React$useRef.current;
+
+	  var inputRef = react.useRef(null);
+	  var handleRef = useForkRef(ref, inputRef);
+	  var shadowRef = react.useRef(null);
+
+	  var _React$useState = react.useState({}),
+	      state = _React$useState[0],
+	      setState = _React$useState[1];
+
+	  var syncHeight = react.useCallback(function () {
+	    var input = inputRef.current;
+	    var computedStyle = window.getComputedStyle(input);
+	    var inputShallow = shadowRef.current;
+	    inputShallow.style.width = computedStyle.width;
+	    inputShallow.value = input.value || props.placeholder || 'x';
+	    var boxSizing = computedStyle['box-sizing'];
+	    var padding = getStyleValue(computedStyle, 'padding-bottom') + getStyleValue(computedStyle, 'padding-top');
+	    var border = getStyleValue(computedStyle, 'border-bottom-width') + getStyleValue(computedStyle, 'border-top-width'); // The height of the inner content
+
+	    var innerHeight = inputShallow.scrollHeight - padding; // Measure height of a textarea with a single row
+
+	    inputShallow.value = 'x';
+	    var singleRowHeight = inputShallow.scrollHeight - padding; // The height of the outer content
+
+	    var outerHeight = innerHeight;
+
+	    if (rows != null) {
+	      outerHeight = Math.max(Number(rows) * singleRowHeight, outerHeight);
+	    }
+
+	    if (rowsMax != null) {
+	      outerHeight = Math.min(Number(rowsMax) * singleRowHeight, outerHeight);
+	    }
+
+	    outerHeight = Math.max(outerHeight, singleRowHeight); // Take the box sizing into account for applying this value as a style.
+
+	    var outerHeightStyle = outerHeight + (boxSizing === 'border-box' ? padding + border : 0);
+	    var overflow = Math.abs(outerHeight - innerHeight) <= 1;
+	    setState(function (prevState) {
+	      // Need a large enough different to update the height.
+	      // This prevents infinite rendering loop.
+	      if (outerHeightStyle > 0 && Math.abs((prevState.outerHeightStyle || 0) - outerHeightStyle) > 1 || prevState.overflow !== overflow) {
+	        return {
+	          overflow: overflow,
+	          outerHeightStyle: outerHeightStyle
+	        };
+	      }
+
+	      return prevState;
+	    });
+	  }, [rows, rowsMax, props.placeholder]);
+	  react.useEffect(function () {
+	    var handleResize = debounce(function () {
+	      syncHeight();
+	    });
+	    window.addEventListener('resize', handleResize);
+	    return function () {
+	      handleResize.clear();
+	      window.removeEventListener('resize', handleResize);
+	    };
+	  }, [syncHeight]);
+	  useEnhancedEffect$3(function () {
+	    syncHeight();
+	  });
+
+	  var handleChange = function handleChange(event) {
+	    if (!isControlled) {
+	      syncHeight();
+	    }
+
+	    if (onChange) {
+	      onChange(event);
+	    }
+	  };
+
+	  return react.createElement(react.Fragment, null, react.createElement("textarea", _extends({
+	    value: value,
+	    onChange: handleChange,
+	    ref: handleRef // Apply the rows prop to get a "correct" first SSR paint
+	    ,
+	    rows: rows || 1,
+	    style: _extends({
+	      height: state.outerHeightStyle,
+	      // Need a large enough different to allow scrolling.
+	      // This prevents infinite rendering loop.
+	      overflow: state.overflow ? 'hidden' : null
+	    }, style)
+	  }, other)), react.createElement("textarea", {
+	    "aria-hidden": true,
+	    className: props.className,
+	    readOnly: true,
+	    ref: shadowRef,
+	    tabIndex: -1,
+	    style: _extends({}, styles$p.shadow, {}, style)
+	  }));
+	});
+
+	var styles$q = function styles(theme) {
+	  var light = theme.palette.type === 'light';
+	  var placeholder = {
+	    color: 'currentColor',
+	    opacity: light ? 0.42 : 0.5,
+	    transition: theme.transitions.create('opacity', {
+	      duration: theme.transitions.duration.shorter
+	    })
+	  };
+	  var placeholderHidden = {
+	    opacity: '0 !important'
+	  };
+	  var placeholderVisible = {
+	    opacity: light ? 0.42 : 0.5
+	  };
+	  return {
+	    /* Styles applied to the root element. */
+	    root: {
+	      // Mimics the default input display property used by browsers for an input.
+	      fontFamily: theme.typography.fontFamily,
+	      color: theme.palette.text.primary,
+	      fontSize: theme.typography.pxToRem(16),
+	      lineHeight: '1.1875em',
+	      // Reset (19px), match the native input line-height
+	      boxSizing: 'border-box',
+	      // Prevent padding issue with fullWidth.
+	      position: 'relative',
+	      cursor: 'text',
+	      display: 'inline-flex',
+	      alignItems: 'center',
+	      '&$disabled': {
+	        color: theme.palette.text.disabled,
+	        cursor: 'default'
+	      }
+	    },
+
+	    /* Styles applied to the root element if the component is a descendant of `FormControl`. */
+	    formControl: {},
+
+	    /* Styles applied to the root element if the component is focused. */
+	    focused: {},
+
+	    /* Styles applied to the root element if `disabled={true}`. */
+	    disabled: {},
+
+	    /* Styles applied to the root element if `startAdornment` is provided. */
+	    adornedStart: {},
+
+	    /* Styles applied to the root element if `endAdornment` is provided. */
+	    adornedEnd: {},
+
+	    /* Styles applied to the root element if `error={true}`. */
+	    error: {},
+
+	    /* Styles applied to the `input` element if `margin="dense"`. */
+	    marginDense: {},
+
+	    /* Styles applied to the root element if `multiline={true}`. */
+	    multiline: {
+	      padding: "".concat(8 - 2, "px 0 ").concat(8 - 1, "px"),
+	      '&$marginDense': {
+	        paddingTop: 4 - 1
+	      }
+	    },
+
+	    /* Styles applied to the root element if the color is secondary. */
+	    colorSecondary: {},
+
+	    /* Styles applied to the root element if `fullWidth={true}`. */
+	    fullWidth: {
+	      width: '100%'
+	    },
+
+	    /* Styles applied to the `input` element. */
+	    input: {
+	      font: 'inherit',
+	      color: 'currentColor',
+	      padding: "".concat(8 - 2, "px 0 ").concat(8 - 1, "px"),
+	      border: 0,
+	      boxSizing: 'content-box',
+	      background: 'none',
+	      height: '1.1875em',
+	      // Reset (19px), match the native input line-height
+	      margin: 0,
+	      // Reset for Safari
+	      // Remove grey highlight
+	      WebkitTapHighlightColor: 'transparent',
+	      display: 'block',
+	      // Make the flex item shrink with Firefox
+	      minWidth: 0,
+	      width: '100%',
+	      // Fix IE 11 width issue
+	      animationName: '$auto-fill-cancel',
+	      '&::-webkit-input-placeholder': placeholder,
+	      '&::-moz-placeholder': placeholder,
+	      // Firefox 19+
+	      '&:-ms-input-placeholder': placeholder,
+	      // IE 11
+	      '&::-ms-input-placeholder': placeholder,
+	      // Edge
+	      '&:focus': {
+	        outline: 0
+	      },
+	      // Reset Firefox invalid required input style
+	      '&:invalid': {
+	        boxShadow: 'none'
+	      },
+	      '&::-webkit-search-decoration': {
+	        // Remove the padding when type=search.
+	        '-webkit-appearance': 'none'
+	      },
+	      // Show and hide the placeholder logic
+	      'label[data-shrink=false] + $formControl &': {
+	        '&::-webkit-input-placeholder': placeholderHidden,
+	        '&::-moz-placeholder': placeholderHidden,
+	        // Firefox 19+
+	        '&:-ms-input-placeholder': placeholderHidden,
+	        // IE 11
+	        '&::-ms-input-placeholder': placeholderHidden,
+	        // Edge
+	        '&:focus::-webkit-input-placeholder': placeholderVisible,
+	        '&:focus::-moz-placeholder': placeholderVisible,
+	        // Firefox 19+
+	        '&:focus:-ms-input-placeholder': placeholderVisible,
+	        // IE 11
+	        '&:focus::-ms-input-placeholder': placeholderVisible // Edge
+
+	      },
+	      '&$disabled': {
+	        opacity: 1 // Reset iOS opacity
+
+	      },
+	      '&:-webkit-autofill': {
+	        animationDuration: '5000s',
+	        animationName: '$auto-fill'
+	      }
+	    },
+	    '@keyframes auto-fill': {
+	      from: {}
+	    },
+	    '@keyframes auto-fill-cancel': {
+	      from: {}
+	    },
+
+	    /* Styles applied to the `input` element if `margin="dense"`. */
+	    inputMarginDense: {
+	      paddingTop: 4 - 1
+	    },
+
+	    /* Styles applied to the `input` element if `select={true}`. */
+	    inputSelect: {
+	      paddingRight: 24
+	    },
+
+	    /* Styles applied to the `input` element if `multiline={true}`. */
+	    inputMultiline: {
+	      height: 'auto',
+	      resize: 'none',
+	      padding: 0
+	    },
+
+	    /* Styles applied to the `input` element if `type="search"`. */
+	    inputTypeSearch: {
+	      // Improve type search style.
+	      '-moz-appearance': 'textfield',
+	      '-webkit-appearance': 'textfield'
+	    },
+
+	    /* Styles applied to the `input` element if `startAdornment` is provided. */
+	    inputAdornedStart: {},
+
+	    /* Styles applied to the `input` element if `endAdornment` is provided. */
+	    inputAdornedEnd: {},
+
+	    /* Styles applied to the `input` element if `hiddenLabel={true}`. */
+	    inputHiddenLabel: {}
+	  };
+	};
+	var useEnhancedEffect$4 = typeof window === 'undefined' ? react.useEffect : react.useLayoutEffect;
+	/**
+	 * `InputBase` contains as few styles as possible.
+	 * It aims to be a simple building block for creating an input.
+	 * It contains a load of style reset and some state logic.
+	 */
+
+	var InputBase = react.forwardRef(function InputBase(props, ref) {
+	  var ariaDescribedby = props['aria-describedby'],
+	      autoComplete = props.autoComplete,
+	      autoFocus = props.autoFocus,
+	      classes = props.classes,
+	      className = props.className,
+	      color = props.color,
+	      defaultValue = props.defaultValue,
+	      disabled = props.disabled,
+	      endAdornment = props.endAdornment,
+	      error = props.error,
+	      _props$fullWidth = props.fullWidth,
+	      fullWidth = _props$fullWidth === void 0 ? false : _props$fullWidth,
+	      id = props.id,
+	      _props$inputComponent = props.inputComponent,
+	      inputComponent = _props$inputComponent === void 0 ? 'input' : _props$inputComponent,
+	      _props$inputProps = props.inputProps,
+	      inputPropsProp = _props$inputProps === void 0 ? {} : _props$inputProps,
+	      inputRefProp = props.inputRef,
+	      margin = props.margin,
+	      _props$multiline = props.multiline,
+	      multiline = _props$multiline === void 0 ? false : _props$multiline,
+	      name = props.name,
+	      onBlur = props.onBlur,
+	      onChange = props.onChange,
+	      onClick = props.onClick,
+	      onFocus = props.onFocus,
+	      onKeyDown = props.onKeyDown,
+	      onKeyUp = props.onKeyUp,
+	      placeholder = props.placeholder,
+	      readOnly = props.readOnly,
+	      renderSuffix = props.renderSuffix,
+	      rows = props.rows,
+	      rowsMax = props.rowsMax,
+	      _props$select = props.select,
+	      select = _props$select === void 0 ? false : _props$select,
+	      startAdornment = props.startAdornment,
+	      _props$type = props.type,
+	      type = _props$type === void 0 ? 'text' : _props$type,
+	      valueProp = props.value,
+	      other = _objectWithoutProperties(props, ["aria-describedby", "autoComplete", "autoFocus", "classes", "className", "color", "defaultValue", "disabled", "endAdornment", "error", "fullWidth", "id", "inputComponent", "inputProps", "inputRef", "margin", "multiline", "name", "onBlur", "onChange", "onClick", "onFocus", "onKeyDown", "onKeyUp", "placeholder", "readOnly", "renderSuffix", "rows", "rowsMax", "select", "startAdornment", "type", "value"]);
+
+	  var value = inputPropsProp.value != null ? inputPropsProp.value : valueProp;
+
+	  var _React$useRef = react.useRef(value != null),
+	      isControlled = _React$useRef.current;
+
+	  var inputRef = react.useRef();
+	  var handleInputRefWarning = react.useCallback(function (instance) {
+	  }, []);
+	  var handleInputPropsRefProp = useForkRef(inputPropsProp.ref, handleInputRefWarning);
+	  var handleInputRefProp = useForkRef(inputRefProp, handleInputPropsRefProp);
+	  var handleInputRef = useForkRef(inputRef, handleInputRefProp);
+
+	  var _React$useState = react.useState(false),
+	      focused = _React$useState[0],
+	      setFocused = _React$useState[1];
+
+	  var muiFormControl = useFormControl();
+
+	  var fcs = formControlState({
+	    props: props,
+	    muiFormControl: muiFormControl,
+	    states: ['color', 'disabled', 'error', 'hiddenLabel', 'margin', 'required', 'filled']
+	  });
+	  fcs.focused = muiFormControl ? muiFormControl.focused : focused; // The blur won't fire when the disabled state is set on a focused input.
+	  // We need to book keep the focused state manually.
+
+	  react.useEffect(function () {
+	    if (!muiFormControl && disabled && focused) {
+	      setFocused(false);
+
+	      if (onBlur) {
+	        onBlur();
+	      }
+	    }
+	  }, [muiFormControl, disabled, focused, onBlur]);
+	  var onFilled = muiFormControl && muiFormControl.onFilled;
+	  var onEmpty = muiFormControl && muiFormControl.onEmpty;
+	  var checkDirty = react.useCallback(function (obj) {
+	    if (isFilled(obj)) {
+	      if (onFilled) {
+	        onFilled();
+	      }
+	    } else if (onEmpty) {
+	      onEmpty();
+	    }
+	  }, [onFilled, onEmpty]);
+	  useEnhancedEffect$4(function () {
+	    if (isControlled) {
+	      checkDirty({
+	        value: value
+	      });
+	    }
+	  }, [value, checkDirty, isControlled]);
+
+	  var handleFocus = function handleFocus(event) {
+	    // Fix a bug with IE 11 where the focus/blur events are triggered
+	    // while the input is disabled.
+	    if (fcs.disabled) {
+	      event.stopPropagation();
+	      return;
+	    }
+
+	    if (onFocus) {
+	      onFocus(event);
+	    }
+
+	    if (inputPropsProp.onFocus) {
+	      inputPropsProp.onFocus(event);
+	    }
+
+	    if (muiFormControl && muiFormControl.onFocus) {
+	      muiFormControl.onFocus(event);
+	    } else {
+	      setFocused(true);
+	    }
+	  };
+
+	  var handleBlur = function handleBlur(event) {
+	    if (onBlur) {
+	      onBlur(event);
+	    }
+
+	    if (inputPropsProp.onBlur) {
+	      inputPropsProp.onBlur(event);
+	    }
+
+	    if (muiFormControl && muiFormControl.onBlur) {
+	      muiFormControl.onBlur(event);
+	    } else {
+	      setFocused(false);
+	    }
+	  };
+
+	  var handleChange = function handleChange(event) {
+	    if (!isControlled) {
+	      var element = event.target || inputRef.current;
+
+	      if (element == null) {
+	        throw new TypeError('Material-UI: Expected valid input target. ' + 'Did you use a custom `inputComponent` and forget to forward refs? ' + 'See https://material-ui.com/r/input-component-ref-interface for more info.');
+	      }
+
+	      checkDirty({
+	        value: element.value
+	      });
+	    }
+
+	    for (var _len = arguments.length, args = new Array(_len > 1 ? _len - 1 : 0), _key = 1; _key < _len; _key++) {
+	      args[_key - 1] = arguments[_key];
+	    }
+
+	    if (inputPropsProp.onChange) {
+	      inputPropsProp.onChange.apply(inputPropsProp, [event].concat(args));
+	    } // Perform in the willUpdate
+
+
+	    if (onChange) {
+	      onChange.apply(void 0, [event].concat(args));
+	    }
+	  }; // Check the input state on mount, in case it was filled by the user
+	  // or auto filled by the browser before the hydration (for SSR).
+
+
+	  react.useEffect(function () {
+	    checkDirty(inputRef.current);
+	  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+	  var handleClick = function handleClick(event) {
+	    if (inputRef.current && event.currentTarget === event.target) {
+	      inputRef.current.focus();
+	    }
+
+	    if (onClick) {
+	      onClick(event);
+	    }
+	  };
+
+	  var InputComponent = inputComponent;
+
+	  var inputProps = _extends({}, inputPropsProp, {
+	    ref: handleInputRef
+	  });
+
+	  if (typeof InputComponent !== 'string') {
+	    inputProps = _extends({
+	      // Rename ref to inputRef as we don't know the
+	      // provided `inputComponent` structure.
+	      inputRef: handleInputRef,
+	      type: type
+	    }, inputProps, {
+	      ref: null
+	    });
+	  } else if (multiline) {
+	    if (rows && !rowsMax) {
+	      InputComponent = 'textarea';
+	    } else {
+	      inputProps = _extends({
+	        rows: rows,
+	        rowsMax: rowsMax
+	      }, inputProps);
+	      InputComponent = TextareaAutosize;
+	    }
+	  } else {
+	    inputProps = _extends({
+	      type: type
+	    }, inputProps);
+	  }
+
+	  var handleAutoFill = function handleAutoFill(event) {
+	    // Provide a fake value as Chrome might not let you access it for security reasons.
+	    checkDirty(event.animationName.indexOf('auto-fill-cancel') !== -1 ? inputRef.current : {
+	      value: 'x'
+	    });
+	  };
+
+	  react.useEffect(function () {
+	    if (muiFormControl) {
+	      muiFormControl.setAdornedStart(Boolean(startAdornment));
+	    }
+	  }, [muiFormControl, startAdornment]);
+	  return react.createElement("div", _extends({
+	    className: clsx(classes.root, classes["color".concat(capitalize(fcs.color || 'primary'))], className, fcs.disabled && classes.disabled, fcs.error && classes.error, fullWidth && classes.fullWidth, fcs.focused && classes.focused, muiFormControl && classes.formControl, multiline && classes.multiline, startAdornment && classes.adornedStart, endAdornment && classes.adornedEnd, {
+	      dense: classes.marginDense
+	    }[fcs.margin]),
+	    onClick: handleClick,
+	    ref: ref
+	  }, other), startAdornment, react.createElement(FormControlContext.Provider, {
+	    value: null
+	  }, react.createElement(InputComponent, _extends({
+	    "aria-invalid": fcs.error,
+	    "aria-describedby": ariaDescribedby,
+	    autoComplete: autoComplete,
+	    autoFocus: autoFocus,
+	    defaultValue: defaultValue,
+	    disabled: fcs.disabled,
+	    id: id,
+	    onAnimationStart: handleAutoFill,
+	    name: name,
+	    placeholder: placeholder,
+	    readOnly: readOnly,
+	    required: fcs.required,
+	    rows: rows,
+	    value: value,
+	    onKeyDown: onKeyDown,
+	    onKeyUp: onKeyUp
+	  }, inputProps, {
+	    className: clsx(classes.input, inputPropsProp.className, fcs.disabled && classes.disabled, multiline && classes.inputMultiline, select && classes.inputSelect, fcs.hiddenLabel && classes.inputHiddenLabel, startAdornment && classes.inputAdornedStart, endAdornment && classes.inputAdornedEnd, {
+	      search: classes.inputTypeSearch
+	    }[type], {
+	      dense: classes.inputMarginDense
+	    }[fcs.margin]),
+	    onBlur: handleBlur,
+	    onChange: handleChange,
+	    onFocus: handleFocus
+	  }))), endAdornment, renderSuffix ? renderSuffix(_extends({}, fcs, {
+	    startAdornment: startAdornment
+	  })) : null);
+	});
+	var InputBase$1 = withStyles$1(styles$q, {
+	  name: 'MuiInputBase'
+	})(InputBase);
+
+	var styles$r = function styles(theme) {
+	  var light = theme.palette.type === 'light';
+	  var bottomLineColor = light ? 'rgba(0, 0, 0, 0.42)' : 'rgba(255, 255, 255, 0.7)';
+	  return {
+	    /* Styles applied to the root element. */
+	    root: {
+	      position: 'relative'
+	    },
+
+	    /* Styles applied to the root element if the component is a descendant of `FormControl`. */
+	    formControl: {
+	      'label + &': {
+	        marginTop: 16
+	      }
+	    },
+
+	    /* Styles applied to the root element if the component is focused. */
+	    focused: {},
+
+	    /* Styles applied to the root element if `disabled={true}`. */
+	    disabled: {},
+
+	    /* Styles applied to the root element if color secondary. */
+	    colorSecondary: {
+	      '&$underline:after': {
+	        borderBottomColor: theme.palette.secondary.main
+	      }
+	    },
+
+	    /* Styles applied to the root element if `disableUnderline={false}`. */
+	    underline: {
+	      '&:after': {
+	        borderBottom: "2px solid ".concat(theme.palette.primary.main),
+	        left: 0,
+	        bottom: 0,
+	        // Doing the other way around crash on IE 11 "''" https://github.com/cssinjs/jss/issues/242
+	        content: '""',
+	        position: 'absolute',
+	        right: 0,
+	        transform: 'scaleX(0)',
+	        transition: theme.transitions.create('transform', {
+	          duration: theme.transitions.duration.shorter,
+	          easing: theme.transitions.easing.easeOut
+	        }),
+	        pointerEvents: 'none' // Transparent to the hover style.
+
+	      },
+	      '&$focused:after': {
+	        transform: 'scaleX(1)'
+	      },
+	      '&$error:after': {
+	        borderBottomColor: theme.palette.error.main,
+	        transform: 'scaleX(1)' // error is always underlined in red
+
+	      },
+	      '&:before': {
+	        borderBottom: "1px solid ".concat(bottomLineColor),
+	        left: 0,
+	        bottom: 0,
+	        // Doing the other way around crash on IE 11 "''" https://github.com/cssinjs/jss/issues/242
+	        content: '"\\00a0"',
+	        position: 'absolute',
+	        right: 0,
+	        transition: theme.transitions.create('border-bottom-color', {
+	          duration: theme.transitions.duration.shorter
+	        }),
+	        pointerEvents: 'none' // Transparent to the hover style.
+
+	      },
+	      '&:hover:not($disabled):before': {
+	        borderBottom: "2px solid ".concat(theme.palette.text.primary),
+	        // Reset on touch devices, it doesn't add specificity
+	        '@media (hover: none)': {
+	          borderBottom: "1px solid ".concat(bottomLineColor)
+	        }
+	      },
+	      '&$disabled:before': {
+	        borderBottomStyle: 'dotted'
+	      }
+	    },
+
+	    /* Styles applied to the root element if `error={true}`. */
+	    error: {},
+
+	    /* Styles applied to the root element if `multiline={true}`. */
+	    multiline: {},
+
+	    /* Styles applied to the root element if `fullWidth={true}`. */
+	    fullWidth: {},
+
+	    /* Styles applied to the `input` element. */
+	    input: {},
+
+	    /* Styles applied to the `input` element if `margin="dense"`. */
+	    inputMarginDense: {},
+
+	    /* Styles applied to the `input` element if `multiline={true}`. */
+	    inputMultiline: {},
+
+	    /* Styles applied to the `input` element if `type="search"`. */
+	    inputTypeSearch: {}
+	  };
+	};
+	var Input = react.forwardRef(function Input(props, ref) {
+	  var disableUnderline = props.disableUnderline,
+	      classes = props.classes,
+	      _props$fullWidth = props.fullWidth,
+	      fullWidth = _props$fullWidth === void 0 ? false : _props$fullWidth,
+	      _props$inputComponent = props.inputComponent,
+	      inputComponent = _props$inputComponent === void 0 ? 'input' : _props$inputComponent,
+	      _props$multiline = props.multiline,
+	      multiline = _props$multiline === void 0 ? false : _props$multiline,
+	      _props$type = props.type,
+	      type = _props$type === void 0 ? 'text' : _props$type,
+	      other = _objectWithoutProperties(props, ["disableUnderline", "classes", "fullWidth", "inputComponent", "multiline", "type"]);
+
+	  return react.createElement(InputBase$1, _extends({
+	    classes: _extends({}, classes, {
+	      root: clsx(classes.root, !disableUnderline && classes.underline),
+	      underline: null
+	    }),
+	    fullWidth: fullWidth,
+	    inputComponent: inputComponent,
+	    multiline: multiline,
+	    ref: ref,
+	    type: type
+	  }, other));
+	});
+	Input.muiName = 'Input';
+	var Input$1 = withStyles$1(styles$r, {
+	  name: 'MuiInput'
+	})(Input);
+
+	var styles$s = function styles(theme) {
+	  var light = theme.palette.type === 'light';
+	  var bottomLineColor = light ? 'rgba(0, 0, 0, 0.42)' : 'rgba(255, 255, 255, 0.7)';
+	  var backgroundColor = light ? 'rgba(0, 0, 0, 0.09)' : 'rgba(255, 255, 255, 0.09)';
+	  return {
+	    /* Styles applied to the root element. */
+	    root: {
+	      position: 'relative',
+	      backgroundColor: backgroundColor,
+	      borderTopLeftRadius: theme.shape.borderRadius,
+	      borderTopRightRadius: theme.shape.borderRadius,
+	      transition: theme.transitions.create('background-color', {
+	        duration: theme.transitions.duration.shorter,
+	        easing: theme.transitions.easing.easeOut
+	      }),
+	      '&:hover': {
+	        backgroundColor: light ? 'rgba(0, 0, 0, 0.13)' : 'rgba(255, 255, 255, 0.13)',
+	        // Reset on touch devices, it doesn't add specificity
+	        '@media (hover: none)': {
+	          backgroundColor: backgroundColor
+	        }
+	      },
+	      '&$focused': {
+	        backgroundColor: light ? 'rgba(0, 0, 0, 0.09)' : 'rgba(255, 255, 255, 0.09)'
+	      },
+	      '&$disabled': {
+	        backgroundColor: light ? 'rgba(0, 0, 0, 0.12)' : 'rgba(255, 255, 255, 0.12)'
+	      }
+	    },
+
+	    /* Styles applied to the root element if color secondary. */
+	    colorSecondary: {
+	      '&$underline:after': {
+	        borderBottomColor: theme.palette.secondary.main
+	      }
+	    },
+
+	    /* Styles applied to the root element if `disableUnderline={false}`. */
+	    underline: {
+	      '&:after': {
+	        borderBottom: "2px solid ".concat(theme.palette.primary.main),
+	        left: 0,
+	        bottom: 0,
+	        // Doing the other way around crash on IE 11 "''" https://github.com/cssinjs/jss/issues/242
+	        content: '""',
+	        position: 'absolute',
+	        right: 0,
+	        transform: 'scaleX(0)',
+	        transition: theme.transitions.create('transform', {
+	          duration: theme.transitions.duration.shorter,
+	          easing: theme.transitions.easing.easeOut
+	        }),
+	        pointerEvents: 'none' // Transparent to the hover style.
+
+	      },
+	      '&$focused:after': {
+	        transform: 'scaleX(1)'
+	      },
+	      '&$error:after': {
+	        borderBottomColor: theme.palette.error.main,
+	        transform: 'scaleX(1)' // error is always underlined in red
+
+	      },
+	      '&:before': {
+	        borderBottom: "1px solid ".concat(bottomLineColor),
+	        left: 0,
+	        bottom: 0,
+	        // Doing the other way around crash on IE 11 "''" https://github.com/cssinjs/jss/issues/242
+	        content: '"\\00a0"',
+	        position: 'absolute',
+	        right: 0,
+	        transition: theme.transitions.create('border-bottom-color', {
+	          duration: theme.transitions.duration.shorter
+	        }),
+	        pointerEvents: 'none' // Transparent to the hover style.
+
+	      },
+	      '&:hover:before': {
+	        borderBottom: "1px solid ".concat(theme.palette.text.primary)
+	      },
+	      '&$disabled:before': {
+	        borderBottomStyle: 'dotted'
+	      }
+	    },
+
+	    /* Pseudo-class applied to the root element if the component is focused. */
+	    focused: {},
+
+	    /* Pseudo-class applied to the root element if `disabled={true}`. */
+	    disabled: {},
+
+	    /* Styles applied to the root element if `startAdornment` is provided. */
+	    adornedStart: {
+	      paddingLeft: 12
+	    },
+
+	    /* Styles applied to the root element if `endAdornment` is provided. */
+	    adornedEnd: {
+	      paddingRight: 12
+	    },
+
+	    /* Styles applied to the root element if `error={true}`. */
+	    error: {},
+
+	    /* Styles applied to the `input` element if `margin="dense"`. */
+	    marginDense: {},
+
+	    /* Styles applied to the root element if `multiline={true}`. */
+	    multiline: {
+	      padding: '27px 12px 10px',
+	      '&$marginDense': {
+	        paddingTop: 23,
+	        paddingBottom: 6
+	      }
+	    },
+
+	    /* Styles applied to the `input` element. */
+	    input: {
+	      padding: '27px 12px 10px',
+	      '&:-webkit-autofill': {
+	        WebkitBoxShadow: theme.palette.type === 'dark' ? '0 0 0 100px #266798 inset' : null,
+	        WebkitTextFillColor: theme.palette.type === 'dark' ? '#fff' : null,
+	        borderTopLeftRadius: 'inherit',
+	        borderTopRightRadius: 'inherit'
+	      }
+	    },
+
+	    /* Styles applied to the `input` element if `margin="dense"`. */
+	    inputMarginDense: {
+	      paddingTop: 23,
+	      paddingBottom: 6
+	    },
+
+	    /* Styles applied to the `input` if in `<FormControl hiddenLabel />`. */
+	    inputHiddenLabel: {
+	      paddingTop: 18,
+	      paddingBottom: 19,
+	      '&$inputMarginDense': {
+	        paddingTop: 10,
+	        paddingBottom: 11
+	      }
+	    },
+
+	    /* Styles applied to the `input` element if `select={true}`. */
+	    inputSelect: {
+	      paddingRight: 24
+	    },
+
+	    /* Styles applied to the `input` element if `multiline={true}`. */
+	    inputMultiline: {
+	      padding: 0
+	    },
+
+	    /* Styles applied to the `input` element if `startAdornment` is provided. */
+	    inputAdornedStart: {
+	      paddingLeft: 0
+	    },
+
+	    /* Styles applied to the `input` element if `endAdornment` is provided. */
+	    inputAdornedEnd: {
+	      paddingRight: 0
+	    }
+	  };
+	};
+	var FilledInput = react.forwardRef(function FilledInput(props, ref) {
+	  var disableUnderline = props.disableUnderline,
+	      classes = props.classes,
+	      _props$fullWidth = props.fullWidth,
+	      fullWidth = _props$fullWidth === void 0 ? false : _props$fullWidth,
+	      _props$inputComponent = props.inputComponent,
+	      inputComponent = _props$inputComponent === void 0 ? 'input' : _props$inputComponent,
+	      _props$multiline = props.multiline,
+	      multiline = _props$multiline === void 0 ? false : _props$multiline,
+	      _props$type = props.type,
+	      type = _props$type === void 0 ? 'text' : _props$type,
+	      other = _objectWithoutProperties(props, ["disableUnderline", "classes", "fullWidth", "inputComponent", "multiline", "type"]);
+
+	  return react.createElement(InputBase$1, _extends({
+	    classes: _extends({}, classes, {
+	      root: clsx(classes.root, !disableUnderline && classes.underline),
+	      underline: null
+	    }),
+	    fullWidth: fullWidth,
+	    inputComponent: inputComponent,
+	    multiline: multiline,
+	    ref: ref,
+	    type: type
+	  }, other));
+	});
+	FilledInput.muiName = 'Input';
+	var FilledInput$1 = withStyles$1(styles$s, {
+	  name: 'MuiFilledInput'
+	})(FilledInput);
+
+	var styles$t = function styles(theme) {
+	  var align = theme.direction === 'rtl' ? 'right' : 'left';
+	  return {
+	    /* Styles applied to the root element. */
+	    root: {
+	      position: 'absolute',
+	      bottom: 0,
+	      right: 0,
+	      top: -5,
+	      left: 0,
+	      margin: 0,
+	      padding: 0,
+	      pointerEvents: 'none',
+	      borderRadius: 'inherit',
+	      borderStyle: 'solid',
+	      borderWidth: 1,
+	      // Match the Input Label
+	      transition: theme.transitions.create(["padding-".concat(align), 'border-color', 'border-width'], {
+	        duration: theme.transitions.duration.shorter,
+	        easing: theme.transitions.easing.easeOut
+	      })
+	    },
+
+	    /* Styles applied to the legend element. */
+	    legend: {
+	      textAlign: 'left',
+	      padding: 0,
+	      lineHeight: '11px',
+	      transition: theme.transitions.create('width', {
+	        duration: theme.transitions.duration.shorter,
+	        easing: theme.transitions.easing.easeOut
+	      })
+	    }
+	  };
+	};
+	/**
+	 * @ignore - internal component.
+	 */
+
+	var NotchedOutline = react.forwardRef(function NotchedOutline(props, ref) {
+	  var children = props.children,
+	      classes = props.classes,
+	      className = props.className,
+	      labelWidthProp = props.labelWidth,
+	      notched = props.notched,
+	      style = props.style,
+	      other = _objectWithoutProperties(props, ["children", "classes", "className", "labelWidth", "notched", "style"]);
+
+	  var theme = useTheme$1();
+	  var align = theme.direction === 'rtl' ? 'right' : 'left';
+	  var labelWidth = labelWidthProp > 0 ? labelWidthProp * 0.75 + 8 : 0;
+	  return react.createElement("fieldset", _extends({
+	    "aria-hidden": true,
+	    style: _extends(_defineProperty$1({}, "padding".concat(capitalize(align)), 8 + (notched ? 0 : labelWidth / 2)), style),
+	    className: clsx(classes.root, className),
+	    ref: ref
+	  }, other), react.createElement("legend", {
+	    className: classes.legend,
+	    style: {
+	      // IE 11: fieldset with legend does not render
+	      // a border radius. This maintains consistency
+	      // by always having a legend rendered
+	      width: notched ? labelWidth : 0.01
+	    }
+	  }, react.createElement("span", {
+	    dangerouslySetInnerHTML: {
+	      __html: '&#8203;'
+	    }
+	  })));
+	});
+	var NotchedOutline$1 = withStyles$1(styles$t, {
+	  name: 'PrivateNotchedOutline'
+	})(NotchedOutline);
+
+	var styles$u = function styles(theme) {
+	  var borderColor = theme.palette.type === 'light' ? 'rgba(0, 0, 0, 0.23)' : 'rgba(255, 255, 255, 0.23)';
+	  return {
+	    /* Styles applied to the root element. */
+	    root: {
+	      position: 'relative',
+	      borderRadius: theme.shape.borderRadius,
+	      '&:hover $notchedOutline': {
+	        borderColor: theme.palette.text.primary
+	      },
+	      // Reset on touch devices, it doesn't add specificity
+	      '@media (hover: none)': {
+	        '&:hover $notchedOutline': {
+	          borderColor: borderColor
+	        }
+	      },
+	      '&$focused $notchedOutline': {
+	        borderColor: theme.palette.primary.main,
+	        borderWidth: 2
+	      },
+	      '&$error $notchedOutline': {
+	        borderColor: theme.palette.error.main
+	      },
+	      '&$disabled $notchedOutline': {
+	        borderColor: theme.palette.action.disabled
+	      }
+	    },
+
+	    /* Styles applied to the root element if the color is secondary. */
+	    colorSecondary: {
+	      '&$focused $notchedOutline': {
+	        borderColor: theme.palette.secondary.main
+	      }
+	    },
+
+	    /* Styles applied to the root element if the component is focused. */
+	    focused: {},
+
+	    /* Styles applied to the root element if `disabled={true}`. */
+	    disabled: {},
+
+	    /* Styles applied to the root element if `startAdornment` is provided. */
+	    adornedStart: {
+	      paddingLeft: 14
+	    },
+
+	    /* Styles applied to the root element if `endAdornment` is provided. */
+	    adornedEnd: {
+	      paddingRight: 14
+	    },
+
+	    /* Styles applied to the root element if `error={true}`. */
+	    error: {},
+
+	    /* Styles applied to the `input` element if `margin="dense"`. */
+	    marginDense: {},
+
+	    /* Styles applied to the root element if `multiline={true}`. */
+	    multiline: {
+	      padding: '18.5px 14px',
+	      '&$marginDense': {
+	        paddingTop: 10.5,
+	        paddingBottom: 10.5
+	      }
+	    },
+
+	    /* Styles applied to the `NotchedOutline` element. */
+	    notchedOutline: {
+	      borderColor: borderColor
+	    },
+
+	    /* Styles applied to the `input` element. */
+	    input: {
+	      padding: '18.5px 14px',
+	      '&:-webkit-autofill': {
+	        WebkitBoxShadow: theme.palette.type === 'dark' ? '0 0 0 100px #266798 inset' : null,
+	        WebkitTextFillColor: theme.palette.type === 'dark' ? '#fff' : null,
+	        borderRadius: 'inherit'
+	      }
+	    },
+
+	    /* Styles applied to the `input` element if `margin="dense"`. */
+	    inputMarginDense: {
+	      paddingTop: 10.5,
+	      paddingBottom: 10.5
+	    },
+
+	    /* Styles applied to the `input` element if `select={true}`. */
+	    inputSelect: {
+	      paddingRight: 24
+	    },
+
+	    /* Styles applied to the `input` element if `multiline={true}`. */
+	    inputMultiline: {
+	      padding: 0
+	    },
+
+	    /* Styles applied to the `input` element if `startAdornment` is provided. */
+	    inputAdornedStart: {
+	      paddingLeft: 0
+	    },
+
+	    /* Styles applied to the `input` element if `endAdornment` is provided. */
+	    inputAdornedEnd: {
+	      paddingRight: 0
+	    }
+	  };
+	};
+	var OutlinedInput = react.forwardRef(function OutlinedInput(props, ref) {
+	  var classes = props.classes,
+	      _props$fullWidth = props.fullWidth,
+	      fullWidth = _props$fullWidth === void 0 ? false : _props$fullWidth,
+	      _props$inputComponent = props.inputComponent,
+	      inputComponent = _props$inputComponent === void 0 ? 'input' : _props$inputComponent,
+	      _props$labelWidth = props.labelWidth,
+	      labelWidth = _props$labelWidth === void 0 ? 0 : _props$labelWidth,
+	      _props$multiline = props.multiline,
+	      multiline = _props$multiline === void 0 ? false : _props$multiline,
+	      notched = props.notched,
+	      _props$type = props.type,
+	      type = _props$type === void 0 ? 'text' : _props$type,
+	      other = _objectWithoutProperties(props, ["classes", "fullWidth", "inputComponent", "labelWidth", "multiline", "notched", "type"]);
+
+	  return react.createElement(InputBase$1, _extends({
+	    renderSuffix: function renderSuffix(state) {
+	      return react.createElement(NotchedOutline$1, {
+	        className: classes.notchedOutline,
+	        labelWidth: labelWidth,
+	        notched: typeof notched !== 'undefined' ? notched : Boolean(state.startAdornment || state.filled || state.focused)
+	      });
+	    },
+	    classes: _extends({}, classes, {
+	      root: clsx(classes.root, classes.underline),
+	      notchedOutline: null
+	    }),
+	    fullWidth: fullWidth,
+	    inputComponent: inputComponent,
+	    multiline: multiline,
+	    ref: ref,
+	    type: type
+	  }, other));
+	});
+	OutlinedInput.muiName = 'Input';
+	var OutlinedInput$1 = withStyles$1(styles$u, {
+	  name: 'MuiOutlinedInput'
+	})(OutlinedInput);
+
+	var styles$v = function styles(theme) {
+	  return {
+	    /* Styles applied to the root element. */
+	    root: _extends({
+	      color: theme.palette.text.secondary
+	    }, theme.typography.body1, {
+	      lineHeight: 1,
+	      padding: 0,
+	      '&$focused': {
+	        color: theme.palette.primary.main
+	      },
+	      '&$disabled': {
+	        color: theme.palette.text.disabled
+	      },
+	      '&$error': {
+	        color: theme.palette.error.main
+	      }
+	    }),
+
+	    /* Styles applied to the root element if the color is secondary. */
+	    colorSecondary: {
+	      '&$focused': {
+	        color: theme.palette.secondary.main
+	      }
+	    },
+
+	    /* Pseudo-class applied to the root element if `focused={true}`. */
+	    focused: {},
+
+	    /* Pseudo-class applied to the root element if `disabled={true}`. */
+	    disabled: {},
+
+	    /* Pseudo-class applied to the root element if `error={true}`. */
+	    error: {},
+
+	    /* Pseudo-class applied to the root element if `filled={true}`. */
+	    filled: {},
+
+	    /* Pseudo-class applied to the root element if `required={true}`. */
+	    required: {},
+
+	    /* Styles applied to the asterisk element. */
+	    asterisk: {
+	      '&$error': {
+	        color: theme.palette.error.main
+	      }
+	    }
+	  };
+	};
+	var FormLabel = react.forwardRef(function FormLabel(props, ref) {
+	  var children = props.children,
+	      classes = props.classes,
+	      className = props.className,
+	      color = props.color,
+	      _props$component = props.component,
+	      Component = _props$component === void 0 ? 'label' : _props$component,
+	      disabled = props.disabled,
+	      error = props.error,
+	      filled = props.filled,
+	      focused = props.focused,
+	      required = props.required,
+	      other = _objectWithoutProperties(props, ["children", "classes", "className", "color", "component", "disabled", "error", "filled", "focused", "required"]);
+
+	  var muiFormControl = useFormControl$1();
+	  var fcs = formControlState({
+	    props: props,
+	    muiFormControl: muiFormControl,
+	    states: ['color', 'required', 'focused', 'disabled', 'error', 'filled']
+	  });
+	  return react.createElement(Component, _extends({
+	    className: clsx(classes.root, classes["color".concat(capitalize(fcs.color || 'primary'))], className, fcs.disabled && classes.disabled, fcs.error && classes.error, fcs.filled && classes.filled, fcs.focused && classes.focused, fcs.required && classes.required),
+	    ref: ref
+	  }, other), children, fcs.required && react.createElement("span", {
+	    className: clsx(classes.asterisk, fcs.error && classes.error)
+	  }, "\u2009", '*'));
+	});
+	var FormLabel$1 = withStyles$1(styles$v, {
+	  name: 'MuiFormLabel'
+	})(FormLabel);
+
+	var styles$w = function styles(theme) {
+	  return {
+	    /* Styles applied to the root element. */
+	    root: {
+	      display: 'block',
+	      transformOrigin: 'top left'
+	    },
+
+	    /* Pseudo-class applied to the root element if `focused={true}`. */
+	    focused: {},
+
+	    /* Pseudo-class applied to the root element if `disabled={true}`. */
+	    disabled: {},
+
+	    /* Pseudo-class applied to the root element if `error={true}`. */
+	    error: {},
+
+	    /* Pseudo-class applied to the root element if `required={true}`. */
+	    required: {},
+
+	    /* Pseudo-class applied to the asterisk element. */
+	    asterisk: {},
+
+	    /* Styles applied to the root element if the component is a descendant of `FormControl`. */
+	    formControl: {
+	      position: 'absolute',
+	      left: 0,
+	      top: 0,
+	      // slight alteration to spec spacing to match visual spec result
+	      transform: 'translate(0, 24px) scale(1)'
+	    },
+
+	    /* Styles applied to the root element if `margin="dense"`. */
+	    marginDense: {
+	      // Compensation for the `Input.inputDense` style.
+	      transform: 'translate(0, 21px) scale(1)'
+	    },
+
+	    /* Styles applied to the `input` element if `shrink={true}`. */
+	    shrink: {
+	      transform: 'translate(0, 1.5px) scale(0.75)',
+	      transformOrigin: 'top left'
+	    },
+
+	    /* Styles applied to the `input` element if `disableAnimation={false}`. */
+	    animated: {
+	      transition: theme.transitions.create(['color', 'transform'], {
+	        duration: theme.transitions.duration.shorter,
+	        easing: theme.transitions.easing.easeOut
+	      })
+	    },
+
+	    /* Styles applied to the root element if `variant="filled"`. */
+	    filled: {
+	      // Chrome's autofill feature gives the input field a yellow background.
+	      // Since the input field is behind the label in the HTML tree,
+	      // the input field is drawn last and hides the label with an opaque background color.
+	      // zIndex: 1 will raise the label above opaque background-colors of input.
+	      zIndex: 1,
+	      pointerEvents: 'none',
+	      transform: 'translate(12px, 20px) scale(1)',
+	      '&$marginDense': {
+	        transform: 'translate(12px, 17px) scale(1)'
+	      },
+	      '&$shrink': {
+	        transform: 'translate(12px, 10px) scale(0.75)',
+	        '&$marginDense': {
+	          transform: 'translate(12px, 7px) scale(0.75)'
+	        }
+	      }
+	    },
+
+	    /* Styles applied to the root element if `variant="outlined"`. */
+	    outlined: {
+	      // see comment above on filled.zIndex
+	      zIndex: 1,
+	      pointerEvents: 'none',
+	      transform: 'translate(14px, 20px) scale(1)',
+	      '&$marginDense': {
+	        transform: 'translate(14px, 12px) scale(1)'
+	      },
+	      '&$shrink': {
+	        transform: 'translate(14px, -6px) scale(0.75)'
+	      }
+	    }
+	  };
+	};
+	var InputLabel = react.forwardRef(function InputLabel(props, ref) {
+	  var classes = props.classes,
+	      className = props.className,
+	      _props$disableAnimati = props.disableAnimation,
+	      disableAnimation = _props$disableAnimati === void 0 ? false : _props$disableAnimati,
+	      margin = props.margin,
+	      shrinkProp = props.shrink,
+	      variant = props.variant,
+	      other = _objectWithoutProperties(props, ["classes", "className", "disableAnimation", "margin", "shrink", "variant"]);
+
+	  var muiFormControl = useFormControl$1();
+	  var shrink = shrinkProp;
+
+	  if (typeof shrink === 'undefined' && muiFormControl) {
+	    shrink = muiFormControl.filled || muiFormControl.focused || muiFormControl.adornedStart;
+	  }
+
+	  var fcs = formControlState({
+	    props: props,
+	    muiFormControl: muiFormControl,
+	    states: ['margin', 'variant']
+	  });
+	  return react.createElement(FormLabel$1, _extends({
+	    "data-shrink": shrink,
+	    className: clsx(classes.root, className, muiFormControl && classes.formControl, !disableAnimation && classes.animated, shrink && classes.shrink, {
+	      dense: classes.marginDense
+	    }[fcs.margin], {
+	      filled: classes.filled,
+	      outlined: classes.outlined
+	    }[fcs.variant]),
+	    classes: {
+	      focused: classes.focused,
+	      disabled: classes.disabled,
+	      error: classes.error,
+	      required: classes.required,
+	      asterisk: classes.asterisk
+	    },
+	    ref: ref
+	  }, other));
+	});
+	var InputLabel$1 = withStyles$1(styles$w, {
+	  name: 'MuiInputLabel'
+	})(InputLabel);
+
+	var styles$x = function styles(theme) {
+	  return {
+	    /* Styles applied to the root element. */
+	    root: _extends({
+	      color: theme.palette.text.secondary
+	    }, theme.typography.caption, {
+	      textAlign: 'left',
+	      marginTop: 8,
+	      lineHeight: '1em',
+	      minHeight: '1em',
+	      margin: 0,
+	      '&$disabled': {
+	        color: theme.palette.text.disabled
+	      },
+	      '&$error': {
+	        color: theme.palette.error.main
+	      }
+	    }),
+
+	    /* Pseudo-class applied to the root element if `error={true}`. */
+	    error: {},
+
+	    /* Pseudo-class applied to the root element if `disabled={true}`. */
+	    disabled: {},
+
+	    /* Styles applied to the root element if `margin="dense"`. */
+	    marginDense: {
+	      marginTop: 4
+	    },
+
+	    /* Styles applied to the root element if `variant="filled"` or `variant="outlined"`. */
+	    contained: {
+	      margin: '8px 14px 0'
+	    },
+
+	    /* Pseudo-class applied to the root element if `focused={true}`. */
+	    focused: {},
+
+	    /* Pseudo-class applied to the root element if `filled={true}`. */
+	    filled: {},
+
+	    /* Pseudo-class applied to the root element if `required={true}`. */
+	    required: {}
+	  };
+	};
+	var FormHelperText = react.forwardRef(function FormHelperText(props, ref) {
+	  var classes = props.classes,
+	      className = props.className,
+	      _props$component = props.component,
+	      Component = _props$component === void 0 ? 'p' : _props$component,
+	      disabled = props.disabled,
+	      error = props.error,
+	      filled = props.filled,
+	      focused = props.focused,
+	      margin = props.margin,
+	      required = props.required,
+	      variant = props.variant,
+	      other = _objectWithoutProperties(props, ["classes", "className", "component", "disabled", "error", "filled", "focused", "margin", "required", "variant"]);
+
+	  var muiFormControl = useFormControl$1();
+	  var fcs = formControlState({
+	    props: props,
+	    muiFormControl: muiFormControl,
+	    states: ['variant', 'margin', 'disabled', 'error', 'filled', 'focused', 'required']
+	  });
+	  return react.createElement(Component, _extends({
+	    className: clsx(classes.root, (fcs.variant === 'filled' || fcs.variant === 'outlined') && classes.contained, className, fcs.disabled && classes.disabled, fcs.error && classes.error, fcs.filled && classes.filled, fcs.focused && classes.focused, fcs.required && classes.required, {
+	      dense: classes.marginDense
+	    }[fcs.margin]),
+	    ref: ref
+	  }, other));
+	});
+	var FormHelperText$1 = withStyles$1(styles$x, {
+	  name: 'MuiFormHelperText'
+	})(FormHelperText);
+
+	function getContainer(container) {
+	  container = typeof container === 'function' ? container() : container; // #StrictMode ready
+
+	  return reactDom.findDOMNode(container);
+	}
+
+	var useEnhancedEffect$5 = typeof window !== 'undefined' ? react.useLayoutEffect : react.useEffect;
+	/**
+	 * Portals provide a first-class way to render children into a DOM node
+	 * that exists outside the DOM hierarchy of the parent component.
+	 */
+
+	var Portal = react.forwardRef(function Portal(props, ref) {
+	  var children = props.children,
+	      container = props.container,
+	      _props$disablePortal = props.disablePortal,
+	      disablePortal = _props$disablePortal === void 0 ? false : _props$disablePortal,
+	      onRendered = props.onRendered;
+
+	  var _React$useState = react.useState(null),
+	      mountNode = _React$useState[0],
+	      setMountNode = _React$useState[1];
+
+	  var handleRef = useForkRef(children.ref, ref);
+	  useEnhancedEffect$5(function () {
+	    if (!disablePortal) {
+	      setMountNode(getContainer(container) || document.body);
+	    }
+	  }, [container, disablePortal]);
+	  useEnhancedEffect$5(function () {
+	    if (mountNode && !disablePortal) {
+	      setRef(ref, mountNode);
+	      return function () {
+	        setRef(ref, null);
+	      };
+	    }
+
+	    return undefined;
+	  }, [ref, mountNode, disablePortal]);
+	  useEnhancedEffect$5(function () {
+	    if (onRendered && (mountNode || disablePortal)) {
+	      onRendered();
+	    }
+	  }, [onRendered, mountNode, disablePortal]);
+
+	  if (disablePortal) {
+	    react.Children.only(children);
+	    return react.cloneElement(children, {
+	      ref: handleRef
+	    });
+	  }
+
+	  return mountNode ? reactDom.createPortal(children, mountNode) : mountNode;
+	});
+
+	// A change of the browser zoom change the scrollbar size.
+	// Credit https://github.com/twbs/bootstrap/blob/3ffe3a5d82f6f561b82ff78d82b32a7d14aed558/js/src/modal.js#L512-L519
+	function getScrollbarSize() {
+	  var scrollDiv = document.createElement('div');
+	  scrollDiv.style.width = '99px';
+	  scrollDiv.style.height = '99px';
+	  scrollDiv.style.position = 'absolute';
+	  scrollDiv.style.top = '-9999px';
+	  scrollDiv.style.overflow = 'scroll';
+	  document.body.appendChild(scrollDiv);
+	  var scrollbarSize = scrollDiv.offsetWidth - scrollDiv.clientWidth;
+	  document.body.removeChild(scrollDiv);
+	  return scrollbarSize;
+	}
+
+	function isOverflowing(container) {
+	  var doc = ownerDocument(container);
+
+	  if (doc.body === container) {
+	    return ownerWindow(doc).innerWidth > doc.documentElement.clientWidth;
+	  }
+
+	  return container.scrollHeight > container.clientHeight;
+	}
+
+	function ariaHidden(node, show) {
+	  if (show) {
+	    node.setAttribute('aria-hidden', 'true');
+	  } else {
+	    node.removeAttribute('aria-hidden');
+	  }
+	}
+
+	function getPaddingRight(node) {
+	  return parseInt(window.getComputedStyle(node)['padding-right'], 10) || 0;
+	}
+
+	function ariaHiddenSiblings(container, mountNode, currentNode) {
+	  var nodesToExclude = arguments.length > 3 && arguments[3] !== undefined ? arguments[3] : [];
+	  var show = arguments.length > 4 ? arguments[4] : undefined;
+	  var blacklist = [mountNode, currentNode].concat(_toConsumableArray(nodesToExclude));
+	  var blacklistTagNames = ['TEMPLATE', 'SCRIPT', 'STYLE'];
+	  [].forEach.call(container.children, function (node) {
+	    if (node.nodeType === 1 && blacklist.indexOf(node) === -1 && blacklistTagNames.indexOf(node.tagName) === -1) {
+	      ariaHidden(node, show);
+	    }
+	  });
+	}
+
+	function findIndexOf(containerInfo, callback) {
+	  var idx = -1;
+	  containerInfo.some(function (item, index) {
+	    if (callback(item)) {
+	      idx = index;
+	      return true;
+	    }
+
+	    return false;
+	  });
+	  return idx;
+	}
+
+	function handleContainer(containerInfo, props) {
+	  var restoreStyle = [];
+	  var restorePaddings = [];
+	  var container = containerInfo.container;
+	  var fixedNodes;
+
+	  if (!props.disableScrollLock) {
+	    var overflowing = isOverflowing(container); // Improve Gatsby support
+	    // https://css-tricks.com/snippets/css/force-vertical-scrollbar/
+
+	    var parent = container.parentElement;
+	    var scrollContainer = parent.nodeName === 'HTML' ? parent : container;
+	    restoreStyle.push({
+	      value: scrollContainer.style.overflow,
+	      key: 'overflow',
+	      el: scrollContainer
+	    }); // Block the scroll even if no scrollbar is visible to account for mobile keyboard
+	    // screensize shrink.
+
+	    scrollContainer.style.overflow = 'hidden';
+
+	    if (overflowing) {
+	      var scrollbarSize = getScrollbarSize();
+	      restoreStyle.push({
+	        value: container.style.paddingRight,
+	        key: 'padding-right',
+	        el: container
+	      }); // Use computed style, here to get the real padding to add our scrollbar width.
+
+	      container.style['padding-right'] = "".concat(getPaddingRight(container) + scrollbarSize, "px"); // .mui-fixed is a global helper.
+
+	      fixedNodes = ownerDocument(container).querySelectorAll('.mui-fixed');
+	      [].forEach.call(fixedNodes, function (node) {
+	        restorePaddings.push(node.style.paddingRight);
+	        node.style.paddingRight = "".concat(getPaddingRight(node) + scrollbarSize, "px");
+	      });
+	    }
+	  }
+
+	  var restore = function restore() {
+	    if (fixedNodes) {
+	      [].forEach.call(fixedNodes, function (node, i) {
+	        if (restorePaddings[i]) {
+	          node.style.paddingRight = restorePaddings[i];
+	        } else {
+	          node.style.removeProperty('padding-right');
+	        }
+	      });
+	    }
+
+	    restoreStyle.forEach(function (_ref) {
+	      var value = _ref.value,
+	          el = _ref.el,
+	          key = _ref.key;
+
+	      if (value) {
+	        el.style.setProperty(key, value);
+	      } else {
+	        el.style.removeProperty(key);
+	      }
+	    });
+	  };
+
+	  return restore;
+	}
+
+	function getHiddenSiblings(container) {
+	  var hiddenSiblings = [];
+	  [].forEach.call(container.children, function (node) {
+	    if (node.getAttribute && node.getAttribute('aria-hidden') === 'true') {
+	      hiddenSiblings.push(node);
+	    }
+	  });
+	  return hiddenSiblings;
+	}
+	/**
+	 * @ignore - do not document.
+	 *
+	 * Proper state management for containers and the modals in those containers.
+	 * Simplified, but inspired by react-overlay's ModalManager class.
+	 * Used by the Modal to ensure proper styling of containers.
+	 */
+
+
+	var ModalManager =
+	/*#__PURE__*/
+	function () {
+	  function ModalManager() {
+	    _classCallCheck$1(this, ModalManager);
+
+	    // this.modals[modalIndex] = modal
+	    this.modals = []; // this.containers[containerIndex] = {
+	    //   modals: [],
+	    //   container,
+	    //   restore: null,
+	    // }
+
+	    this.containers = [];
+	  }
+
+	  _createClass$1(ModalManager, [{
+	    key: "add",
+	    value: function add(modal, container) {
+	      var modalIndex = this.modals.indexOf(modal);
+
+	      if (modalIndex !== -1) {
+	        return modalIndex;
+	      }
+
+	      modalIndex = this.modals.length;
+	      this.modals.push(modal); // If the modal we are adding is already in the DOM.
+
+	      if (modal.modalRef) {
+	        ariaHidden(modal.modalRef, false);
+	      }
+
+	      var hiddenSiblingNodes = getHiddenSiblings(container);
+	      ariaHiddenSiblings(container, modal.mountNode, modal.modalRef, hiddenSiblingNodes, true);
+	      var containerIndex = findIndexOf(this.containers, function (item) {
+	        return item.container === container;
+	      });
+
+	      if (containerIndex !== -1) {
+	        this.containers[containerIndex].modals.push(modal);
+	        return modalIndex;
+	      }
+
+	      this.containers.push({
+	        modals: [modal],
+	        container: container,
+	        restore: null,
+	        hiddenSiblingNodes: hiddenSiblingNodes
+	      });
+	      return modalIndex;
+	    }
+	  }, {
+	    key: "mount",
+	    value: function mount(modal, props) {
+	      var containerIndex = findIndexOf(this.containers, function (item) {
+	        return item.modals.indexOf(modal) !== -1;
+	      });
+	      var containerInfo = this.containers[containerIndex];
+
+	      if (!containerInfo.restore) {
+	        containerInfo.restore = handleContainer(containerInfo, props);
+	      }
+	    }
+	  }, {
+	    key: "remove",
+	    value: function remove(modal) {
+	      var modalIndex = this.modals.indexOf(modal);
+
+	      if (modalIndex === -1) {
+	        return modalIndex;
+	      }
+
+	      var containerIndex = findIndexOf(this.containers, function (item) {
+	        return item.modals.indexOf(modal) !== -1;
+	      });
+	      var containerInfo = this.containers[containerIndex];
+	      containerInfo.modals.splice(containerInfo.modals.indexOf(modal), 1);
+	      this.modals.splice(modalIndex, 1); // If that was the last modal in a container, clean up the container.
+
+	      if (containerInfo.modals.length === 0) {
+	        // The modal might be closed before it had the chance to be mounted in the DOM.
+	        if (containerInfo.restore) {
+	          containerInfo.restore();
+	        }
+
+	        if (modal.modalRef) {
+	          // In case the modal wasn't in the DOM yet.
+	          ariaHidden(modal.modalRef, true);
+	        }
+
+	        ariaHiddenSiblings(containerInfo.container, modal.mountNode, modal.modalRef, containerInfo.hiddenSiblingNodes, false);
+	        this.containers.splice(containerIndex, 1);
+	      } else {
+	        // Otherwise make sure the next top modal is visible to a screen reader.
+	        var nextTop = containerInfo.modals[containerInfo.modals.length - 1]; // as soon as a modal is adding its modalRef is undefined. it can't set
+	        // aria-hidden because the dom element doesn't exist either
+	        // when modal was unmounted before modalRef gets null
+
+	        if (nextTop.modalRef) {
+	          ariaHidden(nextTop.modalRef, false);
+	        }
+	      }
+
+	      return modalIndex;
+	    }
+	  }, {
+	    key: "isTopModal",
+	    value: function isTopModal(modal) {
+	      return this.modals.length > 0 && this.modals[this.modals.length - 1] === modal;
+	    }
+	  }]);
+
+	  return ModalManager;
+	}();
+
+	/* eslint-disable consistent-return, jsx-a11y/no-noninteractive-tabindex */
+	/**
+	 * @ignore - internal component.
+	 */
+
+	function TrapFocus(props) {
+	  var children = props.children,
+	      _props$disableAutoFoc = props.disableAutoFocus,
+	      disableAutoFocus = _props$disableAutoFoc === void 0 ? false : _props$disableAutoFoc,
+	      _props$disableEnforce = props.disableEnforceFocus,
+	      disableEnforceFocus = _props$disableEnforce === void 0 ? false : _props$disableEnforce,
+	      _props$disableRestore = props.disableRestoreFocus,
+	      disableRestoreFocus = _props$disableRestore === void 0 ? false : _props$disableRestore,
+	      getDoc = props.getDoc,
+	      isEnabled = props.isEnabled,
+	      open = props.open;
+	  var ignoreNextEnforceFocus = react.useRef();
+	  var sentinelStart = react.useRef(null);
+	  var sentinelEnd = react.useRef(null);
+	  var nodeToRestore = react.useRef();
+	  var rootRef = react.useRef(null); // can be removed once we drop support for non ref forwarding class components
+
+	  var handleOwnRef = react.useCallback(function (instance) {
+	    // #StrictMode ready
+	    rootRef.current = reactDom.findDOMNode(instance);
+	  }, []);
+	  var handleRef = useForkRef(children.ref, handleOwnRef); // ⚠️ You may rely on React.useMemo as a performance optimization, not as a semantic guarantee.
+	  // https://reactjs.org/docs/hooks-reference.html#usememo
+
+	  react.useMemo(function () {
+	    if (!open || typeof window === 'undefined') {
+	      return;
+	    }
+
+	    nodeToRestore.current = getDoc().activeElement;
+	  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+
+	  react.useEffect(function () {
+	    if (!open) {
+	      return;
+	    }
+
+	    var doc = ownerDocument(rootRef.current); // We might render an empty child.
+
+	    if (!disableAutoFocus && rootRef.current && !rootRef.current.contains(doc.activeElement)) {
+	      if (!rootRef.current.hasAttribute('tabIndex')) {
+
+	        rootRef.current.setAttribute('tabIndex', -1);
+	      }
+
+	      rootRef.current.focus();
+	    }
+
+	    var contain = function contain() {
+	      if (disableEnforceFocus || !isEnabled() || ignoreNextEnforceFocus.current) {
+	        ignoreNextEnforceFocus.current = false;
+	        return;
+	      }
+
+	      if (rootRef.current && !rootRef.current.contains(doc.activeElement)) {
+	        rootRef.current.focus();
+	      }
+	    };
+
+	    var loopFocus = function loopFocus(event) {
+	      // 9 = Tab
+	      if (disableEnforceFocus || !isEnabled() || event.keyCode !== 9) {
+	        return;
+	      } // Make sure the next tab starts from the right place.
+
+
+	      if (doc.activeElement === rootRef.current) {
+	        // We need to ignore the next contain as
+	        // it will try to move the focus back to the rootRef element.
+	        ignoreNextEnforceFocus.current = true;
+
+	        if (event.shiftKey) {
+	          sentinelEnd.current.focus();
+	        } else {
+	          sentinelStart.current.focus();
+	        }
+	      }
+	    };
+
+	    doc.addEventListener('focus', contain, true);
+	    doc.addEventListener('keydown', loopFocus, true); // With Edge, Safari and Firefox, no focus related events are fired when the focused area stops being a focused area
+	    // e.g. https://bugzilla.mozilla.org/show_bug.cgi?id=559561.
+	    //
+	    // The whatwg spec defines how the browser should behave but does not explicitly mention any events:
+	    // https://html.spec.whatwg.org/multipage/interaction.html#focus-fixup-rule.
+
+	    var interval = setInterval(function () {
+	      contain();
+	    }, 50);
+	    return function () {
+	      clearInterval(interval);
+	      doc.removeEventListener('focus', contain, true);
+	      doc.removeEventListener('keydown', loopFocus, true); // restoreLastFocus()
+
+	      if (!disableRestoreFocus) {
+	        // In IE 11 it is possible for document.activeElement to be null resulting
+	        // in nodeToRestore.current being null.
+	        // Not all elements in IE 11 have a focus method.
+	        // Once IE 11 support is dropped the focus() call can be unconditional.
+	        if (nodeToRestore.current && nodeToRestore.current.focus) {
+	          nodeToRestore.current.focus();
+	        }
+
+	        nodeToRestore.current = null;
+	      }
+	    };
+	  }, [disableAutoFocus, disableEnforceFocus, disableRestoreFocus, isEnabled, open]);
+	  return react.createElement(react.Fragment, null, react.createElement("div", {
+	    tabIndex: 0,
+	    ref: sentinelStart,
+	    "data-test": "sentinelStart"
+	  }), react.cloneElement(children, {
+	    ref: handleRef
+	  }), react.createElement("div", {
+	    tabIndex: 0,
+	    ref: sentinelEnd,
+	    "data-test": "sentinelEnd"
+	  }));
+	}
+
+	var styles$y = {
+	  /* Styles applied to the root element. */
+	  root: {
+	    zIndex: -1,
+	    position: 'fixed',
+	    right: 0,
+	    bottom: 0,
+	    top: 0,
+	    left: 0,
+	    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+	    // Remove grey highlight
+	    WebkitTapHighlightColor: 'transparent',
+	    // Disable scroll capabilities.
+	    touchAction: 'none'
+	  },
+
+	  /* Styles applied to the root element if `invisible={true}`. */
+	  invisible: {
+	    backgroundColor: 'transparent'
+	  }
+	};
+	/**
+	 * @ignore - internal component.
+	 */
+
+	var SimpleBackdrop = react.forwardRef(function SimpleBackdrop(props, ref) {
+	  var _props$invisible = props.invisible,
+	      invisible = _props$invisible === void 0 ? false : _props$invisible,
+	      open = props.open,
+	      other = _objectWithoutProperties(props, ["invisible", "open"]);
+
+	  return open ? react.createElement("div", _extends({
+	    "aria-hidden": true,
+	    ref: ref
+	  }, other, {
+	    style: _extends({}, styles$y.root, {}, invisible ? styles$y.invisible : {}, {}, other.style)
+	  })) : null;
+	});
+
+	function getContainer$1(container) {
+	  container = typeof container === 'function' ? container() : container;
+	  return reactDom.findDOMNode(container);
+	}
+
+	function getHasTransition(props) {
+	  return props.children ? props.children.props.hasOwnProperty('in') : false;
+	} // A modal manager used to track and manage the state of open Modals.
+	// Modals don't open on the server so this won't conflict with concurrent requests.
+
+
+	var defaultManager = new ModalManager();
+	var styles$z = function styles(theme) {
+	  return {
+	    /* Styles applied to the root element. */
+	    root: {
+	      position: 'fixed',
+	      zIndex: theme.zIndex.modal,
+	      right: 0,
+	      bottom: 0,
+	      top: 0,
+	      left: 0
+	    },
+
+	    /* Styles applied to the root element if the `Modal` has exited. */
+	    hidden: {
+	      visibility: 'hidden'
+	    }
+	  };
+	};
+	/**
+	 * Modal is a lower-level construct that is leveraged by the following components:
+	 *
+	 * - [Dialog](/api/dialog/)
+	 * - [Drawer](/api/drawer/)
+	 * - [Menu](/api/menu/)
+	 * - [Popover](/api/popover/)
+	 *
+	 * If you are creating a modal dialog, you probably want to use the [Dialog](/api/dialog/) component
+	 * rather than directly using Modal.
+	 *
+	 * This component shares many concepts with [react-overlays](https://react-bootstrap.github.io/react-overlays/#modals).
+	 */
+
+	var Modal = react.forwardRef(function Modal(inProps, ref) {
+	  var theme = useTheme();
+	  var props = getThemeProps({
+	    name: 'MuiModal',
+	    props: _extends({}, inProps),
+	    theme: theme
+	  });
+
+	  var _props$BackdropCompon = props.BackdropComponent,
+	      BackdropComponent = _props$BackdropCompon === void 0 ? SimpleBackdrop : _props$BackdropCompon,
+	      BackdropProps = props.BackdropProps,
+	      children = props.children,
+	      _props$closeAfterTran = props.closeAfterTransition,
+	      closeAfterTransition = _props$closeAfterTran === void 0 ? false : _props$closeAfterTran,
+	      container = props.container,
+	      _props$disableAutoFoc = props.disableAutoFocus,
+	      disableAutoFocus = _props$disableAutoFoc === void 0 ? false : _props$disableAutoFoc,
+	      _props$disableBackdro = props.disableBackdropClick,
+	      disableBackdropClick = _props$disableBackdro === void 0 ? false : _props$disableBackdro,
+	      _props$disableEnforce = props.disableEnforceFocus,
+	      disableEnforceFocus = _props$disableEnforce === void 0 ? false : _props$disableEnforce,
+	      _props$disableEscapeK = props.disableEscapeKeyDown,
+	      disableEscapeKeyDown = _props$disableEscapeK === void 0 ? false : _props$disableEscapeK,
+	      _props$disablePortal = props.disablePortal,
+	      disablePortal = _props$disablePortal === void 0 ? false : _props$disablePortal,
+	      _props$disableRestore = props.disableRestoreFocus,
+	      disableRestoreFocus = _props$disableRestore === void 0 ? false : _props$disableRestore,
+	      _props$disableScrollL = props.disableScrollLock,
+	      disableScrollLock = _props$disableScrollL === void 0 ? false : _props$disableScrollL,
+	      _props$hideBackdrop = props.hideBackdrop,
+	      hideBackdrop = _props$hideBackdrop === void 0 ? false : _props$hideBackdrop,
+	      _props$keepMounted = props.keepMounted,
+	      keepMounted = _props$keepMounted === void 0 ? false : _props$keepMounted,
+	      _props$manager = props.manager,
+	      manager = _props$manager === void 0 ? defaultManager : _props$manager,
+	      onBackdropClick = props.onBackdropClick,
+	      onClose = props.onClose,
+	      onEscapeKeyDown = props.onEscapeKeyDown,
+	      onRendered = props.onRendered,
+	      open = props.open,
+	      other = _objectWithoutProperties(props, ["BackdropComponent", "BackdropProps", "children", "closeAfterTransition", "container", "disableAutoFocus", "disableBackdropClick", "disableEnforceFocus", "disableEscapeKeyDown", "disablePortal", "disableRestoreFocus", "disableScrollLock", "hideBackdrop", "keepMounted", "manager", "onBackdropClick", "onClose", "onEscapeKeyDown", "onRendered", "open"]);
+
+	  var _React$useState = react.useState(true),
+	      exited = _React$useState[0],
+	      setExited = _React$useState[1];
+
+	  var modal = react.useRef({});
+	  var mountNodeRef = react.useRef(null);
+	  var modalRef = react.useRef(null);
+	  var handleRef = useForkRef(modalRef, ref);
+	  var hasTransition = getHasTransition(props);
+
+	  var getDoc = function getDoc() {
+	    return ownerDocument(mountNodeRef.current);
+	  };
+
+	  var getModal = function getModal() {
+	    modal.current.modalRef = modalRef.current;
+	    modal.current.mountNode = mountNodeRef.current;
+	    return modal.current;
+	  };
+
+	  var handleMounted = function handleMounted() {
+	    manager.mount(getModal(), {
+	      disableScrollLock: disableScrollLock
+	    }); // Fix a bug on Chrome where the scroll isn't initially 0.
+
+	    modalRef.current.scrollTop = 0;
+	  };
+
+	  var handleOpen = useEventCallback(function () {
+	    var resolvedContainer = getContainer$1(container) || getDoc().body;
+	    manager.add(getModal(), resolvedContainer); // The element was already mounted.
+
+	    if (modalRef.current) {
+	      handleMounted();
+	    }
+	  });
+	  var isTopModal = react.useCallback(function () {
+	    return manager.isTopModal(getModal());
+	  }, [manager]);
+	  var handlePortalRef = useEventCallback(function (node) {
+	    mountNodeRef.current = node;
+
+	    if (!node) {
+	      return;
+	    }
+
+	    if (onRendered) {
+	      onRendered();
+	    }
+
+	    if (open && isTopModal()) {
+	      handleMounted();
+	    } else {
+	      ariaHidden(modalRef.current, true);
+	    }
+	  });
+	  var handleClose = react.useCallback(function () {
+	    manager.remove(getModal());
+	  }, [manager]);
+	  react.useEffect(function () {
+	    return function () {
+	      handleClose();
+	    };
+	  }, [handleClose]);
+	  react.useEffect(function () {
+	    if (open) {
+	      handleOpen();
+	    } else if (!hasTransition || !closeAfterTransition) {
+	      handleClose();
+	    }
+	  }, [open, handleClose, hasTransition, closeAfterTransition, handleOpen]);
+
+	  if (!keepMounted && !open && (!hasTransition || exited)) {
+	    return null;
+	  }
+
+	  var handleEnter = function handleEnter() {
+	    setExited(false);
+	  };
+
+	  var handleExited = function handleExited() {
+	    setExited(true);
+
+	    if (closeAfterTransition) {
+	      handleClose();
+	    }
+	  };
+
+	  var handleBackdropClick = function handleBackdropClick(event) {
+	    if (event.target !== event.currentTarget) {
+	      return;
+	    }
+
+	    if (onBackdropClick) {
+	      onBackdropClick(event);
+	    }
+
+	    if (!disableBackdropClick && onClose) {
+	      onClose(event, 'backdropClick');
+	    }
+	  };
+
+	  var handleKeyDown = function handleKeyDown(event) {
+	    // We don't take event.defaultPrevented into account:
+	    //
+	    // event.preventDefault() is meant to stop default behaviours like
+	    // clicking a checkbox to check it, hitting a button to submit a form,
+	    // and hitting left arrow to move the cursor in a text input etc.
+	    // Only special HTML elements have these default behaviors.
+	    if (event.key !== 'Escape' || !isTopModal()) {
+	      return;
+	    } // Swallow the event, in case someone is listening for the escape key on the body.
+
+
+	    event.stopPropagation();
+
+	    if (onEscapeKeyDown) {
+	      onEscapeKeyDown(event);
+	    }
+
+	    if (!disableEscapeKeyDown && onClose) {
+	      onClose(event, 'escapeKeyDown');
+	    }
+	  };
+
+	  var inlineStyle = styles$z(theme || {
+	    zIndex: zIndex
+	  });
+	  var childProps = {};
+
+	  if (children.props.tabIndex === undefined) {
+	    childProps.tabIndex = children.props.tabIndex || '-1';
+	  } // It's a Transition like component
+
+
+	  if (hasTransition) {
+	    childProps.onEnter = createChainedFunction(handleEnter, children.props.onEnter);
+	    childProps.onExited = createChainedFunction(handleExited, children.props.onExited);
+	  }
+
+	  return react.createElement(Portal, {
+	    ref: handlePortalRef,
+	    container: container,
+	    disablePortal: disablePortal
+	  }, react.createElement("div", _extends({
+	    ref: handleRef,
+	    onKeyDown: handleKeyDown,
+	    role: "presentation"
+	  }, other, {
+	    style: _extends({}, inlineStyle.root, {}, !open && exited ? inlineStyle.hidden : {}, {}, other.style)
+	  }), hideBackdrop ? null : react.createElement(BackdropComponent, _extends({
+	    open: open,
+	    onClick: handleBackdropClick
+	  }, BackdropProps)), react.createElement(TrapFocus, {
+	    disableEnforceFocus: disableEnforceFocus,
+	    disableAutoFocus: disableAutoFocus,
+	    disableRestoreFocus: disableRestoreFocus,
+	    getDoc: getDoc,
+	    isEnabled: isTopModal,
+	    open: open
+	  }, react.cloneElement(children, childProps))));
+	});
+
+	var reflow = function reflow(node) {
+	  return node.scrollTop;
+	};
+	function getTransitionProps(props, options) {
+	  var timeout = props.timeout,
+	      _props$style = props.style,
+	      style = _props$style === void 0 ? {} : _props$style;
+	  return {
+	    duration: style.transitionDuration || typeof timeout === 'number' ? timeout : timeout[options.mode] || 0,
+	    delay: style.transitionDelay
+	  };
+	}
+
+	function getScale(value) {
+	  return "scale(".concat(value, ", ").concat(Math.pow(value, 2), ")");
+	}
+
+	var styles$A = {
+	  entering: {
+	    opacity: 1,
+	    transform: getScale(1)
+	  },
+	  entered: {
+	    opacity: 1,
+	    transform: 'none'
+	  }
+	};
+	/**
+	 * The Grow transition is used by the [Tooltip](/components/tooltips/) and
+	 * [Popover](/components/popover/) components.
+	 * It uses [react-transition-group](https://github.com/reactjs/react-transition-group) internally.
+	 */
+
+	var Grow = react.forwardRef(function Grow(props, ref) {
+	  var children = props.children,
+	      inProp = props.in,
+	      onEnter = props.onEnter,
+	      onExit = props.onExit,
+	      style = props.style,
+	      _props$timeout = props.timeout,
+	      timeout = _props$timeout === void 0 ? 'auto' : _props$timeout,
+	      other = _objectWithoutProperties(props, ["children", "in", "onEnter", "onExit", "style", "timeout"]);
+
+	  var timer = react.useRef();
+	  var autoTimeout = react.useRef();
+	  var handleRef = useForkRef(children.ref, ref);
+	  var theme = useTheme$1();
+
+	  var handleEnter = function handleEnter(node, isAppearing) {
+	    reflow(node); // So the animation always start from the start.
+
+	    var _getTransitionProps = getTransitionProps({
+	      style: style,
+	      timeout: timeout
+	    }, {
+	      mode: 'enter'
+	    }),
+	        transitionDuration = _getTransitionProps.duration,
+	        delay = _getTransitionProps.delay;
+
+	    var duration;
+
+	    if (timeout === 'auto') {
+	      duration = theme.transitions.getAutoHeightDuration(node.clientHeight);
+	      autoTimeout.current = duration;
+	    } else {
+	      duration = transitionDuration;
+	    }
+
+	    node.style.transition = [theme.transitions.create('opacity', {
+	      duration: duration,
+	      delay: delay
+	    }), theme.transitions.create('transform', {
+	      duration: duration * 0.666,
+	      delay: delay
+	    })].join(',');
+
+	    if (onEnter) {
+	      onEnter(node, isAppearing);
+	    }
+	  };
+
+	  var handleExit = function handleExit(node) {
+	    var _getTransitionProps2 = getTransitionProps({
+	      style: style,
+	      timeout: timeout
+	    }, {
+	      mode: 'exit'
+	    }),
+	        transitionDuration = _getTransitionProps2.duration,
+	        delay = _getTransitionProps2.delay;
+
+	    var duration;
+
+	    if (timeout === 'auto') {
+	      duration = theme.transitions.getAutoHeightDuration(node.clientHeight);
+	      autoTimeout.current = duration;
+	    } else {
+	      duration = transitionDuration;
+	    }
+
+	    node.style.transition = [theme.transitions.create('opacity', {
+	      duration: duration,
+	      delay: delay
+	    }), theme.transitions.create('transform', {
+	      duration: duration * 0.666,
+	      delay: delay || duration * 0.333
+	    })].join(',');
+	    node.style.opacity = '0';
+	    node.style.transform = getScale(0.75);
+
+	    if (onExit) {
+	      onExit(node);
+	    }
+	  };
+
+	  var addEndListener = function addEndListener(_, next) {
+	    if (timeout === 'auto') {
+	      timer.current = setTimeout(next, autoTimeout.current || 0);
+	    }
+	  };
+
+	  react.useEffect(function () {
+	    return function () {
+	      clearTimeout(timer.current);
+	    };
+	  }, []);
+	  return react.createElement(Transition, _extends({
+	    appear: true,
+	    in: inProp,
+	    onEnter: handleEnter,
+	    onExit: handleExit,
+	    addEndListener: addEndListener,
+	    timeout: timeout === 'auto' ? null : timeout
+	  }, other), function (state, childProps) {
+	    return react.cloneElement(children, _extends({
+	      style: _extends({
+	        opacity: 0,
+	        transform: getScale(0.75),
+	        visibility: state === 'exited' && !inProp ? 'hidden' : undefined
+	      }, styles$A[state], {}, style, {}, children.props.style),
+	      ref: handleRef
+	    }, childProps));
+	  });
+	});
+	Grow.muiSupportAuto = true;
+
+	function getOffsetTop(rect, vertical) {
+	  var offset = 0;
+
+	  if (typeof vertical === 'number') {
+	    offset = vertical;
+	  } else if (vertical === 'center') {
+	    offset = rect.height / 2;
+	  } else if (vertical === 'bottom') {
+	    offset = rect.height;
+	  }
+
+	  return offset;
+	}
+	function getOffsetLeft(rect, horizontal) {
+	  var offset = 0;
+
+	  if (typeof horizontal === 'number') {
+	    offset = horizontal;
+	  } else if (horizontal === 'center') {
+	    offset = rect.width / 2;
+	  } else if (horizontal === 'right') {
+	    offset = rect.width;
+	  }
+
+	  return offset;
+	}
+
+	function getTransformOriginValue(transformOrigin) {
+	  return [transformOrigin.horizontal, transformOrigin.vertical].map(function (n) {
+	    return typeof n === 'number' ? "".concat(n, "px") : n;
+	  }).join(' ');
+	} // Sum the scrollTop between two elements.
+
+
+	function getScrollParent(parent, child) {
+	  var element = child;
+	  var scrollTop = 0;
+
+	  while (element && element !== parent) {
+	    element = element.parentElement;
+	    scrollTop += element.scrollTop;
+	  }
+
+	  return scrollTop;
+	}
+
+	function getAnchorEl(anchorEl) {
+	  return typeof anchorEl === 'function' ? anchorEl() : anchorEl;
+	}
+
+	var styles$B = {
+	  /* Styles applied to the root element */
+	  root: {},
+
+	  /* Styles applied to the `Paper` component. */
+	  paper: {
+	    position: 'absolute',
+	    overflowY: 'auto',
+	    overflowX: 'hidden',
+	    // So we see the popover when it's empty.
+	    // It's most likely on issue on userland.
+	    minWidth: 16,
+	    minHeight: 16,
+	    maxWidth: 'calc(100% - 32px)',
+	    maxHeight: 'calc(100% - 32px)',
+	    // We disable the focus ring for mouse, touch and keyboard users.
+	    outline: 0
+	  }
+	};
+	var Popover = react.forwardRef(function Popover(props, ref) {
+	  var action = props.action,
+	      anchorEl = props.anchorEl,
+	      _props$anchorOrigin = props.anchorOrigin,
+	      anchorOrigin = _props$anchorOrigin === void 0 ? {
+	    vertical: 'top',
+	    horizontal: 'left'
+	  } : _props$anchorOrigin,
+	      anchorPosition = props.anchorPosition,
+	      _props$anchorReferenc = props.anchorReference,
+	      anchorReference = _props$anchorReferenc === void 0 ? 'anchorEl' : _props$anchorReferenc,
+	      children = props.children,
+	      classes = props.classes,
+	      className = props.className,
+	      containerProp = props.container,
+	      _props$elevation = props.elevation,
+	      elevation = _props$elevation === void 0 ? 8 : _props$elevation,
+	      getContentAnchorEl = props.getContentAnchorEl,
+	      _props$marginThreshol = props.marginThreshold,
+	      marginThreshold = _props$marginThreshol === void 0 ? 16 : _props$marginThreshol,
+	      onEnter = props.onEnter,
+	      onEntered = props.onEntered,
+	      onEntering = props.onEntering,
+	      onExit = props.onExit,
+	      onExited = props.onExited,
+	      onExiting = props.onExiting,
+	      open = props.open,
+	      _props$PaperProps = props.PaperProps,
+	      PaperProps = _props$PaperProps === void 0 ? {} : _props$PaperProps,
+	      _props$transformOrigi = props.transformOrigin,
+	      transformOrigin = _props$transformOrigi === void 0 ? {
+	    vertical: 'top',
+	    horizontal: 'left'
+	  } : _props$transformOrigi,
+	      _props$TransitionComp = props.TransitionComponent,
+	      TransitionComponent = _props$TransitionComp === void 0 ? Grow : _props$TransitionComp,
+	      _props$transitionDura = props.transitionDuration,
+	      transitionDurationProp = _props$transitionDura === void 0 ? 'auto' : _props$transitionDura,
+	      _props$TransitionProp = props.TransitionProps,
+	      TransitionProps = _props$TransitionProp === void 0 ? {} : _props$TransitionProp,
+	      other = _objectWithoutProperties(props, ["action", "anchorEl", "anchorOrigin", "anchorPosition", "anchorReference", "children", "classes", "className", "container", "elevation", "getContentAnchorEl", "marginThreshold", "onEnter", "onEntered", "onEntering", "onExit", "onExited", "onExiting", "open", "PaperProps", "transformOrigin", "TransitionComponent", "transitionDuration", "TransitionProps"]);
+
+	  var paperRef = react.useRef(); // Returns the top/left offset of the position
+	  // to attach to on the anchor element (or body if none is provided)
+
+	  var getAnchorOffset = react.useCallback(function (contentAnchorOffset) {
+	    if (anchorReference === 'anchorPosition') {
+
+	      return anchorPosition;
+	    }
+
+	    var resolvedAnchorEl = getAnchorEl(anchorEl);
+	    var containerWindow = ownerWindow(resolvedAnchorEl); // If an anchor element wasn't provided, just use the parent body element of this Popover
+
+	    var anchorElement = resolvedAnchorEl instanceof containerWindow.Element ? resolvedAnchorEl : ownerDocument(paperRef.current).body;
+	    var anchorRect = anchorElement.getBoundingClientRect();
+
+	    var anchorVertical = contentAnchorOffset === 0 ? anchorOrigin.vertical : 'center';
+	    return {
+	      top: anchorRect.top + getOffsetTop(anchorRect, anchorVertical),
+	      left: anchorRect.left + getOffsetLeft(anchorRect, anchorOrigin.horizontal)
+	    };
+	  }, [anchorEl, anchorOrigin.horizontal, anchorOrigin.vertical, anchorPosition, anchorReference]); // Returns the vertical offset of inner content to anchor the transform on if provided
+
+	  var getContentAnchorOffset = react.useCallback(function (element) {
+	    var contentAnchorOffset = 0;
+
+	    if (getContentAnchorEl && anchorReference === 'anchorEl') {
+	      var contentAnchorEl = getContentAnchorEl(element);
+
+	      if (contentAnchorEl && element.contains(contentAnchorEl)) {
+	        var scrollTop = getScrollParent(element, contentAnchorEl);
+	        contentAnchorOffset = contentAnchorEl.offsetTop + contentAnchorEl.clientHeight / 2 - scrollTop || 0;
+	      } // != the default value
+	    }
+
+	    return contentAnchorOffset;
+	  }, [anchorOrigin.vertical, anchorReference, getContentAnchorEl]); // Return the base transform origin using the element
+	  // and taking the content anchor offset into account if in use
+
+	  var getTransformOrigin = react.useCallback(function (elemRect) {
+	    var contentAnchorOffset = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : 0;
+	    return {
+	      vertical: getOffsetTop(elemRect, transformOrigin.vertical) + contentAnchorOffset,
+	      horizontal: getOffsetLeft(elemRect, transformOrigin.horizontal)
+	    };
+	  }, [transformOrigin.horizontal, transformOrigin.vertical]);
+	  var getPositioningStyle = react.useCallback(function (element) {
+	    // Check if the parent has requested anchoring on an inner content node
+	    var contentAnchorOffset = getContentAnchorOffset(element);
+	    var elemRect = {
+	      width: element.offsetWidth,
+	      height: element.offsetHeight
+	    }; // Get the transform origin point on the element itself
+
+	    var elemTransformOrigin = getTransformOrigin(elemRect, contentAnchorOffset);
+
+	    if (anchorReference === 'none') {
+	      return {
+	        top: null,
+	        left: null,
+	        transformOrigin: getTransformOriginValue(elemTransformOrigin)
+	      };
+	    } // Get the offset of of the anchoring element
+
+
+	    var anchorOffset = getAnchorOffset(contentAnchorOffset); // Calculate element positioning
+
+	    var top = anchorOffset.top - elemTransformOrigin.vertical;
+	    var left = anchorOffset.left - elemTransformOrigin.horizontal;
+	    var bottom = top + elemRect.height;
+	    var right = left + elemRect.width; // Use the parent window of the anchorEl if provided
+
+	    var containerWindow = ownerWindow(getAnchorEl(anchorEl)); // Window thresholds taking required margin into account
+
+	    var heightThreshold = containerWindow.innerHeight - marginThreshold;
+	    var widthThreshold = containerWindow.innerWidth - marginThreshold; // Check if the vertical axis needs shifting
+
+	    if (top < marginThreshold) {
+	      var diff = top - marginThreshold;
+	      top -= diff;
+	      elemTransformOrigin.vertical += diff;
+	    } else if (bottom > heightThreshold) {
+	      var _diff = bottom - heightThreshold;
+
+	      top -= _diff;
+	      elemTransformOrigin.vertical += _diff;
+	    }
+
+
+	    if (left < marginThreshold) {
+	      var _diff2 = left - marginThreshold;
+
+	      left -= _diff2;
+	      elemTransformOrigin.horizontal += _diff2;
+	    } else if (right > widthThreshold) {
+	      var _diff3 = right - widthThreshold;
+
+	      left -= _diff3;
+	      elemTransformOrigin.horizontal += _diff3;
+	    }
+
+	    return {
+	      top: "".concat(top, "px"),
+	      left: "".concat(left, "px"),
+	      transformOrigin: getTransformOriginValue(elemTransformOrigin)
+	    };
+	  }, [anchorEl, anchorReference, getAnchorOffset, getContentAnchorOffset, getTransformOrigin, marginThreshold]);
+	  var setPositioningStyles = react.useCallback(function (element) {
+	    var positioning = getPositioningStyle(element);
+
+	    if (positioning.top !== null) {
+	      element.style.top = positioning.top;
+	    }
+
+	    if (positioning.left !== null) {
+	      element.style.left = positioning.left;
+	    }
+
+	    element.style.transformOrigin = positioning.transformOrigin;
+	  }, [getPositioningStyle]);
+
+	  var handleEntering = function handleEntering(element, isAppearing) {
+	    if (onEntering) {
+	      onEntering(element, isAppearing);
+	    }
+
+	    setPositioningStyles(element);
+	  };
+
+	  var handlePaperRef = react.useCallback(function (instance) {
+	    // #StrictMode ready
+	    paperRef.current = reactDom.findDOMNode(instance);
+	  }, []);
+	  var updatePosition = react.useMemo(function () {
+	    if (!open) {
+	      return undefined;
+	    }
+
+	    return debounce(function () {
+	      setPositioningStyles(paperRef.current);
+	    });
+	  }, [open, setPositioningStyles]);
+	  react.useImperativeHandle(action, function () {
+	    return open ? {
+	      updatePosition: updatePosition
+	    } : null;
+	  }, [open, updatePosition]);
+	  react.useEffect(function () {
+	    if (!updatePosition) {
+	      return undefined;
+	    }
+
+	    window.addEventListener('resize', updatePosition);
+	    return function () {
+	      window.removeEventListener('resize', updatePosition);
+	      updatePosition.clear();
+	    };
+	  }, [updatePosition]);
+	  var transitionDuration = transitionDurationProp;
+
+	  if (transitionDurationProp === 'auto' && !TransitionComponent.muiSupportAuto) {
+	    transitionDuration = undefined;
+	  } // If the container prop is provided, use that
+	  // If the anchorEl prop is provided, use its parent body element as the container
+	  // If neither are provided let the Modal take care of choosing the container
+
+
+	  var container = containerProp || (anchorEl ? ownerDocument(getAnchorEl(anchorEl)).body : undefined);
+	  return react.createElement(Modal, _extends({
+	    container: container,
+	    open: open,
+	    ref: ref,
+	    BackdropProps: {
+	      invisible: true
+	    },
+	    className: clsx(classes.root, className)
+	  }, other), react.createElement(TransitionComponent, _extends({
+	    appear: true,
+	    in: open,
+	    onEnter: onEnter,
+	    onEntered: onEntered,
+	    onExit: onExit,
+	    onExited: onExited,
+	    onExiting: onExiting,
+	    timeout: transitionDuration
+	  }, TransitionProps, {
+	    onEntering: createChainedFunction(handleEntering, TransitionProps.onEntering)
+	  }), react.createElement(Paper$1, _extends({
+	    elevation: elevation,
+	    ref: handlePaperRef
+	  }, PaperProps, {
+	    className: clsx(classes.paper, PaperProps.className)
+	  }), children)));
+	});
+	var Popover$1 = withStyles$1(styles$B, {
+	  name: 'MuiPopover'
+	})(Popover);
+
+	/**
+	 * @ignore - internal component.
+	 */
+
+	var ListContext = react.createContext({});
+
+	var styles$C = {
+	  /* Styles applied to the root element. */
+	  root: {
+	    listStyle: 'none',
+	    margin: 0,
+	    padding: 0,
+	    position: 'relative'
+	  },
+
+	  /* Styles applied to the root element if `disablePadding={false}`. */
+	  padding: {
+	    paddingTop: 8,
+	    paddingBottom: 8
+	  },
+
+	  /* Styles applied to the root element if dense. */
+	  dense: {},
+
+	  /* Styles applied to the root element if a `subheader` is provided. */
+	  subheader: {
+	    paddingTop: 0
+	  }
+	};
+	var List = react.forwardRef(function List(props, ref) {
+	  var children = props.children,
+	      classes = props.classes,
+	      className = props.className,
+	      _props$component = props.component,
+	      Component = _props$component === void 0 ? 'ul' : _props$component,
+	      _props$dense = props.dense,
+	      dense = _props$dense === void 0 ? false : _props$dense,
+	      _props$disablePadding = props.disablePadding,
+	      disablePadding = _props$disablePadding === void 0 ? false : _props$disablePadding,
+	      subheader = props.subheader,
+	      other = _objectWithoutProperties(props, ["children", "classes", "className", "component", "dense", "disablePadding", "subheader"]);
+
+	  var context = react.useMemo(function () {
+	    return {
+	      dense: dense
+	    };
+	  }, [dense]);
+	  return react.createElement(ListContext.Provider, {
+	    value: context
+	  }, react.createElement(Component, _extends({
+	    className: clsx(classes.root, className, dense && classes.dense, !disablePadding && classes.padding, subheader && classes.subheader),
+	    ref: ref
+	  }, other), subheader, children));
+	});
+	var List$1 = withStyles$1(styles$C, {
+	  name: 'MuiList'
+	})(List);
+
+	function nextItem(list, item, disableListWrap) {
+	  if (list === item) {
+	    return list.firstChild;
+	  }
+
+	  if (item && item.nextElementSibling) {
+	    return item.nextElementSibling;
+	  }
+
+	  return disableListWrap ? null : list.firstChild;
+	}
+
+	function previousItem(list, item, disableListWrap) {
+	  if (list === item) {
+	    return disableListWrap ? list.firstChild : list.lastChild;
+	  }
+
+	  if (item && item.previousElementSibling) {
+	    return item.previousElementSibling;
+	  }
+
+	  return disableListWrap ? null : list.lastChild;
+	}
+
+	function textCriteriaMatches(nextFocus, textCriteria) {
+	  if (textCriteria === undefined) {
+	    return true;
+	  }
+
+	  var text = nextFocus.innerText;
+
+	  if (text === undefined) {
+	    // jsdom doesn't support innerText
+	    text = nextFocus.textContent;
+	  }
+
+	  if (text === undefined) {
+	    return false;
+	  }
+
+	  text = text.trim().toLowerCase();
+
+	  if (text.length === 0) {
+	    return false;
+	  }
+
+	  if (textCriteria.repeating) {
+	    return text[0] === textCriteria.keys[0];
+	  }
+
+	  return text.indexOf(textCriteria.keys.join('')) === 0;
+	}
+
+	function moveFocus(list, currentFocus, disableListWrap, traversalFunction, textCriteria) {
+	  var wrappedOnce = false;
+	  var nextFocus = traversalFunction(list, currentFocus, currentFocus ? disableListWrap : false);
+
+	  while (nextFocus) {
+	    // Prevent infinite loop.
+	    if (nextFocus === list.firstChild) {
+	      if (wrappedOnce) {
+	        return false;
+	      }
+
+	      wrappedOnce = true;
+	    } // Move to the next element.
+
+
+	    if (!nextFocus.hasAttribute('tabindex') || nextFocus.disabled || nextFocus.getAttribute('aria-disabled') === 'true' || !textCriteriaMatches(nextFocus, textCriteria)) {
+	      nextFocus = traversalFunction(list, nextFocus, disableListWrap);
+	    } else {
+	      nextFocus.focus();
+	      return true;
+	    }
+	  }
+
+	  return false;
+	}
+
+	var useEnhancedEffect$6 = typeof window === 'undefined' ? react.useEffect : react.useLayoutEffect;
+	/**
+	 * A permanently displayed menu following https://www.w3.org/TR/wai-aria-practices/#menubutton
+	 * It's exposed to help customization of the [`Menu`](/api/menu/) component. If you
+	 * use it separately you need to move focus into the component manually. Once
+	 * the focus is placed inside the component it is fully keyboard accessible.
+	 */
+
+	var MenuList = react.forwardRef(function MenuList(props, ref) {
+	  var actions = props.actions,
+	      _props$autoFocus = props.autoFocus,
+	      autoFocus = _props$autoFocus === void 0 ? false : _props$autoFocus,
+	      _props$autoFocusItem = props.autoFocusItem,
+	      autoFocusItem = _props$autoFocusItem === void 0 ? false : _props$autoFocusItem,
+	      children = props.children,
+	      className = props.className,
+	      onKeyDown = props.onKeyDown,
+	      _props$disableListWra = props.disableListWrap,
+	      disableListWrap = _props$disableListWra === void 0 ? false : _props$disableListWra,
+	      _props$variant = props.variant,
+	      variant = _props$variant === void 0 ? 'selectedMenu' : _props$variant,
+	      other = _objectWithoutProperties(props, ["actions", "autoFocus", "autoFocusItem", "children", "className", "onKeyDown", "disableListWrap", "variant"]);
+
+	  var listRef = react.useRef(null);
+	  var textCriteriaRef = react.useRef({
+	    keys: [],
+	    repeating: true,
+	    previousKeyMatched: true,
+	    lastTime: null
+	  });
+	  useEnhancedEffect$6(function () {
+	    if (autoFocus) {
+	      listRef.current.focus();
+	    }
+	  }, [autoFocus]);
+	  react.useImperativeHandle(actions, function () {
+	    return {
+	      adjustStyleForScrollbar: function adjustStyleForScrollbar(containerElement, theme) {
+	        // Let's ignore that piece of logic if users are already overriding the width
+	        // of the menu.
+	        var noExplicitWidth = !listRef.current.style.width;
+
+	        if (containerElement.clientHeight < listRef.current.clientHeight && noExplicitWidth) {
+	          var scrollbarSize = "".concat(getScrollbarSize(), "px");
+	          listRef.current.style[theme.direction === 'rtl' ? 'paddingLeft' : 'paddingRight'] = scrollbarSize;
+	          listRef.current.style.width = "calc(100% + ".concat(scrollbarSize, ")");
+	        }
+
+	        return listRef.current;
+	      }
+	    };
+	  }, []);
+
+	  var handleKeyDown = function handleKeyDown(event) {
+	    var list = listRef.current;
+	    var key = event.key;
+	    /**
+	     * @type {Element} - will always be defined since we are in a keydown handler
+	     * attached to an element. A keydown event is either dispatched to the activeElement
+	     * or document.body or document.documentElement. Only the first case will
+	     * trigger this specific handler.
+	     */
+
+	    var currentFocus = ownerDocument(list).activeElement;
+
+	    if (key === 'ArrowDown') {
+	      // Prevent scroll of the page
+	      event.preventDefault();
+	      moveFocus(list, currentFocus, disableListWrap, nextItem);
+	    } else if (key === 'ArrowUp') {
+	      event.preventDefault();
+	      moveFocus(list, currentFocus, disableListWrap, previousItem);
+	    } else if (key === 'Home') {
+	      event.preventDefault();
+	      moveFocus(list, null, disableListWrap, nextItem);
+	    } else if (key === 'End') {
+	      event.preventDefault();
+	      moveFocus(list, null, disableListWrap, previousItem);
+	    } else if (key.length === 1) {
+	      var criteria = textCriteriaRef.current;
+	      var lowerKey = key.toLowerCase();
+	      var currTime = performance.now();
+
+	      if (criteria.keys.length > 0) {
+	        // Reset
+	        if (currTime - criteria.lastTime > 500) {
+	          criteria.keys = [];
+	          criteria.repeating = true;
+	          criteria.previousKeyMatched = true;
+	        } else if (criteria.repeating && lowerKey !== criteria.keys[0]) {
+	          criteria.repeating = false;
+	        }
+	      }
+
+	      criteria.lastTime = currTime;
+	      criteria.keys.push(lowerKey);
+	      var keepFocusOnCurrent = currentFocus && !criteria.repeating && textCriteriaMatches(currentFocus, criteria);
+
+	      if (criteria.previousKeyMatched && (keepFocusOnCurrent || moveFocus(list, currentFocus, false, nextItem, criteria))) {
+	        event.preventDefault();
+	      } else {
+	        criteria.previousKeyMatched = false;
+	      }
+	    }
+
+	    if (onKeyDown) {
+	      onKeyDown(event);
+	    }
+	  };
+
+	  var handleOwnRef = react.useCallback(function (instance) {
+	    // #StrictMode ready
+	    listRef.current = reactDom.findDOMNode(instance);
+	  }, []);
+	  var handleRef = useForkRef(handleOwnRef, ref);
+	  /**
+	   * the index of the item should receive focus
+	   * in a `variant="selectedMenu"` it's the first `selected` item
+	   * otherwise it's the very first item.
+	   */
+
+	  var activeItemIndex = -1; // since we inject focus related props into children we have to do a lookahead
+	  // to check if there is a `selected` item. We're looking for the last `selected`
+	  // item and use the first valid item as a fallback
+
+	  react.Children.forEach(children, function (child, index) {
+	    if (!react.isValidElement(child)) {
+	      return;
+	    }
+
+	    if (!child.props.disabled) {
+	      if (variant === 'selectedMenu' && child.props.selected) {
+	        activeItemIndex = index;
+	      } else if (activeItemIndex === -1) {
+	        activeItemIndex = index;
+	      }
+	    }
+	  });
+	  var items = react.Children.map(children, function (child, index) {
+	    if (index === activeItemIndex) {
+	      var newChildProps = {};
+
+	      if (autoFocusItem) {
+	        newChildProps.autoFocus = true;
+	      }
+
+	      if (child.props.tabIndex === undefined && variant === 'selectedMenu') {
+	        newChildProps.tabIndex = 0;
+	      }
+
+	      if (newChildProps !== null) {
+	        return react.cloneElement(child, newChildProps);
+	      }
+	    }
+
+	    return child;
+	  });
+	  return react.createElement(List$1, _extends({
+	    role: "menu",
+	    ref: handleRef,
+	    className: className,
+	    onKeyDown: handleKeyDown,
+	    tabIndex: autoFocus ? 0 : -1
+	  }, other), items);
+	});
+
+	var RTL_ORIGIN = {
+	  vertical: 'top',
+	  horizontal: 'right'
+	};
+	var LTR_ORIGIN = {
+	  vertical: 'top',
+	  horizontal: 'left'
+	};
+	var styles$D = {
+	  /* Styles applied to the `Paper` component. */
+	  paper: {
+	    // specZ: The maximum height of a simple menu should be one or more rows less than the view
+	    // height. This ensures a tapable area outside of the simple menu with which to dismiss
+	    // the menu.
+	    maxHeight: 'calc(100% - 96px)',
+	    // Add iOS momentum scrolling.
+	    WebkitOverflowScrolling: 'touch'
+	  },
+
+	  /* Styles applied to the `List` component via `MenuList`. */
+	  list: {
+	    // We disable the focus ring for mouse, touch and keyboard users.
+	    outline: 0
+	  }
+	};
+	var Menu = react.forwardRef(function Menu(props, ref) {
+	  var _props$autoFocus = props.autoFocus,
+	      autoFocus = _props$autoFocus === void 0 ? true : _props$autoFocus,
+	      children = props.children,
+	      classes = props.classes,
+	      _props$disableAutoFoc = props.disableAutoFocusItem,
+	      disableAutoFocusItem = _props$disableAutoFoc === void 0 ? false : _props$disableAutoFoc,
+	      _props$MenuListProps = props.MenuListProps,
+	      MenuListProps = _props$MenuListProps === void 0 ? {} : _props$MenuListProps,
+	      onClose = props.onClose,
+	      onEntering = props.onEntering,
+	      open = props.open,
+	      _props$PaperProps = props.PaperProps,
+	      PaperProps = _props$PaperProps === void 0 ? {} : _props$PaperProps,
+	      PopoverClasses = props.PopoverClasses,
+	      _props$transitionDura = props.transitionDuration,
+	      transitionDuration = _props$transitionDura === void 0 ? 'auto' : _props$transitionDura,
+	      _props$variant = props.variant,
+	      variant = _props$variant === void 0 ? 'selectedMenu' : _props$variant,
+	      other = _objectWithoutProperties(props, ["autoFocus", "children", "classes", "disableAutoFocusItem", "MenuListProps", "onClose", "onEntering", "open", "PaperProps", "PopoverClasses", "transitionDuration", "variant"]);
+
+	  var theme = useTheme$1();
+	  var autoFocusItem = autoFocus && !disableAutoFocusItem && open;
+	  var menuListActionsRef = react.useRef(null);
+	  var contentAnchorRef = react.useRef(null);
+
+	  var getContentAnchorEl = function getContentAnchorEl() {
+	    return contentAnchorRef.current;
+	  };
+
+	  var handleEntering = function handleEntering(element, isAppearing) {
+	    if (menuListActionsRef.current) {
+	      menuListActionsRef.current.adjustStyleForScrollbar(element, theme);
+	    }
+
+	    if (onEntering) {
+	      onEntering(element, isAppearing);
+	    }
+	  };
+
+	  var handleListKeyDown = function handleListKeyDown(event) {
+	    if (event.key === 'Tab') {
+	      event.preventDefault();
+
+	      if (onClose) {
+	        onClose(event, 'tabKeyDown');
+	      }
+	    }
+	  };
+	  /**
+	   * the index of the item should receive focus
+	   * in a `variant="selectedMenu"` it's the first `selected` item
+	   * otherwise it's the very first item.
+	   */
+
+
+	  var activeItemIndex = -1; // since we inject focus related props into children we have to do a lookahead
+	  // to check if there is a `selected` item. We're looking for the last `selected`
+	  // item and use the first valid item as a fallback
+
+	  react.Children.map(children, function (child, index) {
+	    if (!react.isValidElement(child)) {
+	      return;
+	    }
+
+	    if (!child.props.disabled) {
+	      if (variant !== "menu" && child.props.selected) {
+	        activeItemIndex = index;
+	      } else if (activeItemIndex === -1) {
+	        activeItemIndex = index;
+	      }
+	    }
+	  });
+	  var items = react.Children.map(children, function (child, index) {
+	    if (index === activeItemIndex) {
+	      return react.cloneElement(child, {
+	        ref: function ref(instance) {
+	          // #StrictMode ready
+	          contentAnchorRef.current = reactDom.findDOMNode(instance);
+	          setRef(child.ref, instance);
+	        }
+	      });
+	    }
+
+	    return child;
+	  });
+	  return react.createElement(Popover$1, _extends({
+	    getContentAnchorEl: getContentAnchorEl,
+	    classes: PopoverClasses,
+	    onClose: onClose,
+	    onEntering: handleEntering,
+	    anchorOrigin: theme.direction === 'rtl' ? RTL_ORIGIN : LTR_ORIGIN,
+	    transformOrigin: theme.direction === 'rtl' ? RTL_ORIGIN : LTR_ORIGIN,
+	    PaperProps: _extends({}, PaperProps, {
+	      classes: _extends({}, PaperProps.classes, {
+	        root: classes.paper
+	      })
+	    }),
+	    open: open,
+	    ref: ref,
+	    transitionDuration: transitionDuration
+	  }, other), react.createElement(MenuList, _extends({
+	    onKeyDown: handleListKeyDown,
+	    actions: menuListActionsRef,
+	    autoFocus: autoFocus && (activeItemIndex === -1 || disableAutoFocusItem),
+	    autoFocusItem: autoFocusItem,
+	    variant: variant
+	  }, MenuListProps, {
+	    className: clsx(classes.list, MenuListProps.className)
+	  }), items));
+	});
+	var Menu$1 = withStyles$1(styles$D, {
+	  name: 'MuiMenu'
+	})(Menu);
+
+	function areEqualValues(a, b) {
+	  if (_typeof(b) === 'object' && b !== null) {
+	    return a === b;
+	  }
+
+	  return String(a) === String(b);
+	}
+
+	function isEmpty$1(display) {
+	  return display == null || typeof display === 'string' && !display.trim();
+	}
+	/**
+	 * @ignore - internal component.
+	 */
+
+
+	var SelectInput = react.forwardRef(function SelectInput(props, ref) {
+	  var autoFocus = props.autoFocus,
+	      autoWidth = props.autoWidth,
+	      children = props.children,
+	      classes = props.classes,
+	      className = props.className,
+	      defaultValue = props.defaultValue,
+	      disabled = props.disabled,
+	      displayEmpty = props.displayEmpty,
+	      labelId = props.labelId,
+	      IconComponent = props.IconComponent,
+	      inputRefProp = props.inputRef,
+	      _props$MenuProps = props.MenuProps,
+	      MenuProps = _props$MenuProps === void 0 ? {} : _props$MenuProps,
+	      multiple = props.multiple,
+	      name = props.name,
+	      onBlur = props.onBlur,
+	      onChange = props.onChange,
+	      onClose = props.onClose,
+	      onFocus = props.onFocus,
+	      onOpen = props.onOpen,
+	      openProp = props.open,
+	      readOnly = props.readOnly,
+	      renderValue = props.renderValue,
+	      required = props.required,
+	      _props$SelectDisplayP = props.SelectDisplayProps,
+	      SelectDisplayProps = _props$SelectDisplayP === void 0 ? {} : _props$SelectDisplayP,
+	      tabIndexProp = props.tabIndex,
+	      type = props.type,
+	      valueProp = props.value,
+	      _props$variant = props.variant,
+	      variant = _props$variant === void 0 ? 'standard' : _props$variant,
+	      other = _objectWithoutProperties(props, ["autoFocus", "autoWidth", "children", "classes", "className", "defaultValue", "disabled", "displayEmpty", "labelId", "IconComponent", "inputRef", "MenuProps", "multiple", "name", "onBlur", "onChange", "onClose", "onFocus", "onOpen", "open", "readOnly", "renderValue", "required", "SelectDisplayProps", "tabIndex", "type", "value", "variant"]);
+
+	  var _React$useRef = react.useRef(valueProp != null),
+	      isControlled = _React$useRef.current;
+
+	  var _React$useState = react.useState(defaultValue),
+	      valueState = _React$useState[0],
+	      setValueState = _React$useState[1];
+
+	  var value = isControlled ? valueProp : valueState;
+
+	  var inputRef = react.useRef(null);
+
+	  var _React$useState2 = react.useState(null),
+	      displayNode = _React$useState2[0],
+	      setDisplayNode = _React$useState2[1];
+
+	  var _React$useRef2 = react.useRef(openProp != null),
+	      isOpenControlled = _React$useRef2.current;
+
+	  var _React$useState3 = react.useState(),
+	      menuMinWidthState = _React$useState3[0],
+	      setMenuMinWidthState = _React$useState3[1];
+
+	  var _React$useState4 = react.useState(false),
+	      openState = _React$useState4[0],
+	      setOpenState = _React$useState4[1];
+
+	  var handleRef = useForkRef(ref, inputRefProp);
+	  react.useImperativeHandle(handleRef, function () {
+	    return {
+	      focus: function focus() {
+	        displayNode.focus();
+	      },
+	      node: inputRef.current,
+	      value: value
+	    };
+	  }, [displayNode, value]);
+	  react.useEffect(function () {
+	    if (autoFocus && displayNode) {
+	      displayNode.focus();
+	    }
+	  }, [autoFocus, displayNode]);
+
+	  var update = function update(open, event) {
+	    if (open) {
+	      if (onOpen) {
+	        onOpen(event);
+	      }
+	    } else {
+	      displayNode.focus();
+
+	      if (onClose) {
+	        onClose(event);
+	      }
+	    }
+
+	    if (!isOpenControlled) {
+	      setMenuMinWidthState(autoWidth ? null : displayNode.clientWidth);
+	      setOpenState(open);
+	    }
+	  };
+
+	  var handleClick = function handleClick(event) {
+	    update(true, event);
+	  };
+
+	  var handleClose = function handleClose(event) {
+	    update(false, event);
+	  };
+
+	  var handleItemClick = function handleItemClick(child) {
+	    return function (event) {
+	      if (!multiple) {
+	        update(false, event);
+	      }
+
+	      var newValue;
+
+	      if (multiple) {
+	        newValue = Array.isArray(value) ? _toConsumableArray(value) : [];
+	        var itemIndex = value.indexOf(child.props.value);
+
+	        if (itemIndex === -1) {
+	          newValue.push(child.props.value);
+	        } else {
+	          newValue.splice(itemIndex, 1);
+	        }
+	      } else {
+	        newValue = child.props.value;
+	      }
+
+	      if (!isControlled) {
+	        setValueState(newValue);
+	      }
+
+	      if (onChange) {
+	        event.persist(); // Preact support, target is read only property on a native event.
+
+	        Object.defineProperty(event, 'target', {
+	          writable: true,
+	          value: {
+	            value: newValue,
+	            name: name
+	          }
+	        });
+	        onChange(event, child);
+	      }
+	    };
+	  };
+
+	  var handleKeyDown = function handleKeyDown(event) {
+	    if (!readOnly) {
+	      var validKeys = [' ', 'ArrowUp', 'ArrowDown', // The native select doesn't respond to enter on MacOS, but it's recommended by
+	      // https://www.w3.org/TR/wai-aria-practices/examples/listbox/listbox-collapsible.html
+	      'Enter'];
+
+	      if (validKeys.indexOf(event.key) !== -1) {
+	        event.preventDefault();
+	        update(true, event);
+	      }
+	    }
+	  };
+
+	  var open = displayNode !== null && (isOpenControlled ? openProp : openState);
+
+	  var handleBlur = function handleBlur(event) {
+	    // if open event.stopImmediatePropagation
+	    if (!open && onBlur) {
+	      event.persist(); // Preact support, target is read only property on a native event.
+
+	      Object.defineProperty(event, 'target', {
+	        writable: true,
+	        value: {
+	          value: value,
+	          name: name
+	        }
+	      });
+	      onBlur(event);
+	    }
+	  };
+
+	  delete other['aria-invalid'];
+	  var display;
+	  var displaySingle;
+	  var displayMultiple = [];
+	  var computeDisplay = false;
+
+	  if (isFilled({
+	    value: value
+	  }) || displayEmpty) {
+	    if (renderValue) {
+	      display = renderValue(value);
+	    } else {
+	      computeDisplay = true;
+	    }
+	  }
+
+	  var items = react.Children.map(children, function (child) {
+	    if (!react.isValidElement(child)) {
+	      return null;
+	    }
+
+	    var selected;
+
+	    if (multiple) {
+	      if (!Array.isArray(value)) {
+	        throw new Error('Material-UI: the `value` prop must be an array ' + 'when using the `Select` component with `multiple`.');
+	      }
+
+	      selected = value.some(function (v) {
+	        return areEqualValues(v, child.props.value);
+	      });
+
+	      if (selected && computeDisplay) {
+	        displayMultiple.push(child.props.children);
+	      }
+	    } else {
+	      selected = areEqualValues(value, child.props.value);
+
+	      if (selected && computeDisplay) {
+	        displaySingle = child.props.children;
+	      }
+	    }
+
+	    return react.cloneElement(child, {
+	      'aria-selected': selected ? 'true' : undefined,
+	      onClick: handleItemClick(child),
+	      role: 'option',
+	      selected: selected,
+	      value: undefined,
+	      // The value is most likely not a valid HTML attribute.
+	      'data-value': child.props.value // Instead, we provide it as a data attribute.
+
+	    });
+	  });
+
+	  if (computeDisplay) {
+	    display = multiple ? displayMultiple.join(', ') : displaySingle;
+	  } // Avoid performing a layout computation in the render method.
+
+
+	  var menuMinWidth = menuMinWidthState;
+
+	  if (!autoWidth && isOpenControlled && displayNode) {
+	    menuMinWidth = displayNode.clientWidth;
+	  }
+
+	  var tabIndex;
+
+	  if (typeof tabIndexProp !== 'undefined') {
+	    tabIndex = tabIndexProp;
+	  } else {
+	    tabIndex = disabled ? null : 0;
+	  }
+
+	  var buttonId = SelectDisplayProps.id || (name ? "mui-component-select-".concat(name) : undefined);
+	  return react.createElement(react.Fragment, null, react.createElement("div", _extends({
+	    className: clsx(classes.root, // TODO v5: merge root and select
+	    classes.select, classes.selectMenu, classes[variant], className, disabled && classes.disabled),
+	    ref: setDisplayNode,
+	    tabIndex: tabIndex,
+	    role: "button",
+	    "aria-expanded": open ? 'true' : undefined,
+	    "aria-labelledby": "".concat(labelId || '', " ").concat(buttonId || ''),
+	    "aria-haspopup": "listbox",
+	    onKeyDown: handleKeyDown,
+	    onClick: disabled || readOnly ? null : handleClick,
+	    onBlur: handleBlur,
+	    onFocus: onFocus
+	  }, SelectDisplayProps, {
+	    // The id is required for proper a11y
+	    id: buttonId
+	  }), isEmpty$1(display) ? // eslint-disable-next-line react/no-danger
+	  react.createElement("span", {
+	    dangerouslySetInnerHTML: {
+	      __html: '&#8203;'
+	    }
+	  }) : display), react.createElement("input", _extends({
+	    value: Array.isArray(value) ? value.join(',') : value,
+	    name: name,
+	    ref: inputRef,
+	    type: "hidden",
+	    autoFocus: autoFocus
+	  }, other)), react.createElement(IconComponent, {
+	    className: clsx(classes.icon, classes["icon".concat(capitalize(variant))], open && classes.iconOpen)
+	  }), react.createElement(Menu$1, _extends({
+	    id: "menu-".concat(name || ''),
+	    anchorEl: displayNode,
+	    open: open,
+	    onClose: handleClose
+	  }, MenuProps, {
+	    MenuListProps: _extends({
+	      'aria-labelledby': labelId,
+	      role: 'listbox',
+	      disableListWrap: true
+	    }, MenuProps.MenuListProps),
+	    PaperProps: _extends({}, MenuProps.PaperProps, {
+	      style: _extends({
+	        minWidth: menuMinWidth
+	      }, MenuProps.PaperProps != null ? MenuProps.PaperProps.style : null)
+	    })
+	  }), items));
+	});
+
+	/**
+	 * @ignore - internal component.
+	 */
+
+	var ArrowDropDownIcon = createSvgIcon(react.createElement("path", {
+	  d: "M7 10l5 5 5-5z"
+	}));
+
+	/**
+	 * @ignore - internal component.
+	 */
+
+	var NativeSelectInput = react.forwardRef(function NativeSelectInput(props, ref) {
+	  var classes = props.classes,
+	      className = props.className,
+	      disabled = props.disabled,
+	      IconComponent = props.IconComponent,
+	      inputRef = props.inputRef,
+	      _props$variant = props.variant,
+	      variant = _props$variant === void 0 ? 'standard' : _props$variant,
+	      other = _objectWithoutProperties(props, ["classes", "className", "disabled", "IconComponent", "inputRef", "variant"]);
+
+	  return react.createElement(react.Fragment, null, react.createElement("select", _extends({
+	    className: clsx(classes.root, // TODO v5: merge root and select
+	    classes.select, classes[variant], className, disabled && classes.disabled),
+	    disabled: disabled,
+	    ref: inputRef || ref
+	  }, other)), props.multiple ? null : react.createElement(IconComponent, {
+	    className: clsx(classes.icon, classes["icon".concat(capitalize(variant))])
+	  }));
+	});
+
+	var styles$E = function styles(theme) {
+	  return {
+	    /* Styles applied to the select component `root` class. */
+	    root: {},
+
+	    /* Styles applied to the select component `select` class. */
+	    select: {
+	      '-moz-appearance': 'none',
+	      // Reset
+	      '-webkit-appearance': 'none',
+	      // Reset
+	      // When interacting quickly, the text can end up selected.
+	      // Native select can't be selected either.
+	      userSelect: 'none',
+	      borderRadius: 0,
+	      // Reset
+	      minWidth: 16,
+	      // So it doesn't collapse.
+	      cursor: 'pointer',
+	      '&:focus': {
+	        // Show that it's not an text input
+	        backgroundColor: theme.palette.type === 'light' ? 'rgba(0, 0, 0, 0.05)' : 'rgba(255, 255, 255, 0.05)',
+	        borderRadius: 0 // Reset Chrome style
+
+	      },
+	      // Remove IE 11 arrow
+	      '&::-ms-expand': {
+	        display: 'none'
+	      },
+	      '&$disabled': {
+	        cursor: 'default'
+	      },
+	      '&[multiple]': {
+	        height: 'auto'
+	      },
+	      '&:not([multiple]) option, &:not([multiple]) optgroup': {
+	        backgroundColor: theme.palette.background.paper
+	      }
+	    },
+
+	    /* Styles applied to the select component if `variant="filled"`. */
+	    filled: {},
+
+	    /* Styles applied to the select component if `variant="outlined"`. */
+	    outlined: {
+	      borderRadius: theme.shape.borderRadius
+	    },
+
+	    /* Styles applied to the select component `selectMenu` class. */
+	    selectMenu: {
+	      height: 'auto',
+	      // Reset
+	      textOverflow: 'ellipsis',
+	      whiteSpace: 'nowrap',
+	      overflow: 'hidden'
+	    },
+
+	    /* Pseudo-class applied to the select component `disabled` class. */
+	    disabled: {},
+
+	    /* Styles applied to the icon component. */
+	    icon: {
+	      // We use a position absolute over a flexbox in order to forward the pointer events
+	      // to the input.
+	      position: 'absolute',
+	      right: 0,
+	      top: 'calc(50% - 12px)',
+	      // Center vertically
+	      color: theme.palette.action.active,
+	      pointerEvents: 'none' // Don't block pointer events on the select under the icon.
+
+	    },
+
+	    /* Styles applied to the icon component if the popup is open. */
+	    iconOpen: {
+	      transform: 'rotate(180deg)'
+	    },
+
+	    /* Styles applied to the icon component if `variant="filled"`. */
+	    iconFilled: {
+	      right: 7
+	    },
+
+	    /* Styles applied to the icon component if `variant="outlined"`. */
+	    iconOutlined: {
+	      right: 7
+	    }
+	  };
+	};
+	var defaultInput = react.createElement(Input$1, null);
+	/**
+	 * An alternative to `<Select native />` with a much smaller bundle size footprint.
+	 */
+
+	var NativeSelect = react.forwardRef(function NativeSelect(props, ref) {
+	  var children = props.children,
+	      classes = props.classes,
+	      _props$IconComponent = props.IconComponent,
+	      IconComponent = _props$IconComponent === void 0 ? ArrowDropDownIcon : _props$IconComponent,
+	      _props$input = props.input,
+	      input = _props$input === void 0 ? defaultInput : _props$input,
+	      inputProps = props.inputProps,
+	      variant = props.variant,
+	      other = _objectWithoutProperties(props, ["children", "classes", "IconComponent", "input", "inputProps", "variant"]);
+
+	  var muiFormControl = useFormControl$1();
+	  var fcs = formControlState({
+	    props: props,
+	    muiFormControl: muiFormControl,
+	    states: ['variant']
+	  });
+	  return react.cloneElement(input, _extends({
+	    // Most of the logic is implemented in `NativeSelectInput`.
+	    // The `Select` component is a simple API wrapper to expose something better to play with.
+	    inputComponent: NativeSelectInput,
+	    select: true,
+	    inputProps: _extends({
+	      children: children,
+	      classes: classes,
+	      IconComponent: IconComponent,
+	      variant: fcs.variant,
+	      type: undefined
+	    }, inputProps, {}, input ? input.props.inputProps : {}),
+	    ref: ref
+	  }, other));
+	});
+	NativeSelect.muiName = 'Select';
+	withStyles$1(styles$E, {
+	  name: 'MuiNativeSelect'
+	})(NativeSelect);
+
+	var styles$F = styles$E;
+
+	var _ref$2 = react.createElement(Input$1, null);
+
+	var _ref2$1 = react.createElement(FilledInput$1, null);
+
+	var Select = react.forwardRef(function Select(props, ref) {
+	  var _props$autoWidth = props.autoWidth,
+	      autoWidth = _props$autoWidth === void 0 ? false : _props$autoWidth,
+	      children = props.children,
+	      classes = props.classes,
+	      _props$displayEmpty = props.displayEmpty,
+	      displayEmpty = _props$displayEmpty === void 0 ? false : _props$displayEmpty,
+	      _props$IconComponent = props.IconComponent,
+	      IconComponent = _props$IconComponent === void 0 ? ArrowDropDownIcon : _props$IconComponent,
+	      id = props.id,
+	      input = props.input,
+	      inputProps = props.inputProps,
+	      labelId = props.labelId,
+	      MenuProps = props.MenuProps,
+	      _props$multiple = props.multiple,
+	      multiple = _props$multiple === void 0 ? false : _props$multiple,
+	      _props$native = props.native,
+	      native = _props$native === void 0 ? false : _props$native,
+	      onClose = props.onClose,
+	      onOpen = props.onOpen,
+	      open = props.open,
+	      renderValue = props.renderValue,
+	      SelectDisplayProps = props.SelectDisplayProps,
+	      _props$variant = props.variant,
+	      variantProps = _props$variant === void 0 ? 'standard' : _props$variant,
+	      _props$labelWidth = props.labelWidth,
+	      labelWidth = _props$labelWidth === void 0 ? 0 : _props$labelWidth,
+	      other = _objectWithoutProperties(props, ["autoWidth", "children", "classes", "displayEmpty", "IconComponent", "id", "input", "inputProps", "labelId", "MenuProps", "multiple", "native", "onClose", "onOpen", "open", "renderValue", "SelectDisplayProps", "variant", "labelWidth"]);
+
+	  var inputComponent = native ? NativeSelectInput : SelectInput;
+	  var muiFormControl = useFormControl$1();
+	  var fcs = formControlState({
+	    props: props,
+	    muiFormControl: muiFormControl,
+	    states: ['variant']
+	  });
+	  var variant = fcs.variant || variantProps;
+	  var InputComponent = input || {
+	    standard: _ref$2,
+	    outlined: react.createElement(OutlinedInput$1, {
+	      labelWidth: labelWidth
+	    }),
+	    filled: _ref2$1
+	  }[variant];
+	  return react.cloneElement(InputComponent, _extends({
+	    // Most of the logic is implemented in `SelectInput`.
+	    // The `Select` component is a simple API wrapper to expose something better to play with.
+	    inputComponent: inputComponent,
+	    select: true,
+	    inputProps: _extends({
+	      children: children,
+	      IconComponent: IconComponent,
+	      variant: variant,
+	      type: undefined,
+	      // We render a select. We can ignore the type provided by the `Input`.
+	      multiple: multiple
+	    }, native ? {
+	      id: id
+	    } : {
+	      autoWidth: autoWidth,
+	      displayEmpty: displayEmpty,
+	      labelId: labelId,
+	      MenuProps: MenuProps,
+	      onClose: onClose,
+	      onOpen: onOpen,
+	      open: open,
+	      renderValue: renderValue,
+	      SelectDisplayProps: _extends({
+	        id: id
+	      }, SelectDisplayProps)
+	    }, {}, inputProps, {
+	      classes: inputProps ? mergeClasses({
+	        baseClasses: classes,
+	        newClasses: inputProps.classes,
+	        Component: Select
+	      }) : classes
+	    }, input ? input.props.inputProps : {}),
+	    ref: ref
+	  }, other));
+	});
+	Select.muiName = 'Select';
+	var Select$1 = withStyles$1(styles$F, {
+	  name: 'MuiSelect'
+	})(Select);
+
+	var variantComponent = {
+	  standard: Input$1,
+	  filled: FilledInput$1,
+	  outlined: OutlinedInput$1
+	};
+	var styles$G = {
+	  /* Styles applied to the root element. */
+	  root: {}
+	};
+	/**
+	 * The `TextField` is a convenience wrapper for the most common cases (80%).
+	 * It cannot be all things to all people, otherwise the API would grow out of control.
+	 *
+	 * ## Advanced Configuration
+	 *
+	 * It's important to understand that the text field is a simple abstraction
+	 * on top of the following components:
+	 *
+	 * - [FormControl](/api/form-control/)
+	 * - [InputLabel](/api/input-label/)
+	 * - [FilledInput](/api/filled-input/)
+	 * - [OutlinedInput](/api/outlined-input/)
+	 * - [Input](/api/input/)
+	 * - [FormHelperText](/api/form-helper-text/)
+	 *
+	 * If you wish to alter the props applied to the `input` element, you can do so as follows:
+	 *
+	 * ```jsx
+	 * const inputProps = {
+	 *   step: 300,
+	 * };
+	 *
+	 * return <TextField id="time" type="time" inputProps={inputProps} />;
+	 * ```
+	 *
+	 * For advanced cases, please look at the source of TextField by clicking on the
+	 * "Edit this page" button above. Consider either:
+	 *
+	 * - using the upper case props for passing values directly to the components
+	 * - using the underlying components directly as shown in the demos
+	 */
+
+	var TextField = react.forwardRef(function TextField(props, ref) {
+	  var autoComplete = props.autoComplete,
+	      _props$autoFocus = props.autoFocus,
+	      autoFocus = _props$autoFocus === void 0 ? false : _props$autoFocus,
+	      children = props.children,
+	      classes = props.classes,
+	      className = props.className,
+	      _props$color = props.color,
+	      color = _props$color === void 0 ? 'primary' : _props$color,
+	      defaultValue = props.defaultValue,
+	      _props$disabled = props.disabled,
+	      disabled = _props$disabled === void 0 ? false : _props$disabled,
+	      _props$error = props.error,
+	      error = _props$error === void 0 ? false : _props$error,
+	      FormHelperTextProps = props.FormHelperTextProps,
+	      _props$fullWidth = props.fullWidth,
+	      fullWidth = _props$fullWidth === void 0 ? false : _props$fullWidth,
+	      helperText = props.helperText,
+	      hiddenLabel = props.hiddenLabel,
+	      id = props.id,
+	      InputLabelProps = props.InputLabelProps,
+	      inputProps = props.inputProps,
+	      InputProps = props.InputProps,
+	      inputRef = props.inputRef,
+	      label = props.label,
+	      _props$multiline = props.multiline,
+	      multiline = _props$multiline === void 0 ? false : _props$multiline,
+	      name = props.name,
+	      onBlur = props.onBlur,
+	      onChange = props.onChange,
+	      onFocus = props.onFocus,
+	      placeholder = props.placeholder,
+	      _props$required = props.required,
+	      required = _props$required === void 0 ? false : _props$required,
+	      rows = props.rows,
+	      rowsMax = props.rowsMax,
+	      _props$select = props.select,
+	      select = _props$select === void 0 ? false : _props$select,
+	      SelectProps = props.SelectProps,
+	      type = props.type,
+	      value = props.value,
+	      _props$variant = props.variant,
+	      variant = _props$variant === void 0 ? 'standard' : _props$variant,
+	      other = _objectWithoutProperties(props, ["autoComplete", "autoFocus", "children", "classes", "className", "color", "defaultValue", "disabled", "error", "FormHelperTextProps", "fullWidth", "helperText", "hiddenLabel", "id", "InputLabelProps", "inputProps", "InputProps", "inputRef", "label", "multiline", "name", "onBlur", "onChange", "onFocus", "placeholder", "required", "rows", "rowsMax", "select", "SelectProps", "type", "value", "variant"]);
+
+	  var _React$useState = react.useState(0),
+	      labelWidth = _React$useState[0],
+	      setLabelWidth = _React$useState[1];
+
+	  var labelRef = react.useRef(null);
+	  react.useEffect(function () {
+	    if (variant === 'outlined') {
+	      // #StrictMode ready
+	      var labelNode = reactDom.findDOMNode(labelRef.current);
+	      setLabelWidth(labelNode != null ? labelNode.offsetWidth : 0);
+	    }
+	  }, [variant, required, label]);
+
+	  var InputMore = {};
+
+	  if (variant === 'outlined') {
+	    if (InputLabelProps && typeof InputLabelProps.shrink !== 'undefined') {
+	      InputMore.notched = InputLabelProps.shrink;
+	    }
+
+	    InputMore.labelWidth = labelWidth;
+	  }
+
+	  if (select) {
+	    // unset defaults from textbox inputs
+	    if (!SelectProps || !SelectProps.native) {
+	      InputMore.id = undefined;
+	    }
+
+	    InputMore['aria-describedby'] = undefined;
+	  }
+
+	  var helperTextId = helperText && id ? "".concat(id, "-helper-text") : undefined;
+	  var inputLabelId = label && id ? "".concat(id, "-label") : undefined;
+	  var InputComponent = variantComponent[variant];
+	  var InputElement = react.createElement(InputComponent, _extends({
+	    "aria-describedby": helperTextId,
+	    autoComplete: autoComplete,
+	    autoFocus: autoFocus,
+	    defaultValue: defaultValue,
+	    fullWidth: fullWidth,
+	    multiline: multiline,
+	    name: name,
+	    rows: rows,
+	    rowsMax: rowsMax,
+	    type: type,
+	    value: value,
+	    id: id,
+	    inputRef: inputRef,
+	    onBlur: onBlur,
+	    onChange: onChange,
+	    onFocus: onFocus,
+	    placeholder: placeholder,
+	    inputProps: inputProps
+	  }, InputMore, InputProps));
+	  return react.createElement(FormControl$1, _extends({
+	    className: clsx(classes.root, className),
+	    disabled: disabled,
+	    error: error,
+	    fullWidth: fullWidth,
+	    hiddenLabel: hiddenLabel,
+	    ref: ref,
+	    required: required,
+	    color: color,
+	    variant: variant
+	  }, other), label && react.createElement(InputLabel$1, _extends({
+	    htmlFor: id,
+	    ref: labelRef,
+	    id: inputLabelId
+	  }, InputLabelProps), label), select ? react.createElement(Select$1, _extends({
+	    "aria-describedby": helperTextId,
+	    id: id,
+	    labelId: inputLabelId,
+	    value: value,
+	    input: InputElement
+	  }, SelectProps), children) : InputElement, helperText && react.createElement(FormHelperText$1, _extends({
+	    id: helperTextId
+	  }, FormHelperTextProps), helperText));
+	});
+	var TextField$1 = withStyles$1(styles$G, {
+	  name: 'MuiTextField'
+	})(TextField);
 
 	var mapStateToProps$3 = function mapStateToProps(state) {
 	  return {
@@ -32260,6 +36911,21 @@
 	      dispatch({
 	        type: 'STARTER_CONTENT_DONE'
 	      });
+	    },
+	    onStarterContentErrored: function onStarterContentErrored() {
+	      dispatch({
+	        type: 'STARTER_CONTENT_ERRORED'
+	      });
+	    },
+	    onStarterContentStop: function onStarterContentStop() {
+	      dispatch({
+	        type: 'STARTER_CONTENT_STOP'
+	      });
+	    },
+	    onStarterContentResume: function onStarterContentResume() {
+	      dispatch({
+	        type: 'STARTER_CONTENT_RESUME'
+	      });
 	    }
 	  };
 	};
@@ -32292,12 +36958,20 @@
 	    // this makes the this
 	    _this = _possibleConstructorReturn(this, _getPrototypeOf(StarterContentContainer).call(this, props)); // @todo We need an error state here
 
-	    _defineProperty(_assertThisInitialized(_this), "imported", null);
+	    _defineProperty(_assertThisInitialized(_this), "handleDemoSelect", function (demoKey) {
+	      return function (event) {
+	        var component = _assertThisInitialized(_this);
 
-	    _defineProperty(_assertThisInitialized(_this), "onChange", function (e) {
-	      _this.setState({
-	        value: e.target.value
-	      });
+	        if (!isNil_1(demoKey)) {
+	          component.setState({
+	            selectedDemoKey: demoKey
+	          });
+	        } else {
+	          component.setState({
+	            selectedDemoKey: event.target.value
+	          });
+	        }
+	      };
 	    });
 
 	    if (isUndefined_1(pixassist.themeConfig.starterContent)) {
@@ -32305,79 +36979,192 @@
 	    } // we need a callback queue system in order to execute the import in subsequent steps
 
 
-	    _this.queue = new Helpers.Queue(); // There may be some imported data, and if it is, this var will hold it
-
-	    _this.imported = extend({
-	      media: {}
-	    }, pixassist.themeMod.starterContent);
+	    _this.queue = new Helpers.Queue();
 	    _this.state = {
+	      demos: _this.standardizeDemos(get_1(pixassist, 'themeConfig.starterContent.demos', [])),
 	      importing: false,
-	      demoClass: 'box--neutral box--plugin-invalidated'
+	      demoClass: 'box--neutral',
+	      log: []
 	    };
 
-	    if (size_1(get_1(pixassist, 'themeConfig.starterContent.demos', []))) {
-	      // @todo Currently we only support a single demo :(
-	      var firstFoundDemo = Helpers.getFirstItem(get_1(pixassist, 'themeConfig.starterContent.demos', [])); // the selected demo from where we will import
+	    if (size_1(_this.state.demos)) {
+	      // First, we want to sort demos by their order, ascending.
+	      var sortedDemoKeys = _this.sortDemoKeys(Object.keys(_this.state.demos)); // By default, the first demo is selected.
 
-	      _this.state.value = firstFoundDemo.url;
-	      _this.state.title = get_1(firstFoundDemo, 'title', pixassist.themeSupports.theme_name + ' Demo Content');
-	      _this.state.description = get_1(firstFoundDemo, 'description', 'Import the content from the theme demo.');
+
+	      _this.state.selectedDemoKey = sortedDemoKeys[0];
 	    }
 
+	    _this.handleDemoSelect = _this.handleDemoSelect.bind(_assertThisInitialized(_this));
+	    _this.sortDemoKeys = _this.sortDemoKeys.bind(_assertThisInitialized(_this));
 	    _this.onImportClick = _this.onImportClick.bind(_assertThisInitialized(_this));
+	    _this.onImportStopClick = _this.onImportStopClick.bind(_assertThisInitialized(_this));
+	    _this.addLogEntry = _this.addLogEntry.bind(_assertThisInitialized(_this));
+	    _this.handleFetchErrors = _this.handleFetchErrors.bind(_assertThisInitialized(_this));
 	    _this.importMedia = _this.importMedia.bind(_assertThisInitialized(_this));
 	    _this.importPosts = _this.importPosts.bind(_assertThisInitialized(_this));
 	    _this.importTaxonomies = _this.importTaxonomies.bind(_assertThisInitialized(_this));
 	    _this.importWidgets = _this.importWidgets.bind(_assertThisInitialized(_this));
 	    _this.importPreSettings = _this.importPreSettings.bind(_assertThisInitialized(_this));
 	    _this.importPostSettings = _this.importPostSettings.bind(_assertThisInitialized(_this));
-	    _this.updateCurrentDemo = _this.updateCurrentDemo.bind(_assertThisInitialized(_this));
+	    _this.setupDemosFromLocalized = _this.setupDemosFromLocalized.bind(_assertThisInitialized(_this)); // A reference to the DOM element of the log.
+
+	    _this.logInput = react.createRef();
 	    return _this;
 	  }
 
 	  _createClass(StarterContentContainer, [{
 	    key: "render",
 	    value: function render() {
-	      var component = this;
+	      var component = this,
+	          demos = component.state.demos;
 
-	      if (!size_1(get_1(component.props.session, 'themeConfig.starterContent.demos', []))) {
+	      if (!size_1(demos)) {
 	        return react.createElement("div", {
-	          className: "box box--neutral"
+	          className: "box demo box--neutral"
 	        }, Helpers.decodeHtml(get_1(pixassist, 'themeConfig.starterContent.l10n.noSources', '')));
 	      }
 
-	      var installingClass = 'box plugin';
-	      installingClass += '  ' + component.state.demoClass;
+	      var sortedDemoKeys = component.sortDemoKeys(Object.keys(demos)); // If we have only one demo, are importing, or have finished importing, we will only show the selected demo, not the whole list.
 
-	      var description = get_1(component, 'state.description', Helpers.decodeHtml(get_1(pixassist, 'themeConfig.starterContent.l10n.importContentDescription', ''))); // if ( component.props.session.is_sc_installing ) {
-	      // 	installingClass = 'box plugin box--plugin-invalidated box--plugin-installing';
-	      // }
-	      //
-	      // if ( component.props.session.is_sc_done ) {
-	      // 	installingClass = 'box plugin box--plugin-validated';
-	      // }
-	      // Set the title for the progressBar
+	      if (size_1(demos) === 1 || component.props.session.is_sc_installing || component.props.session.is_sc_done) {
+	        var installingClass = 'box demo',
+	            progressTitle = demos[component.state.selectedDemoKey].title,
+	            description = component.state.description || demos[component.state.selectedDemoKey].description;
+	        installingClass += '  ' + component.state.demoClass;
+
+	        var logValue = join_1(component.state.log, "\n");
+
+	        return react.createElement("div", {
+	          className: "demos starter_content single-item"
+	        }, react.createElement(ProgressBar, {
+	          installingClass: installingClass,
+	          title: progressTitle,
+	          description: description
+	        }), logValue ? react.createElement(TextField$1, {
+	          id: "outlined-textarea",
+	          label: "Log",
+	          multiline: true,
+	          rows: "2",
+	          rowsMax: "4",
+	          value: logValue,
+	          className: "starter-content-log",
+	          margin: "normal",
+	          variant: "outlined",
+	          InputProps: {
+	            readOnly: true
+	          },
+	          inputRef: this.logInput
+	        }) : '', component.props.enable_actions && !(component.props.session.is_sc_errored || component.props.session.is_sc_installing || component.props.session.is_sc_done) ? react.createElement("a", {
+	          className: "btn btn--action import--action ",
+	          href: "#",
+	          disabled: component.props.session.is_sc_installing || component.props.session.is_sc_done,
+	          onClick: this.onImportClick
+	        }, component.props.session.is_sc_done ? Helpers.decodeHtml(get_1(pixassist, 'themeConfig.starterContent.l10n.imported', '')) : Helpers.decodeHtml(get_1(pixassist, 'themeConfig.starterContent.l10n.import', ''))) : react.createElement("a", {
+	          className: "btn btn--action import--action",
+	          style: {
+	            display: 'none'
+	          },
+	          onClick: this.onImportClick
+	        }), component.props.enable_actions && component.props.session.is_sc_installing ? react.createElement("a", {
+	          className: "btn btn--action btn--action-secondary import-stop--action",
+	          href: "#",
+	          onClick: this.onImportStopClick
+	        }, component.props.session.is_sc_stopped ? Helpers.decodeHtml(get_1(pixassist, 'themeConfig.starterContent.l10n.resume', '')) : Helpers.decodeHtml(get_1(pixassist, 'themeConfig.starterContent.l10n.stop', ''))) : '');
+	      } // By default, we show a list of radio button with all the available demos.
 
 
-	      var progressTitle = get_1(component, 'state.title', Helpers.replaceParams(Helpers.decodeHtml(get_1(pixassist, 'themeConfig.starterContent.l10n.importContentDescription', ''))));
-
-	      var output = react.createElement("div", null, react.createElement(ProgressBar, {
-	        installingClass: installingClass,
-	        title: progressTitle,
-	        description: description
+	      return react.createElement("div", {
+	        className: "demos starter_content"
+	      }, sortedDemoKeys.map(function (demoKey) {
+	        var demo = demos[demoKey],
+	            is_selected = demoKey === component.state.selectedDemoKey,
+	            boxClasses = "demo  box box--neutral";
+	        return react.createElement("div", {
+	          className: boxClasses,
+	          key: demoKey,
+	          onClick: component.handleDemoSelect(demoKey)
+	        }, react.createElement(Radio$1, {
+	          checked: is_selected,
+	          onChange: component.handleDemoSelect,
+	          value: demoKey,
+	          name: component.props.name,
+	          disabled: !is_selected,
+	          color: "primary"
+	        }), react.createElement("div", {
+	          className: "box__body"
+	        }, react.createElement("h5", {
+	          className: "box__title"
+	        }, demo.title), react.createElement("div", {
+	          className: "box__text"
+	        }, is_selected ? component.state.description || demo.description : demo.description)), react.createElement("a", {
+	          href: demo.url,
+	          className: "external-link",
+	          title: "Go to source site",
+	          target: "_blank"
+	        }, react.createElement("span", {
+	          className: "dashicons dashicons-external"
+	        })));
 	      }), component.props.enable_actions ? react.createElement("a", {
 	        className: "btn btn--action import--action ",
 	        href: "#",
-	        disabled: component.state.importing || component.props.session.is_sc_done,
 	        onClick: this.onImportClick
-	      }, component.props.session.is_sc_done ? Helpers.decodeHtml(get_1(pixassist, 'themeConfig.starterContent.l10n.imported', '')) : Helpers.decodeHtml(get_1(pixassist, 'themeConfig.starterContent.l10n.import', ''))) : react.createElement("a", {
+	      }, Helpers.decodeHtml(get_1(pixassist, 'themeConfig.starterContent.l10n.importSelected', ''))) : react.createElement("a", {
 	        className: "btn btn--action import--action",
 	        style: {
 	          display: 'none'
 	        },
 	        onClick: this.onImportClick
 	      }));
-	      return output;
+	    }
+	  }, {
+	    key: "standardizeDemos",
+	    value: function standardizeDemos(demos) {
+	      Object.keys(demos).map(function (key) {
+	        if (isNil_1(demos[key].url)) {
+	          // We need to have a URL.
+	          demos.splice(key, 1);
+	        } else {
+	          // We want the URL to be trailingslashed
+	          demos[key].url = Helpers.trailingslashit(demos[key].url);
+	        }
+
+	        if (isNil_1(demos[key].baseRestUrl)) {
+	          demos[key].baseRestUrl = demos[key].url + get_1(pixassist, 'themeConfig.starterContent.defaultSceRestPath', 'wp-json/sce/v2');
+	        }
+
+	        if (isNil_1(demos[key].order)) {
+	          demos[key].order = 10;
+	        } else {
+	          demos[key].order = toNumber_1(demos[key].order);
+	        }
+
+	        if (isNil_1(demos[key].title)) {
+	          demos[key].title = get_1(pixassist, 'themeSupports.theme_name', '') + ' Demo Content';
+	        }
+
+	        if (isNil_1(demos[key].description)) {
+	          demos[key].description = Helpers.decodeHtml(get_1(pixassist, 'themeConfig.starterContent.l10n.importContentDescription', ''));
+	        }
+	      });
+	      return demos;
+	    }
+	  }, {
+	    key: "sortDemoKeys",
+	    value: function sortDemoKeys(demoKeys) {
+	      var component = this;
+	      demoKeys.sort(function (a, b) {
+	        if (component.state.demos[a].order < component.state.demos[b].order) {
+	          return -1;
+	        }
+
+	        if (component.state.demos[a].order > component.state.demos[b].order) {
+	          return 1;
+	        }
+
+	        return 0;
+	      });
+	      return demoKeys;
 	    } // @todo This is a deprecated component function and we should find a way to not use it.
 
 	  }, {
@@ -32393,28 +37180,64 @@
 	    value: function componentDidMount() {
 	      var component = this; // add an event listener for the localized pixassist data change
 
-	      window.addEventListener('localizedChanged', component.updateCurrentDemo);
+	      window.addEventListener('localizedChanged', component.setupDemosFromLocalized);
 	    }
 	  }, {
 	    key: "componentWillUnmount",
 	    value: function componentWillUnmount() {
 	      var component = this;
-	      window.removeEventListener('localizedChanged', component.updateCurrentDemo);
+	      window.removeEventListener('localizedChanged', component.setupDemosFromLocalized);
 	    }
 	  }, {
-	    key: "updateCurrentDemo",
-	    value: function updateCurrentDemo(event) {
+	    key: "componentDidUpdate",
+	    value: function componentDidUpdate() {
 	      var component = this;
 
-	      if (size_1(get_1(pixassist, 'themeConfig.starterContent.demos', []))) {
-	        var firstFoundDemo = Helpers.getFirstItem(get_1(pixassist, 'themeConfig.starterContent.demos', [])); // the selected demo from where we will import
+	      if (!isNil_1(component.logInput.current)) {
+	        // Make sure that the log textarea field is always scrolled to the bottom.
+	        component.logInput.current.scrollTop = component.logInput.current.scrollHeight;
+	      }
+	    }
+	  }, {
+	    key: "setupDemosFromLocalized",
+	    value: function setupDemosFromLocalized(event) {
+	      var component = this,
+	          demos = component.standardizeDemos(get_1(pixassist, 'themeConfig.starterContent.demos', []));
 
+	      if (size_1(demos)) {
+	        // First, we want to sort demos by their order, ascending.
+	        var sortedDemoKeys = component.sortDemoKeys(Object.keys(demos));
 	        component.setState({
-	          value: firstFoundDemo.url,
-	          title: get_1(firstFoundDemo, 'title', pixassist.themeSupports.theme_name + ' Demo Content'),
-	          description: get_1(firstFoundDemo, 'description', 'Import the content from the theme demo.')
+	          demos: demos,
+	          selectedDemoKey: sortedDemoKeys[0],
+	          demoClass: 'box--neutral'
 	        });
 	      }
+	    }
+	  }, {
+	    key: "handleFetchErrors",
+	    value: function handleFetchErrors(response) {
+	      if (response.ok) {
+	        return response;
+	      } else {
+	        var error = new Error(response.status);
+	        error.response = response;
+	        error.message = 'status ' + response.status + '; type ' + response.type;
+	        throw error;
+	      }
+	    }
+	  }, {
+	    key: "addLogEntry",
+	    value: function addLogEntry(message) {
+	      var component = this;
+
+	      if (!message) {
+	        return;
+	      }
+
+	      component.setState({
+	        log: component.state.log.concat(message)
+	      });
 	    }
 	  }, {
 	    key: "onImportClick",
@@ -32422,48 +37245,51 @@
 	      var component = this;
 	      e.preventDefault();
 
-	      if (component.state.importing) {
-	        console.log(component.state.importing);
+	      if (component.props.session.is_sc_installing || component.props.session.is_sc_done) {
 	        return false;
 	      }
 
-	      component.props.onMove();
+	      component.props.onMove(); // Trigger a starter_content_installing action
 
-	      if (component.sceKeyExists('pre_settings')) {
+	      component.props.onStarterContentInstalling();
+
+	      if (component.sceKeyExists(component.state.selectedDemoKey, 'pre_settings')) {
 	        var sure = confirm(Helpers.decodeHtml(get_1(pixassist, 'themeConfig.starterContent.l10n.alreadyImportedConfirm', '')));
 
 	        if (!sure) {
 	          component.props.onReady();
 	          component.setState({
-	            importing: false,
 	            demoClass: 'box--plugin-validated',
 	            description: Helpers.decodeHtml(get_1(pixassist, 'themeConfig.starterContent.l10n.alreadyImportedDenied', ''))
-	          });
+	          }); // Trigger a finished importing starter content action
+
+	          component.props.onStarterContentFinished();
 	          return false;
 	        }
-	      } // Trigger a starter_content_installing action
+	      } // Enable the import animation
 
-
-	      component.props.onStarterContentInstalling(); // Enable the import animation
 
 	      component.setState({
-	        importing: true,
 	        demoClass: 'box--plugin-invalidated box--plugin-installing',
 	        description: Helpers.decodeHtml(get_1(pixassist, 'themeConfig.starterContent.l10n.importingData', ''))
-	      }); // First we need to get the available data from the remote server
-	      // @todo Should use a more standard helper for this one
+	      }); // Log
 
-	      fetch(component.state.value + "/wp-json/sce/v2/data", {
+	      component.addLogEntry('Starting the import of starter content from: ' + component.state.demos[component.state.selectedDemoKey].url); // First we need to get the available data from the remote server
+
+	      var dataUrl = Helpers.trailingslashit(component.state.demos[component.state.selectedDemoKey].baseRestUrl) + 'data'; // @todo Should use a more standard helper for this one
+
+	      fetch(dataUrl, {
 	        method: 'GET'
-	      }).then(component.checkStatus).then(function (response) {
+	      }).then(component.handleFetchErrors).then(function (response) {
 	        return response.json();
 	      }).then(function (config) {
 	        if (config.code !== 'success') {
 	          component.setState({
-	            importing: false,
 	            demoClass: 'box--error',
 	            description: Helpers.decodeHtml(get_1(pixassist, 'themeConfig.starterContent.l10n.somethingWrong', '')) + "\n" + config.message
 	          });
+	          component.props.onStarterContentErrored();
+	          component.props.onReady();
 	        } else {
 	          /**
 	           * Now that we have the available data, let's import it in a few steps
@@ -32503,12 +37329,36 @@
 	        }
 	      }).catch(function (ex) {
 	        console.log(ex);
+	        component.addLogEntry('Error: ' + ex.message);
 	        component.setState({
-	          importing: false,
 	          demoClass: 'box--error',
 	          description: Helpers.decodeHtml(get_1(pixassist, 'themeConfig.starterContent.l10n.errorMessage', ''))
 	        });
+	        component.props.onStarterContentErrored();
+	        component.props.onReady();
 	      });
+	    }
+	  }, {
+	    key: "onImportStopClick",
+	    value: function onImportStopClick(e) {
+	      var component = this;
+	      e.preventDefault();
+
+	      if (component.props.session.is_sc_stopped) {
+	        component.queue.stop = false;
+	        component.queue.next();
+	        component.addLogEntry('Import resumed.'); // Trigger a starter_content_resume action
+
+	        component.props.onStarterContentResume();
+	      } else {
+	        component.queue.stop = true;
+	        component.setState({
+	          description: Helpers.decodeHtml(get_1(pixassist, 'themeConfig.starterContent.l10n.stoppedMessage', ''))
+	        });
+	        component.addLogEntry('Import stopped.'); // Trigger a starter_content_stop action
+
+	        component.props.onStarterContentStop();
+	      }
 	    }
 	  }, {
 	    key: "importMedia",
@@ -32516,20 +37366,11 @@
 	      var component = this; // no placeholders, no fun
 
 	      if (isEmpty_1(data.placeholders)) {
+	        component.addLogEntry('Missing media placeholders data. Skipping media import...');
 	        return;
-	      } // No cache for now. We will just overwrite the existing ones imported by us.
-	      // maybe they are cached?
-	      // if ( component.hasPlaceholders() ) {
-	      // 	Helpers.pushNotification({
-	      // 		notice_id: 'sce-media-exists',
-	      // 		title: Helpers.decodeHtml(_.get(pixassist, 'themeConfig.starterContent.l10n.mediaAlreadyExistsTitle', '')),
-	      // 		content: Helpers.decodeHtml(_.get(pixassist, 'themeConfig.starterContent.l10n.mediaAlreadyExistsContent', '')),
-	      // 		type: 'info',
-	      // 	});
-	      // 	return;
-	      // }
+	      }
 
-
+	      var mediaUrl = Helpers.trailingslashit(component.state.demos[component.state.selectedDemoKey].baseRestUrl) + 'media';
 	      {
 	        Object.keys(data).map(function (group_i) {
 	          var group = data[group_i];
@@ -32538,30 +37379,27 @@
 	            return;
 	          }
 
-	          if (isUndefined_1(component.imported.media[group_i])) {
-	            component.imported.media[group_i] = {};
-	          }
-
 	          {
 	            Object.keys(group).map(function (i) {
 	              component.queue.add(function () {
 	                var attach_id = group[i];
-	                fetch(component.state.value + "/wp-json/sce/v2/media?id=" + attach_id, {
+	                fetch(mediaUrl + "?id=" + attach_id, {
 	                  method: 'GET'
-	                }).then(function (response) {
+	                }).then(component.handleFetchErrors).then(function (response) {
 	                  return response.json();
 	                }).then(function (attachment) {
 	                  if (attachment.code !== 'success') {
-	                    console.log('Failed to get media with id ' + attach_id + ' (error message: ' + attachment.message + '). Continuing...');
+	                    component.addLogEntry('Failed to get media with id ' + attach_id + ' (error message: ' + attachment.message + '). Continuing...');
 	                    component.queue.next();
 	                  } else {
 	                    if (!attachment.data.media.title || !attachment.data.media.ext || !attachment.data.media.mime_type) {
-	                      console.log('Got back malformed data for media with id ' + attach_id + '. Continuing...');
+	                      component.addLogEntry('Got back malformed data for media with id ' + attach_id + '. Continuing...');
 	                      component.queue.next();
 	                      return;
 	                    }
 
 	                    Helpers.$ajax(pixassist.wpRest.endpoint.uploadMedia.url, pixassist.wpRest.endpoint.uploadMedia.method, {
+	                      demo_key: component.state.selectedDemoKey,
 	                      title: attachment.data.media.title,
 	                      remote_id: attach_id,
 	                      file_data: attachment.data.media.data,
@@ -32569,13 +37407,15 @@
 	                      group: group_i
 	                    }, function (response) {
 	                      if (!isUndefined_1(response.code) && 'success' === response.code) {
-	                        component.imported.media[group_i][attach_id] = response.data.attachmentID;
+	                        component.addLogEntry('Imported media "' + attachment.data.media.title + '.' + attachment.data.media.ext + '" (#' + response.data.attachmentID + ').');
 	                      } else {
+	                        component.addLogEntry('Failed to import media "' + attachment.data.media.title + '.' + attachment.data.media.ext + '". Response: ' + response.responseText);
 	                        console.log(response);
 	                      }
 
 	                      component.queue.next();
 	                    }, function (err) {
+	                      component.addLogEntry('Failed to import media "' + attachment.data.media.title + '.' + attachment.data.media.ext + '". Response: ' + err.responseText);
 	                      console.log(err);
 	                      component.queue.next();
 	                    }, function (xhr) {
@@ -32599,23 +37439,18 @@
 	      var component = this;
 
 	      if (isEmpty_1(data)) {
-	        console.log('No data in posts');
+	        component.addLogEntry('No data for posts. Continuing...');
 	        return;
 	      }
 
-	      if (component.sceKeyExists('posts')) {
-	        console.log('Posts exists');
-	        Helpers.pushNotification({
-	          notice_id: 'sce-posts-exists',
-	          title: Helpers.decodeHtml(get_1(pixassist, 'themeConfig.starterContent.l10n.postsAlreadyExistTitle', '')),
-	          content: Helpers.decodeHtml(get_1(pixassist, 'themeConfig.starterContent.l10n.postAlreadyExistsContent', '')),
-	          type: 'info'
-	        });
+	      if (component.sceKeyExists(component.state.selectedDemoKey, 'posts')) {
+	        component.addLogEntry('Posts already imported. Continuing...');
 	        return;
 	      } // We order the post types by priority ascending
 
 
 	      data = sortBy_1(data, 'priority');
+	      var baseUrl = Helpers.trailingslashit(component.state.demos[component.state.selectedDemoKey].baseRestUrl);
 
 	      map_1(data, function (entry, key) {
 	        var post_type = entry.name,
@@ -32630,17 +37465,20 @@
 
 	        component.queue.add(function () {
 	          Helpers.$ajax(pixassist.wpRest.endpoint.import.url, pixassist.wpRest.endpoint.import.method, {
-	            type: "post_type",
-	            url: component.state.value,
+	            demo_key: component.state.selectedDemoKey,
+	            type: 'post_type',
+	            url: baseUrl,
 	            args: args
 	          }, function (response) {
 	            // success callback
-	            console.log(response); // @todo we should properly handle the response code
+	            console.log(response);
+	            component.addLogEntry('Imported post type "' + entry.name + '" (' + size_1(entry.ids) + ' posts).'); // @todo we should properly handle the response code
 
 	            component.queue.next();
 	          }, function (err) {
 	            // error callback
 	            console.log(err);
+	            component.addLogEntry('Failed to import post type "' + entry.name + '". Response: ' + err.responseText);
 	            component.queue.next();
 	          }, function (xhr) {
 	            // beforeSendCallback
@@ -32659,23 +37497,18 @@
 	      var component = this;
 
 	      if (isEmpty_1(data)) {
-	        console.log('No data in taxonomies');
+	        component.addLogEntry('No data for taxonomies. Continuing...');
 	        return;
 	      }
 
-	      if (component.sceKeyExists('terms')) {
-	        Helpers.pushNotification({
-	          notice_id: 'sce-terms-exists',
-	          title: Helpers.decodeHtml(get_1(pixassist, 'themeConfig.starterContent.l10n.taxonomiesAlreadyExistTitle', '')),
-	          content: Helpers.decodeHtml(get_1(pixassist, 'themeConfig.starterContent.l10n.taxonomiesAlreadyExistContent', '')),
-	          type: 'info'
-	        });
-	        console.log('Terms exists');
+	      if (component.sceKeyExists(component.state.selectedDemoKey, 'terms')) {
+	        component.addLogEntry('Taxonomies terms already imported. Continuing...');
 	        return;
 	      } // We order the taxonomies by priority ascending
 
 
 	      data = sortBy_1(data, 'priority');
+	      var baseUrl = Helpers.trailingslashit(component.state.demos[component.state.selectedDemoKey].baseRestUrl);
 
 	      map_1(data, function (entry, key) {
 	        var tax = entry.name,
@@ -32690,14 +37523,17 @@
 
 	        component.queue.add(function () {
 	          Helpers.$ajax(pixassist.wpRest.endpoint.import.url, pixassist.wpRest.endpoint.import.method, {
-	            type: "taxonomy",
-	            url: component.state.value,
+	            demo_key: component.state.selectedDemoKey,
+	            type: 'taxonomy',
+	            url: baseUrl,
 	            args: args
 	          }, function (response) {
 	            console.log(response);
+	            component.addLogEntry('Imported taxonomy "' + tax + '" (' + size_1(entry.ids) + ' terms).');
 	            component.queue.next();
 	          }, function (err) {
 	            console.log(err);
+	            component.addLogEntry('Failed to import taxonomy "' + tax + '". Response: ' + err.responseText);
 	            component.queue.next();
 	          }, function (xhr) {
 	            xhr.setRequestHeader('X-WP-Nonce', pixassist.wpRest.nonce);
@@ -32718,21 +37554,17 @@
 	       * We use the "parsed_type" import that will request the widgets from the demo
 	       */
 
-	      if (component.sceKeyExists('widgets')) {
-	        console.log('Widgets exists');
-	        Helpers.pushNotification({
-	          notice_id: 'sce-widgets-exists',
-	          title: Helpers.decodeHtml(get_1(pixassist, 'themeConfig.starterContent.l10n.widgetsAlreadyExistTitle', '')),
-	          content: Helpers.decodeHtml(get_1(pixassist, 'themeConfig.starterContent.l10n.widgetsAlreadyExistContent', '')),
-	          type: 'info'
-	        });
+	      if (component.sceKeyExists(component.state.selectedDemoKey, 'widgets')) {
+	        component.addLogEntry('Widgets already imported. Continuing...');
 	        return;
 	      }
 
+	      var baseUrl = Helpers.trailingslashit(component.state.demos[component.state.selectedDemoKey].baseRestUrl);
 	      component.queue.add(function () {
 	        Helpers.$ajax(pixassist.wpRest.endpoint.import.url, pixassist.wpRest.endpoint.import.method, {
+	          demo_key: component.state.selectedDemoKey,
 	          type: 'parsed_widgets',
-	          url: component.state.value,
+	          url: baseUrl,
 	          args: {
 	            data: 'ok'
 	          }
@@ -32741,6 +37573,7 @@
 	          component.queue.next();
 	        }, function (err) {
 	          console.log(err);
+	          component.addLogEntry('Failed to import widgets. Response: ' + err.responseText);
 	          component.queue.next();
 	        }, function (xhr) {
 	          if (show_label) {
@@ -32759,27 +37592,30 @@
 	      var component = this;
 
 	      if (isEmpty_1(data)) {
-	        console.log('No data in pre_settings');
+	        component.addLogEntry('No data in pre_settings. Continuing...');
 	        return;
 	      }
 
-	      if (component.sceKeyExists('pre_settings')) {
-	        console.log('Pre options exists');
-	        return;
+	      if (component.sceKeyExists(component.state.selectedDemoKey, 'pre_settings')) {
+	        component.addLogEntry('pre_settings already imported, but we will overwrite them.');
 	      }
 
+	      var baseUrl = Helpers.trailingslashit(component.state.demos[component.state.selectedDemoKey].baseRestUrl);
 	      component.queue.add(function () {
 	        Helpers.$ajax(pixassist.wpRest.endpoint.import.url, pixassist.wpRest.endpoint.import.method, {
+	          demo_key: component.state.selectedDemoKey,
 	          type: "pre_settings",
-	          url: component.state.value,
+	          url: baseUrl,
 	          args: {
 	            data: data
 	          }
 	        }, function (response) {
 	          console.log(response);
+	          component.addLogEntry('Imported pre_settings.');
 	          component.queue.next();
 	        }, function (err) {
 	          console.log(err);
+	          component.addLogEntry('Failed to import pre_settings. Response: ' + err.responseText);
 	          component.queue.next();
 	        }, function (xhr) {
 	          component.setState({
@@ -32795,13 +37631,12 @@
 	      var component = this;
 
 	      if (isEmpty_1(data)) {
-	        console.log('No data in post_settings');
+	        component.addLogEntry('No data in post_settings. Continuing...');
 	        return;
 	      }
 
-	      if (component.sceKeyExists('post_settings')) {
-	        console.log('post_settings exists'); // component.props.onReady();
-	        // return;
+	      if (component.sceKeyExists(component.state.selectedDemoKey, 'post_settings')) {
+	        console.log('post_settings already imported, but we will overwrite them.');
 	      }
 
 	      component.queue.add(function () {
@@ -32819,58 +37654,52 @@
 	          });
 	          xhr.setRequestHeader('X-WP-Nonce', pixassist.wpRest.nonce);
 	        });
-	      }); // @todo We need to do a better job in handling when exactly the import was successful and when it wasn't
+	      });
+	      var baseUrl = Helpers.trailingslashit(component.state.demos[component.state.selectedDemoKey].baseRestUrl); // This is the LAST STEP IN THE QUEUE!!!
+	      // @todo We need to do a better job in handling when exactly the import was successful and when it wasn't
 
 	      component.queue.add(function () {
 	        Helpers.$ajax(pixassist.wpRest.endpoint.import.url, pixassist.wpRest.endpoint.import.method, {
-	          type: "post_settings",
-	          url: component.state.value,
+	          demo_key: component.state.selectedDemoKey,
+	          type: 'post_settings',
+	          url: baseUrl,
 	          args: {
 	            data: data
 	          }
 	        }, function (response) {
 	          console.log(response);
+	          component.addLogEntry('Imported post_settings.');
 	          component.queue.next();
 	          component.props.onReady();
 	          component.setState({
-	            importing: false,
 	            demoClass: 'box--plugin-validated',
 	            description: Helpers.decodeHtml(get_1(pixassist, 'themeConfig.starterContent.l10n.importSuccessful', ''))
-	          }); // Trigger a finished importing starter content action
+	          });
+	          component.addLogEntry('Finished!'); // Trigger a finished importing starter content action
 
 	          component.props.onStarterContentFinished();
 	        }, function (err) {
 	          console.log(err);
+	          component.addLogEntry('Failed to post_settings. Response: ' + err.responseText);
 	          component.setState({
-	            importing: false,
 	            demoClass: 'box--warning',
 	            description: 'error'
 	          });
+	          component.props.onStarterContentErrored();
+	          component.props.onReady();
 	          component.queue.next();
 	        });
 	      });
 	    }
 	  }, {
 	    key: "hasPlaceholders",
-	    value: function hasPlaceholders() {
-	      return this.sceKeyExists('media') && !isEmpty_1(pixassist.themeMod.starterContent.media.placeholders);
+	    value: function hasPlaceholders(demoKey) {
+	      return !isEmpty_1(get_1(pixassist, 'themeMod.starterContent[' + demoKey + '].media.placeholders', []));
 	    }
 	  }, {
 	    key: "sceKeyExists",
-	    value: function sceKeyExists($key) {
-	      return !isUndefined_1(pixassist.themeMod.starterContent) && !isEmpty_1(pixassist.themeMod.starterContent[$key]);
-	    }
-	  }, {
-	    key: "checkStatus",
-	    value: function checkStatus(response) {
-	      if (response.status >= 200 && response.status < 300) {
-	        return response;
-	      } else {
-	        console.log(response.text());
-	        var error = new Error(response.statusText);
-	        error.response = response;
-	        throw error;
-	      }
+	    value: function sceKeyExists(demoKey, key) {
+	      return !!get_1(pixassist, 'themeMod.starterContent[' + demoKey + '][' + key + ']', null);
 	    }
 	  }]);
 
@@ -32912,32 +37741,6 @@
 
 	// https://tc39.github.io/ecma262/#sec-array.prototype-@@unscopables
 	addToUnscopables(FIND);
-
-	var test$1 = [];
-	var nativeSort = test$1.sort;
-
-	// IE8-
-	var FAILS_ON_UNDEFINED = fails(function () {
-	  test$1.sort(undefined);
-	});
-	// V8 bug
-	var FAILS_ON_NULL = fails(function () {
-	  test$1.sort(null);
-	});
-	// Old WebKit
-	var SLOPPY_METHOD$2 = sloppyArrayMethod('sort');
-
-	var FORCED$5 = FAILS_ON_UNDEFINED || !FAILS_ON_NULL || SLOPPY_METHOD$2;
-
-	// `Array.prototype.sort` method
-	// https://tc39.github.io/ecma262/#sec-array.prototype.sort
-	_export({ target: 'Array', proto: true, forced: FORCED$5 }, {
-	  sort: function sort(comparefn) {
-	    return comparefn === undefined
-	      ? nativeSort.call(toObject$1(this))
-	      : nativeSort.call(toObject$1(this), aFunction$1(comparefn));
-	  }
-	});
 
 	var non = '\u200B\u0085\u180E';
 
@@ -32984,7 +37787,7 @@
 	  d: "M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-2 10H7v-2h10v2z"
 	}));
 
-	var styles$m = function styles(theme) {
+	var styles$H = function styles(theme) {
 	  return {
 	    /* Styles applied to the root element. */
 	    root: {
@@ -33035,19 +37838,19 @@
 	    }
 	  };
 	};
-	var defaultCheckedIcon = react.createElement(CheckBoxIcon, null);
-	var defaultIcon = react.createElement(CheckBoxOutlineBlankIcon, null);
+	var defaultCheckedIcon$1 = react.createElement(CheckBoxIcon, null);
+	var defaultIcon$1 = react.createElement(CheckBoxOutlineBlankIcon, null);
 	var defaultIndeterminateIcon = react.createElement(IndeterminateCheckBoxIcon, null);
 	var Checkbox = react.forwardRef(function Checkbox(props, ref) {
 	  var _props$checkedIcon = props.checkedIcon,
-	      checkedIcon = _props$checkedIcon === void 0 ? defaultCheckedIcon : _props$checkedIcon,
+	      checkedIcon = _props$checkedIcon === void 0 ? defaultCheckedIcon$1 : _props$checkedIcon,
 	      classes = props.classes,
 	      _props$color = props.color,
 	      color = _props$color === void 0 ? 'secondary' : _props$color,
 	      _props$disabled = props.disabled,
 	      disabled = _props$disabled === void 0 ? false : _props$disabled,
 	      _props$icon = props.icon,
-	      icon = _props$icon === void 0 ? defaultIcon : _props$icon,
+	      icon = _props$icon === void 0 ? defaultIcon$1 : _props$icon,
 	      _props$indeterminate = props.indeterminate,
 	      indeterminate = _props$indeterminate === void 0 ? false : _props$indeterminate,
 	      _props$indeterminateI = props.indeterminateIcon,
@@ -33072,7 +37875,7 @@
 	    disabled: disabled
 	  }, other));
 	});
-	var Checkbox$1 = withStyles$1(styles$m, {
+	var Checkbox$1 = withStyles$1(styles$H, {
 	  name: 'MuiCheckbox'
 	})(Checkbox);
 
@@ -33166,7 +37969,7 @@
 	    });
 
 	    _this.state = {
-	      plugins: _this.standardizePlugins(pixassist.themeConfig.pluginManager.tgmpaPlugins),
+	      plugins: _this.standardizePlugins(get_1(pixassist, 'themeConfig.pluginManager.tgmpaPlugins', {})),
 	      enableIndividualActions: true,
 	      groupByRequired: false,
 	      ready: false
@@ -33474,7 +38277,11 @@
 	  }, {
 	    key: "standardizePlugins",
 	    value: function standardizePlugins(plugins) {
-	      // Regardless if have individual actions, we treat plugins as a list to choose from (i.e. with checkboxes) and all need to be selected or not.
+	      if (isEmpty_1(plugins)) {
+	        return plugins;
+	      } // Regardless if have individual actions, we treat plugins as a list to choose from (i.e. with checkboxes) and all need to be selected or not.
+
+
 	      var pluginSlugs = Object.keys(plugins);
 
 	      for (var idx = 0; idx < pluginSlugs.length; idx++) {
@@ -33507,7 +38314,7 @@
 	    value: function updatePluginsList(event) {
 	      var component = this;
 	      component.setState({
-	        plugins: component.standardizePlugins(pixassist.themeConfig.pluginManager.tgmpaPlugins)
+	        plugins: component.standardizePlugins(get_1(pixassist, 'themeConfig.pluginManager.tgmpaPlugins', {}))
 	      });
 	      component.checkPluginsReady();
 	    }
@@ -33616,7 +38423,7 @@
 	          // We need a bulletproof way of detecting the AJAX request, server-side.
 	          plugin_source_type: $plugin.data('source_type'),
 	          force_tgmpa: 'load',
-	          // We need to put this flag so the TGMPA will be loaded - see PixelgradeCare_Admin::force_load_tgmpa()
+	          // We need to put this flag so the TGMPA will be loaded - see PixelgradeAssistant_Admin::force_load_tgmpa()
 	          success: function success(response) {
 	            $plugin.removeClass('box--plugin-installing');
 	            $plugin.addClass('box--plugin-installed');
@@ -33724,7 +38531,7 @@
 	          // We need a bulletproof way of detecting the AJAX request, server-side.
 	          plugin_source_type: $plugin.data('source_type'),
 	          force_tgmpa: 'load',
-	          // We need to put this flag so the TGMPA will be loaded - see PixelgradeCare_Admin::force_load_tgmpa()
+	          // We need to put this flag so the TGMPA will be loaded - see PixelgradeAssistant_Admin::force_load_tgmpa()
 	          success: function success(response) {
 	            $plugin.removeClass('box--plugin-updating');
 	            $plugin.removeClass('box--plugin-invalidated').addClass('box--plugin-validated');
@@ -34045,7 +38852,7 @@
 	  }, props.children);
 	}
 
-	var styles$n = function styles(theme) {
+	var styles$I = function styles(theme) {
 	  return {
 	    root: {
 	      flexGrow: 1,
@@ -34261,6 +39068,10 @@
 	              value = field.value_installed;
 	            }
 
+	            if (component.props.session.is_sc_errored) {
+	              value = field.value_errored;
+	            }
+
 	            if (isUndefined_1(value) || !value) {
 	              value = field.value;
 	            }
@@ -34298,6 +39109,10 @@
 
 	            if (component.props.session.is_sc_done) {
 	              _value = field.value_installed;
+	            }
+
+	            if (component.props.session.is_sc_errored) {
+	              _value = field.value_errored;
 	            }
 
 	            if (isUndefined_1(_value) || !_value) {
@@ -34620,7 +39435,7 @@
 	  return DashboardTabsContainer;
 	}(react.Component);
 
-	var DashboardTabs = connect(mapStateToProps$6, mapDispatchToProps$6)(withStyles(styles$n)(DashboardTabsContainer));
+	var DashboardTabs = connect(mapStateToProps$6, mapDispatchToProps$6)(withStyles(styles$I)(DashboardTabsContainer));
 
 	var mapStateToProps$7 = function mapStateToProps(state) {
 	  return {
@@ -34897,21 +39712,15 @@
 	    is_next_button_disabled: false,
 	    hasOriginalDirName: false,
 	    hasOriginalStyleName: false,
-	    hasPxgTheme: pixassist.themeSupports.hasPxgTheme,
+	    hasPxgTheme: get_1(pixassist, 'themeSupports.hasPxgTheme', false),
 	    // this means that there is a Pixelgrade theme installed, not necessarily active
 	    themeName: get_1(pixassist, 'themeSupports.theme_name', 'pixelgrade'),
 	    themeTitle: get_1(pixassist, 'themeSupports.theme_title', 'pixelgrade'),
 	    themeId: get_1(pixassist, 'themeSupports.theme_id', ''),
 	    themeType: get_1(pixassist, 'themeSupports.theme_type', 'theme')
 	  };
-
-	  if (pixassist.themeSupports.theme_integrity && pixassist.themeSupports.theme_integrity.has_original_directory) {
-	    state.hasOriginalDirName = pixassist.themeSupports.theme_integrity.has_original_directory;
-	  }
-
-	  if (pixassist.themeSupports.theme_integrity && pixassist.themeSupports.theme_integrity.has_original_name) {
-	    state.hasOriginalStyleName = pixassist.themeSupports.theme_integrity.has_original_name;
-	  }
+	  state.hasOriginalDirName = get_1(pixassist, 'themeSupports.theme_integrity.has_original_directory', false);
+	  state.hasOriginalStyleName = get_1(pixassist, 'themeSupports.theme_integrity.has_original_name', false);
 
 	  if (!isUndefined_1(pixassist.themeSupports.original_slug)) {
 	    state.originalSlug = pixassist.themeSupports.original_slug;
@@ -35159,13 +39968,33 @@
 	    case 'STARTER_CONTENT_INSTALLING':
 	      return _objectSpread2({}, state, {}, {
 	        is_sc_installing: true,
-	        is_sc_done: false
+	        is_sc_done: false,
+	        is_sc_errored: false,
+	        is_sc_stopped: false
 	      });
 
 	    case 'STARTER_CONTENT_DONE':
 	      return _objectSpread2({}, state, {}, {
 	        is_sc_installing: false,
-	        is_sc_done: true
+	        is_sc_done: true,
+	        is_sc_errored: false
+	      });
+
+	    case 'STARTER_CONTENT_ERRORED':
+	      return _objectSpread2({}, state, {}, {
+	        is_sc_installing: false,
+	        is_sc_done: true,
+	        is_sc_errored: true
+	      });
+
+	    case 'STARTER_CONTENT_STOP':
+	      return _objectSpread2({}, state, {}, {
+	        is_sc_stopped: true
+	      });
+
+	    case 'STARTER_CONTENT_RESUME':
+	      return _objectSpread2({}, state, {}, {
+	        is_sc_stopped: false
 	      });
 
 	    default:

@@ -1,11 +1,12 @@
 import React, {Component} from 'react';
 import PropTypes from 'prop-types';
+import _ from 'lodash';
 
 export default class WizardSkipButton extends Component {
 
 	static get defaultProps() {
 		return {
-			label: pixassist.themeConfig.l10n.skipButton,
+			label: _.get(pixassist, 'themeConfig.l10n.skipButton', 'Skip'),
 			classname: 'btn  btn--text  btn--slim',
 			href: null,
 			onclick: null,
@@ -30,7 +31,7 @@ export default class WizardSkipButton extends Component {
 				className={classname}
 				href={this.props.href}
 				disabled={this.props.disabled}
-			>{this.props.label || pixassist.themeConfig.l10n.skipButton}</a>
+			>{this.props.label || _.get(pixassist, 'themeConfig.l10n.skipButton', 'Skip')}</a>
 		}
 
 		if ( this.props.onclick ) {
@@ -38,7 +39,7 @@ export default class WizardSkipButton extends Component {
 				className={classname}
 				onClick={this.props.onclick}
 				disabled={this.props.disabled}
-			>{this.props.label || pixassist.themeConfig.l10n.skipButton}</a>
+			>{this.props.label || _.get(pixassist, 'themeConfig.l10n.skipButton', 'Skip')}</a>
 		}
 
 		return <a href="#"></a>

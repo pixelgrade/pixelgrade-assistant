@@ -7,7 +7,7 @@ class ProgressBar extends Component {
     }
 
     render() {
-        return <div className="plugins starter_content">
+        return (
                 <div className={this.props.installingClass}>
                     <div className="bullet"></div>
                     <div>
@@ -15,7 +15,7 @@ class ProgressBar extends Component {
                         <div className="box__text">{this.props.description}</div>
                     </div>
                 </div>
-            </div>
+		)
     }
 }
 

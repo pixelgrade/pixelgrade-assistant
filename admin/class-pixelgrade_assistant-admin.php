@@ -1505,70 +1505,61 @@ class PixelgradeAssistant_Admin {
         return pixassist_get_default_config( self::get_original_theme_slug() );
     }
 
-	public static function is_development_url( $url ) {
-		$stoppers = array(
-			'^10.0.',
-			'^127.0.',
-			'^localhost',
-			'^192.168.',
-			':8080$',
-			':8888$',
-			'.example$',
-			'.invalid$',
-			'.localhost',
-			'~',
-			'.myftpupload.com$',
-			'.myraidbox.de$',
-			'.cafe24.com$',
-			'.no-ip.org$',
-			'.pressdns.com$',
-			'.home.pl$',
-			'.xip.io$',
-			'.tw1.ru$',
-			'.pantheonsite.io$',
-			'.wpengine.com$',
-			'.accessdomain.com$',
-			'.atwebpages.com$',
-			'.testpagejack.com$',
-			'.hosting-test.net$',
-			'webhostbox.net',
-			'amazonaws.com',
-			'ovh.net$',
-			'.rhcloud.com$',
-			'tempurl.com$',
-			'x10host.com$',
-			'^www.test.',
-			'^test.',
-			'^dev.',
-			'^staging.',
-			'no.web.ip',
-			'^[^\.]*$',
-			//this removes urls not containing any dot in it like "stest" or "localhost"
-			'^[[:digit:]]+\.[[:digit:]]+\.[[:digit:]]+\.[[:digit:]]+',
-			//this removes urls starting with an IPv4
-			'^[[:alnum:]-]+\.dev',
-			//this removes any url with the .dev domain - i.e test.dev, pixelgrade.dev/test
-			'^[[:alnum:]-]+\.local',
-			//this removes any url with the .local domain - i.e test.local, pixelgrade.local/test
-			'^[[:alnum:]-]+\.test',
-			//this removes any url with the .local domain - i.e test.local, pixelgrade.local/test
-			'^[[:alnum:]-]+\.invalid',
-			//this removes any url with the .local domain - i.e test.local, pixelgrade.local/test
-			'^[[:alnum:]-]+\.localhost',
-			//this removes any url with the .local domain - i.e test.local, pixelgrade.local/test
-			'^[[:alnum:]-]+\.example',
-			//this removes any url with the .local domain - i.e test.local, pixelgrade.local/test
-		);
+    public static function is_development_url( $url ) {
+	    $stoppers = array(
+		    '^10.0.',
+		    '^127.0.',
+		    '^localhost',
+		    '^192.168.',
+		    ':8080$',
+		    ':8888$',
+		    '.example$',
+		    '.invalid$',
+		    '.localhost',
+		    '~',
+		    '.myftpupload.com$',
+		    '.myraidbox.de$',
+		    '.cafe24.com$',
+		    '.no-ip.org$',
+		    '.pressdns.com$',
+		    '.home.pl$',
+		    '.xip.io$',
+		    '.tw1.ru$',
+		    '.pantheonsite.io$',
+		    '.wpengine.com$',
+		    '.accessdomain.com$',
+		    '.atwebpages.com$',
+		    '.testpagejack.com$',
+		    '.hosting-test.net$',
+		    'webhostbox.net',
+		    'amazonaws.com',
+		    'ovh.net$',
+		    '.rhcloud.com$',
+		    'tempurl.com$',
+		    'x10host.com$',
+		    '^www.test.',
+		    '^test.',
+		    '^dev.',
+		    '^staging.',
+		    'no.web.ip',
+		    '^[^\.]*$', //this removes urls not containing any dot in it like "stest" or "localhost"
+		    '^[[:digit:]]+\.[[:digit:]]+\.[[:digit:]]+\.[[:digit:]]+', //this removes urls starting with an IPv4
+		    '^[[:alnum:]-]+\.dev', //this removes any url with the .dev domain - i.e test.dev, pixelgrade.dev/test
+		    '^[[:alnum:]-]+\.local', //this removes any url with the .local domain - i.e test.local, pixelgrade.local/test
+		    '^[[:alnum:]-]+\.test', //this removes any url with the .local domain - i.e test.local, pixelgrade.local/test
+		    '^[[:alnum:]-]+\.invalid', //this removes any url with the .local domain - i.e test.local, pixelgrade.local/test
+		    '^[[:alnum:]-]+\.localhost', //this removes any url with the .local domain - i.e test.local, pixelgrade.local/test
+		    '^[[:alnum:]-]+\.example', //this removes any url with the .local domain - i.e test.local, pixelgrade.local/test
+	    );
 
-		foreach ( $stoppers as $regex ) {
-			if ( preg_match( '#' . $regex . '#i', $url ) ) {
-				return true;
-			}
-		}
+	    foreach ( $stoppers as $regex ) {
+		    if ( preg_match( '#' . $regex .'#i', $url ) ) {
+			    return true;
+		    }
+	    }
 
-		return false;
-	}
-
+	    return false;
+    }
 
 	/**
 	 * Merge two arrays recursively first by key
@@ -2160,7 +2151,7 @@ class PixelgradeAssistant_Admin {
 	 * @return mixed
 	 */
 	public function handle_external_required_plugins_ajax_install( $res, $action, $args ) {
-		// This is a key we only put from the Pixelgrade Care JS. So we know that the current request is one of ours.
+		// This is a key we only put from the Pixelgrade Assistant JS. So we know that the current request is one of ours.
 		if ( empty( $_POST['pixassist_plugin_install'] ) ) {
 			return $res;
 		}
@@ -2190,14 +2181,14 @@ class PixelgradeAssistant_Admin {
 	}
 
     /**
-     * Main PixelgradeCareAdmin Instance
+     * Main PixelgradeAssistant_Admin Instance
      *
-     * Ensures only one instance of PixelgradeAssistantAdmin is loaded or can be loaded.
+     * Ensures only one instance of PixelgradeAssistant_Admin is loaded or can be loaded.
      *
      * @static
      * @param  object $parent Main PixelgradeAssistant instance.
      *
-     * @return PixelgradeAssistant_Admin Main PixelgradeAssistantAdmin instance
+     * @return PixelgradeAssistant_Admin Main PixelgradeAssistant_Admin instance
      */
     public static function instance( $parent ) {
         if ( is_null( self::$_instance ) ) {

@@ -29,7 +29,7 @@ $setup-gray: #cccccc;
 }
 
 .pixelgrade_assistant-setup .pixelgrade_assistant-wrapper {
-  max-width: 720px;
+  max-width: 820px;
   margin-top: 0;
 }
 
@@ -441,21 +441,122 @@ $setup-gray: #cccccc;
     }
   }
 
-  .starter_content {
+  .starter_content:not(.single-item) {
 
     .box {
-      padding: 16px 20px;
+      padding: 11px 20px 13px 9px;
+
+      .box__body {
+        margin-left: 6px;
+      }
 
       &:hover {
         background-color: #f8f8f8;
+        cursor: pointer;
       }
 
       &:before {
         content: none;
       }
 
-      & > div > div:first-child {
+      // We need these here so we can override the WordPress core styles.
+
+      .MuiRadio-root {
+        padding: 9px;
+        overflow: visible;
+        transition: background-color 150ms cubic-bezier(0.4, 0, 0.2, 1) 0ms;
+        border-radius: 50%;
+
+        input[type="radio"] {
+          top: 0;
+          left: 0;
+          width: 100%;
+          cursor: inherit;
+          height: 100%;
+          margin: 0;
+          opacity: 0;
+          padding: 0;
+          z-index: 1;
+          position: absolute;
+        }
+      }
+    }
+  }
+
+  .starter_content {
+    .box {
+      padding: 11px 20px 13px 20px;
+
+      &:before {
+        content: none;
+      }
+    }
+
+    .demo {
+      overflow: hidden;
+      margin-bottom: 10px;
         margin-top: 10px;
+
+      transition: .3s background ease-in-out;
+
+      // Hack to make overflow respect border-radius
+      -webkit-mask-image: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAAGXRFWHRTb2Z0d2FyZQBBZG9iZSBJbWFnZVJlYWR5ccllPAAAAA5JREFUeNpiYGBgAAgwAAAEAAGbA+oJAAAAAElFTkSuQmCC);
+
+      &:last-of-type {
+        margin-bottom: 0;
+      }
+
+      &.box--plugin-installing {
+        color: white;
+      }
+
+      .external-link {
+        font-size: 21px;
+        line-height: 1;
+        text-decoration: none;
+        background: none;
+        padding: 12px;
+        right: -8px;
+        vertical-align: middle;
+
+        color: $dark-grey;
+
+        &:hover {
+          color: $accent--purple;
+
+          overflow: visible;
+          transition: background-color 150ms cubic-bezier(0.4, 0, 0.2, 1) 0ms;
+          border-radius: 50%;
+          background-color: rgba(142, 101, 192, 0.12);
+        }
+      }
+    }
+  }
+
+  .starter_content.single-item {
+    .box {
+      margin-top: 20px;
+    }
+
+    .starter-content-log {
+      display: flex;
+      flex-direction: column;
+      flex-wrap: nowrap;
+      margin: 20px 0 0;
+      font-size: 12px;
+
+      .MuiInputBase-input {
+        font-size: 12px;
+
+        &:focus {
+          outline: none;
+          border: none;
+          box-shadow: none;
+        }
+
+        &[readonly] {
+          background-color: transparent;
+        }
       }
     }
   }
@@ -467,7 +568,7 @@ $setup-gray: #cccccc;
 
   }
 
-  a.import--action {
+  a.import--action, a.import-stop--action {
     margin-top: 24px;
   }
 

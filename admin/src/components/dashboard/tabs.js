@@ -301,6 +301,10 @@ class DashboardTabsContainer extends React.Component {
 					value = field.value_installed;
 				}
 
+				if ( component.props.session.is_sc_errored ) {
+					value = field.value_errored;
+				}
+
 				if (_.isUndefined(value) || !value) {
 					value = field.value;
 				}
@@ -329,6 +333,10 @@ class DashboardTabsContainer extends React.Component {
 
 				if ( component.props.session.is_sc_done ) {
 					value = field.value_installed;
+				}
+
+				if ( component.props.session.is_sc_errored ) {
+					value = field.value_errored;
 				}
 
 				if (_.isUndefined(value) || !value) {

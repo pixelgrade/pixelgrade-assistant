@@ -43,25 +43,25 @@ class PixelgradeAssistant_StarterContent {
 			add_filter( 'pixassist_sce_import_post_option_page_on_front', array(
 				$this,
 				'filter_post_option_page_on_front'
-			) );
+			), 10, 2 );
 			add_filter( 'pixassist_sce_import_post_option_page_for_posts', array(
 				$this,
 				'filter_post_option_page_for_posts'
-			) );
+			), 10, 2 );
 			add_filter( 'pixassist_sce_import_post_theme_mod_nav_menu_locations', array(
 				$this,
 				'filter_post_theme_mod_nav_menu_locations'
-			) );
+			), 10, 2 );
 
 			/*
 			 * Replace the custom logo attachment ID with the new one.
 			 */
-			add_filter( 'pixassist_sce_import_post_theme_mod_custom_logo', array( $this, 'filter_post_theme_mod_custom_logo' ) );
+			add_filter( 'pixassist_sce_import_post_theme_mod_custom_logo', array( $this, 'filter_post_theme_mod_custom_logo' ), 10, 2 );
 			/**
 			 * Some themes use custom keys for various attachment ID controls, so we need to treat them separately.
 			 */
-			add_filter( 'pixassist_sce_import_post_theme_mod_osteria_transparent_logo', array( $this, 'filter_post_theme_mod_custom_logo' ) );
-			add_filter( 'pixassist_sce_import_post_theme_mod_pixelgrade_transparent_logo', array( $this, 'filter_post_theme_mod_custom_logo' ) );
+			add_filter( 'pixassist_sce_import_post_theme_mod_osteria_transparent_logo', array( $this, 'filter_post_theme_mod_custom_logo' ), 10, 2 );
+			add_filter( 'pixassist_sce_import_post_theme_mod_pixelgrade_transparent_logo', array( $this, 'filter_post_theme_mod_custom_logo' ), 10, 2 );
 
 			// prevent Jetpack from disabling the theme's style on import
 			add_filter( 'pixassist_sce_import_post_theme_mod_jetpack_custom_css', array( $this, 'uncheck_jetpack_custom_css_style_replacement' ) );
@@ -69,7 +69,7 @@ class PixelgradeAssistant_StarterContent {
 			//widgets
 
 			// content links
-			add_action( 'pixassist_sce_after_insert_post', array( $this, 'prepare_menus_links' ), 10, 2 );
+			add_action( 'pixassist_sce_after_insert_post', array( $this, 'prepare_menus_links' ), 10, 3 );
 			add_action( 'pixassist_sce_import_end', array( $this, 'end_import' ) );
 		}
 	}
@@ -87,6 +87,8 @@ class PixelgradeAssistant_StarterContent {
 
 		if ( ! empty( $starter_content ) ) {
 			$localized_data['themeMod']['starterContent'] = $starter_content;
+		} elseif ( !isset( $localized_data['themeMod']['starterContent'] ) ) {
+			$localized_data['themeMod']['starterContent'] = array();
 		}
 
 		return $localized_data;
@@ -98,6 +100,12 @@ class PixelgradeAssistant_StarterContent {
 			'methods'             => WP_REST_Server::CREATABLE,
 			'callback'            => array( $this, 'rest_import_step' ),
 			'permission_callback' => array( $this, 'permission_nonce_callback' ),
+			'args' => array(
+				'demo_key' => array( 'required' => true ),
+				'type'     => array( 'required' => true ),
+				'url'      => array( 'required' => true ),
+				'args'     => array( 'required' => true ),
+			),
 		) );
 
 		register_rest_route( 'pixassist/v1', '/upload_media', array(
@@ -105,6 +113,7 @@ class PixelgradeAssistant_StarterContent {
 			'callback'            => array( $this, 'rest_upload_media' ),
 			'permission_callback' => array( $this, 'permission_nonce_callback' ),
 			'args'                => array(
+				'demo_key'     => array( 'required' => true ),
 				'file_data'     => array( 'required' => true ),
 				'title'         => array( 'required' => true ),
 				'group'         => array( 'required' => true ),
@@ -127,25 +136,36 @@ class PixelgradeAssistant_StarterContent {
 
 		add_filter( 'upload_mimes', array( $this, 'allow_svg_upload' ) );
 
-		// @todo We should do some checking and validation here
-		$group = $params['group'];
+		$demo_key = sanitize_text_field( $params['demo_key'] );
 
-		$title = $params['title'];
+		$group = sanitize_text_field( $params['group'] );
 
-		$remote_id = $params['remote_id'];
+		$title = sanitize_text_field( $params['title'] );
 
-		$filename = $title . '.' . $params['ext'];
+		$remote_id = absint( $params['remote_id'] );
+
+		$filename = $title . '.' . sanitize_text_field( $params['ext'] );
 
 		$file_data = $this->decode_chunk( $params['file_data'] );
 
 		if ( false === $file_data ) {
-			wp_send_json_error( 'no data' );
+			return rest_ensure_response( array(
+				'code'    => 'error',
+				'message' => esc_html__( 'No file data.', '__plugin_txtd' ),
+				'data'    => array(
+				),
+			) );
 		}
 
 		$upload_file = wp_upload_bits( $filename, null, $file_data );
 
 		if ( $upload_file['error'] ) {
-			return rest_ensure_response( 'File permission error' );
+			return rest_ensure_response( array(
+				'code'    => 'error',
+				'message' => esc_html__( 'File permission error.', '__plugin_txtd' ),
+				'data'    => array(
+				),
+			) );
 		}
 
 		$wp_filetype = wp_check_filetype( $filename, null );
@@ -169,23 +189,26 @@ class PixelgradeAssistant_StarterContent {
 			if ( null === $starter_content || ! is_array( $starter_content ) ) {
 				$starter_content = array();
 			}
-			if ( ! isset( $starter_content['media'] ) ) {
-				$starter_content['media'] = array();
+			if ( empty( $starter_content[ $demo_key ] ) ) {
+				$starter_content[ $demo_key ] = array();
 			}
-			if ( ! isset( $starter_content['media'][ $group ] ) ) {
-				$starter_content['media'][ $group ] = array();
+			if ( ! isset( $starter_content[ $demo_key ]['media'] ) ) {
+				$starter_content[ $demo_key ]['media'] = array();
+			}
+			if ( ! isset( $starter_content[ $demo_key ]['media'][ $group ] ) ) {
+				$starter_content[ $demo_key ]['media'][ $group ] = array();
 			}
 
 			// If we have previously imported this attachment, delete the previous attachment.
-			if ( ! empty( $starter_content['media'][ $group ][ $remote_id ] ) ) {
-				$previous_attachment_metadata = wp_get_attachment_metadata( $starter_content['media'][ $group ][ $remote_id ] );
+			if ( ! empty( $starter_content[ $demo_key ]['media'][ $group ][ $remote_id ] ) ) {
+				$previous_attachment_metadata = wp_get_attachment_metadata( $starter_content[ $demo_key ]['media'][ $group ][ $remote_id ] );
 				if ( ! empty( $previous_attachment_metadata['imported_with_pixassist'] ) ) {
-					wp_delete_attachment( absint( $starter_content['media'][ $group ][ $remote_id ] ), true );
+					wp_delete_attachment( absint( $starter_content[ $demo_key ]['media'][ $group ][ $remote_id ] ), true );
 				}
 			}
 
-			// Remember the new attachment ID
-			$starter_content['media'][ $group ][ $remote_id ] = $attachment_id;
+			// Remember the attachment ID
+			$starter_content[ $demo_key ]['media'][ $group ][ $remote_id ] = $attachment_id;
 
 			// Save the data in the DB
 			PixelgradeAssistant_Admin::set_option( 'imported_starter_content', $starter_content );
@@ -233,7 +256,7 @@ class PixelgradeAssistant_StarterContent {
 		wp_defer_comment_counting( true );
 		wp_suspend_cache_invalidation( true );
 
-		if ( empty( $params['args'] ) || empty( $params['type'] ) || empty( $params['url'] ) ) {
+		if ( empty( $params['demo_key'] ) || empty( $params['args'] ) || empty( $params['type'] ) || empty( $params['url'] ) ) {
 
 			return rest_ensure_response( array(
 				'code'    => 'missing_params',
@@ -242,8 +265,9 @@ class PixelgradeAssistant_StarterContent {
 			) );
 		}
 
-		$base_url = $params['url'];
-		$type     = $params['type'];
+		$demo_key = sanitize_text_field( $params['demo_key'] );
+		$base_url = sanitize_text_field( $params['url'] );
+		$type     = sanitize_text_field( $params['type'] );
 		$args     = $params['args'];
 
 		// The default response data
@@ -251,7 +275,7 @@ class PixelgradeAssistant_StarterContent {
 
 		switch ( $type ) {
 			case 'post_type': {
-				$result = $this->import_post_type( $base_url, $args );
+				$result = $this->import_post_type( $demo_key, $base_url, $args );
 				if ( ! is_wp_error( $result ) && ! $result instanceof WP_REST_Response ) {
 					$response['importedPostIds'] = $result;
 				} else {
@@ -261,7 +285,7 @@ class PixelgradeAssistant_StarterContent {
 			}
 
 			case 'taxonomy': {
-				$result = $this->import_taxonomy( $base_url, $args );
+				$result = $this->import_taxonomy( $demo_key, $base_url, $args );
 				if ( ! is_wp_error( $result ) && ! $result instanceof WP_REST_Response ) {
 					$response['importedTermIds'] = $result;
 				} else {
@@ -277,7 +301,7 @@ class PixelgradeAssistant_StarterContent {
 
 				$args['data'] = $this->maybeCastNumbersDeep( $args['data'] );
 
-				$result = $this->import_widgets( $args['data'] );
+				$result = $this->import_widgets( $demo_key, $args['data'] );
 				if ( ! is_wp_error( $result ) && ! $result instanceof WP_REST_Response ) {
 					$response['widgets'] = $result;
 				} else {
@@ -288,7 +312,7 @@ class PixelgradeAssistant_StarterContent {
 
 			case 'parsed_widgets': {
 
-				$result = $this->import_parsed_widgets( $base_url );
+				$result = $this->import_parsed_widgets( $demo_key, $base_url );
 				if ( ! is_wp_error( $result ) && ! $result instanceof WP_REST_Response ) {
 					$response['widgets'] = $result;
 				} else {
@@ -304,7 +328,7 @@ class PixelgradeAssistant_StarterContent {
 
 				$args['data'] = $this->maybeCastNumbersDeep( $args['data'] );
 
-				$result = $this->import_settings( 'pre', $args['data'] );
+				$result = $this->import_settings( $demo_key, 'pre', $args['data'] );
 				if ( ! is_wp_error( $result ) && ! $result instanceof WP_REST_Response ) {
 					$response['settings'] = $result;
 				} else {
@@ -320,7 +344,7 @@ class PixelgradeAssistant_StarterContent {
 
 				$args['data'] = $this->maybeCastNumbersDeep( $args['data'] );
 
-				$result = $this->import_settings( 'post', $args['data'] );
+				$result = $this->import_settings( $demo_key, 'post', $args['data'] );
 				if ( ! is_wp_error( $result ) && ! $result instanceof WP_REST_Response ) {
 					$response['settings'] = $result;
 				} else {
@@ -382,12 +406,13 @@ class PixelgradeAssistant_StarterContent {
 	/**
 	 * Import posts of a certain post type.
 	 *
+	 * @param $demo_key
 	 * @param $base_url
 	 * @param array $args
 	 *
 	 * @return bool|array|WP_REST_Response False on failure, the imported post IDs otherwise.
 	 */
-	private function import_post_type( $base_url, $args = array() ) {
+	private function import_post_type( $demo_key, $base_url, $args = array() ) {
 		$imported_ids = array();
 
 		if ( empty( $args['ids'] ) ) {
@@ -401,17 +426,20 @@ class PixelgradeAssistant_StarterContent {
 		if ( null === $starter_content || ! is_array( $starter_content ) ) {
 			$starter_content = array();
 		}
-		if ( ! isset( $starter_content['post_types'] ) ) {
-			$starter_content['post_types'] = array();
+		if ( empty( $starter_content[ $demo_key ] ) ) {
+			$starter_content[ $demo_key ] = array();
+		}
+		if ( ! isset( $starter_content[ $demo_key ]['post_types'] ) ) {
+			$starter_content[ $demo_key ]['post_types'] = array();
 		}
 
-		$request_url = $base_url . '/wp-json/sce/v2/posts';
+		$request_url = trailingslashit( $base_url ) . 'posts';
 
 		$request_data = array(
 			'post_type'      => $args['post_type'],
 			'include'        => $args['ids'],
-			'placeholders'   => $this->get_placeholders(),
-			'ignored_images' => $this->get_ignored_images(),
+			'placeholders'   => $this->get_placeholders( $demo_key ),
+			'ignored_images' => $this->get_ignored_images( $demo_key ),
 		);
 
 		$request_args = array(
@@ -471,12 +499,12 @@ class PixelgradeAssistant_StarterContent {
 			// Now decide what to do if the post slug already exists
 			if ( $existing_post_id = $this->the_slug_exists( $post['post_name'], $post['post_type'] ) ) {
 
-				if ( apply_filters( 'pixassist_sce_should_overwrite_existing_post', false, $existing_post_id, $post ) ) {
+				if ( apply_filters( 'pixassist_sce_should_overwrite_existing_post', false, $existing_post_id, $post, $demo_key ) ) {
 					$post_args['ID'] = $existing_post_id;
 				} else {
-					if ( isset( $starter_content['post_types'][ $args['post_type'] ][ $post['ID'] ] ) ) {
+					if ( isset( $starter_content[ $demo_key ]['post_types'][ $args['post_type'] ][ $post['ID'] ] ) ) {
 						// If the we have already imported this post, keep the data
-						$imported_ids[ $post['ID'] ] = $starter_content['post_types'][ $args['post_type'] ][ $post['ID'] ];
+						$imported_ids[ $post['ID'] ] = $starter_content[ $demo_key ]['post_types'][ $args['post_type'] ][ $post['ID'] ];
 					} else {
 						// At least remember something about this post
 						$imported_ids[ $post['ID'] ] = $post['ID'];
@@ -510,7 +538,7 @@ class PixelgradeAssistant_StarterContent {
 					}
 
 					if ( ! empty( $meta ) ) {
-						$post_args['meta_input'][ $key ] = apply_filters( 'sce_pre_postmeta', $meta, $key );
+						$post_args['meta_input'][ $key ] = apply_filters( 'sce_pre_postmeta', $meta, $key, $demo_key );
 					}
 				}
 
@@ -533,8 +561,8 @@ class PixelgradeAssistant_StarterContent {
 					$post_args['tax_input'][ $taxonomy ] = array();
 
 					foreach ( $terms as $term ) {
-						if ( is_numeric( $term ) && isset( $starter_content['taxonomies'][ $taxonomy ][ $term ] ) ) {
-							$term = $starter_content['taxonomies'][ $taxonomy ][ $term ];
+						if ( is_numeric( $term ) && isset( $starter_content[ $demo_key ]['taxonomies'][ $taxonomy ][ $term ] ) ) {
+							$term = $starter_content[ $demo_key ]['taxonomies'][ $taxonomy ][ $term ];
 						}
 
 						$post_args['tax_input'][ $taxonomy ][] = $term;
@@ -543,7 +571,7 @@ class PixelgradeAssistant_StarterContent {
 			}
 
 			// Allow others to have a say in it.
-			$post_args = apply_filters( 'pixassist_sce_insert_post_args', $post_args, $post );
+			$post_args = apply_filters( 'pixassist_sce_insert_post_args', $post_args, $post, $demo_key );
 
 			$post_id = wp_insert_post( $post_args );
 
@@ -586,11 +614,11 @@ class PixelgradeAssistant_StarterContent {
 				wp_update_post( $update_args );
 			}
 
-			do_action( 'pixassist_sce_after_insert_post', $post, $imported_ids );
+			do_action( 'pixassist_sce_after_insert_post', $post, $imported_ids, $demo_key );
 		}
 
 		// Remember the imported post IDs
-		$starter_content['post_types'][ $args['post_type'] ] = $imported_ids;
+		$starter_content[ $demo_key ]['post_types'][ $args['post_type'] ] = $imported_ids;
 		// Save the data in the DB
 		PixelgradeAssistant_Admin::set_option( 'imported_starter_content', $starter_content );
 		PixelgradeAssistant_Admin::save_options();
@@ -602,15 +630,16 @@ class PixelgradeAssistant_StarterContent {
 	/**
 	 * Import the terms from a certain taxonomy.
 	 *
+	 * @param $demo_key
 	 * @param $base_url
 	 * @param $args
 	 *
 	 * @return bool|array|WP_Error|WP_REST_Response
 	 */
-	private function import_taxonomy( $base_url, $args ) {
+	private function import_taxonomy( $demo_key, $base_url, $args ) {
 		$imported_ids = array();
 
-		if ( empty( $args['ids'] ) ) {
+		if ( empty( $args['ids'] ) || empty( $args['tax'] ) ) {
 			return false;
 		}
 
@@ -630,11 +659,14 @@ class PixelgradeAssistant_StarterContent {
 		if ( null === $starter_content || ! is_array( $starter_content ) ) {
 			$starter_content = array();
 		}
-		if ( ! isset( $starter_content['taxonomies'] ) ) {
-			$starter_content['taxonomies'] = array();
+		if ( empty( $starter_content[ $demo_key ] ) ) {
+			$starter_content[ $demo_key ] = array();
+		}
+		if ( ! isset( $starter_content[ $demo_key ]['taxonomies'] ) ) {
+			$starter_content[ $demo_key ]['taxonomies'] = array();
 		}
 
-		$request_url = $base_url . '/wp-json/sce/v2/terms';
+		$request_url = trailingslashit( $base_url ) . 'terms';
 
 		$request_data = array(
 			'taxonomy' => $args['tax'],
@@ -705,8 +737,8 @@ class PixelgradeAssistant_StarterContent {
 							$value = maybe_unserialize( $meta[0] );
 						}
 
-						if ( 'pix_term_icon' === $key && isset( $starter_content['media']['ignored'][ $value ] ) ) {
-							$value = $starter_content['media']['ignored'][ $value ];
+						if ( 'pix_term_icon' === $key && isset( $starter_content[ $demo_key ]['media']['ignored'][ $value ] ) ) {
+							$value = $starter_content[ $demo_key ]['media']['ignored'][ $value ];
 						}
 
 						update_term_meta( $new_id['term_id'], $key, $value );
@@ -731,7 +763,7 @@ class PixelgradeAssistant_StarterContent {
 		}
 
 		// Save the imported term IDs
-		$starter_content['taxonomies'][ $args['tax'] ] = $imported_ids;
+		$starter_content[ $demo_key ]['taxonomies'][ $args['tax'] ] = $imported_ids;
 		// Save the data in the DB
 		PixelgradeAssistant_Admin::set_option( 'imported_starter_content', $starter_content );
 		PixelgradeAssistant_Admin::save_options();
@@ -740,7 +772,7 @@ class PixelgradeAssistant_StarterContent {
 		return $imported_ids;
 	}
 
-	private function import_settings( $type, $data ) {
+	private function import_settings( $demo_key, $type, $data ) {
 		if ( ! is_array( $data ) ) {
 			$data = json_decode( $data, true );
 		}
@@ -757,34 +789,37 @@ class PixelgradeAssistant_StarterContent {
 		if ( null === $starter_content || ! is_array( $starter_content ) ) {
 			$starter_content = array();
 		}
-		if ( ! isset( $starter_content[ $settings_key ] ) ) {
-			$starter_content[ $settings_key ] = array();
+		if ( empty( $starter_content[ $demo_key ] ) ) {
+			$starter_content[ $demo_key ] = array();
+		}
+		if ( ! isset( $starter_content[ $demo_key ][ $settings_key ] ) ) {
+			$starter_content[ $demo_key ][ $settings_key ] = array();
 		}
 
 		if ( ! empty( $data['mods'] ) ) {
 
-			if ( ! isset( $starter_content[ $settings_key ]['mods'] ) ) {
-				$starter_content[ $settings_key ]['mods'] = array();
+			if ( ! isset( $starter_content[ $demo_key ][ $settings_key ]['mods'] ) ) {
+				$starter_content[ $demo_key ][ $settings_key ]['mods'] = array();
 			}
 
 			foreach ( $data['mods'] as $mod => $value ) {
-				$starter_content[ $settings_key ]['mods'][ $mod ] = get_theme_mod( $mod );
+				$starter_content[ $demo_key ][ $settings_key ]['mods'][ $mod ] = get_theme_mod( $mod );
 
-				$value = apply_filters( "pixassist_sce_import_{$type}_theme_mod_{$mod}", $value );
+				$value = apply_filters( "pixassist_sce_import_{$type}_theme_mod_{$mod}", $value, $demo_key );
 
 				set_theme_mod( $mod, $value );
 			}
 		}
 
 		if ( ! empty( $data['options'] ) ) {
-			if ( ! isset( $starter_content[ $settings_key ]['options'] ) ) {
-				$starter_content[ $settings_key ]['options'] = array();
+			if ( ! isset( $starter_content[ $demo_key ][ $settings_key ]['options'] ) ) {
+				$starter_content[ $demo_key ][ $settings_key ]['options'] = array();
 			}
 
 			foreach ( $data['options'] as $option => $value ) {
-				$starter_content[ $settings_key ]['options'][ $option ] = get_option( $option );
+				$starter_content[ $demo_key ][ $settings_key ]['options'][ $option ] = get_option( $option );
 
-				$value = apply_filters( "pixassist_sce_import_{$type}_option_{$option}", $value );
+				$value = apply_filters( "pixassist_sce_import_{$type}_option_{$option}", $value, $demo_key );
 
 				update_option( $option, $value );
 			}
@@ -809,11 +844,12 @@ class PixelgradeAssistant_StarterContent {
 	/**
 	 * Import the widgets (not used right now).
 	 *
+	 * @param $demo_key
 	 * @param $data
 	 *
 	 * @return bool
 	 */
-	private function import_widgets( $data ) {
+	private function import_widgets( $demo_key, $data ) {
 
 		if ( empty( $data ) ) {
 			return false;
@@ -823,6 +859,9 @@ class PixelgradeAssistant_StarterContent {
 		// Make sure that we have the necessary entries
 		if ( null === $starter_content || ! is_array( $starter_content ) ) {
 			$starter_content = array();
+		}
+		if ( empty( $starter_content[ $demo_key ] ) ) {
+			$starter_content[ $demo_key ] = array();
 		}
 
 		// First let's remove all the widgets in sidebars to avoid a big mess
@@ -855,11 +894,11 @@ class PixelgradeAssistant_StarterContent {
 
 		$sidebar_data = array( array_filter( $sidebar_data ), $widget_data );
 
-		$starter_content['widgets'] = false;
+		$starter_content[ $demo_key ]['widgets'] = false;
 
-		if ( ! $this->parse_import_data( $sidebar_data ) ) {
+		if ( ! $this->parse_import_data( $sidebar_data, $demo_key ) ) {
 
-			$starter_content['widgets'] = true;
+			$starter_content[ $demo_key ]['widgets'] = true;
 
 			// Save the data in the DB
 			PixelgradeAssistant_Admin::set_option( 'imported_starter_content', $starter_content );
@@ -868,30 +907,34 @@ class PixelgradeAssistant_StarterContent {
 			return false;
 		}
 
-		return $starter_content['widgets'];
+		return $starter_content[ $demo_key ]['widgets'];
 	}
 
 	/**
 	 * Import widgets with the settings already parsed on the data origin server.
 	 *
+	 * @param $demo_key
 	 * @param $base_url
 	 *
 	 * @return bool|null
 	 */
-	private function import_parsed_widgets( $base_url ) {
+	private function import_parsed_widgets( $demo_key, $base_url ) {
 		$starter_content = PixelgradeAssistant_Admin::get_option( 'imported_starter_content' );
 		// Make sure that we have the necessary entries
 		if ( null === $starter_content || ! is_array( $starter_content ) ) {
 			$starter_content = array();
 		}
+		if ( empty( $starter_content[ $demo_key ] ) ) {
+			$starter_content[ $demo_key ] = array();
+		}
 
-		$request_url = $base_url . '/wp-json/sce/v2/widgets';
+		$request_url = trailingslashit( $base_url ) . 'widgets';
 
 		$request_data = array(
-			'post_types'     => $starter_content['post_types'],
-			'taxonomies'     => $starter_content['taxonomies'],
-			'placeholders'   => $this->get_placeholders(),
-			'ignored_images' => $this->get_ignored_images(),
+			'post_types'     => empty( $starter_content[ $demo_key ]['post_types'] ) ? array() : $starter_content[ $demo_key ]['post_types'],
+			'taxonomies'     => empty( $starter_content[ $demo_key ]['taxonomies'] )? array() : $starter_content[ $demo_key ]['taxonomies'],
+			'placeholders'   => $this->get_placeholders( $demo_key ),
+			'ignored_images' => $this->get_ignored_images( $demo_key ),
 		);
 
 		$request_args = array(
@@ -951,11 +994,11 @@ class PixelgradeAssistant_StarterContent {
 
 		$sidebar_data = array( array_filter( $sidebar_data ), $widget_data );
 
-		$starter_content['widgets'] = false;
+		$starter_content[ $demo_key ]['widgets'] = false;
 
-		if ( $this->parse_import_data( $sidebar_data ) ) {
+		if ( $this->parse_import_data( $sidebar_data, $demo_key ) ) {
 
-			$starter_content['widgets'] = true;
+			$starter_content[ $demo_key ]['widgets'] = true;
 
 			// Save the data in the DB
 			PixelgradeAssistant_Admin::set_option( 'imported_starter_content', $starter_content );
@@ -963,16 +1006,16 @@ class PixelgradeAssistant_StarterContent {
 
 			// ugly bug, ugly fix ... import widgets twice
 			// @todo What Does This Mean? Ugly bug! What is the bug? Where the ... is it?!?
-			$this->parse_import_data( $sidebar_data );
+			$this->parse_import_data( $sidebar_data, $demo_key );
 		}
 
-		return $starter_content['widgets'];
+		return $starter_content[ $demo_key ]['widgets'];
 	}
 
 	/**
 	 * Widgets helpers
 	 */
-	private function parse_import_data( $import_array ) {
+	private function parse_import_data( $import_array, $demo_key ) {
 		// Bail if we have no data to work with
 		if ( empty( $import_array[0] ) || empty( $import_array[1] ) ) {
 			return false;
@@ -1017,7 +1060,7 @@ class PixelgradeAssistant_StarterContent {
 		if ( ! empty( $new_widgets ) && ! empty( $current_sidebars ) ) {
 			foreach ( $new_widgets as $type => $content ) {
 				// Save the data for each widget type
-				$content = apply_filters( "pixassist_sce_import_widget_{$type}", $content, $type );
+				$content = apply_filters( "pixassist_sce_import_widget_{$type}", $content, $type, $demo_key );
 				update_option( 'widget_' . $type, $content );
 			}
 
@@ -1049,7 +1092,7 @@ class PixelgradeAssistant_StarterContent {
 	}
 
 	/** CUSTOM FILTERS */
-	public function prepare_menus_links( $post, $imported_ids ) {
+	public function prepare_menus_links( $post, $imported_ids, $demo_key ) {
 
 		if ( 'nav_menu_item' !== $post['post_type'] ) {
 			return;
@@ -1075,13 +1118,13 @@ class PixelgradeAssistant_StarterContent {
 		// Try to remap custom objects in nav items
 		switch ( $menu_item_type ) {
 			case 'taxonomy':
-				if ( isset( $starter_content['taxonomies'][ $menu_item_object ][ $menu_item_object_id ] ) ) {
-					$menu_item_object_id = $starter_content['taxonomies'][ $menu_item_object ][ $menu_item_object_id ];
+				if ( isset( $starter_content[ $demo_key ]['taxonomies'][ $menu_item_object ][ $menu_item_object_id ] ) ) {
+					$menu_item_object_id = $starter_content[ $demo_key ]['taxonomies'][ $menu_item_object ][ $menu_item_object_id ];
 				}
 				break;
 			case 'post_type':
-				if ( isset( $starter_content['post_types'][ $menu_item_object ][ $menu_item_object_id ] ) ) {
-					$menu_item_object_id = $starter_content['post_types'][ $menu_item_object ][ $menu_item_object_id ];
+				if ( isset( $starter_content[ $demo_key ]['post_types'][ $menu_item_object ][ $menu_item_object_id ] ) ) {
+					$menu_item_object_id = $starter_content[ $demo_key ]['post_types'][ $menu_item_object ][ $menu_item_object_id ];
 				}
 				break;
 			case 'custom':
@@ -1123,13 +1166,14 @@ class PixelgradeAssistant_StarterContent {
 	 * Replace the value of the `page_on_front` option with the id of the local front page
 	 *
 	 * @param $value
+	 * @param $demo_key
 	 *
 	 * @return mixed
 	 */
-	public function filter_post_option_page_on_front( $value ) {
+	public function filter_post_option_page_on_front( $value, $demo_key ) {
 		$starter_content = PixelgradeAssistant_Admin::get_option( 'imported_starter_content' );
-		if ( isset( $starter_content['post_types']['page'][ $value ] ) ) {
-			return $starter_content['post_types']['page'][ $value ];
+		if ( isset( $starter_content[ $demo_key ]['post_types']['page'][ $value ] ) ) {
+			return $starter_content[ $demo_key ]['post_types']['page'][ $value ];
 		}
 
 		return $value;
@@ -1139,13 +1183,14 @@ class PixelgradeAssistant_StarterContent {
 	 * Replace the value of the `page_for_posts` option with the id of the local blog page
 	 *
 	 * @param $value
+	 * @param $demo_key
 	 *
 	 * @return mixed
 	 */
-	public function filter_post_option_page_for_posts( $value ) {
+	public function filter_post_option_page_for_posts( $value, $demo_key ) {
 		$starter_content = PixelgradeAssistant_Admin::get_option( 'imported_starter_content' );
-		if ( isset( $starter_content['post_types']['page'][ $value ] ) ) {
-			return $starter_content['post_types']['page'][ $value ];
+		if ( isset( $starter_content[ $demo_key ]['post_types']['page'][ $value ] ) ) {
+			return $starter_content[ $demo_key ]['post_types']['page'][ $value ];
 		}
 
 		return $value;
@@ -1155,10 +1200,11 @@ class PixelgradeAssistant_StarterContent {
 	 * Replace each menu id from `nav_menu_locations` with the new menus ids
 	 *
 	 * @param $locations
+	 * @param $demo_key
 	 *
 	 * @return mixed
 	 */
-	public function filter_post_theme_mod_nav_menu_locations( $locations ) {
+	public function filter_post_theme_mod_nav_menu_locations( $locations, $demo_key ) {
 		if ( empty( $locations ) ) {
 			return $locations;
 		}
@@ -1166,8 +1212,8 @@ class PixelgradeAssistant_StarterContent {
 		$starter_content = PixelgradeAssistant_Admin::get_option( 'imported_starter_content' );
 
 		foreach ( $locations as $location => $menu ) {
-			if ( ! empty( $starter_content['taxonomies']['nav_menu'][ $menu ] ) ) {
-				$locations[ $location ] = $starter_content['taxonomies']['nav_menu'][ $menu ];
+			if ( ! empty( $starter_content[ $demo_key ]['taxonomies']['nav_menu'][ $menu ] ) ) {
+				$locations[ $location ] = $starter_content[ $demo_key ]['taxonomies']['nav_menu'][ $menu ];
 			}
 		}
 
@@ -1179,22 +1225,23 @@ class PixelgradeAssistant_StarterContent {
 	 * Wee need to replace the old attachment id with the local one
 	 *
 	 * @param $attach_id
+	 * @param $demo_key
 	 *
 	 * @return mixed
 	 */
-	public function filter_post_theme_mod_custom_logo( $attach_id ) {
+	public function filter_post_theme_mod_custom_logo( $attach_id, $demo_key ) {
 		if ( empty( $attach_id ) ) {
 			return $attach_id;
 		}
 
 		$starter_content = PixelgradeAssistant_Admin::get_option( 'imported_starter_content' );
 
-		if ( ! empty( $starter_content['media']['ignored'][ $attach_id ] ) ) {
-			return $starter_content['media']['ignored'][ $attach_id ];
+		if ( ! empty( $starter_content[ $demo_key ]['media']['ignored'][ $attach_id ] ) ) {
+			return $starter_content[ $demo_key ]['media']['ignored'][ $attach_id ];
 		}
 
-		if ( ! empty( $starter_content['media']['placeholders'][ $attach_id ] ) ) {
-			return $starter_content['media']['placeholders'][ $attach_id ];
+		if ( ! empty( $starter_content[ $demo_key ]['media']['placeholders'][ $attach_id ] ) ) {
+			return $starter_content[ $demo_key ]['media']['placeholders'][ $attach_id ];
 		}
 
 		return $attach_id;
@@ -1231,13 +1278,13 @@ class PixelgradeAssistant_StarterContent {
 	/**
 	 * HELPERS
 	 */
-	private function get_placeholders() {
+	private function get_placeholders( $demo_key ) {
 		$imported_ids = array();
 
 		$starter_content = PixelgradeAssistant_Admin::get_option( 'imported_starter_content' );
 
-		if ( ! empty( $starter_content['media']['placeholders'] ) ) {
-			foreach ( $starter_content['media']['placeholders'] as $old_id => $new_id ) {
+		if ( ! empty( $starter_content[ $demo_key ]['media']['placeholders'] ) ) {
+			foreach ( $starter_content[ $demo_key ]['media']['placeholders'] as $old_id => $new_id ) {
 				$sizes = $this->get_image_thumbnails_urls( $new_id );
 				if ( ! empty( $sizes ) ) {
 					$imported_ids[ $old_id ] = array(
@@ -1251,13 +1298,13 @@ class PixelgradeAssistant_StarterContent {
 		return $imported_ids;
 	}
 
-	private function get_ignored_images() {
+	private function get_ignored_images( $demo_key ) {
 		$imported_ids = array();
 
 		$starter_content = PixelgradeAssistant_Admin::get_option( 'imported_starter_content' );
 
-		if ( ! empty( $starter_content['media']['ignored'] ) ) {
-			foreach ( $starter_content['media']['ignored'] as $old_id => $new_id ) {
+		if ( ! empty( $starter_content[ $demo_key ]['media']['ignored'] ) ) {
+			foreach ( $starter_content[ $demo_key ]['media']['ignored'] as $old_id => $new_id ) {
 				$sizes = $this->get_image_thumbnails_urls( $new_id );
 				if ( ! empty( $sizes ) ) {
 					$imported_ids[ $old_id ] = array(

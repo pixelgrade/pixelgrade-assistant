@@ -49,7 +49,7 @@ class Tools extends React.Component {
 					}
 				},
 				function (e) {
-					alert(Helpers.decodeHtml(pixassist.themeConfig.l10n.internalErrorContent));
+					alert(Helpers.decodeHtml(_.get(pixassist, 'themeConfig.l10n.internalErrorContent', '')));
 				}
 			)
 		}

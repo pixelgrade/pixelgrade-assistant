@@ -6,8 +6,8 @@
  *
  * @see 	    https://pixelgrade.com
  * @author 		Pixelgrade
- * @package 	PixelgradeCare
- * @subpackage  PixelgradeCare/ThemeHelpers
+ * @package 	PixelgradeAssistant
+ * @subpackage  PixelgradeAssistant/ThemeHelpers
  * @version     1.0.3
  */
 

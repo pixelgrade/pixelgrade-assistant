@@ -84,9 +84,9 @@ class StepsContainer extends Component {
 		this.onPluginsInstalling = this.onPluginsInstalling.bind(this);
 		this.onPluginsRender = this.onPluginsRender.bind(this);
 
+		this.onStarterContentReady = this.onStarterContentReady.bind(this);
 		this.onStarterImporting = this.onStarterImporting.bind(this);
 		this.startContentImport = this.startContentImport.bind(this);
-		this.onStarterContentReady = this.onStarterContentReady.bind(this);
 		this.onStarterContentRender = this.onStarterContentRender.bind(this);
 
 		this.state = this.initialState = {
@@ -334,13 +334,17 @@ class StepsContainer extends Component {
 														}
 													}
 
-													if ( step_config.stepName === 'Starter Content' ) {
+													if ( step_config.stepName === 'Starter content' ) {
 														if (component.props.session.is_sc_installing) {
 															value = field.value_installing;
 														}
 
 														if (component.props.session.is_sc_done) {
 															value = field.value_installed;
+														}
+
+														if ( component.props.session.is_sc_errored ) {
+															value = field.value_errored;
 														}
 													}
 
@@ -379,13 +383,17 @@ class StepsContainer extends Component {
 														}
 													}
 
-													if ( step_config.stepName === 'Starter Content' ) {
+													if ( step_config.stepName === 'Starter content' ) {
 														if (component.props.session.is_sc_installing) {
 															value = field.value_installing;
 														}
 
 														if (component.props.session.is_sc_done) {
 															value = field.value_installed;
+														}
+
+														if ( component.props.session.is_sc_errored ) {
+															value = field.value_errored;
 														}
 													}
 
@@ -510,8 +518,8 @@ class StepsContainer extends Component {
 										?
 										this.props.session.is_wizard_skip ?
 										<WizardSkipButton
-											label={ first_step === true ? pixassist.themeConfig.l10n.notRightNow : component.state.skipButtonLabel || step_config.skipButton }
-											href={ first_step === true ? pixassist.dashboardUrl : null }
+										label={ first_step === true ? _.get(pixassist, 'themeConfig.l10n.notRightNow', 'Not right now') : component.state.skipButtonLabel || step_config.skipButton }
+										href={ first_step === true ? pixassist.dashboardUrl : null }
 											onclick={ null !== component.state.skipButtonCallback ? component.state.skipButtonCallback : component.defaultSkipButtonCallback }
 											disabled={this.state.skipButtonDisable} /> : ''
 										: null }
@@ -526,7 +534,7 @@ class StepsContainer extends Component {
 								</div>
 						</div>
 						{ ( last_step === true )
-							? <a className="btn  btn--text  btn--return-to-dashboard" href={pixassist.dashboardUrl}  onClick={this.handleFinishWizard}>{Helpers.decodeHtml(pixassist.themeConfig.l10n.returnToDashboard)}</a>
+							? <a className="btn  btn--text  btn--return-to-dashboard" href={pixassist.dashboardUrl}  onClick={this.handleFinishWizard}>{Helpers.decodeHtml(_.get(pixassist, 'themeConfig.l10n.returnToDashboard', 'Return to dashboard'))}</a>
 							: <span className="logo-pixelgrade"></span> }
 					</div>
 				</div>
@@ -767,7 +775,11 @@ class StepsContainer extends Component {
 		this.props.onAvailableSkipButton();
 
 		if (_.size(_.get(this.props.session, 'themeConfig.starterContent.demos', []))) {
-			this.setState({nextButtonLabel: Helpers.decodeHtml(_.get(pixassist, 'themeConfig.l10n.starterContentLoadLabel', ''))});
+			if ( _.size(_.get(this.props.session, 'themeConfig.starterContent.demos', [])) > 1 ) {
+				this.setState({nextButtonLabel: Helpers.decodeHtml(_.get(pixassist, 'themeConfig.l10n.starterContentImportSelectedLabel', ''))});
+			} else {
+				this.setState({nextButtonLabel: Helpers.decodeHtml(_.get(pixassist, 'themeConfig.l10n.starterContentImportLabel', ''))});
+			}
 			this.setState({nextButtonCallback: this.startContentImport });
 		}
 	}
@@ -792,7 +804,7 @@ class StepsContainer extends Component {
 		this.setState({
 			nextButtonDisable: false,
 			skipButtonDisable: false,
-			nextButtonLabel: pixassist.themeConfig.l10n.nextButton,
+			nextButtonLabel: _.get(pixassist, 'themeConfig.l10n.nextButton', 'Next'),
 			nextButtonCallback: this.defaultNextButtonCallback
 		});
 	}

@@ -328,7 +328,7 @@ class PixelgradeAssistant {
 
 		// We can't have it loaded with Pixelgrade Care since all sorts of nasty things would happen.
 		// Normally one should not have both plugins active, but it is best to be safe than sorry.
-		if ( defined( 'PIXELGRADE_CARE__PLUGIN_FILE' ) && class_exists( 'PixelgradeCare' ) ) {
+		if ( defined( 'PIXELGRADE_CARE__PLUGIN_FILE' ) && class_exists( 'PixelgradeAssistant' ) ) {
 			add_action( 'admin_notices', function () {
 				$allowed = array(
 					'div'    => array(

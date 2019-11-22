@@ -37,11 +37,11 @@ class DashboardHeaderContainer extends React.Component {
 
 	static get defaultProps() {
 		return {
-			ctaLabel: Helpers.decodeHtml(pixassist.themeConfig.l10n.disconnectLabel),
+			ctaLabel: Helpers.decodeHtml(_.get(pixassist, 'themeConfig.l10n.disconnectLabel', 'Disconnect')),
 			onClick: null,
-			myAccountLabel: Helpers.decodeHtml(pixassist.themeConfig.l10n.myAccountBtn),
+			myAccountLabel: Helpers.decodeHtml(_.get(pixassist, 'themeConfig.l10n.myAccountBtn', 'My account')),
 			myAccountLink: pixassist.shopBase + 'my-account',
-			helpLabel: Helpers.decodeHtml(pixassist.themeConfig.l10n.needHelpBtn),
+			helpLabel: Helpers.decodeHtml(_.get(pixassist, 'themeConfig.l10n.needHelpBtn', 'Help')),
 			helpDesc: pixassist.themeSupports.support_url,
 		}
 	}

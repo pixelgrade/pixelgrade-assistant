@@ -54,7 +54,7 @@ class PluginManagerContainer extends React.Component {
 		super(props);
 
 		this.state = {
-			plugins: this.standardizePlugins( pixassist.themeConfig.pluginManager.tgmpaPlugins ),
+			plugins: this.standardizePlugins( _.get(pixassist, 'themeConfig.pluginManager.tgmpaPlugins', {}) ),
 			enableIndividualActions: true,
 			groupByRequired: false,
 			ready: false
@@ -358,6 +358,10 @@ class PluginManagerContainer extends React.Component {
 	}
 
 	standardizePlugins( plugins ) {
+		if ( _.isEmpty(plugins) ) {
+			return plugins;
+		}
+
 		// Regardless if have individual actions, we treat plugins as a list to choose from (i.e. with checkboxes) and all need to be selected or not.
 		let pluginSlugs = Object.keys(plugins);
 		for( let idx=0; idx < pluginSlugs.length; idx++ ) {
@@ -388,7 +392,7 @@ class PluginManagerContainer extends React.Component {
 	updatePluginsList(event) {
 		let component = this;
 
-		component.setState({plugins: component.standardizePlugins( pixassist.themeConfig.pluginManager.tgmpaPlugins )});
+		component.setState({plugins: component.standardizePlugins( _.get(pixassist, 'themeConfig.pluginManager.tgmpaPlugins', {}) )});
 
 		component.checkPluginsReady();
 	}
@@ -508,7 +512,7 @@ class PluginManagerContainer extends React.Component {
 					slug: $plugin.data('slug'),
 					pixassist_plugin_install: true, // We need a bulletproof way of detecting the AJAX request, server-side.
 					plugin_source_type: $plugin.data('source_type'),
-					force_tgmpa: 'load', // We need to put this flag so the TGMPA will be loaded - see PixelgradeCare_Admin::force_load_tgmpa()
+					force_tgmpa: 'load', // We need to put this flag so the TGMPA will be loaded - see PixelgradeAssistant_Admin::force_load_tgmpa()
 
 					success: function ( response ) {
 						$plugin.removeClass('box--plugin-installing');
@@ -626,7 +630,7 @@ class PluginManagerContainer extends React.Component {
 				abort_if_destination_exists: false,
 				pixassist_plugin_update: true, // We need a bulletproof way of detecting the AJAX request, server-side.
 				plugin_source_type: $plugin.data('source_type'),
-				force_tgmpa: 'load', // We need to put this flag so the TGMPA will be loaded - see PixelgradeCare_Admin::force_load_tgmpa()
+				force_tgmpa: 'load', // We need to put this flag so the TGMPA will be loaded - see PixelgradeAssistant_Admin::force_load_tgmpa()
 				success: function (response) {
 					$plugin.removeClass('box--plugin-updating');
 						$plugin.removeClass('box--plugin-invalidated').addClass('box--plugin-validated');

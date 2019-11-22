@@ -35,19 +35,7 @@
   .starter_content {
 
     .box {
-      padding: 16px 20px;
 
-      &:hover {
-        background-color: #f8f8f8;
-      }
-
-      &:before {
-        content: none;
-      }
-
-      & > div > div:first-child {
-        margin-top: 10px;
-      }
     }
   }
 }

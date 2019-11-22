@@ -175,10 +175,7 @@ button {
     }
   }
 
-  .btn--action-secondary {
-    height: 48px;
-    // width: 203px;
-    border-radius: 2px;
+  .btn.btn--action-secondary {
     background-color: $light;
 
     &:hover {

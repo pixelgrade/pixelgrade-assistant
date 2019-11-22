@@ -108,7 +108,7 @@ class WPOauth1ButtonContainer extends React.Component {
 					/>
 				</div>
 		} else if ( this.props.session.oauth_error === true ) {
-			return <span className="btn  btn--action btn--disabled box--error">{pixassist.themeConfig.authentication.loadingError}</span>
+			return <span className="btn  btn--action btn--disabled box--error">{_.get(pixassist, 'themeConfig.authentication.loadingError', '')}</span>
 		} else if (!_.get( this.props.session, 'connect_url', false)) {
 			return <a className="btn  btn--action btn--disabled">{ this.config.loadingPrepare }</a>
 		} else {

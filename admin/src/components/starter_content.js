@@ -4,6 +4,8 @@ import PropTypes from 'prop-types';
 import 'whatwg-fetch'; // Required for browser compatibility.
 import Helpers from '../helpers';
 import ProgressBar from "./ProgressBar/ProgressBar";
+import Radio from '@material-ui/core/Radio';
+import TextField from '@material-ui/core/TextField';
 import _ from 'lodash';
 
 const mapStateToProps = (state) => {
@@ -71,6 +73,15 @@ const mapDispatchToProps = (dispatch) => {
 		onStarterContentFinished: () => {
 			dispatch({ type: 'STARTER_CONTENT_DONE' })
 		},
+		onStarterContentErrored: () => {
+			dispatch({ type: 'STARTER_CONTENT_ERRORED' })
+		},
+		onStarterContentStop: () => {
+			dispatch({ type: 'STARTER_CONTENT_STOP' })
+		},
+		onStarterContentResume: () => {
+			dispatch({ type: 'STARTER_CONTENT_RESUME' })
+		},
 	}
 };
 
@@ -87,8 +98,6 @@ class StarterContentContainer extends React.Component {
 		}
 	}
 
-	imported = null;
-
 	constructor(props) {
 		// this makes the this
 		super(props);
@@ -101,23 +110,27 @@ class StarterContentContainer extends React.Component {
 		// we need a callback queue system in order to execute the import in subsequent steps
 		this.queue = new Helpers.Queue;
 
-		// There may be some imported data, and if it is, this var will hold it
-		this.imported = _.extend({media: {}}, pixassist.themeMod.starterContent);
-
 		this.state = {
+			demos: this.standardizeDemos(_.get(pixassist, 'themeConfig.starterContent.demos', [])),
 			importing: false,
-			demoClass: 'box--neutral box--plugin-invalidated',
+			demoClass: 'box--neutral',
+			log: [],
 		}
 
-		if (_.size(_.get(pixassist, 'themeConfig.starterContent.demos', []))) {
-			// @todo Currently we only support a single demo :(
-			let firstFoundDemo = Helpers.getFirstItem(_.get(pixassist, 'themeConfig.starterContent.demos', [])); // the selected demo from where we will import
-			this.state.value = firstFoundDemo.url;
-			this.state.title = _.get(firstFoundDemo, 'title', pixassist.themeSupports.theme_name + ' Demo Content');
-			this.state.description = _.get(firstFoundDemo, 'description', 'Import the content from the theme demo.');
+		if (_.size(this.state.demos)) {
+			// First, we want to sort demos by their order, ascending.
+			let sortedDemoKeys = this.sortDemoKeys(Object.keys(this.state.demos));
+
+			// By default, the first demo is selected.
+			this.state.selectedDemoKey = sortedDemoKeys[0];
 		}
 
+		this.handleDemoSelect = this.handleDemoSelect.bind(this);
+		this.sortDemoKeys = this.sortDemoKeys.bind(this);
 		this.onImportClick = this.onImportClick.bind(this);
+		this.onImportStopClick = this.onImportStopClick.bind(this);
+		this.addLogEntry = this.addLogEntry.bind(this);
+		this.handleFetchErrors = this.handleFetchErrors.bind(this);
 
 		this.importMedia = this.importMedia.bind(this);
 		this.importPosts = this.importPosts.bind(this);
@@ -125,43 +138,170 @@ class StarterContentContainer extends React.Component {
 		this.importWidgets = this.importWidgets.bind(this);
 		this.importPreSettings = this.importPreSettings.bind(this);
 		this.importPostSettings = this.importPostSettings.bind(this);
-		this.updateCurrentDemo = this.updateCurrentDemo.bind(this);
+		this.setupDemosFromLocalized = this.setupDemosFromLocalized.bind(this);
+
+		// A reference to the DOM element of the log.
+		this.logInput = React.createRef();
 	}
 
 	render() {
-		let component = this;
+		let component = this,
+			demos = component.state.demos;
 
-		if (!_.size(_.get(component.props.session, 'themeConfig.starterContent.demos', []))) {
-			return <div className="box box--neutral">{Helpers.decodeHtml(_.get(pixassist, 'themeConfig.starterContent.l10n.noSources', ''))}</div>;
+		if (!_.size(demos)) {
+			return <div className="box demo box--neutral">{Helpers.decodeHtml(_.get(pixassist, 'themeConfig.starterContent.l10n.noSources', ''))}</div>;
 		}
 
-		let installingClass = 'box plugin';
+		let sortedDemoKeys = component.sortDemoKeys(Object.keys(demos));
+
+		// If we have only one demo, are importing, or have finished importing, we will only show the selected demo, not the whole list.
+		if ( _.size(demos) === 1 || component.props.session.is_sc_installing || component.props.session.is_sc_done ) {
+			let installingClass = 'box demo',
+				progressTitle = demos[component.state.selectedDemoKey].title,
+				description = component.state.description || demos[component.state.selectedDemoKey].description;
 
 		installingClass += '  ' + component.state.demoClass;
 
-		let description = _.get(component, 'state.description', Helpers.decodeHtml(_.get(pixassist, 'themeConfig.starterContent.l10n.importContentDescription', '')) );
+			let logValue = _.join(component.state.log, "\n");
 
-		// if ( component.props.session.is_sc_installing ) {
-		// 	installingClass = 'box plugin box--plugin-invalidated box--plugin-installing';
-		// }
-		//
-		// if ( component.props.session.is_sc_done ) {
-		// 	installingClass = 'box plugin box--plugin-validated';
-		// }
-
-		// Set the title for the progressBar
-		let progressTitle = _.get(component, 'state.title', Helpers.replaceParams(Helpers.decodeHtml(_.get(pixassist, 'themeConfig.starterContent.l10n.importContentDescription', ''))));
-		const output = <div>
+			return (
+				<div className="demos starter_content single-item">
 			<ProgressBar installingClass={installingClass} title={progressTitle} description={description} />
-			{ component.props.enable_actions
-				? <a className="btn btn--action import--action " href="#" disabled={ component.state.importing || component.props.session.is_sc_done } onClick={this.onImportClick}>
-					{component.props.session.is_sc_done ? Helpers.decodeHtml(_.get(pixassist, 'themeConfig.starterContent.l10n.imported', '')) : Helpers.decodeHtml(_.get(pixassist, 'themeConfig.starterContent.l10n.import', '')) }
+					{ logValue
+						? <TextField
+							id="outlined-textarea"
+							label="Log"
+							multiline
+							rows="2"
+							rowsMax="4"
+							value={logValue}
+							className="starter-content-log"
+							margin="normal"
+							variant="outlined"
+							InputProps={{
+								readOnly: true,
+							}}
+							inputRef={this.logInput}
+						/> : ''
+					}
+					{ component.props.enable_actions && ! (component.props.session.is_sc_errored || component.props.session.is_sc_installing || component.props.session.is_sc_done)
+						? <a className="btn btn--action import--action " href="#" disabled={ component.props.session.is_sc_installing || component.props.session.is_sc_done } onClick={this.onImportClick}>
+							{component.props.session.is_sc_done ? Helpers.decodeHtml(_.get(pixassist, 'themeConfig.starterContent.l10n.imported', '')) : Helpers.decodeHtml(_.get(pixassist, 'themeConfig.starterContent.l10n.import', '')) }
 				</a>
 				: <a className="btn btn--action import--action" style={{display: 'none'}} onClick={this.onImportClick}></a>
 			}
-		</div>;
+					{ component.props.enable_actions && component.props.session.is_sc_installing
+						? <a className="btn btn--action btn--action-secondary import-stop--action" href="#" onClick={this.onImportStopClick}>
+							{component.props.session.is_sc_stopped ? Helpers.decodeHtml(_.get(pixassist, 'themeConfig.starterContent.l10n.resume', '')) : Helpers.decodeHtml(_.get(pixassist, 'themeConfig.starterContent.l10n.stop', '')) }
+						</a>
+						: ''
+					}
+				</div>
+			)
+		}
 
-		return (output);
+		// By default, we show a list of radio button with all the available demos.
+		return (
+			<div className="demos starter_content">
+				{sortedDemoKeys.map(function (demoKey) {
+					let demo = demos[demoKey],
+						is_selected = ( demoKey === component.state.selectedDemoKey ),
+						boxClasses = "demo  box box--neutral";
+
+					return (
+						<div
+							className={boxClasses}
+							key={demoKey}
+							onClick={component.handleDemoSelect(demoKey)}
+						>
+							<Radio
+								checked={is_selected}
+								onChange={component.handleDemoSelect}
+								value={demoKey}
+								name={component.props.name}
+								disabled={!is_selected}
+								color="primary"
+							/>
+							<div className="box__body">
+								<h5 className="box__title">{demo.title}</h5>
+								<div className="box__text">
+									{ is_selected
+										? component.state.description || demo.description
+										: demo.description }
+								</div>
+							</div>
+							<a href={demo.url} className="external-link" title="Go to source site" target="_blank"><span className="dashicons dashicons-external"></span></a>
+						</div>
+					)
+				})}
+				{ component.props.enable_actions
+					? <a className="btn btn--action import--action " href="#" onClick={this.onImportClick}>
+						{Helpers.decodeHtml(_.get(pixassist, 'themeConfig.starterContent.l10n.importSelected', '')) }
+					</a> : <a className="btn btn--action import--action" style={{display: 'none'}} onClick={this.onImportClick}></a>
+				}
+			</div>
+		)
+	}
+
+	handleDemoSelect = demoKey => event => {
+		let component = this;
+
+		if ( !_.isNil(demoKey) ) {
+			component.setState({selectedDemoKey: demoKey});
+		} else {
+			component.setState({selectedDemoKey: event.target.value});
+		}
+
+	};
+
+	standardizeDemos( demos ) {
+		Object.keys(demos).map(function(key){
+			if ( _.isNil( demos[key].url ) ) {
+				// We need to have a URL.
+				demos.splice(key, 1);
+			} else {
+				// We want the URL to be trailingslashed
+				demos[key].url = Helpers.trailingslashit( demos[key].url );
+			}
+
+			if ( _.isNil( demos[key].baseRestUrl ) ) {
+				demos[key].baseRestUrl = demos[key].url + _.get(pixassist, 'themeConfig.starterContent.defaultSceRestPath', 'wp-json/sce/v2');
+			}
+
+			if ( _.isNil( demos[key].order ) ) {
+				demos[key].order = 10;
+			} else {
+				demos[key].order = _.toNumber( demos[key].order );
+			}
+
+			if ( _.isNil( demos[key].title ) ) {
+				demos[key].title = _.get(pixassist, 'themeSupports.theme_name', '') + ' Demo Content';
+			}
+
+			if ( _.isNil( demos[key].description ) ) {
+				demos[key].description = Helpers.decodeHtml(_.get(pixassist, 'themeConfig.starterContent.l10n.importContentDescription', ''));
+			}
+		})
+
+		return demos;
+	}
+
+	sortDemoKeys( demoKeys ) {
+		let component = this;
+
+		demoKeys.sort( function( a, b ) {
+			if ( component.state.demos[a].order < component.state.demos[b].order ) {
+				return -1;
+			}
+
+			if ( component.state.demos[a].order > component.state.demos[b].order ) {
+				return 1;
+			}
+
+			return 0;
+		} )
+
+		return demoKeys;
 	}
 
 	// @todo This is a deprecated component function and we should find a way to not use it.
@@ -176,68 +316,104 @@ class StarterContentContainer extends React.Component {
 		let component = this;
 
 		// add an event listener for the localized pixassist data change
-		window.addEventListener('localizedChanged', component.updateCurrentDemo);
+		window.addEventListener('localizedChanged', component.setupDemosFromLocalized);
 	}
 
 	componentWillUnmount() {
 		let component = this;
 
-		window.removeEventListener( 'localizedChanged', component.updateCurrentDemo )
+		window.removeEventListener( 'localizedChanged', component.setupDemosFromLocalized )
 	}
 
-	updateCurrentDemo(event){
+	componentDidUpdate() {
 		let component = this;
 
-		if (_.size(_.get(pixassist, 'themeConfig.starterContent.demos', []))) {
-			let firstFoundDemo = Helpers.getFirstItem(_.get(pixassist, 'themeConfig.starterContent.demos', [])); // the selected demo from where we will import
+		if ( !_.isNil(component.logInput.current) ) {
+			// Make sure that the log textarea field is always scrolled to the bottom.
+			component.logInput.current.scrollTop = component.logInput.current.scrollHeight;
+		}
+	}
+
+	setupDemosFromLocalized(event){
+		let component = this,
+			demos = component.standardizeDemos(_.get(pixassist, 'themeConfig.starterContent.demos', []));
+
+		if (_.size(demos)) {
+			// First, we want to sort demos by their order, ascending.
+			let sortedDemoKeys = component.sortDemoKeys(Object.keys(demos));
+
 			component.setState({
-				value: firstFoundDemo.url,
-				title: _.get(firstFoundDemo, 'title', pixassist.themeSupports.theme_name + ' Demo Content'),
-				description: _.get(firstFoundDemo, 'description', 'Import the content from the theme demo.')
+				demos: demos,
+				selectedDemoKey: sortedDemoKeys[0],
+				demoClass: 'box--neutral',
 			});
 		}
 	}
 
-	onChange = (e) => {
-		this.setState({value: e.target.value});
-	};
+	handleFetchErrors(response) {
+		if (response.ok) {
+			return response
+		} else {
+			let error = new Error(response.status);
+			error.response = response;
+			error.message = 'status ' + response.status + '; type ' + response.type;
+			throw error;
+		}
+	}
+
+	addLogEntry( message ) {
+		let component = this;
+
+		if ( !message ) {
+			return;
+		}
+
+		component.setState({ log: component.state.log.concat(message)});
+	}
 
 	onImportClick(e) {
-		var component = this;
+		let component = this;
 		e.preventDefault();
 
-		if ( component.state.importing ) {
-			console.log(component.state.importing);
+		if (component.props.session.is_sc_installing || component.props.session.is_sc_done) {
 			return false;
 		}
 
 		component.props.onMove();
 
-		if ( component.sceKeyExists('pre_settings') ) {
+		// Trigger a starter_content_installing action
+		component.props.onStarterContentInstalling();
+
+		if ( component.sceKeyExists(component.state.selectedDemoKey, 'pre_settings') ) {
 			var sure = confirm(Helpers.decodeHtml(_.get(pixassist, 'themeConfig.starterContent.l10n.alreadyImportedConfirm', '')));
 			if ( ! sure ) {
 				component.props.onReady();
-				component.setState({ importing: false, demoClass: 'box--plugin-validated', description: Helpers.decodeHtml(_.get(pixassist, 'themeConfig.starterContent.l10n.alreadyImportedDenied', ''))});
+				component.setState({ demoClass: 'box--plugin-validated', description: Helpers.decodeHtml(_.get(pixassist, 'themeConfig.starterContent.l10n.alreadyImportedDenied', ''))});
+				// Trigger a finished importing starter content action
+				component.props.onStarterContentFinished();
 				return false;
 			}
 		}
 
-		// Trigger a starter_content_installing action
-		component.props.onStarterContentInstalling();
-
 		// Enable the import animation
-		component.setState({ importing: true, demoClass: 'box--plugin-invalidated box--plugin-installing', description: Helpers.decodeHtml(_.get(pixassist, 'themeConfig.starterContent.l10n.importingData', ''))});
+		component.setState({demoClass: 'box--plugin-invalidated box--plugin-installing', description: Helpers.decodeHtml(_.get(pixassist, 'themeConfig.starterContent.l10n.importingData', ''))});
+
+		// Log
+		component.addLogEntry('Starting the import of starter content from: ' + component.state.demos[component.state.selectedDemoKey].url );
 
 		// First we need to get the available data from the remote server
+		let dataUrl = Helpers.trailingslashit( component.state.demos[component.state.selectedDemoKey].baseRestUrl ) + 'data';
 		// @todo Should use a more standard helper for this one
-		fetch(component.state.value + "/wp-json/sce/v2/data", { method: 'GET'})
-			.then( component.checkStatus )
+		fetch(dataUrl, { method: 'GET'})
+			.then( component.handleFetchErrors )
 			.then((response) => {
 				return response.json()
 			})
 			.then((config) => {
 				if ( config.code !== 'success' ) {
-					component.setState({ importing: false, demoClass: 'box--error', description: Helpers.decodeHtml(_.get(pixassist, 'themeConfig.starterContent.l10n.somethingWrong', ''))+"\n"+config.message });
+					component.setState({demoClass: 'box--error', description: Helpers.decodeHtml(_.get(pixassist, 'themeConfig.starterContent.l10n.somethingWrong', ''))+"\n"+config.message });
+					component.props.onStarterContentErrored();
+					component.props.onReady();
 				} else {
 					/**
 					 * Now that we have the available data, let's import it in a few steps
@@ -277,30 +453,46 @@ class StarterContentContainer extends React.Component {
 			})
 			.catch(function(ex) {
 				console.log( ex );
-				component.setState({ importing: false, demoClass: 'box--error', description: Helpers.decodeHtml(_.get(pixassist, 'themeConfig.starterContent.l10n.errorMessage', '')) });
+				component.addLogEntry( 'Error: ' + ex.message );
+				component.setState({demoClass: 'box--error', description: Helpers.decodeHtml(_.get(pixassist, 'themeConfig.starterContent.l10n.errorMessage', '')) });
+				component.props.onStarterContentErrored();
+				component.props.onReady();
 			})
 	}
 
+	onImportStopClick(e) {
+		let component = this;
+		e.preventDefault();
+
+		if ( component.props.session.is_sc_stopped ) {
+			component.queue.stop = false;
+			component.queue.next();
+
+			component.addLogEntry('Import resumed.');
+
+			// Trigger a starter_content_resume action
+			component.props.onStarterContentResume();
+		} else {
+			component.queue.stop = true;
+
+			component.setState({description: Helpers.decodeHtml(_.get(pixassist, 'themeConfig.starterContent.l10n.stoppedMessage', '')) });
+			component.addLogEntry('Import stopped.');
+
+			// Trigger a starter_content_stop action
+			component.props.onStarterContentStop();
+		}
+	}
+
 	importMedia(data) {
-		var component = this;
+		let component = this;
 
 		// no placeholders, no fun
 		if ( _.isEmpty(data.placeholders) ) {
+			component.addLogEntry('Missing media placeholders data. Skipping media import...');
 			return;
 		}
 
-		// No cache for now. We will just overwrite the existing ones imported by us.
-
-		// maybe they are cached?
-		// if ( component.hasPlaceholders() ) {
-		// 	Helpers.pushNotification({
-		// 		notice_id: 'sce-media-exists',
-		// 		title: Helpers.decodeHtml(_.get(pixassist, 'themeConfig.starterContent.l10n.mediaAlreadyExistsTitle', '')),
-		// 		content: Helpers.decodeHtml(_.get(pixassist, 'themeConfig.starterContent.l10n.mediaAlreadyExistsContent', '')),
-		// 		type: 'info',
-		// 	});
-		// 	return;
-		// }
+		let mediaUrl = Helpers.trailingslashit( component.state.demos[component.state.selectedDemoKey].baseRestUrl ) + 'media';
 
 		{Object.keys(data).map(function (group_i) {
 			var group = data[group_i];
@@ -309,26 +501,23 @@ class StarterContentContainer extends React.Component {
 				return;
 			}
 
-			if (_.isUndefined(component.imported.media[group_i])) {
-				component.imported.media[group_i] = {}
-			}
-
 			{Object.keys(group).map(function (i) {
 				component.queue.add(function () {
 					var attach_id = group[i];
 
-					fetch(component.state.value + "/wp-json/sce/v2/media?id=" + attach_id, {method: 'GET'})
+					fetch(mediaUrl + "?id=" + attach_id, {method: 'GET'})
+						.then( component.handleFetchErrors )
 						.then((response) => {
 							return response.json()
 						})
 						.then((attachment) => {
 							if ( attachment.code !== 'success' ) {
-								console.log('Failed to get media with id '+ attach_id + ' (error message: '+attachment.message+'). Continuing...');
+								component.addLogEntry('Failed to get media with id '+ attach_id + ' (error message: '+attachment.message+'). Continuing...');
 								component.queue.next();
 							} else {
 
 								if ( !attachment.data.media.title || !attachment.data.media.ext || !attachment.data.media.mime_type ) {
-									console.log('Got back malformed data for media with id '+ attach_id + '. Continuing...');
+									component.addLogEntry('Got back malformed data for media with id '+ attach_id + '. Continuing...');
 									component.queue.next();
 									return;
 								}
@@ -337,6 +526,7 @@ class StarterContentContainer extends React.Component {
 									pixassist.wpRest.endpoint.uploadMedia.url,
 									pixassist.wpRest.endpoint.uploadMedia.method,
 									{
+										demo_key: component.state.selectedDemoKey,
 										title: attachment.data.media.title,
 										remote_id: attach_id,
 										file_data: attachment.data.media.data,
@@ -345,14 +535,16 @@ class StarterContentContainer extends React.Component {
 									},
 									function (response) {
 										if ( !_.isUndefined( response.code ) && 'success' === response.code) {
-											component.imported.media[group_i][attach_id] = response.data.attachmentID;
+											component.addLogEntry('Imported media "' + attachment.data.media.title + '.' + attachment.data.media.ext + '" (#' + response.data.attachmentID + ').');
 										} else {
+											component.addLogEntry('Failed to import media "' + attachment.data.media.title + '.' + attachment.data.media.ext + '". Response: ' + response.responseText );
 											console.log(response);
 										}
 
 										component.queue.next();
 									},
 									function (err) {
+										component.addLogEntry('Failed to import media "' + attachment.data.media.title + '.' + attachment.data.media.ext + '". Response: ' + err.responseText );
 										console.log(err);
 										component.queue.next();
 									},
@@ -375,23 +567,19 @@ class StarterContentContainer extends React.Component {
 		var component = this;
 
 		if (_.isEmpty(data)) {
-			console.log('No data in posts');
+			component.addLogEntry('No data for posts. Continuing...');
 			return;
 		}
 
-		if (component.sceKeyExists('posts')) {
-			console.log('Posts exists');
-			Helpers.pushNotification({
-				notice_id: 'sce-posts-exists',
-				title: Helpers.decodeHtml(_.get(pixassist, 'themeConfig.starterContent.l10n.postsAlreadyExistTitle', '')),
-				content: Helpers.decodeHtml(_.get(pixassist, 'themeConfig.starterContent.l10n.postAlreadyExistsContent', '')),
-				type: 'info',
-			});
+		if (component.sceKeyExists(component.state.selectedDemoKey, 'posts')) {
+			component.addLogEntry('Posts already imported. Continuing...');
 			return;
 		}
 
 		// We order the post types by priority ascending
 		data = _.sortBy(data, 'priority');
+
+		let baseUrl = Helpers.trailingslashit( component.state.demos[component.state.selectedDemoKey].baseRestUrl );
 
 		_.map(data, function (entry, key) {
 			var post_type = entry.name,
@@ -410,17 +598,20 @@ class StarterContentContainer extends React.Component {
 					pixassist.wpRest.endpoint.import.url,
 					pixassist.wpRest.endpoint.import.method,
 					{
-						type: "post_type",
-						url: component.state.value,
+						demo_key: component.state.selectedDemoKey,
+						type: 'post_type',
+						url: baseUrl,
 						args: args,
 					},
 					function (response) { // success callback
 						console.log(response);
+						component.addLogEntry('Imported post type "' + entry.name + '" (' + _.size(entry.ids) + ' posts).');
 						// @todo we should properly handle the response code
 						component.queue.next();
 					},
 					function (err) {// error callback
 						console.log(err);
+						component.addLogEntry('Failed to import post type "' + entry.name + '". Response: ' + err.responseText );
 						component.queue.next();
 					},
 					function (xhr) { // beforeSendCallback
@@ -437,24 +628,19 @@ class StarterContentContainer extends React.Component {
 		var component = this;
 
 		if (_.isEmpty(data)) {
-			console.log('No data in taxonomies');
+			component.addLogEntry('No data for taxonomies. Continuing...');
 			return;
 		}
 
-		if (component.sceKeyExists('terms')) {
-
-			Helpers.pushNotification({
-				notice_id: 'sce-terms-exists',
-				title: Helpers.decodeHtml(_.get(pixassist, 'themeConfig.starterContent.l10n.taxonomiesAlreadyExistTitle', '')),
-				content: Helpers.decodeHtml(_.get(pixassist, 'themeConfig.starterContent.l10n.taxonomiesAlreadyExistContent', '')),
-				type: 'info',
-			});
-			console.log('Terms exists');
+		if (component.sceKeyExists(component.state.selectedDemoKey, 'terms')) {
+			component.addLogEntry('Taxonomies terms already imported. Continuing...');
 			return;
 		}
 
 		// We order the taxonomies by priority ascending
 		data = _.sortBy(data, 'priority');
+
+		let baseUrl = Helpers.trailingslashit( component.state.demos[component.state.selectedDemoKey].baseRestUrl );
 
 		_.map(data, function (entry, key) {
 			var tax = entry.name,
@@ -473,16 +659,19 @@ class StarterContentContainer extends React.Component {
 					pixassist.wpRest.endpoint.import.url,
 					pixassist.wpRest.endpoint.import.method,
 					{
-						type: "taxonomy",
-						url: component.state.value,
+						demo_key: component.state.selectedDemoKey,
+						type: 'taxonomy',
+						url: baseUrl,
 						args: args
 					},
 					function (response) {
 						console.log(response);
+						component.addLogEntry('Imported taxonomy "' + tax + '" (' + _.size(entry.ids) + ' terms).');
 						component.queue.next();
 					},
 					function (err) {
 						console.log(err);
+						component.addLogEntry('Failed to import taxonomy "' + tax + '". Response: ' + err.responseText );
 						component.queue.next();
 					},
 					function (xhr) {
@@ -503,26 +692,21 @@ class StarterContentContainer extends React.Component {
 		 * We use the "parsed_type" import that will request the widgets from the demo
 		 */
 
-		if (component.sceKeyExists('widgets')) {
-			console.log('Widgets exists');
-
-			Helpers.pushNotification({
-				notice_id: 'sce-widgets-exists',
-				title: Helpers.decodeHtml(_.get(pixassist, 'themeConfig.starterContent.l10n.widgetsAlreadyExistTitle', '')),
-				content: Helpers.decodeHtml(_.get(pixassist, 'themeConfig.starterContent.l10n.widgetsAlreadyExistContent', '')),
-				type: 'info',
-			});
-
+		if (component.sceKeyExists(component.state.selectedDemoKey, 'widgets')) {
+			component.addLogEntry('Widgets already imported. Continuing...');
 			return;
 		}
+
+		let baseUrl = Helpers.trailingslashit( component.state.demos[component.state.selectedDemoKey].baseRestUrl );
 
 		component.queue.add(function () {
 			Helpers.$ajax(
 				pixassist.wpRest.endpoint.import.url,
 				pixassist.wpRest.endpoint.import.method,
 				{
+					demo_key: component.state.selectedDemoKey,
 					type: 'parsed_widgets',
-					url: component.state.value,
+					url: baseUrl,
 					args: {data: 'ok'}
 				},
 				function (response) {
@@ -531,6 +715,7 @@ class StarterContentContainer extends React.Component {
 				},
 				function (err) {
 					console.log(err);
+					component.addLogEntry('Failed to import widgets. Response: ' + err.responseText );
 					component.queue.next();
 				},
 				function (xhr) {
@@ -545,17 +730,18 @@ class StarterContentContainer extends React.Component {
 	}
 
 	importPreSettings(data) {
-		var component = this;
+		let component = this;
 
 		if (_.isEmpty(data)) {
-			console.log('No data in pre_settings');
+			component.addLogEntry('No data in pre_settings. Continuing...')
 			return;
 		}
 
-		if (component.sceKeyExists('pre_settings')) {
-			console.log('Pre options exists');
-			return;
+		if (component.sceKeyExists(component.state.selectedDemoKey, 'pre_settings')) {
+			component.addLogEntry('pre_settings already imported, but we will overwrite them.');
 		}
+
+		let baseUrl = Helpers.trailingslashit( component.state.demos[component.state.selectedDemoKey].baseRestUrl );
 
 		component.queue.add(function () {
 
@@ -563,16 +749,19 @@ class StarterContentContainer extends React.Component {
 				pixassist.wpRest.endpoint.import.url,
 				pixassist.wpRest.endpoint.import.method,
 				{
+					demo_key: component.state.selectedDemoKey,
 					type: "pre_settings",
-					url: component.state.value,
+					url: baseUrl,
 					args: {data: data},
 				},
 				function (response) {
 					console.log(response);
+					component.addLogEntry('Imported pre_settings.');
 					component.queue.next();
 				},
 				function (err) {
 					console.log(err);
+					component.addLogEntry('Failed to import pre_settings. Response: ' + err.responseText );
 					component.queue.next();
 				},
 				function (xhr) {
@@ -588,14 +777,12 @@ class StarterContentContainer extends React.Component {
 		var component = this;
 
 		if (_.isEmpty(data)) {
-			console.log('No data in post_settings');
+			component.addLogEntry('No data in post_settings. Continuing...');
 			return;
 		}
 
-		if (component.sceKeyExists('post_settings')) {
-			console.log('post_settings exists')
-			// component.props.onReady();
-			// return;
+		if (component.sceKeyExists(component.state.selectedDemoKey, 'post_settings')) {
+			console.log('post_settings already imported, but we will overwrite them.')
 		}
 
 		component.queue.add(function () {
@@ -621,51 +808,49 @@ class StarterContentContainer extends React.Component {
 			)
 		});
 
+		let baseUrl = Helpers.trailingslashit( component.state.demos[component.state.selectedDemoKey].baseRestUrl );
+
+		// This is the LAST STEP IN THE QUEUE!!!
 		// @todo We need to do a better job in handling when exactly the import was successful and when it wasn't
 		component.queue.add(function () {
 			Helpers.$ajax(
 				pixassist.wpRest.endpoint.import.url,
 				pixassist.wpRest.endpoint.import.method,
 				{
-					type: "post_settings",
-					url: component.state.value,
+					demo_key: component.state.selectedDemoKey,
+					type: 'post_settings',
+					url: baseUrl,
 					args: {data: data},
 				},
 				function (response) {
 					console.log(response);
+					component.addLogEntry('Imported post_settings.');
 
 					component.queue.next();
 					component.props.onReady();
-					component.setState({ importing: false, demoClass: 'box--plugin-validated', description: Helpers.decodeHtml(_.get(pixassist, 'themeConfig.starterContent.l10n.importSuccessful', ''))});
+					component.setState({demoClass: 'box--plugin-validated', description: Helpers.decodeHtml(_.get(pixassist, 'themeConfig.starterContent.l10n.importSuccessful', ''))});
+					component.addLogEntry('Finished!');
 					// Trigger a finished importing starter content action
 					component.props.onStarterContentFinished();
 				},
 				function (err) {
 					console.log(err);
-					component.setState({ importing: false, demoClass: 'box--warning', description: 'error'});
+					component.addLogEntry('Failed to post_settings. Response: ' + err.responseText );
+					component.setState({demoClass: 'box--warning', description: 'error'});
+					component.props.onStarterContentErrored();
+					component.props.onReady();
 					component.queue.next();
 				}
 			)
 		});
 	}
 
-	hasPlaceholders() {
-		return (this.sceKeyExists('media') && !_.isEmpty(pixassist.themeMod.starterContent.media.placeholders));
+	hasPlaceholders(demoKey) {
+		return !_.isEmpty(_.get(pixassist, 'themeMod.starterContent['+demoKey+'].media.placeholders', [] ));
 	}
 
-	sceKeyExists($key) {
-		return (!_.isUndefined(pixassist.themeMod.starterContent) && !_.isEmpty(pixassist.themeMod.starterContent[$key]));
-	}
-
-	checkStatus(response) {
-		if (response.status >= 200 && response.status < 300) {
-			return response
-		} else {
-			console.log( response.text() );
-			var error = new Error(response.statusText);
-			error.response = response;
-			throw error;
-		}
+	sceKeyExists(demoKey, key) {
+		return !!_.get(pixassist, 'themeMod.starterContent['+demoKey+']['+key+']', null);
 	}
 }
 

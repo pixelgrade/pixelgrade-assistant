@@ -126,19 +126,19 @@ class AuthenticatorContainer extends React.Component {
 			if (!this.props.session.hasOriginalDirName) {
 				Helpers.pushNotification({
 					notice_id: 'theme_directory_changed',
-					title: '😭 ' + Helpers.decodeHtml(pixassist.themeConfig.l10n.themeDirectoryChangedTitle),
-					content: Helpers.decodeHtml(pixassist.themeConfig.l10n.themeDirectoryChanged),
+						title: '😭 ' + Helpers.decodeHtml(_.get(pixassist, 'themeConfig.l10n.themeDirectoryChangedTitle', '')),
+						content: Helpers.decodeHtml(_.get(pixassist, 'themeConfig.l10n.themeDirectoryChanged', '')),
 					type: 'error',
 				});
 			}
 
 			// If the theme's name has been changed throw a notice
 			if (!this.props.session.hasOriginalStyleName) {
-				let content = pixassist.themeSupports.is_child ? pixassist.themeConfig.l10n.childThemeNameChanged : pixassist.themeConfig.l10n.themeNameChanged;
+					let content = pixassist.themeSupports.is_child ? _.get(pixassist, 'themeConfig.l10n.childThemeNameChanged', '') : _.get(pixassist, 'themeConfig.l10n.themeNameChanged', '');
 
 				Helpers.pushNotification({
 					notice_id: 'theme_name_changed',
-					title: '😱 ' + Helpers.decodeHtml(pixassist.themeConfig.l10n.themeNameChangedTitle),
+						title: '😱 ' + Helpers.decodeHtml(_.get(pixassist, 'themeConfig.l10n.themeNameChangedTitle', '')),
 					content: Helpers.decodeHtml(content),
 					type: 'error'
 				});
@@ -149,8 +149,8 @@ class AuthenticatorContainer extends React.Component {
 		if ( this.props.session.user.force_disconnected ) {
 			Helpers.pushNotification({
 				notice_id: 'connection_lost',
-				title: '🤷 👀 ' + Helpers.replaceParams(Helpers.decodeHtml(pixassist.themeConfig.l10n.connectionLostTitle)),
-				content: Helpers.replaceParams(Helpers.decodeHtml(pixassist.themeConfig.l10n.connectionLost)),
+				title: '🤷 👀 ' + Helpers.replaceParams(Helpers.decodeHtml(_.get(pixassist, 'themeConfig.l10n.connectionLostTitle', ''))),
+				content: Helpers.replaceParams(Helpers.decodeHtml(_.get(pixassist, 'themeConfig.l10n.connectionLost', ''))),
 				type: 'warning',
 			});
 		}
@@ -425,10 +425,10 @@ class AuthenticatorContainer extends React.Component {
 					// No licenses found for this user & theme. Nicely inform the user!
 					Helpers.pushNotification({
 						notice_id: 'no_licenses_found',
-						title: Helpers.decodeHtml(pixassist.themeConfig.l10n.validationErrorTitle),
+						title: Helpers.decodeHtml(_.get(pixassist, 'themeConfig.l10n.validationErrorTitle', '')),
 						content: Helpers.decodeHtml(component.config.noThemeLicense),
 						type: 'warning'
-					});
+					})
 				}
 			}, function (error) {
 				// Dispatch the no license action
@@ -438,7 +438,7 @@ class AuthenticatorContainer extends React.Component {
 				// // No licenses found for this user & theme. Nicely inform the user!
 				Helpers.pushNotification({
 					notice_id: 'no_licenses_found',
-					title: Helpers.decodeHtml(pixassist.themeConfig.l10n.validationErrorTitle),
+					title: Helpers.decodeHtml(_.get(pixassist, 'themeConfig.l10n.validationErrorTitle', '')),
 					content: Helpers.decodeHtml(component.config.noThemeLicense),
 					type: 'warning'
 				});
@@ -554,10 +554,10 @@ class AuthenticatorContainer extends React.Component {
 									// Active License & Update Available notification
 									Helpers.pushNotification({
 										notice_id: 'outdated_theme',
-										title: pixassist.themeConfig.l10n.themeUpdateAvailableTitle,
-										content: pixassist.themeConfig.l10n.themeUpdateAvailableContent,
+										title: _.get(pixassist, 'themeConfig.l10n.themeUpdateAvailableTitle', ''),
+										content: _.get(pixassist, 'themeConfig.l10n.themeUpdateAvailableContent', ''),
 										type: 'info',
-										ctaLabel: pixassist.themeConfig.l10n.themeUpdateButton,
+										ctaLabel: _.get(pixassist, 'themeConfig.l10n.themeUpdateButton', ''),
 										ctaAction: Helpers.clickUpdateTheme
 									});
 								}
@@ -614,8 +614,8 @@ class AuthenticatorContainer extends React.Component {
 			// This means that there is no product related to this hash ID. Nicely inform the user!
 			Helpers.pushNotification({
 				notice_id: 'hash_id_not_found',
-				title: Helpers.decodeHtml(pixassist.themeConfig.l10n.validationErrorTitle),
-				content: Helpers.decodeHtml(pixassist.themeConfig.l10n.hashidNotFoundNotice),
+				title: Helpers.decodeHtml(_.get(pixassist, 'themeConfig.l10n.validationErrorTitle', '')),
+				content: Helpers.decodeHtml(_.get(pixassist, 'themeConfig.l10n.hashidNotFoundNotice', '')),
 				type: 'error'
 			});
 
@@ -701,7 +701,7 @@ class AuthenticatorContainer extends React.Component {
 		// No licenses found for this user & theme
 		Helpers.pushNotification({
 			notice_id: 'undefined_error',
-			title: Helpers.decodeHtml(pixassist.themeConfig.l10n.validationErrorTitle),
+			title: Helpers.decodeHtml(_.get(pixassist, 'themeConfig.l10n.validationErrorTitle', '')),
 			content: message,
 			type: 'error'
 		});

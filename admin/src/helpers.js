@@ -57,7 +57,7 @@ const Helpers = (function (window) {
 	 * @param e
 	 */
 	const notify500Error = function (e) {
-		let link = pixassist.themeConfig.l10n.Error500Link;
+		let link = _.get(pixassist, 'themeConfig.l10n.Error500Link', '');
 
 		if (typeof e.status === "number") {
 			link += '#error_' + e.status
@@ -68,7 +68,7 @@ const Helpers = (function (window) {
 		pushNotification({
 			notice_id: '500_error',
 			title: 'We encountered a server problem',
-			content: pixassist.themeConfig.l10n.Error500Text,
+			content: _.get(pixassist, 'themeConfig.l10n.Error500Text', ''),
 			type: 'error',
 			ctaLabel: 'Find Solutions',
 			ctaLink: link
@@ -81,7 +81,7 @@ const Helpers = (function (window) {
 	 * @param e
 	 */
 	const notify400Error = function (e) {
-		let link = pixassist.themeConfig.l10n.Error400Link;
+		let link = _.get(pixassist, 'themeConfig.l10n.Error400Link', '');
 
 		if (typeof e.status === "number") {
 			link += '#error_' + e.status
@@ -92,7 +92,7 @@ const Helpers = (function (window) {
 		pushNotification({
 			notice_id: '400_error',
 			title: 'We encountered a server problem',
-			content: pixassist.themeConfig.l10n.Error400Text,
+			content: _.get(pixassist, 'themeConfig.l10n.Error400Text', ''),
 			type: 'error',
 			ctaLabel: 'Find Solutions',
 			ctaLink: link,
@@ -173,14 +173,14 @@ const Helpers = (function (window) {
 	const replaceParams = function (string) {
 
 		var replacers = {
-			"{{theme_name}}": pixassist.themeSupports.theme_name,
-			"{{username}}": pixassist.user.name, // This is the name of the current user, in this installation
+			"{{theme_name}}": _.get(pixassist, 'themeSupports.theme_name', 'Theme'),
+			"{{username}}": _.get(pixassist, 'user.name', 'Name'), // This is the name of the current user, in this installation
 			"{{shopdomain}}": pixassist.shopBaseDomain,
 		};
 
 		// Let's see if we have the display name of the customer from our shop
 		if ( ! _.isUndefined( pixassist.user.pixelgrade_display_name ) ) {
-			replacers["{{username}}"] = pixassist.user.pixelgrade_display_name;
+			replacers["{{username}}"] = _.get(pixassist, 'user.pixelgrade_display_name', 'Name');
 		}
 
 		var re = new RegExp(Object.keys(replacers).join("|"), "gi");
@@ -665,6 +665,10 @@ const Helpers = (function (window) {
 		return decode(encodedHtmlText);
 	}
 
+	const trailingslashit = function(url) {
+		return url + ( url.endsWith("/") ? "" : "/" );
+	}
+
 	return {
 		// notifications
 		pushNotification: pushNotification,
@@ -693,6 +697,7 @@ const Helpers = (function (window) {
 		compareVersion: compareVersion,
 		getFirstItem: getFirstItem,
 		decodeHtml: decodeHtml,
+		trailingslashit: trailingslashit,
 	};
 
 })(window);

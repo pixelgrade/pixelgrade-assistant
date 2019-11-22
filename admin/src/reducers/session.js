@@ -15,20 +15,15 @@ export const getDefaultState = () => {
 		is_next_button_disabled: false,
         hasOriginalDirName: false,
         hasOriginalStyleName: false,
-		hasPxgTheme: pixassist.themeSupports.hasPxgTheme, // this means that there is a Pixelgrade theme installed, not necessarily active
+		hasPxgTheme: _.get(pixassist, 'themeSupports.hasPxgTheme', false), // this means that there is a Pixelgrade theme installed, not necessarily active
 		themeName: _.get(pixassist,'themeSupports.theme_name', 'pixelgrade'),
 		themeTitle: _.get(pixassist,'themeSupports.theme_title', 'pixelgrade'),
 		themeId: _.get(pixassist, 'themeSupports.theme_id', ''),
 		themeType: _.get(pixassist,'themeSupports.theme_type', 'theme'),
 	};
 
-    if (pixassist.themeSupports.theme_integrity && pixassist.themeSupports.theme_integrity.has_original_directory) {
-        state.hasOriginalDirName = pixassist.themeSupports.theme_integrity.has_original_directory;
-    }
-
-    if (pixassist.themeSupports.theme_integrity && pixassist.themeSupports.theme_integrity.has_original_name) {
-        state.hasOriginalStyleName = pixassist.themeSupports.theme_integrity.has_original_name;
-    }
+	state.hasOriginalDirName = _.get(pixassist, 'themeSupports.theme_integrity.has_original_directory', false);
+	state.hasOriginalStyleName = _.get(pixassist, 'themeSupports.theme_integrity.has_original_name', false);
 
     if (!_.isUndefined(pixassist.themeSupports.original_slug)) {
     	state.originalSlug = pixassist.themeSupports.original_slug;
@@ -251,11 +246,28 @@ const session = ( state = getDefaultState(), action ) => {
 			return {...state, ...{
 					is_sc_installing: true,
 					is_sc_done: false,
+					is_sc_errored: false,
+					is_sc_stopped: false,
 				}};
 		case 'STARTER_CONTENT_DONE':
 			return {...state, ...{
 					is_sc_installing: false,
 					is_sc_done: true,
+					is_sc_errored: false,
+				}};
+		case 'STARTER_CONTENT_ERRORED':
+			return {...state, ...{
+					is_sc_installing: false,
+					is_sc_done: true,
+					is_sc_errored: true,
+				}};
+		case 'STARTER_CONTENT_STOP':
+			return {...state, ...{
+					is_sc_stopped: true,
+				}};
+		case 'STARTER_CONTENT_RESUME':
+			return {...state, ...{
+					is_sc_stopped: false,
 				}};
 		default:
 			return state;
