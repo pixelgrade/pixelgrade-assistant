@@ -38178,7 +38178,7 @@
 	      }, Helpers.decodeHtml(get_1(pixassist, 'themeConfig.l10n.setupWizardWelcomeContent', ''))), react.createElement("button", {
 	        className: "btn  btn--action  btn--large  btn--full",
 	        onClick: this.beginSetupWizard
-	      }, Helpers.decodeHtml(get_1(pixassist, 'themeConfig.l10n.setupWizardStartButonLabel', ''))))), react.createElement("div", {
+	      }, Helpers.decodeHtml(get_1(pixassist, 'themeConfig.l10n.setupWizardStartButtonLabel', ''))))), react.createElement("div", {
 	        className: "logo-pixelgrade"
 	      }));
 	    }

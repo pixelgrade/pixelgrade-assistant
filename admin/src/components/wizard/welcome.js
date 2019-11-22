@@ -26,7 +26,7 @@ class SetupWizardWelcome extends React.Component {
 				<div>
 					<h1 className="section__title">{Helpers.decodeHtml(_.get(pixassist, 'themeConfig.l10n.setupWizardWelcomeTitle', ''))}</h1>
 					<p className="section__content">{Helpers.decodeHtml(_.get(pixassist, 'themeConfig.l10n.setupWizardWelcomeContent', ''))}</p>
-					<button className="btn  btn--action  btn--large  btn--full" onClick={this.beginSetupWizard} >{Helpers.decodeHtml(_.get(pixassist, 'themeConfig.l10n.setupWizardStartButonLabel', ''))}</button>
+					<button className="btn  btn--action  btn--large  btn--full" onClick={this.beginSetupWizard} >{Helpers.decodeHtml(_.get(pixassist, 'themeConfig.l10n.setupWizardStartButtonLabel', ''))}</button>
 				</div>
 			</div>
 			<div className="logo-pixelgrade"></div>
