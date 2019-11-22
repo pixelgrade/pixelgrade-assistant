@@ -4,7 +4,7 @@ Tags: dashboard, support, pixelgrade, starter-content, demo-data, documentation
 Requires at least: 4.9.9
 Tested up to: 5.3.0
 Requires PHP: 5.4.0
-Stable tag: 1.2.1
+Stable tag: 1.3.0
 License: GPLv3.0
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -96,6 +96,12 @@ No. We are not tracking you or your site. We ask your permission to share with u
 6. Site setup wizard
 
 == Changelog ==
+
+= 1.3.0 =
+* Better starter content (aka demo data) management.
+* Added support for multiple starter content sources (if available).
+* Added starter content import logging field so you can see what is going on.
+* Minor styling and copy improvements.
 
 = 1.2.1 =
 * Fixed a couple of bugs related to the new recommended plugins management.
