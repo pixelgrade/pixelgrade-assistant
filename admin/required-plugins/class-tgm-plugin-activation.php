@@ -8,7 +8,7 @@
  * or theme author for support.
  *
  * @package   TGM-Plugin-Activation
- * @version   2.6.4 for Pixelgrade Care
+ * @version   2.6.5 for Pixelgrade Assistant
  * @link      http://tgmpluginactivation.com/
  * @author    Thomas Griffin, Gary Jones, Juliette Reinders Folmer
  * @copyright Copyright (c) 2011, Thomas Griffin
@@ -55,7 +55,7 @@ if ( ! class_exists( 'TGM_Plugin_Activation' ) ) {
 		 *
 		 * @const string Version number.
 		 */
-		const TGMPA_VERSION = '2.6.4'; // Version bump by Pixelgrade!!!
+		const TGMPA_VERSION = '2.6.5'; // Version bump by Pixelgrade!!!
 
 		/**
 		 * Regular expression to test if a URL is a WP plugin repo URL.
@@ -3526,29 +3526,29 @@ if ( ! function_exists( 'tgmpa_load_bulk_installer' ) ) {
 						if ( 'update' === $this->options['install_type'] ) {
 							parent::add_strings();
 							/* translators: 1: plugin name, 2: action number 3: total number of actions. */
-							$this->upgrader->strings['skin_before_update_header'] = esc_html__( 'Updating Plugin %1$s (%2$d/%3$d)', '__plugin_txtd' );
+							$this->upgrader->strings['skin_before_update_header'] = esc_html__( 'Updating Plugin %1$s (%2$d/%3$d)', '__theme_txtd' );
 						} else {
 							/* translators: 1: plugin name, 2: error message. */
-							$this->upgrader->strings['skin_update_failed_error'] = wp_kses( __( 'An error occurred while installing %1$s: <strong>%2$s</strong>.', '__plugin_txtd' ), wp_kses_allowed_html() );
+							$this->upgrader->strings['skin_update_failed_error'] = wp_kses( __( 'An error occurred while installing %1$s: <strong>%2$s</strong>.', '__theme_txtd' ), wp_kses_allowed_html() );
 							/* translators: 1: plugin name. */
-							$this->upgrader->strings['skin_update_failed'] = esc_html__( 'The installation of %1$s failed.', '__plugin_txtd' );
+							$this->upgrader->strings['skin_update_failed'] = esc_html__( 'The installation of %1$s failed.', '__theme_txtd' );
 
 							if ( $this->tgmpa->is_automatic ) {
 								// Automatic activation strings.
-								$this->upgrader->strings['skin_upgrade_start'] = esc_html__( 'The installation and activation process is starting. This process may take a while on some hosts, so please be patient.', '__plugin_txtd' );
+								$this->upgrader->strings['skin_upgrade_start'] = esc_html__( 'The installation and activation process is starting. This process may take a while on some hosts, so please be patient.', '__theme_txtd' );
 								/* translators: 1: plugin name. */
-								$this->upgrader->strings['skin_update_successful'] = esc_html__( '%1$s installed and activated successfully.', '__plugin_txtd' ) . ' <a href="#" class="hide-if-no-js" onclick="%2$s"><span>' . esc_html__( 'Show Details', '__plugin_txtd' ) . '</span><span class="hidden">' . esc_html__( 'Hide Details', '__plugin_txtd' ) . '</span>.</a>';
-								$this->upgrader->strings['skin_upgrade_end']       = esc_html__( 'All installations and activations have been completed.', '__plugin_txtd' );
+								$this->upgrader->strings['skin_update_successful'] = esc_html__( '%1$s installed and activated successfully.', '__theme_txtd' );
+								$this->upgrader->strings['skin_upgrade_end']       = esc_html__( 'All installations and activations have been completed.', '__theme_txtd' );
 								/* translators: 1: plugin name, 2: action number 3: total number of actions. */
-								$this->upgrader->strings['skin_before_update_header'] = esc_html__( 'Installing and Activating Plugin %1$s (%2$d/%3$d)', '__plugin_txtd' );
+								$this->upgrader->strings['skin_before_update_header'] = esc_html__( 'Installing and Activating Plugin %1$s (%2$d/%3$d)', '__theme_txtd' );
 							} else {
 								// Default installation strings.
-								$this->upgrader->strings['skin_upgrade_start'] = esc_html__( 'The installation process is starting. This process may take a while on some hosts, so please be patient.', '__plugin_txtd' );
+								$this->upgrader->strings['skin_upgrade_start'] = esc_html__( 'The installation process is starting. This process may take a while on some hosts, so please be patient.', '__theme_txtd' );
 								/* translators: 1: plugin name. */
-								$this->upgrader->strings['skin_update_successful'] = esc_html__( '%1$s installed successfully.', '__plugin_txtd' ) . ' <a href="#" class="hide-if-no-js" onclick="%2$s"><span>' . esc_html__( 'Show Details', '__plugin_txtd' ) . '</span><span class="hidden">' . esc_html__( 'Hide Details', '__plugin_txtd' ) . '</span>.</a>';
-								$this->upgrader->strings['skin_upgrade_end']       = esc_html__( 'All installations have been completed.', '__plugin_txtd' );
+								$this->upgrader->strings['skin_update_successful'] = esc_html__( '%1$s installed successfully.', '__theme_txtd' );
+								$this->upgrader->strings['skin_upgrade_end']       = esc_html__( 'All installations have been completed.', '__theme_txtd' );
 								/* translators: 1: plugin name, 2: action number 3: total number of actions. */
-								$this->upgrader->strings['skin_before_update_header'] = esc_html__( 'Installing Plugin %1$s (%2$d/%3$d)', '__plugin_txtd' );
+								$this->upgrader->strings['skin_before_update_header'] = esc_html__( 'Installing Plugin %1$s (%2$d/%3$d)', '__theme_txtd' );
 							}
 						}
 					}
