@@ -2024,7 +2024,7 @@ class PixelgradeAssistant_Admin {
                 <div class="notice notice-warning is-dismissible">
                     <h3><?php esc_html_e( 'New Theme Update is Available!', '__plugin_txtd' ); ?></h3>
                     <hr>
-                    <p><?php printf( wp_kses_post( __( 'Great news! A new theme update is available for your <strong>%s</strong> theme, version <strong>%s</strong>. To update go to your <a href="%s">Themes Dashboard</a>.', '__plugin_txtd' ) ), esc_html( $theme_name ), esc_html( $new_theme_version ), esc_url( admin_url( 'themes.php' ) ) ); ?></p>
+                    <p><?php printf( wp_kses_post( __( 'Great news! A new theme update is available for your <strong>%s</strong> theme, version <strong>%s</strong>. To update go to your <a href="%s">Theme Dashboard</a>.', '__plugin_txtd' ) ), esc_html( $theme_name ), esc_html( $new_theme_version['new_version'] ), esc_url( admin_url( 'admin.php?page=pixelgrade_assistant' ) ) ); ?></p>
                 </div>
                 <?php
             }
