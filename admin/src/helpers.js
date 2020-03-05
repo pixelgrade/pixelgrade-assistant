@@ -174,8 +174,11 @@ const Helpers = (function (window) {
 
 		var replacers = {
 			"{{theme_name}}": _.get(pixassist, 'themeSupports.theme_name', 'Theme'),
+			"{{stylecss_theme_name}}": _.get(pixassist, 'themeSupports.stylecss_theme_name', ''),
 			"{{theme_version}}": _.get(pixassist, 'themeSupports.theme_version', '0.0.1'),
 			"{{theme_id}}": _.get(pixassist, 'themeSupports.theme_id', ''),
+			"{{template}}": _.get(pixassist, 'themeSupports.template', ''),
+			"{{original_slug}}": _.get(pixassist, 'themeSupports.original_slug', ''),
 			"{{username}}": _.get(pixassist, 'user.name', 'Name'), // This is the name of the current user, in this installation
 			"{{shopdomain}}": pixassist.shopBaseDomain,
 		};

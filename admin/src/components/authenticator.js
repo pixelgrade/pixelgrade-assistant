@@ -149,8 +149,8 @@ class AuthenticatorContainer extends React.Component {
 		if ( this.props.session.user.force_disconnected ) {
 			Helpers.pushNotification({
 				notice_id: 'connection_lost',
-				title: '🤷 👀 ' + Helpers.replaceParams(Helpers.decodeHtml(_.get(pixassist, 'themeConfig.l10n.connectionLostTitle', ''))),
-				content: Helpers.replaceParams(Helpers.decodeHtml(_.get(pixassist, 'themeConfig.l10n.connectionLost', ''))),
+				title: '🤷 👀 ' + Helpers.decodeHtml(_.get(pixassist, 'themeConfig.l10n.connectionLostTitle', '')),
+				content: Helpers.decodeHtml(_.get(pixassist, 'themeConfig.l10n.connectionLost', '')),
 				type: 'warning',
 			});
 		}
@@ -208,7 +208,7 @@ class AuthenticatorContainer extends React.Component {
 					   dangerouslySetInnerHTML={{__html: componentDetails.notValidatedContent}}/>
 					<WPOauth1Button
 						onLogin={this.onLogin}
-						label={Helpers.replaceParams(Helpers.decodeHtml(pixassist.themeConfig.l10n.connectButtonLabel))}
+						label={Helpers.replaceParams(Helpers.decodeHtml(_.get(pixassist, 'themeConfig.l10n.connectButtonLabel', '')))}
 						ock={pixassist.themeSupports.ock} ocs={pixassist.themeSupports.ocs}
 						createErrorNotice={this.createErrorNotice} />
 				</div>
@@ -414,7 +414,7 @@ class AuthenticatorContainer extends React.Component {
 							title: Helpers.decodeHtml(pixassist.themeConfig.l10n.validationErrorTitle),
 							content: Helpers.decodeHtml(error_message),
 							type: 'warning'
-						});
+						})
 					}
 				} else {
 					// Finish with the loading
@@ -550,15 +550,17 @@ class AuthenticatorContainer extends React.Component {
 									notice_id: 'activation_error'
 								});
 
-								if (Helpers.compareVersion(_.get(pixassist, 'themeSupports.theme_version', '0.0.1'), _.get(pixassist, 'themeMod.themeNewVersion', '0.0.1') ) === -1) {
+								if (Helpers.compareVersion(_.get(pixassist, 'themeSupports.theme_version', '0.0.1'), _.get(pixassist, 'themeMod.themeNewVersion.new_version', '0.0.1') ) === -1) {
 									// Active License & Update Available notification
 									Helpers.pushNotification({
 										notice_id: 'outdated_theme',
-										title: _.get(pixassist, 'themeConfig.l10n.themeUpdateAvailableTitle', ''),
-										content: _.get(pixassist, 'themeConfig.l10n.themeUpdateAvailableContent', ''),
+										title: Helpers.decodeHtml(_.get(pixassist, 'themeConfig.l10n.themeUpdateAvailableTitle', '')),
+										content: Helpers.decodeHtml(_.get(pixassist, 'themeConfig.l10n.themeUpdateAvailableContent', '')),
 										type: 'info',
-										ctaLabel: _.get(pixassist, 'themeConfig.l10n.themeUpdateButton', ''),
-										ctaAction: Helpers.clickUpdateTheme
+										ctaLabel: Helpers.decodeHtml(_.get(pixassist, 'themeConfig.l10n.themeUpdateButton', '')),
+										ctaAction: Helpers.clickUpdateTheme,
+										secondaryCtaLabel: pixassist.themeConfig.l10n.themeChangelogLink,
+										secondaryCtaLink: _.get(pixassist, 'themeMod.themeNewVersion.url', '#')
 									});
 								}
 

@@ -19,7 +19,7 @@ class SystemTables extends React.Component {
 	render() {
 		return <div>
 			{ _.size(_.get(pixassist, 'systemStatus.installation', [])) ?
-				<Table className="system-status-table">
+				<Table className="system-status-table" border={1}>
 					<TableHead className="table-head">
 						<TableRow>
 							<TableCell colSpan={4}>
@@ -33,7 +33,7 @@ class SystemTables extends React.Component {
 				</Table> : null }
 
 			{ _.size(_.get(pixassist, 'systemStatus.system', [])) ?
-				<Table className="system-status-table">
+				<Table className="system-status-table" border={1}>
 					<TableHead>
 						<TableRow>
 							<TableCell colSpan={6} style={{textAlign: 'center'}}>
@@ -47,7 +47,7 @@ class SystemTables extends React.Component {
 				</Table> : null }
 
 			{ _.size(_.get(pixassist, 'systemStatus.activePlugins', [])) ?
-				<Table className="system-status-table">
+				<Table className="system-status-table" border={1}>
 					<TableHead>
 						<TableRow>
 							<TableCell colSpan={6} style={{textAlign: 'center'}}>

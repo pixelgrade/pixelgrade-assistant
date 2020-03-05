@@ -847,6 +847,8 @@ class PixelgradeAssistant_Admin {
             $config['theme_name'] = $wupdates_theme_name;
 	        $config['theme_title'] = $wupdates_theme_name;
         }
+        // We will also remember this since there might be times when we wish to refer to how the theme is actually named in style.css.
+	    $config['stylecss_theme_name'] = $theme->get( 'Name' );
 
         if ( empty( $config['theme_uri'] ) ) {
             $config['theme_uri'] = $theme->get( 'ThemeURI' );
@@ -1115,6 +1117,7 @@ class PixelgradeAssistant_Admin {
         }
         // Check and update the user's license details
         self::update_theme_license_details();
+
         return $transient;
     }
 

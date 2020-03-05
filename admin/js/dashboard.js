@@ -24818,8 +24818,11 @@
 	  var replaceParams = function replaceParams(string) {
 	    var replacers = {
 	      "{{theme_name}}": get_1(pixassist, 'themeSupports.theme_name', 'Theme'),
+	      "{{stylecss_theme_name}}": get_1(pixassist, 'themeSupports.stylecss_theme_name', ''),
 	      "{{theme_version}}": get_1(pixassist, 'themeSupports.theme_version', '0.0.1'),
 	      "{{theme_id}}": get_1(pixassist, 'themeSupports.theme_id', ''),
+	      "{{template}}": get_1(pixassist, 'themeSupports.template', ''),
+	      "{{original_slug}}": get_1(pixassist, 'themeSupports.original_slug', ''),
 	      "{{username}}": get_1(pixassist, 'user.name', 'Name'),
 	      // This is the name of the current user, in this installation
 	      "{{shopdomain}}": pixassist.shopBaseDomain
@@ -28908,20 +28911,23 @@
 	    key: "render",
 	    value: function render() {
 	      return react.createElement("div", null, size_1(get_1(pixassist, 'systemStatus.installation', [])) ? react.createElement(Table$1, {
-	        className: "system-status-table"
+	        className: "system-status-table",
+	        border: 1
 	      }, react.createElement(TableHead$1, {
 	        className: "table-head"
 	      }, react.createElement(TableRow$1, null, react.createElement(TableCell$1, {
 	        colSpan: 4
 	      }, Helpers.decodeHtml(get_1(pixassist, 'themeConfig.systemStatus.l10n.tableWPDataTitle', ''))))), react.createElement(TableBody$1, null, this.props.installDataRows())) : null, size_1(get_1(pixassist, 'systemStatus.system', [])) ? react.createElement(Table$1, {
-	        className: "system-status-table"
+	        className: "system-status-table",
+	        border: 1
 	      }, react.createElement(TableHead$1, null, react.createElement(TableRow$1, null, react.createElement(TableCell$1, {
 	        colSpan: 6,
 	        style: {
 	          textAlign: 'center'
 	        }
 	      }, Helpers.decodeHtml(get_1(pixassist, 'themeConfig.systemStatus.l10n.tableSystemDataTitle', ''))))), react.createElement(TableBody$1, null, this.props.systemDataRows())) : null, size_1(get_1(pixassist, 'systemStatus.activePlugins', [])) ? react.createElement(Table$1, {
-	        className: "system-status-table"
+	        className: "system-status-table",
+	        border: 1
 	      }, react.createElement(TableHead$1, null, react.createElement(TableRow$1, null, react.createElement(TableCell$1, {
 	        colSpan: 6,
 	        style: {
@@ -30531,9 +30537,12 @@
 	        className: "box__body"
 	      }, react.createElement("h5", {
 	        className: "box__title"
-	      }, this.props.title), react.createElement("p", {
-	        className: "box__text"
-	      }, this.props.content)), this.props.secondaryCtaLabel && this.props.secondaryCtaLink ? react.createElement("div", {
+	      }, Helpers.replaceParams(this.props.title)), react.createElement("p", {
+	        className: "box__text",
+	        dangerouslySetInnerHTML: {
+	          __html: Helpers.replaceParams(this.props.content)
+	        }
+	      })), this.props.secondaryCtaLabel && this.props.secondaryCtaLink ? react.createElement("div", {
 	        className: "box__cta box__cta-secondary"
 	      }, react.createElement("a", {
 	        className: "btn  btn--text",
@@ -31957,8 +31966,8 @@
 	      if (_this.props.session.user.force_disconnected) {
 	        Helpers.pushNotification({
 	          notice_id: 'connection_lost',
-	          title: '🤷 👀 ' + Helpers.replaceParams(Helpers.decodeHtml(get_1(pixassist, 'themeConfig.l10n.connectionLostTitle', ''))),
-	          content: Helpers.replaceParams(Helpers.decodeHtml(get_1(pixassist, 'themeConfig.l10n.connectionLost', ''))),
+	          title: '🤷 👀 ' + Helpers.decodeHtml(get_1(pixassist, 'themeConfig.l10n.connectionLostTitle', '')),
+	          content: Helpers.decodeHtml(get_1(pixassist, 'themeConfig.l10n.connectionLost', '')),
 	          type: 'warning'
 	        });
 	      } // If we're in the setup wizard - render a slightly different page
@@ -32181,15 +32190,17 @@
 	                  notice_id: 'activation_error'
 	                });
 
-	                if (Helpers.compareVersion(get_1(pixassist, 'themeSupports.theme_version', '0.0.1'), get_1(pixassist, 'themeMod.themeNewVersion', '0.0.1')) === -1) {
+	                if (Helpers.compareVersion(get_1(pixassist, 'themeSupports.theme_version', '0.0.1'), get_1(pixassist, 'themeMod.themeNewVersion.new_version', '0.0.1')) === -1) {
 	                  // Active License & Update Available notification
 	                  Helpers.pushNotification({
 	                    notice_id: 'outdated_theme',
-	                    title: get_1(pixassist, 'themeConfig.l10n.themeUpdateAvailableTitle', ''),
-	                    content: get_1(pixassist, 'themeConfig.l10n.themeUpdateAvailableContent', ''),
+	                    title: Helpers.decodeHtml(get_1(pixassist, 'themeConfig.l10n.themeUpdateAvailableTitle', '')),
+	                    content: Helpers.decodeHtml(get_1(pixassist, 'themeConfig.l10n.themeUpdateAvailableContent', '')),
 	                    type: 'info',
-	                    ctaLabel: get_1(pixassist, 'themeConfig.l10n.themeUpdateButton', ''),
-	                    ctaAction: Helpers.clickUpdateTheme
+	                    ctaLabel: Helpers.decodeHtml(get_1(pixassist, 'themeConfig.l10n.themeUpdateButton', '')),
+	                    ctaAction: Helpers.clickUpdateTheme,
+	                    secondaryCtaLabel: pixassist.themeConfig.l10n.themeChangelogLink,
+	                    secondaryCtaLink: get_1(pixassist, 'themeMod.themeNewVersion.url', '#')
 	                  });
 	                } // Dispatch the loading finished
 
@@ -32345,7 +32356,7 @@
 	          }
 	        }), react.createElement(WPOauth1Button, {
 	          onLogin: this.onLogin,
-	          label: Helpers.replaceParams(Helpers.decodeHtml(pixassist.themeConfig.l10n.connectButtonLabel)),
+	          label: Helpers.replaceParams(Helpers.decodeHtml(get_1(pixassist, 'themeConfig.l10n.connectButtonLabel', ''))),
 	          ock: pixassist.themeSupports.ock,
 	          ocs: pixassist.themeSupports.ocs,
 	          createErrorNotice: this.createErrorNotice
