@@ -236,7 +236,7 @@ class PixelgradeAssistant_DataCollector {
 				'value'         => get_bloginfo( 'version' ),
 				'is_viewable'   => true,
 				'is_updateable' => $this->is_wp_updateable(),
-				'download_url'  => $wp_min['latest_wp_download'],
+				'download_url'  => empty( $wp_min['latest_wp_download'] ) ? '' : $wp_min['latest_wp_download'],
 			)
 		,
 			'web_server'             => array(
@@ -295,7 +295,7 @@ class PixelgradeAssistant_DataCollector {
 		// check if we have a new theme version on record
 		$new_theme_version     = get_theme_mod( 'pixassist_new_theme_version' );
 
-		if ( empty( $new_theme_version ) ) {
+		if ( empty( $new_theme_version['new_version'] ) ) {
 			return false;
 		}
 
@@ -309,7 +309,7 @@ class PixelgradeAssistant_DataCollector {
 		}
 
 		// if current theme version is different than the new theme version
-		if ( $new_theme_version != $current_theme_version && version_compare( $new_theme_version, $current_theme_version, '>' ) ) {
+		if ( $new_theme_version['new_version'] != $current_theme_version && version_compare( $new_theme_version['new_version'], $current_theme_version, '>' ) ) {
 			return true;
 		}
 
@@ -344,6 +344,9 @@ class PixelgradeAssistant_DataCollector {
 		}
 
 		$wp_min = self::get_core_supported_versions();
+		if ( empty( $wp_min['min_php_version'] ) ) {
+			return false;
+		}
 
 		if ( floatval( $php_version ) < floatval( $wp_min['min_php_version'] ) ) {
 			return true;
@@ -360,6 +363,9 @@ class PixelgradeAssistant_DataCollector {
 	 */
 	public function is_mysql_updateable( $current_version ) {
 		$wp_min = self::get_core_supported_versions();
+		if ( empty( $wp_min['min_mysql_version'] ) ) {
+			return false;
+		}
 
 		if ( floatval( $current_version ) < floatval( $wp_min['min_mysql_version'] ) ) {
 			return true;
@@ -388,7 +394,11 @@ class PixelgradeAssistant_DataCollector {
 			return $transient;
 		}
 
-		$url      = 'https://api.wordpress.org/core/version-check/1.7/';
+		$url      = 'http://api.wordpress.org/core/version-check/1.7/';
+		$ssl      = wp_http_supports( array( 'ssl' ) );
+		if ( $ssl ) {
+			$url = set_url_scheme( $url, 'https' );
+		}
 		$response = wp_remote_get( $url );
 
 		$body = wp_remote_retrieve_body( $response );
@@ -423,10 +433,11 @@ class PixelgradeAssistant_DataCollector {
 	private function get_core_supported_versions() {
 		$min_supportedversions = get_option( 'pixassist_wordpress_minimum_supported' );
 
-		if ( ! $min_supportedversions ) {
-			// delete the transient and get the values again
+		if ( empty( $min_supportedversions ) ) {
+			// delete the transient to force get the values again
 			delete_site_transient( 'update_themes' );
-			$min_supportedversions = get_option( 'pixassist_wordpress_minimum_supported' );
+
+			return array();
 		}
 
 		return $min_supportedversions;
