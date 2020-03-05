@@ -4,6 +4,7 @@ import { Provider } from 'react-redux';
 import Support from './components/support/dashboard'
 import { supportStore } from './reducers/support'
 import Helpers from './helpers'
+import _ from 'lodash';
 
 (function (window, $) {
 	// Expose this globally so we can use the helpers from other places (like from notifications).

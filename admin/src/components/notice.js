@@ -16,6 +16,9 @@ class Notice extends React.Component {
 			onDismiss: null,
 			ctaLabel: null,
 			ctaLink: null,
+			ctaAction: null,
+			secondaryCtaLabel: null,
+			secondaryCtaLink: null,
 			loading: false
 		}
 	}
@@ -40,6 +43,10 @@ class Notice extends React.Component {
 				<h5 className="box__title">{this.props.title}</h5>
 				<p className="box__text">{this.props.content}</p>
 			</div>
+			{ ( this.props.secondaryCtaLabel && this.props.secondaryCtaLink )
+				? <div className="box__cta box__cta-secondary">
+					<a className="btn  btn--text" href={this.props.secondaryCtaLink} target="_blank">{this.props.secondaryCtaLabel}</a>
+				</div> : null }
 			{ this.props.ctaLabel
 				? <div className="box__cta">
 					{ ( null === this.props.ctaLink ) // it could be a link or a button with callback
@@ -47,11 +54,9 @@ class Notice extends React.Component {
 						: <a className="btn  btn--small" id="pgc-update-button" href={link} target="_blank">{this.props.ctaLabel}</a> }
 				</div> : null }
 			{ this.props.loading
-				? <div className="box__cta">
+				? <div className="box__cta box__cta--loader">
 					<CircularProgress
 						size={40}
-						left={-20}
-						top={10}
 						variant='indeterminate'
 						color='primary'
 						style={{loader: {position: "relative"}}}
@@ -91,6 +96,8 @@ Notice.propTypes = {
 		ctaLabel: PropTypes.string,
 		ctaAction: PropTypes.func,
 		ctaLink: PropTypes.string,
+		secondaryCtaLabel: PropTypes.string,
+		secondaryCtaLink: PropTypes.string,
 }
 
 export default Notice;

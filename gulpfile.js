@@ -91,10 +91,10 @@ var watchify = require('watchify');
 var through = require('through2');
 var rollup = require('gulp-better-rollup');
 var babel = require('rollup-plugin-babel');
-var resolve = require('rollup-plugin-node-resolve');
-var commonjs = require('rollup-plugin-commonjs');
-var replace = require('rollup-plugin-replace');
-var json = require('rollup-plugin-json');
+var resolve = require('@rollup/plugin-node-resolve');
+var commonjs = require('@rollup/plugin-commonjs');
+var replace = require('@rollup/plugin-replace');
+var json = require('@rollup/plugin-json');
 
 function compileScriptsRollup(watch) {
 	return gulp.src(['./admin/src/dashboard.js', './admin/src/setup_wizard.js'])
@@ -122,11 +122,11 @@ function compileScriptsRollup(watch) {
 					],
 					browser: true,
 					namedExports: {
-						'node_modules/react-is/index.js': ['ForwardRef','isForwardRef','isValidElementType','isContextConsumer'],
+						'node_modules/react-is/index.js': ['ForwardRef','isForwardRef','isValidElementType','isContextConsumer', 'isFragment'],
 						'node_modules/react-redux/node_modules/react-is/index.js': ['ForwardRef','isForwardRef','isValidElementType','isContextConsumer'],
-						'react': ['isValidElement','Children','cloneElement','Component','useLayoutEffect',
-							'useEffect','useMemo','useContext','useReducer','useRef'],
-						'react-dom': ['findDOMNode','unstable_batchedUpdates'],
+						'react': ['isValidElement','Children','cloneElement','createElement','createContext','Component','forwardRef','Fragment','useLayoutEffect',
+							'useEffect','useMemo','useCallback','useContext','useImperativeHandle','useState','useReducer','useRef','memo'],
+						'react-dom': ['findDOMNode','unstable_batchedUpdates','createPortal'],
 						'prop-types': ['element','oneOfType','func','bool','elementType'],
 						'@material-ui/core/styles': ['createMuiTheme','MuiThemeProvider'],
 						'@material-ui/styles': ['withStyles'],
@@ -134,11 +134,11 @@ function compileScriptsRollup(watch) {
 				})
 			]
 		}, {
-			// Rollups `sourcemap` option is unsupported. Use `gulp-sourcemaps` plugin instead
+			// Rollup's `sourcemap` option is unsupported. Use `gulp-sourcemaps` plugin instead
 			format: 'iife',
-			globals: {
-				'lodash': '_',
-			}
+			// globals: {
+			// 	'lodash': '_',
+			// }
 		}))
 		// inlining the sourcemap into the exported .js file
 		.pipe(plugins.sourcemaps.write('./'))
@@ -155,7 +155,8 @@ function compile_support(watch) {
 	var bundler = browserify(
 		'./admin/src/support.js',
 		{
-			debug: options.sourceMaps ,
+			debug: options.sourceMaps,
+			fullPaths: false,
 		});
 
 	if ( !!u.env.production ) {
@@ -200,7 +201,7 @@ function compile_support(watch) {
 }
 
 function copyOtherScripts() {
-	return gulp.src('./admin/src/admin-notices.js')
+	return gulp.src(['./admin/src/admin-notices.js'])
 		.pipe(gulp.dest('./admin/js'));
 }
 gulp.task('copy_other_scripts', function() { return copyOtherScripts(); });
@@ -313,7 +314,7 @@ gulp.task( 'copy-folder', copyFolder );
 /**
  * Clean the folder of unneeded files and folders
  */
-function removeUnneededFiles() {
+function removeUnneededFiles( done ) {
 
 	// files that should not be present in build zip
 	var files_to_remove = [

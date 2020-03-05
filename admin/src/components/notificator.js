@@ -56,6 +56,9 @@ class Notificator extends Component {
 					ctaLabel={note.ctaLabel}
 					ctaAction={note.ctaAction}
 					ctaLink={note.ctaLink}
+
+					secondaryCtaLabel={note.secondaryCtaLabel}
+					secondaryCtaLink={note.secondaryCtaLink}
 				/>
 			})}
 		</div>
@@ -101,6 +104,14 @@ class Notificator extends Component {
 				note_params.ctaLink = data.ctaLink
 			}
 
+			if ( ! _.isUndefined( data.secondaryCtaLabel ) ) {
+				note_params.secondaryCtaLabel = data.secondaryCtaLabel
+			}
+
+			if ( ! _.isUndefined( data.secondaryCtaLink ) ) {
+				note_params.secondaryCtaLink = data.secondaryCtaLink
+			}
+
 			new_notes[data.notice_id] = note_params
 			comp.setNotes( new_notes );
 		}, false);
@@ -139,6 +150,25 @@ class Notificator extends Component {
 
 			if ( ! _.isUndefined( data.ctaLink ) ) {
 				note_params.ctaLink = data.ctaLink
+			}
+
+			if ( ! _.isUndefined( data.secondaryCtaLabel ) ) {
+				note_params.secondaryCtaLabel = data.secondaryCtaLabel
+			}
+
+			if ( ! _.isUndefined( data.secondaryCtaLink ) ) {
+				note_params.secondaryCtaLink = data.secondaryCtaLink
+			}
+
+			if ( ! _.isUndefined( data.loading ) ) {
+				note_params.loading = data.loading
+			}
+
+			if ( ! _.isUndefined( data.isDismissable ) ) {
+				note_params.isDismissable = data.isDismissable
+			}
+			if ( ! _.isUndefined( data.onDismiss ) ) {
+				note_params.onDismiss = data.onDismiss
 			}
 
 			new_notes[data.notice_id] = note_params

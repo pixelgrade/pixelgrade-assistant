@@ -69,8 +69,35 @@
     &--info {
       background-color: #00A9DE;
 
+      padding: 16px 20px 16px 52px;
+
       &:before {
         background-image: url('../images/icon-info-white.svg');
+      }
+
+      .btn.btn--small {
+        padding: 9px 22px;
+        line-height: 26px;
+      }
+
+      .box__cta-secondary {
+        .btn.btn--text {
+          color: white;
+          opacity: 1;
+          text-decoration: underline;
+          padding: 9px;
+          font-weight: 600;
+          line-height: 26px;
+
+          &:hover {
+
+          }
+        }
+      }
+
+      .box__cta--loader {
+        margin-right: 20px;
+        line-height: 1;
       }
     }
 

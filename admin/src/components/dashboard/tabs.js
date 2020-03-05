@@ -534,16 +534,18 @@ class DashboardTabsContainer extends React.Component {
 			state = this.props.session;
 
 		// NEW UPDATE AVAILABLE NOTICE - if the current_version of the theme is different than the new version - render an update notice
-		if (Helpers.compareVersion(_.get(pixassist, 'themeSupports.theme_version', '0.0.1'), _.get(pixassist, 'themeMod.themeNewVersion', '0.0.1') ) === -1) {
+		if (Helpers.compareVersion(_.get(pixassist, 'themeSupports.theme_version', '0.0.1'), _.get(pixassist, 'themeMod.themeNewVersion.new_version', '0.0.1') ) === -1) {
 			// serve update if license is valid
 			if (_.get(state, 'is_active', false) === true) {
 				Helpers.pushNotification({
 					notice_id: 'outdated_theme',
-					title: Helpers.decodeHtml(pixassist.themeConfig.l10n.themeUpdateAvailableTitle),
-					content: Helpers.decodeHtml(pixassist.themeConfig.l10n.themeUpdateAvailableContent),
+					title: Helpers.replaceParams(Helpers.decodeHtml(pixassist.themeConfig.l10n.themeUpdateAvailableTitle)),
+					content: Helpers.replaceParams(Helpers.decodeHtml(pixassist.themeConfig.l10n.themeUpdateAvailableContent)),
 					type: 'info',
 					ctaLabel: Helpers.decodeHtml(pixassist.themeConfig.l10n.themeUpdateButton),
-					ctaAction: Helpers.clickUpdateTheme
+					ctaAction: Helpers.clickUpdateTheme,
+					secondaryCtaLabel: pixassist.themeConfig.l10n.themeChangelogLink,
+					secondaryCtaLink: _.get(pixassist, 'themeMod.themeNewVersion.url', '#')
 				});
 			}
 		}

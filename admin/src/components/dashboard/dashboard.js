@@ -54,6 +54,7 @@ class DashboardContainer extends React.Component {
 		this.addNotices = this.addNotices.bind(this);
 
 		this.disconnectUser = this.disconnectUser.bind(this);
+		this.updatedTheme = this.updatedTheme.bind(this);
 		this.updateHeaderData = this.updateHeaderData.bind(this);
 	}
 
@@ -62,7 +63,7 @@ class DashboardContainer extends React.Component {
 
 		// Add an event listener that will get triggered when the theme is updated.
 		// When the theme is updated - change the header details (status & message).
-		window.addEventListener('updatedTheme', component.updateHeaderData);
+		window.addEventListener('updatedTheme', component.updatedTheme);
 
 		// add an event listener for the localized pixassist data change
 		window.addEventListener('localizedChanged', component.updateHeaderData);
@@ -73,8 +74,15 @@ class DashboardContainer extends React.Component {
 	componentWillUnmount() {
 		let component = this;
 
-		window.removeEventListener( 'updatedTheme', component.updateHeaderData );
+		window.removeEventListener( 'updatedTheme', component.updatedTheme );
 		window.removeEventListener( 'localizedChanged', component.updateHeaderData );
+	}
+
+	updatedTheme( event ) {
+		let component = this;
+
+		// On theme update we need to refresh the localized data since many things might be different.
+		component.updateLocalized();
 	}
 
 	updateHeaderData(e) {
@@ -115,12 +123,12 @@ class DashboardContainer extends React.Component {
 			headerData.status = 'not-ok';
 			headerData.msg = Helpers.decodeHtml(_.get(pixassist, 'themeConfig.l10n.themeValidationNoticeFail', ''));
 
-			if ( Helpers.compareVersion(_.get(pixassist, 'themeSupports.theme_version', '0.0.1'), _.get(pixassist, 'themeMod.themeNewVersion', '0.0.1') ) === -1 ) {
+			if ( Helpers.compareVersion(_.get(pixassist, 'themeSupports.theme_version', '0.0.1'), _.get(pixassist, 'themeMod.themeNewVersion.new_version', '0.0.1') ) === -1 ) {
 				headerData.msg += ' ' + Helpers.decodeHtml(_.get(pixassist, 'themeConfig.l10n.themeValidationNoticeUpdateAvailable', ''));
 			}
 
 			// the user may have an active license, but the theme may be outdated
-		} else if (Helpers.compareVersion(_.get(pixassist, 'themeSupports.theme_version', '0.0.1'), _.get(pixassist, 'themeMod.themeNewVersion', '0.0.1') ) === -1) {
+		} else if (Helpers.compareVersion(_.get(pixassist, 'themeSupports.theme_version', '0.0.1'), _.get(pixassist, 'themeMod.themeNewVersion.new_version', '0.0.1') ) === -1) {
 			headerData.status = 'not-ok';
 			headerData.msg = Helpers.decodeHtml(_.get(pixassist, 'themeConfig.l10n.themeValidationNoticeOutdatedWithUpdate', ''));
 		}
@@ -156,12 +164,8 @@ class DashboardContainer extends React.Component {
 						// after disconnecting we need to rebuild the info from the localized JS pixassist variable.
 						component.updateLocalized();
 
-						// Trigger a custom event to let everyone know that the pixassist localized data has been updated.
-						let localizedChangedEvent = new CustomEvent('localizedChanged', {});
-						window.dispatchEvent(localizedChangedEvent);
-
-						jQuery('#pixelgrade_assistant_dashboard .disabled-loader').remove();
-						jQuery('#pixelgrade_assistant_dashboard').removeClass('disabled-element');
+						jQuery('#pixelgrade_care_dashboard .disabled-loader').remove();
+						jQuery('#pixelgrade_care_dashboard').removeClass('disabled-element');
 
 						component.props.onDisconnect();
 
@@ -187,9 +191,12 @@ class DashboardContainer extends React.Component {
 			(response) => {
 				if ('success' === response.code && !_.isUndefined( response.data.localized )) {
 					// We will update the whole pixassist data.
-
 					/* global pixassist */
 					pixassist = response.data.localized;
+
+					// Trigger a custom event to let everyone know that the pixassist localized data has been updated.
+					let localizedChangedEvent = new CustomEvent('localizedChanged', {});
+					window.dispatchEvent(localizedChangedEvent);
 
 					component.props.onUpdatedLocalized();
 
@@ -228,16 +235,18 @@ class DashboardContainer extends React.Component {
 		let state = this.props.session;
 
 		// NEW UPDATE AVAILABLE NOTICE - if the current_version of the theme is lower than the new version - render an update notice
-		if (  Helpers.compareVersion(_.get(pixassist, 'themeSupports.theme_version', '0.0.1'), _.get(pixassist, 'themeMod.themeNewVersion', '0.0.1') ) === -1 ) {
+		if (  Helpers.compareVersion(_.get(pixassist, 'themeSupports.theme_version', '0.0.1'), _.get(pixassist, 'themeMod.themeNewVersion.new_version', '0.0.1') ) === -1 ) {
 			// serve update if license is valid
 			if (_.get(state, 'is_active', false) === true) {
 				Helpers.pushNotification({
 					notice_id: 'outdated_theme',
-					title: Helpers.decodeHtml(pixassist.themeConfig.l10n.themeUpdateAvailableTitle),
-					content: Helpers.decodeHtml(pixassist.themeConfig.l10n.themeUpdateAvailableContent),
+					title: Helpers.replaceParams(Helpers.decodeHtml(pixassist.themeConfig.l10n.themeUpdateAvailableTitle)),
+					content: Helpers.replaceParams(Helpers.decodeHtml(pixassist.themeConfig.l10n.themeUpdateAvailableContent)),
 					type: 'info',
 					ctaLabel: pixassist.themeConfig.l10n.themeUpdateButton,
-					ctaAction: Helpers.clickUpdateTheme
+					ctaAction: Helpers.clickUpdateTheme,
+					secondaryCtaLabel: pixassist.themeConfig.l10n.themeChangelogLink,
+					secondaryCtaLink: _.get(pixassist, 'themeMod.themeNewVersion.url', '#')
 				});
 			}
 		}

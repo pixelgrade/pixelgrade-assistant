@@ -424,7 +424,7 @@ class PixelgradeAssistant_Admin {
         // Show bubble if we have an update notification.
         $new_theme_version = get_theme_mod( 'pixassist_new_theme_version' );
         $theme_support     = self::get_theme_support();
-        if ( ! empty( $new_theme_version ) && ! empty( $theme_support['theme_version'] ) && version_compare( $theme_support['theme_version'], $new_theme_version, '<' ) ) {
+        if ( ! empty( $new_theme_version['new_version'] ) && ! empty( $theme_support['theme_version'] ) && version_compare( $theme_support['theme_version'], $new_theme_version['new_version'], '<' ) ) {
             $show_bubble = true;
         }
 
@@ -1054,12 +1054,26 @@ class PixelgradeAssistant_Admin {
         // Let's start gathering data about the theme
         // First get the theme directory name (the theme slug - unique)
         $slug = basename( get_template_directory() );
-        $theme_data['new_version'] = '';
+        $theme_data = array(
+	        'new_version' => '0.0.1',
+	        'package' => '',
+	        'url' => '',
+        );
         // If we have received an update response with a version, save it
-        if ( ! empty( $transient->response[ $slug ]['new_version'] ) ) {
+        if ( ! empty( $transient->response[ $slug ]['new_version'] ) && ! empty( $transient->response[ $slug ]['package'] ) ) {
             $theme_data['new_version'] = $transient->response[ $slug ]['new_version'];
+            $theme_data['package'] = $transient->response[ $slug ]['package'];
+            // Right now, WordPress.org returns a URL to the theme's page. This is not helpful as the user can't find the changelog.
+	        // Maybe when WordPress.org switches to a setup more in line with plugins, this URL could be helpful.
+	        // In the meantime, we will construct a URL straight to the readme.txt file for the latest version, from SVN.
+
+//            if ( ! empty( $transient->response[ $slug ]['url'] ) ) {
+//	            $theme_data['url'] = $transient->response[ $slug ]['url'];
+//            }
+
+	        $theme_data['url'] = 'https://themes.svn.wordpress.org/' . $slug . '/' . $theme_data['new_version'] . '/readme.txt';
         }
-        set_theme_mod( 'pixassist_new_theme_version', $theme_data['new_version'] );
+        set_theme_mod( 'pixassist_new_theme_version', $theme_data );
 
         return $transient;
     }
@@ -1082,6 +1096,7 @@ class PixelgradeAssistant_Admin {
             return $transient;
         }
         $this->get_remote_config();
+
         return $transient;
     }
 
@@ -2004,7 +2019,7 @@ class PixelgradeAssistant_Admin {
             $new_theme_version = get_theme_mod( 'pixassist_new_theme_version' );
             $theme_name        = self::get_original_theme_name();
             $theme_support     = self::get_theme_support();
-            if ( ! empty( $new_theme_version ) && ! empty( $theme_name ) && ! empty( $theme_support['theme_version'] ) && true === version_compare( $theme_support['theme_version'], $new_theme_version, '<' ) ) {
+	        if ( ! empty( $new_theme_version['new_version'] ) && ! empty( $theme_name ) && ! empty( $theme_support['theme_version'] ) && true === version_compare( $theme_support['theme_version'], $new_theme_version['new_version'], '<' ) ) {
                 ?>
                 <div class="notice notice-warning is-dismissible">
                     <h3><?php esc_html_e( 'New Theme Update is Available!', '__plugin_txtd' ); ?></h3>

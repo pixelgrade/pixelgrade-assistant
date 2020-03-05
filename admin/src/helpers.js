@@ -174,6 +174,8 @@ const Helpers = (function (window) {
 
 		var replacers = {
 			"{{theme_name}}": _.get(pixassist, 'themeSupports.theme_name', 'Theme'),
+			"{{theme_version}}": _.get(pixassist, 'themeSupports.theme_version', '0.0.1'),
+			"{{theme_id}}": _.get(pixassist, 'themeSupports.theme_id', ''),
 			"{{username}}": _.get(pixassist, 'user.name', 'Name'), // This is the name of the current user, in this installation
 			"{{shopdomain}}": pixassist.shopBaseDomain,
 		};
@@ -461,8 +463,15 @@ const Helpers = (function (window) {
 		event.preventDefault();
 		var slug = '';
 
-		if (pixassist.themeSupports["theme_name"]) {
-			slug = pixassist.themeSupports["theme_name"].toLowerCase();
+		if (_.get(pixassist, 'themeSupports.template', false)) {
+			slug = _.get(pixassist, 'themeSupports.template', false);
+		} else if (_.get(pixassist, 'themeSupports.theme_name', false)) {
+			slug = _.get(pixassist, 'themeSupports.theme_name', false );
+			slug = slug.toLowerCase();
+		}
+
+		if ( ! slug ) {
+			return;
 		}
 
 		wp.updates.updateTheme({
@@ -470,20 +479,22 @@ const Helpers = (function (window) {
 			xhr: function (response) {
 				Helpers.updateNotification({
 					notice_id: 'outdated_theme',
-					title: "Trying to update your theme...",
+					title: "Updating your theme...",
 					content: "Please wait until we finish with the update.",
 					type: 'info',
 					ctaLabel: false,
+					secondaryCtaLabel: false,
 					loading: true
 				});
 			},
 			success: function (response) {
 				Helpers.updateNotification({
 					notice_id: 'outdated_theme',
-					title: "Theme Updated Successfully!",
-					content: "All things look great! Your theme has been successfully updated.",
+					title: "Theme updated successfully!",
+					content: Helpers.replaceParams("All things look great! Enjoy crafting your site with {{theme_name}}."),
 					type: 'success',
 					ctaLabel: false,
+					secondaryCtaLabel: false,
 					loading: false
 				});
 
@@ -492,10 +503,14 @@ const Helpers = (function (window) {
 					'updatedTheme',
 					{
 						detail: {
-							isUpdated: true
+							isUpdated: true,
+							update: 'theme',
+							slug: response.slug,
+							oldVersion: response.oldVersion,
+							newVersion: response.newVersion,
 						},
 						bubbles: true,
-						cancelable: true
+						cancelable: true,
 					}
 				);
 				window.dispatchEvent(updatedEvent);
@@ -589,7 +604,7 @@ const Helpers = (function (window) {
 
 	/**
 	 * This is the js-queue npm https://github.com/RIAEvangelist/js-queue
-	 * The only difference is that we added a 300 ms delay to each call.
+	 * The only difference is that we added a 200 ms delay to each call.
 	 * @param e
 	 * @constructor
 	 */
@@ -616,7 +631,7 @@ const Helpers = (function (window) {
 			var e = this;
 			setTimeout(function () {
 				i.shift().bind(e)()
-			}, 300)
+			}, 200)
 		}
 
 		Object.defineProperties(this, {

@@ -637,15 +637,9 @@ class AuthenticatorContainer extends React.Component {
 			},
 			(response) => {
 				if ('success' === response.code && !_.isUndefined( response.data.localized )) {
-					// We will update the whole pixassist data,
-					// except for the setupWizard entries because they might vary.
-					// We need to keep the existing steps to ensure consistency
-					let setupWizard = _.get(pixassist, 'themeConfig.setupWizard', false );
-
+					// We will update the whole pixassist data.
 					/* global pixassist */
 					pixassist = response.data.localized;
-
-					pixassist.themeConfig.setupWizard = setupWizard;
 
 					component.props.onUpdatedThemeMod();
 
