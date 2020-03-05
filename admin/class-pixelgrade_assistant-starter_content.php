@@ -714,12 +714,12 @@ class PixelgradeAssistant_StarterContent {
 		foreach ( $response_data['data']['terms'] as $i => $term ) {
 
 			$term_args = array(
-				'description' => $term['description'],
+				'description' => wp_slash( $term['description'] ),
 				'slug'        => $term['slug'],
 			);
 
 			$new_id = wp_insert_term(
-				$term['name'], // the term
+				wp_slash( $term['name'] ), // the term
 				$term['taxonomy'], // the taxonomy
 				$term_args
 			);
@@ -744,9 +744,9 @@ class PixelgradeAssistant_StarterContent {
 							$value = $starter_content[ $demo_key ]['media']['ignored'][ $value ];
 						}
 
-						update_term_meta( $new_id['term_id'], $key, $value );
+						update_term_meta( $new_id['term_id'], wp_slash( $key ), $value );
 					}
-					update_term_meta( $new_id['term_id'], 'imported_with_pixassist', true );
+					update_term_meta( $new_id['term_id'], wp_slash( 'imported_with_pixassist' ), true );
 				}
 			}
 
