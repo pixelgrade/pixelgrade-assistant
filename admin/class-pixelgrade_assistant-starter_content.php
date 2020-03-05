@@ -573,6 +573,9 @@ class PixelgradeAssistant_StarterContent {
 			// Allow others to have a say in it.
 			$post_args = apply_filters( 'pixassist_sce_insert_post_args', $post_args, $post, $demo_key );
 
+			// Since wp_insert_post() at post.php@L3884 does a wp_unslash() on the whole post data, we need to do a wp_slash() to prevent things from breaking.
+			$post_args = wp_slash_strings_only( $post_args );
+
 			$post_id = wp_insert_post( $post_args );
 
 			if ( is_wp_error( $post_id ) || empty( $post_id ) ) {
