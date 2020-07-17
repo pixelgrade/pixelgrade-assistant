@@ -28,7 +28,7 @@
     "elasticsearch": "github:pixelgrade/elasticsearch-js-legacy",
     "entities": "^2.0.0",
     "http-aws-es": "^6.0.0",
-    "lodash": "^4.17.15",
+    "lodash": "^4.17.19",
     "oauth-1.0a": "^2.2.6",
     "oauth-signature": "^1.5.0",
     "qs": "^6.9.1",
