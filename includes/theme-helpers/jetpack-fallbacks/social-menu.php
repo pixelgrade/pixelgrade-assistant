@@ -115,7 +115,7 @@ if ( ! function_exists( 'pixassist_jetpack_social_menu_get_type' ) ) {
 	function pixassist_jetpack_social_menu_get_type() {
 		$options = get_theme_support( 'jetpack-social-menu' );
 
-		if ( empty( $options ) ) {
+		if ( empty( $options ) || ! is_array( $options ) ) {
 			$menu_type = null;
 		} else {
 			$menu_type = ( in_array( $options[0], array( 'genericons', 'svg' ) ) ) ? $options[0] : 'genericons';
