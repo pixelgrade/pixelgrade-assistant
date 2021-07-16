@@ -29,3 +29,8 @@ require_once( plugin_dir_path( __FILE__ ) . 'theme-helpers/jetpack_customization
  * Load our theme dependent functionality
  */
 require_once( plugin_dir_path( __FILE__ ) . 'theme-helpers/theme-dependent.php' );
+
+/*
+ * Load our theme support customization helper class
+ */
+require_once( plugin_dir_path( __FILE__ ) . 'theme-helpers/theme_support.php' );
