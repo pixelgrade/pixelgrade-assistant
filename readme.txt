@@ -2,9 +2,9 @@
 Contributors: pixelgrade, vlad.olaru
 Tags: dashboard, support, pixelgrade, starter-content, demo-data, documentation
 Requires at least: 4.9.9
-Tested up to: 5.7.2
+Tested up to: 5.8.3
 Requires PHP: 5.6.40
-Stable tag: 1.3.4
+Stable tag: 1.3.5
 License: GPLv3.0
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -96,6 +96,10 @@ No. We are not tracking you or your site. We ask your permission to share with u
 6. Site setup wizard
 
 == Changelog ==
+
+= 1.3.5 =
+* Tested with the latest WordPress 5.8.3.
+* Better compatibility for themes based on the Classic Editor.
 
 = 1.3.4 =
 * Fixes for starter content (demo data) importing process.
