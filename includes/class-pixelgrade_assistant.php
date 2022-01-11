@@ -279,8 +279,15 @@ class PixelgradeAssistant {
 		return $this->version;
 	}
 
-	public function get_theme_config() {
-		$this->plugin_admin->get_remote_config();
+	/**
+	 * Retrieve the config for the current theme.
+	 *
+	 * @param bool $skip_cache
+	 *
+	 * @return array|false
+	 */
+	public static function get_theme_config( $skip_cache = false) {
+		return PixelgradeAssistant_Admin::get_remote_config( $skip_cache );
 	}
 
 	function is_wp_compatible() {

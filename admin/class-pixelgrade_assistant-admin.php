@@ -120,6 +120,9 @@ class PixelgradeAssistant_Admin {
 	    // Make sure TGMPA is loaded.
 	    require_once plugin_dir_path( $this->parent->file ) . 'admin/required-plugins/class-tgm-plugin-activation.php';
 
+	    // Make sure the Gutenberg vs Classic Editor logic is loaded.
+	    require_once plugin_dir_path( $this->parent->file ) . 'vendor/classic-editor/classic-editor.php';
+
 	    // Fill up the WUpdates identification data for missing entities that we can deduce through other means.
 	    // This mostly addresses WordPress.org themes that don't have the WUpdates identification data.
 	    // This needs to be hooked up this early since we can't know for sure when the filter will be fired.
