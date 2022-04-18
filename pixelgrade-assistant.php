@@ -26,6 +26,9 @@ defined( 'PIXELGRADE_ASSISTANT__API_BASE_DOMAIN' )   || define( 'PIXELGRADE_ASSI
 defined( 'PIXELGRADE_ASSISTANT__SHOP_BASE' )         || define( 'PIXELGRADE_ASSISTANT__SHOP_BASE', 'https://pixelgrade.com/' );
 defined( 'PIXELGRADE_ASSISTANT__SHOP_BASE_DOMAIN' )  || define( 'PIXELGRADE_ASSISTANT__SHOP_BASE_DOMAIN', 'pixelgrade.com' );
 defined( 'PIXELGRADE_ASSISTANT__DEV_MODE' )          || define( 'PIXELGRADE_ASSISTANT__DEV_MODE', false );
+
+require_once plugin_dir_path( __FILE__ ) . 'vendor/autoload.php';
+
 // Include functions that might assist when in dev mode.
 require_once plugin_dir_path( __FILE__ ) . 'includes/integrations/devmode.php';
 
