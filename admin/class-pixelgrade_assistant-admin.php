@@ -284,6 +284,9 @@ class PixelgradeAssistant_Admin {
 		add_filter( 'tgmpa_show_admin_notices', array( $this, 'prevent_tgmpa_notices' ), 10, 1 );
 
 		add_filter( 'plugins_api', array( $this, 'handle_external_required_plugins_ajax_install' ), 100, 3 );
+
+		// Auto-update Pixelgrade Assistant by default.
+		add_filter( 'auto_update_plugin', array( $this, 'handle_plugin_autoupdate' ), 10, 2 );
 	}
 
     /**
@@ -2199,6 +2202,15 @@ class PixelgradeAssistant_Admin {
 
 		// The response must be an object.
 		return (object) $res;
+	}
+
+	public function handle_plugin_autoupdate( $update, $item ) {
+		// We want to force enable the auto-update feature for Pixelgrade Assistant.
+		if ( ! empty( $item->plugin ) && strrpos( $item->plugin, 'pixelgrade-assistant.php' ) === ( strlen( $item->plugin ) - strlen( 'pixelgrade-assistant.php' ) ) ) {
+			$update = true;
+		}
+
+		return $update;
 	}
 
     /**
