@@ -58,6 +58,11 @@ class PixelgradeAssistant {
 	public $plugin_notifications = null;
 
 	/**
+	 * @var PixelgradeAssistant_Conditional_Updates
+	 */
+	public $plugin_conditional_updates = null;
+
+	/**
 	 * The only instance.
 	 * @var     PixelgradeAssistant
 	 * @access  protected
@@ -211,6 +216,12 @@ class PixelgradeAssistant {
 		 */
 		require_once plugin_dir_path( $this->file ) . 'admin/class-pixelgrade_assistant-notifications.php';
 		$this->plugin_notifications = PixelgradeAssistant_Notifications::instance( $this );
+
+		/**
+		 * The conditional updates logic.
+		 */
+		require plugin_dir_path( $this->file ) . 'includes/modules/conditional-updates/class-pixelgrade_assistant-conditional-updates.php';
+		$this->plugin_conditional_updates = PixelgradeAssistant_Conditional_Updates::instance( $this );
 
 		/**
 		 * Various specific integrations that have custom logic.
