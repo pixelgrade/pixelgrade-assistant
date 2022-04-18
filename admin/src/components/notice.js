@@ -41,8 +41,8 @@ class Notice extends React.Component {
 		return <div className={divClass}>
 			{ this.props.isDismissable ? <a href="#" onClick={this.onDismiss} className="box__close-icon"><i className="dashicons dashicons-no"></i></a> : null }
 			<div className="box__body">
-				<h5 className="box__title">{Helpers.replaceParams(this.props.title)}</h5>
-				<p className="box__text" dangerouslySetInnerHTML={{__html: Helpers.replaceParams(this.props.content)}}></p>
+				<h5 className="box__title">{Helpers.replaceVariables(this.props.title)}</h5>
+				<p className="box__text" dangerouslySetInnerHTML={{__html: Helpers.replaceVariables(this.props.content)}}></p>
 			</div>
 			{ ( this.props.secondaryCtaLabel && this.props.secondaryCtaLink )
 				? <div className="box__cta box__cta-secondary">

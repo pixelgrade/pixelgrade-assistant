@@ -340,6 +340,12 @@ class PixelgradeAssistant_Admin {
 
             self::localize_js_data( 'pixelgrade_assistant-dashboard', true, 'dashboard');
         }
+
+	    // If we are in a block editor page, we need to localize our data since NovaBlocks might make use of it.
+	    // We don't have our scripts in those pages, so we localize on the editor script.
+	    if ( pixelgrade_is_block_editor() ) {
+		    self::localize_js_data( 'wp-block-editor', true, 'editor' );
+	    }
     }
 
     /**

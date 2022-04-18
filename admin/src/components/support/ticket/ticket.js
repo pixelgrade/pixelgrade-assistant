@@ -3,14 +3,11 @@ import ReactDOM from 'react-dom';
 import SupportList from '../list';
 import Helpers from '../../../helpers';
 import {connect} from 'react-redux';
-import _ from 'lodash';
+import bodybuilder from 'bodybuilder'
 
-var AWS = require('aws-sdk/global');
-
-import ElasticsearchClient from 'elasticsearch/src/lib/client';
-// We use our own since it uses SigVer4
-import httpAmazonESConnector from '../../../vendor/http-aws-es/connector';
-import bodybuilder from 'bodybuilder';
+/* global AWS */
+import AwsConnector from './../aws-es/aws_es_connector'
+import _ from 'lodash'
 
 // Map state to props
 const mapStateToProps = (state) => {
@@ -51,6 +48,9 @@ const mapDispatchToProps = (dispatch) => {
 		},
 		onTicketTitle: (title) => {
 			dispatch({ type: 'TICKET_TITLE', title })
+		},
+		onTicketError: ( error ) => {
+			dispatch({ type: 'TICKET_SUBMIT_ERROR', error });
 		},
 	}
 };
@@ -110,8 +110,12 @@ class SupportTicketContainer extends React.Component {
 								<div className="form-row">
 									<label>{_.get(pixassist, 'themeConfig.knowledgeBase.openTicket.blocks.ticket.fields.descriptionHeader.value', '')}</label>
 									<p className={_.get(pixassist, 'themeConfig.knowledgeBase.openTicket.blocks.ticket.fields.descriptionInfo.class', '')} dangerouslySetInnerHTML={{__html: _.get(pixassist,'themeConfig.knowledgeBase.openTicket.blocks.ticket.fields.descriptionInfo.value', '') }} />
-									<input type="text" ref={(input) => this.input = input} onChange = { this.handleDescriptionChange } required />
-									{!_.isUndefined(this.props.support.ticketDescription) && this.props.support.ticketDescription.length == 0 ?
+									<input
+										type="text"
+										ref={(input) => this.input = input}
+										onChange = { this.handleDescriptionChange }
+										required />
+									{!_.isUndefined(this.props.support.ticketDescription) && this.props.support.ticketDescription.length === 0 ?
 										<div id="error-description"></div> :''}
 								</div>
 								<div className="form-row">
@@ -121,7 +125,7 @@ class SupportTicketContainer extends React.Component {
 								</div>
 								<div className={_.get(pixassist, 'themeConfig.knowledgeBase.openTicket.blocks.ticket.fields.nextButton.class', '')}>
 									<div className="ticket-submit-wrapper" onClick={this.handleDisabledClick}>
-										<button type="submit" className="btn btn--action" disabled={!_.isUndefined(this.props.support.ticketDescription) && this.props.support.ticketDescription.length == 0 ? 'disabled' : ''} >{_.get(pixassist, 'themeConfig.knowledgeBase.openTicket.blocks.ticket.fields.nextButton.label', '')}</button>
+										<button type="submit" className="btn btn--action" disabled={!_.isUndefined(this.props.support.ticketDescription) && this.props.support.ticketDescription.length === 0 ? 'disabled' : ''} >{_.get(pixassist, 'themeConfig.knowledgeBase.openTicket.blocks.ticket.fields.nextButton.label', '')}</button>
 									</div>
 								</div>
 							</form>
@@ -168,11 +172,16 @@ class SupportTicketContainer extends React.Component {
 	}
 
 	updateAWSConfig() {
-		if ( !_.get(pixassist, 'themeConfig.eskb.aws.accessKeyId', false) || !_.get(pixassist, 'themeConfig.eskb.aws.secretAccessKey', false)) {
+		if ( !_.get(pixassist, 'themeConfig.eskb.aws.accessKeyId', false)
+			|| !_.get(pixassist, 'themeConfig.eskb.aws.secretAccessKey', false)) {
+
 			return;
 		}
 		AWS.config.update({
-			credentials: new AWS.Credentials(pixassist.themeConfig.eskb.aws.accessKeyId, pixassist.themeConfig.eskb.aws.secretAccessKey),
+			credentials: new AWS.Credentials(
+				pixassist.themeConfig.eskb.aws.accessKeyId,
+				pixassist.themeConfig.eskb.aws.secretAccessKey
+			),
 			region: pixassist.themeConfig.eskb.aws.region
 		});
 	}
@@ -199,6 +208,7 @@ class SupportTicketContainer extends React.Component {
 	handleErrorBackClick = () => {
 		this.props.onTicketSuggestions(undefined);
 		this.props.onSupportError(undefined);
+		this.props.onTicketError(false);
 	};
 
 	handleSubmit = (event) => {
@@ -211,14 +221,28 @@ class SupportTicketContainer extends React.Component {
 
 		let searchTitle = '';
 		if ( ! _.isUndefined( component.props.support.ticketDescription ) && component.props.support.ticketDescription.length > 1 ) {
-			searchTitle = searchTitle + component.props.support.ticketDescription;
+			// Strip any HTML, just to be sure.
+			searchTitle = component.props.support.ticketDescription.replace(/(<([^>]+)>)/gi, '')
+			// Strip any URLs, just to be sure.
+			searchTitle = searchTitle.replace(/(?:https?|ftp):\/\/[\n\S]+/g, '')
 		}
 
 		let searchDescription = '';
 		if ( ! _.isUndefined( component.props.support.ticketDetails ) && component.props.support.ticketDetails > 3 ) {
-			// Strip any HTML and  URLs
-			searchDescription = jQuery(component.props.support.ticketDetails).text();
-			searchDescription = searchDescription.replace(/(?:https?|ftp):\/\/[\n\S]+/g, '');
+			// Strip any HTML.
+			searchDescription = component.props.support.ticketDetails.replace(/(<([^>]+)>)/gi, '')
+			// Strip any URLs.
+			searchDescription = searchDescription.replace(/(?:https?|ftp):\/\/[\n\S]+/g, '')
+		}
+
+		if (!searchTitle.length && !searchDescription.length) {
+			// If we have nothing to search for, open the sticky with the "Submit ticket" option enabled.
+			component.props.onSticky(true)
+
+			component.props.onTicketSuggestions({})
+			component.props.onSupportSearching(false)
+
+			return
 		}
 
 		// Create a new Custom (Search) Event
@@ -239,7 +263,9 @@ class SupportTicketContainer extends React.Component {
 		);
 
 		// We will just send the ticket without suggestions when we can't get to the elasticsearch instance.
-		if ( !_.get(pixassist, 'themeConfig.eskb.aws.accessKeyId', false) || !_.get(pixassist, 'themeConfig.eskb.aws.secretAccessKey', false)) {
+		if ( !_.get(pixassist, 'themeConfig.eskb.aws.accessKeyId', false)
+			|| !_.get(pixassist, 'themeConfig.eskb.aws.secretAccessKey', false)) {
+
 			component.props.onSticky(true);
 			let title = Helpers.decodeHtml(_.get(pixassist.themeConfig, 'knowledgeBase.openTicket.blocks.searchResults.fields.noResults.value', ''));
 
@@ -254,11 +280,13 @@ class SupportTicketContainer extends React.Component {
 		}
 
 		// Instantiate the Elasticsearch Client.
-		let client = new ElasticsearchClient({
+		/* global elasticsearch */
+		const client = elasticsearch.Client({
 			hosts: pixassist.themeConfig.eskb.hosts,
-			connectionClass: httpAmazonESConnector,
-			apiVersion: '6.6'
-		});
+			Connection: AwsConnector,
+			connectionClass: AwsConnector,
+			apiVersion: '6.8'
+		})
 
 		// Build the ES query
 		let body = bodybuilder()

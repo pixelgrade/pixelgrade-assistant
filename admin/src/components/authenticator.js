@@ -75,33 +75,33 @@ class AuthenticatorContainer extends React.Component {
 		this.config = pixassist.themeConfig.authentication;
 
 		if ( ! _.isUndefined( this.props.title ) ) {
-			this.state.title = Helpers.replaceParams(this.props.title);
+			this.state.title = Helpers.replaceVariables(this.props.title);
 		} else {
-			this.state.title = Helpers.replaceParams(this.config.title);
+			this.state.title = Helpers.replaceVariables(this.config.title);
 		}
 
 		if ( ! _.isUndefined( this.props.validatedContent ) ) {
-			this.state.validatedContent = Helpers.replaceParams(this.props.validatedContent);
+			this.state.validatedContent = Helpers.replaceVariables(this.props.validatedContent);
 		} else {
-			this.state.validatedContent = Helpers.replaceParams(this.config.validatedContent);
+			this.state.validatedContent = Helpers.replaceVariables(this.config.validatedContent);
 		}
 
 		if ( ! _.isUndefined( this.props.notValidatedContent ) ) {
-			this.state.notValidatedContent = Helpers.replaceParams(this.props.notValidatedContent);
+			this.state.notValidatedContent = Helpers.replaceVariables(this.props.notValidatedContent);
 		} else {
-			this.state.notValidatedContent = Helpers.replaceParams(this.config.notValidatedContent);
+			this.state.notValidatedContent = Helpers.replaceVariables(this.config.notValidatedContent);
 		}
 
 		if ( ! _.isUndefined( this.props.loadingContent ) ) {
-			this.state.loadingContent = Helpers.replaceParams(this.props.loadingContent);
+			this.state.loadingContent = Helpers.replaceVariables(this.props.loadingContent);
 		} else {
-			this.state.loadingContent = Helpers.replaceParams(this.config.loadingContent);
+			this.state.loadingContent = Helpers.replaceVariables(this.config.loadingContent);
 		}
 
 		if ( ! _.isUndefined( this.props.loadingTitle ) ) {
-			this.state.loadingTitle = Helpers.replaceParams(this.props.loadingTitle);
+			this.state.loadingTitle = Helpers.replaceVariables(this.props.loadingTitle);
 		} else {
-			this.state.loadingTitle = Helpers.replaceParams(this.config.loadingTitle);
+			this.state.loadingTitle = Helpers.replaceVariables(this.config.loadingTitle);
 		}
 
 		// Mark the fact that we have not auto retried to validate the license
@@ -208,7 +208,7 @@ class AuthenticatorContainer extends React.Component {
 					   dangerouslySetInnerHTML={{__html: componentDetails.notValidatedContent}}/>
 					<WPOauth1Button
 						onLogin={this.onLogin}
-						label={Helpers.replaceParams(Helpers.decodeHtml(_.get(pixassist, 'themeConfig.l10n.connectButtonLabel', '')))}
+						label={Helpers.replaceVariables(Helpers.decodeHtml(_.get(pixassist, 'themeConfig.l10n.connectButtonLabel', '')))}
 						ock={pixassist.themeSupports.ock} ocs={pixassist.themeSupports.ocs}
 						createErrorNotice={this.createErrorNotice} />
 				</div>
@@ -236,7 +236,7 @@ class AuthenticatorContainer extends React.Component {
 			return (
 				<div>
 					<h2 className="section__title" dangerouslySetInnerHTML={{__html: this.config.brokenTitle}}></h2>
-					<p className="section__content" dangerouslySetInnerHTML={{__html: Helpers.replaceParams(this.config.brokenContent)}}/>
+					<p className="section__content" dangerouslySetInnerHTML={{__html: Helpers.replaceVariables(this.config.brokenContent)}}/>
 				</div>
 			);
 		}
@@ -258,7 +258,7 @@ class AuthenticatorContainer extends React.Component {
 					<h2 className="section__title" dangerouslySetInnerHTML={{__html: componentDetails.title}}></h2>
 					<p className="section__content" dangerouslySetInnerHTML={{__html: this.config.noThemeContent}}/>
 					<a className="btn  btn--action" href="#"
-					   onClick={this.retryValidation}>{Helpers.replaceParams(Helpers.replaceParams(Helpers.decodeHtml(this.config.notValidatedButton)))}</a>
+					   onClick={this.retryValidation}>{Helpers.replaceVariables(Helpers.replaceVariables(Helpers.decodeHtml(this.config.notValidatedButton)))}</a>
 				</div>
 			);
 		}
@@ -311,36 +311,36 @@ class AuthenticatorContainer extends React.Component {
 	 */
 	getComponentDetails = () => {
 		let response = {
-			title: Helpers.replaceParams(this.state.title),
-			validatedContent: Helpers.replaceParams(this.state.validatedContent),
-			notValidatedContent: Helpers.replaceParams(this.state.notValidatedContent),
-			loadingTitle: Helpers.replaceParams(this.state.loadingTitle),
-			loadingContent: Helpers.replaceParams(this.state.loadingContent),
+			title: Helpers.replaceVariables(this.state.title),
+			validatedContent: Helpers.replaceVariables(this.state.validatedContent),
+			notValidatedContent: Helpers.replaceVariables(this.state.notValidatedContent),
+			loadingTitle: Helpers.replaceVariables(this.state.loadingTitle),
+			loadingContent: Helpers.replaceVariables(this.state.loadingContent),
 		};
 
 		// NOT LOGGED IN - setup wizard
 		if ( window.location.search.indexOf('setup-wizard') > -1 && ! this.props.session.is_logged ) {
 			response.title = Helpers.decodeHtml(_.get(pixassist, 'themeConfig.l10n.authenticatorDashboardConnectTitle', ''));
-			response.notValidatedContent = Helpers.replaceParams(Helpers.decodeHtml(_.get(pixassist, 'themeConfig.l10n.authenticatorDashboardConnectContent', '')));
+			response.notValidatedContent = Helpers.replaceVariables(Helpers.decodeHtml(_.get(pixassist, 'themeConfig.l10n.authenticatorDashboardConnectContent', '')));
 
 			// This is the section content used while waiting for authorization from the other tab.
-			response.loadingContent = Helpers.replaceParams(Helpers.decodeHtml(_.get(pixassist, 'themeConfig.l10n.authenticatorDashboardConnectLoadingContent', '')));
+			response.loadingContent = Helpers.replaceVariables(Helpers.decodeHtml(_.get(pixassist, 'themeConfig.l10n.authenticatorDashboardConnectLoadingContent', '')));
 		} else {
 			// NOT LOGGED IN - everywhere else (dashboard)
 			if ( ! this.props.session.is_logged ) {
-				response.notValidatedContent = Helpers.replaceParams(this.config.notValidatedContent);
+				response.notValidatedContent = Helpers.replaceVariables(this.config.notValidatedContent);
 			}
 		}
 
 		// LOGGED IN & VALIDATED - Setup Wizard
 		if ( window.location.search.indexOf('setup-wizard') > -1 && this.props.session.is_logged ) {
 			response.title = '<span class="c-icon  c-icon--large  c-icon--success-auth"></span> ' + Helpers.decodeHtml(_.get(pixassist, 'themeConfig.l10n.authenticatorDashboardConnectedSuccessTitle', ''));
-			response.validatedContent = Helpers.replaceParams(Helpers.decodeHtml(_.get(pixassist, 'themeConfig.l10n.authenticatorDashboardConnectedSuccessContent', '')));
+			response.validatedContent = Helpers.replaceVariables(Helpers.decodeHtml(_.get(pixassist, 'themeConfig.l10n.authenticatorDashboardConnectedSuccessContent', '')));
 		} else {
 			// LOGGED IN & VALIDATED - everywhere else (dashboard)
 			if ( this.props.session.is_logged ) {
-				response.title = Helpers.replaceParams(this.config.validatedTitle);
-				response.validatedContent = Helpers.replaceParams(this.config.validatedContent);
+				response.title = Helpers.replaceVariables(this.config.validatedTitle);
+				response.validatedContent = Helpers.replaceVariables(this.config.validatedContent);
 			}
 		}
 

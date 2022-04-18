@@ -20,6 +20,9 @@ const mapDispatchToProps = (dispatch) => {
 		onSupportClosed: () => {
 			dispatch({ type: 'SUPPORT_OFF' });
 		},
+		onElasticSearchText: (searchText) => {
+			dispatch({type: 'ELASTICSEARCH_SEARCH_TEXT', searchText: searchText})
+		},
 		onElasticSearchResults: ( es_data ) => {
 			dispatch({ type: 'ELASTICSEARCH_RESULTS', es_data: es_data });
 		},
@@ -70,26 +73,30 @@ class SupportBreadcrumbsContainer extends React.Component {
 		let response = [];
 
 		Object.keys(breadcrumbs).map(function(key, index) {
-			response.push(<span key={index}><a href="#" onClick={component.handleBcClick.bind(null, breadcrumbs[key])} title={Helpers.decodeHtml(_.get(pixassist,'themeConfig.knowledgeBase.l10n.backTo', '' )) + breadcrumbs[key].name}>{breadcrumbs[key].name}</a> <i className="dashicons dashicons-arrow-right-alt2"></i> </span>);
+			response.push(<span key={index}><a href="#" onClick={component.handleClick.bind(null, breadcrumbs[key])} title={Helpers.decodeHtml(_.get(pixassist,'themeConfig.knowledgeBase.l10n.backTo', '' )) + breadcrumbs[key].name}>{breadcrumbs[key].name}</a> <i className="dashicons dashicons-arrow-right-alt2"></i> </span>);
 		});
 
 		return response;
 	};
 
 
-	handleBcClick = ( object ) => {
-		//Get category index
-		let index = this.props.support.breadcrumbs.indexOf(object);
+	handleClick = ( breadcrumbItem ) => {
+		// Get the index of the clicked breadcrumb.
+		let index = this.props.support.breadcrumbs.indexOf(breadcrumbItem);
 		let breadcrumbs = this.props.support.breadcrumbs;
-		breadcrumbs = breadcrumbs.slice(0, index + 1);
 
-		switch(object.type){
-			case 'default':
+		// Cut off anything after the clicked element, including it.
+		breadcrumbs = breadcrumbs.slice(0, index + 1)
+
+		switch(breadcrumbItem.type){
+			case 'root':
 				this.props.onBreadcrumbs(undefined);
 				this.props.onSelectedItem(undefined);
 				this.props.onSelectedSHArticle(undefined, undefined);
 				this.props.onSupportLoading(false);
 				this.props.onElasticSearchEmpty();
+				// Also clear the docs/KB search field.
+				this.props.onElasticSearchText('')
 
 				break;
 			case 'searchResults':
@@ -97,7 +104,9 @@ class SupportBreadcrumbsContainer extends React.Component {
                 this.props.onSelectedSHArticle(undefined, undefined);
 				break;
 			default:
-				this.props.handleItemClick( object, breadcrumbs );
+				if (!_.isUndefined(this.props.handleItemClick)) {
+					this.props.handleItemClick(breadcrumbItem, breadcrumbs)
+				}
 				break;
 
 		}

@@ -108,7 +108,7 @@ class SupportSelfHelpContainer extends React.Component {
 						:
 						<div className="entry-content">
 							<h1>{Helpers.decodeHtml(_.get(pixassist, 'themeConfig.knowledgeBase.selfHelp.blocks.info.fields.title.value',''))}</h1>
-							<p dangerouslySetInnerHTML={{__html: Helpers.replaceParams(_.get(pixassist, 'themeConfig.knowledgeBase.selfHelp.blocks.info.fields.content.value', ''))}}></p>
+							<p dangerouslySetInnerHTML={{__html: Helpers.replaceVariables(_.get(pixassist, 'themeConfig.knowledgeBase.selfHelp.blocks.info.fields.content.value', ''))}}></p>
 							<h2>{Helpers.decodeHtml(_.get(pixassist, 'themeConfig.knowledgeBase.selfHelp.blocks.info.fields.subheader.value', ''))}</h2>
 						</div>
 					:
@@ -134,7 +134,9 @@ class SupportSelfHelpContainer extends React.Component {
 									<div></div>
 						}
 
-						{ ! _.isUndefined( this.props.support.selected_sh_article_content ) ?
+						{ ! _.isUndefined( this.props.support.selected_item ) &&
+							! _.isUndefined( this.props.support.selected_sh_article_id ) &&
+							! _.isUndefined( this.props.support.selected_sh_article_content ) ?
 							<div className="hkb-article__content entry-content">
 								<div className="entry-title">
 									<h1 dangerouslySetInnerHTML={{__html: this.props.support.selected_item.post_title}} style={{display: "inline-block"}} /> <a href={this.props.support.selected_sh_article_id.external_url} target="_blank" className="external-link" title="Open link in a new tab" style={{display: "inline-block"}}></a>
@@ -201,7 +203,7 @@ class SupportSelfHelpContainer extends React.Component {
 							notice_id="component_unavailable"
 							type="warning"
 							title={Helpers.decodeHtml(_.get(pixassist, 'themeConfig.l10n.componentUnavailableTitle', ''))}
-							content={Helpers.replaceParams(Helpers.decodeHtml(_.get(pixassist, 'themeConfig.l10n.componentUnavailableContent', '')))}/>;
+							content={Helpers.parseL10n(_.get(pixassist, 'themeConfig.l10n.componentUnavailableContent', ''))}/>;
 						break;
 				}
 			}
@@ -230,7 +232,7 @@ class SupportSelfHelpContainer extends React.Component {
 						notice_id="component_unavailable"
 						type="warning"
 						title={Helpers.decodeHtml(_.get(pixassist, 'themeConfig.l10n.componentUnavailableTitle', ''))}
-						content={Helpers.replaceParams(Helpers.decodeHtml(_.get(pixassist, 'themeConfig.l10n.componentUnavailableContent', '')))}/>;
+						content={Helpers.parseL10n(_.get(pixassist, 'themeConfig.l10n.componentUnavailableContent', ''))}/>;
 					break;
 			}
 		}
@@ -259,7 +261,7 @@ class SupportSelfHelpContainer extends React.Component {
 
 				field_output = <p
 					className={field_class}
-					dangerouslySetInnerHTML={{__html: Helpers.replaceParams(value)}}
+					dangerouslySetInnerHTML={{__html: Helpers.replaceVariables(value)}}
 					key={'field-' + field_key}></p>
 				break;
 			}
@@ -267,7 +269,7 @@ class SupportSelfHelpContainer extends React.Component {
 			case 'h1': {
 				field_output =
 					<h1 className={field_class} key={'field-' + field_key}
-						dangerouslySetInnerHTML={{__html: Helpers.replaceParams(field.value)}}></h1>
+						dangerouslySetInnerHTML={{__html: Helpers.replaceVariables(field.value)}}></h1>
 				break;
 			}
 
@@ -289,21 +291,21 @@ class SupportSelfHelpContainer extends React.Component {
 
 				field_output =
 					<h2 className={field_class} key={'field-' + field_key}
-						dangerouslySetInnerHTML={{__html: Helpers.replaceParams(value)}}></h2>
+						dangerouslySetInnerHTML={{__html: Helpers.replaceVariables(value)}}></h2>
 				break;
 			}
 
 			case 'h3': {
 				field_output =
 					<h3 className={field_class} key={'field-' + field_key}
-						dangerouslySetInnerHTML={{__html: Helpers.replaceParams(field.value)}}></h3>
+						dangerouslySetInnerHTML={{__html: Helpers.replaceVariables(field.value)}}></h3>
 				break;
 			}
 
 			case 'h4': {
 				field_output =
 					<h4 className={field_class} key={'field-' + field_key}
-						dangerouslySetInnerHTML={{__html: Helpers.replaceParams(field.value)}}></h4>
+						dangerouslySetInnerHTML={{__html: Helpers.replaceVariables(field.value)}}></h4>
 				break;
 			}
 
@@ -320,7 +322,7 @@ class SupportSelfHelpContainer extends React.Component {
 				}
 
 				// replace some pre-defined urls
-				field.url = Helpers.replaceUrls(field.url);
+				field.url = Helpers.replaceVariables(field.url);
 
 				field_output = <a className={CSSClass} target={target}
 								  key={'field-' + field_key}
@@ -506,7 +508,7 @@ class SupportSelfHelpContainer extends React.Component {
 				breadcrumbs.push({
 					id: 0,
 					name: Helpers.decodeHtml(_.get(pixassist,'themeConfig.knowledgeBase.l10n.selfHelp', '' )),
-					type: 'default'
+					type: 'root'
 				});
 			}
 			breadcrumbs.push({type: category.type, id: category.id, name: category.name});

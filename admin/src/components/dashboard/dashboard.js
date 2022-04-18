@@ -1,5 +1,6 @@
 import React from 'react';
 import { ThemeProvider } from '@material-ui/styles';
+import { StylesProvider, createGenerateClassName } from '@material-ui/core/styles'
 import ourTheme from '../mui-theme';
 
 import DashboardHeader from './header';
@@ -143,7 +144,7 @@ class DashboardContainer extends React.Component {
 
 	disconnectUser() {
 		let component = this,
-			confirm = window.confirm(Helpers.replaceParams(Helpers.decodeHtml(_.get(pixassist, 'themeConfig.l10n.disconnectConfirm', ''))));
+			confirm = window.confirm(Helpers.parseL10n(_.get(pixassist, 'themeConfig.l10n.disconnectConfirm', '')));
 
 		if ( confirm ) {
             // Add disabled class to the whole dashboard on disconnect
@@ -240,8 +241,8 @@ class DashboardContainer extends React.Component {
 			if (_.get(state, 'is_active', false) === true) {
 				Helpers.pushNotification({
 					notice_id: 'outdated_theme',
-					title: Helpers.replaceParams(Helpers.decodeHtml(pixassist.themeConfig.l10n.themeUpdateAvailableTitle)),
-					content: Helpers.replaceParams(Helpers.decodeHtml(pixassist.themeConfig.l10n.themeUpdateAvailableContent)),
+					title: Helpers.parseL10n(pixassist.themeConfig.l10n.themeUpdateAvailableTitle),
+					content: Helpers.parseL10n(pixassist.themeConfig.l10n.themeUpdateAvailableContent),
 					type: 'info',
 					ctaLabel: pixassist.themeConfig.l10n.themeUpdateButton,
 					ctaAction: Helpers.clickUpdateTheme,
@@ -286,13 +287,16 @@ const Dashboard = connect(
 	mapDispatchToProps
 )(DashboardContainer);
 
+const generateClassName = createGenerateClassName({
+	productionPrefix: 'pixdash',
+})
 
 const DashboardPageContainer = () => {
-	return <ThemeProvider theme={ourTheme}>
+	return <StylesProvider generateClassName={generateClassName}><ThemeProvider theme={ourTheme}>
 			{ ( _.isUndefined( pixassist ) || _.isUndefined( pixassist.themeSupports ) || pixassist.themeSupports === null )
 				? null
 				: <Dashboard /> }
-		</ThemeProvider>
+	</ThemeProvider></StylesProvider>
 };
 
 const DashboardPage = connect(

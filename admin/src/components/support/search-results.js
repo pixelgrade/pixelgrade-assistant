@@ -68,7 +68,7 @@ class SupportSearchResultsContainer extends React.Component {
 		if ( !_.isUndefined( this.props.searchResults ) && _.size(this.props.searchResults)) {
 			let breadcrumbs = [
 				{
-					type: 'default',
+					type: 'root',
 					id: 0,
 					name: Helpers.decodeHtml(_.get(pixassist,'themeConfig.knowledgeBase.l10n.selfHelp', '' ))
 				},

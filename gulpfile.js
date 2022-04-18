@@ -1,38 +1,29 @@
 var plugin = 'pixelgrade-assistant',
+	textDomain = 'pixelgrade_assistant',
 	source_SCSS = { admin: './admin/scss/**/*.scss', public: './public/scss/**/*.scss'},
 	dest_CSS = { admin:'./admin/css/', public: './public/css/'},
 
 	gulp = require( 'gulp' ),
 	plugins = require( 'gulp-load-plugins' )(),
+	sass = require('gulp-sass')(require('node-sass')),
+	gulpEnvify = require('@ladjs/gulp-envify'),
 	fs = require('fs'),
 	del = require('del'),
 	cp = require('child_process'),
 	cleanCSS = require('gulp-clean-css'),
-	commandExistsSync = require('command-exists').sync;
-
-var u = plugins.util,
-	c = plugins.util.colors,
-	log = plugins.util.log;
-
-var options = {
-	silent: true,
-	continueOnError: true, // default: false
-	sourceMaps: true,
-	showDeps: false, // This should be activated only when wanting to see only the dependencies - it breaks the bundle; see https://blog.kowalczyk.info/article/3/analyzing-browserify-bundles-to-minimize-javascript-bundle-size.html
-};
+	commandExistsSync = require('command-exists').sync,
+	log = require('fancy-log'),
+	yargs = require('yargs/yargs'),
+	{ hideBin } = require('yargs/helpers'),
+	argv = yargs(hideBin(process.argv)).argv;
 
 // -----------------------------------------------------------------------------
 // Stylesheets (CSS) tasks
 // -----------------------------------------------------------------------------
 
-function logError( err, res ) {
-	log( c.red( 'Sass failed to compile' ) );
-	log( c.red( '> ' ) + err.file.split( '/' )[err.file.split( '/' ).length - 1] + ' ' + c.underline( 'line ' + err.line ) + ': ' + err.message );
-}
-
 function stylesAdmin() {
 	return gulp.src( source_SCSS.admin )
-		.pipe( plugins.sass( {'sourcemap': false, style: 'compact'} ).on( 'error', logError ) )
+		.pipe( sass.sync( {'sourcemap': false, style: 'compact'} ).on( 'error', sass.logError ) )
 		.pipe( plugins.autoprefixer() )
 		.pipe(plugins.replace(/^@charset \"UTF-8\";\n/gm, ''))
 		.pipe(cleanCSS())
@@ -54,28 +45,17 @@ function stylesAdminRtl() {
 stylesAdminRtl.description = 'Generate admin pixelgrade_assistant-admin-rtl.css file based on admin pixelgrade_assistant-admin.css';
 gulp.task( 'styles-admin-rtl', stylesAdminRtl );
 
-function stylesClub() {
-	return gulp.src( './admin/scss/club/*.scss' )
-		.pipe( plugins.sass( {'sourcemap': false, style: 'compact'} ).on( 'error', logError ) )
-		.pipe( plugins.autoprefixer() )
-		.pipe(plugins.replace(/^@charset \"UTF-8\";\n/gm, ''))
-		.pipe(cleanCSS())
-		.pipe( gulp.dest( './admin/css/club' ) );
-}
-stylesClub.description = 'Compiles club related css files';
-gulp.task( 'styles-club', stylesClub );
-
 
 function stylesSequence(cb) {
-	return gulp.series( 'styles-admin', 'styles-admin-rtl', 'styles-club' )(cb);
+	return gulp.series( 'styles-admin', 'styles-admin-rtl')(cb);
 }
 stylesSequence.description = 'Compile styles';
-gulp.task( 'styles', stylesSequence );
+gulp.task( 'compile:styles', stylesSequence );
 
 
 gulp.task('watch', watch);
 function watch() {
-    gulp.watch('./admin/scss/*.scss').on('change', gulp.series( 'styles-admin', 'styles-admin-rtl', 'styles-club' ));
+    gulp.watch('./admin/scss/*.scss').on('change', gulp.series( 'styles-admin', 'styles-admin-rtl'));
 }
 
 
@@ -83,122 +63,186 @@ function watch() {
 // Scripts tasks
 // -----------------------------------------------------------------------------
 
-var source = require('vinyl-source-stream');
-var buffer = require('vinyl-buffer');
-var browserify = require('browserify');
-var commonShake = require('common-shakeify')
-var watchify = require('watchify');
-var through = require('through2');
-var rollup = require('gulp-better-rollup');
-var babel = require('rollup-plugin-babel');
-var resolve = require('@rollup/plugin-node-resolve');
-var commonjs = require('@rollup/plugin-commonjs');
-var replace = require('@rollup/plugin-replace');
-var json = require('@rollup/plugin-json');
+const rollup = require('rollup')
+const babel = require('rollup-plugin-babel')
+const builtins = require('rollup-plugin-node-builtins')
+const globals = require('rollup-plugin-node-globals')
+const resolve = require('@rollup/plugin-node-resolve').nodeResolve
+const commonjs = require('@rollup/plugin-commonjs')
+const replace = require('@rollup/plugin-replace')
+const json = require('@rollup/plugin-json')
 
-function compileScriptsRollup(watch) {
-	return gulp.src(['./admin/src/dashboard.js', './admin/src/setup_wizard.js'])
-		.pipe(plugins.sourcemaps.init({loadMaps: false}))
-		.pipe(rollup({
-			// There is no `input` option as rollup integrates into the gulp pipeline
-			plugins: [
-				replace({
-					// 'process.env.NODE_ENV': JSON.stringify( 'development' )
-					'process.env.NODE_ENV': JSON.stringify( 'production' )
-				}),
-				json(),
-				babel({
-					exclude: [
-						'node_modules/**',
-					],
-				}),
-				resolve({
-					browser: true,
-					preferBuiltins: true,
-				}),
-				commonjs({
-					include: [
-						'node_modules/**',
-					],
-					browser: true,
-					namedExports: {
-						'node_modules/react-is/index.js': ['ForwardRef','isForwardRef','isValidElementType','isContextConsumer', 'isFragment'],
-						'node_modules/react-redux/node_modules/react-is/index.js': ['ForwardRef','isForwardRef','isValidElementType','isContextConsumer'],
-						'react': ['isValidElement','Children','cloneElement','createElement','createContext','Component','forwardRef','Fragment','useLayoutEffect',
-							'useEffect','useMemo','useCallback','useContext','useImperativeHandle','useState','useReducer','useRef','memo'],
-						'react-dom': ['findDOMNode','unstable_batchedUpdates','createPortal'],
-						'prop-types': ['element','oneOfType','func','bool','elementType'],
-						'@material-ui/core/styles': ['createMuiTheme','MuiThemeProvider'],
-						'@material-ui/styles': ['withStyles'],
-					}
-				})
-			]
-		}, {
-			// Rollup's `sourcemap` option is unsupported. Use `gulp-sourcemaps` plugin instead
-			format: 'iife',
-			// globals: {
-			// 	'lodash': '_',
-			// }
-		}))
-		// inlining the sourcemap into the exported .js file
-		.pipe(plugins.sourcemaps.write('./'))
-		.pipe(gulp.dest('./admin/js'))
+const rollupPluginsConfig = [
+	replace({
+		'process.env.NODE_ENV': argv.development ? JSON.stringify('development') : JSON.stringify( 'production' ),
+		preventAssignment: true,
+	}),
+	babel({
+		exclude: [
+			'node_modules/**',
+		],
+	}),
+	resolve({
+		browser: true,
+		preferBuiltins: true,
+	}),
+	commonjs({
+		include: [
+			'node_modules/**',
+		],
+		browser: true,
+		namedExports: {
+			'node_modules/react-is/index.js': ['ForwardRef', 'isForwardRef', 'isValidElementType', 'isContextConsumer', 'isFragment', 'Memo'],
+			'node_modules/react-redux/node_modules/react-is/index.js': ['ForwardRef', 'isForwardRef', 'isValidElementType', 'isContextConsumer'],
+			'react': ['isValidElement', 'Children', 'cloneElement', 'Component', 'useLayoutEffect',
+				'useEffect', 'useMemo', 'useContext', 'useReducer', 'useRef',
+				'forwardRef', 'createElement', 'createContext', 'useState', 'useCallback', 'Fragment', 'useImperativeHandle',
+				'memo'
+			],
+			'react-dom': ['findDOMNode', 'unstable_batchedUpdates', 'createPortal'],
+			'prop-types': ['element', 'oneOfType', 'func', 'bool', 'elementType'],
+			'@material-ui/core/styles': ['createMuiTheme', 'MuiThemeProvider'],
+			'@material-ui/styles': ['withStyles'],
+		}
+	}),
+	globals(),
+	builtins(),
+	json(),
+]
+
+const rollupOutputOptions = {
+	dir: './admin/js',
+	format: 'iife',
+	globals: {
+		'window': 'window',
+		'jQuery': 'jQuery',
+		'wpAjax': 'wpAjax',
+		'wp': 'wp',
+		'pixassist': 'pixassist',
+	},
+	intro: 'const global = window;',
+	sourcemap: true
 }
-gulp.task('compile_scripts_rollup', function() { return compileScriptsRollup(false); });
 
-function scriptCompileRollupProductionSequence(cb) {
-	gulp.series( 'apply-prod-environment', 'compile_scripts_rollup' )(cb);
-}
-gulp.task( 'compile_production_rollup', scriptCompileRollupProductionSequence );
-
-function compile_support(watch) {
-	var bundler = browserify(
-		'./admin/src/support.js',
-		{
-			debug: options.sourceMaps,
-			fullPaths: false,
-		});
-
-	if ( !!u.env.production ) {
-		bundler = bundler.transform('uglifyify', {global: true}).plugin(commonShake, { verbose: !u.env.production });
-	}
-
-	if (!u.env.production && options.showDeps) {
-		// for debugging dump (flattened and inverted) dependency tree
-		// b is browserify instance
-		bundler.pipeline.get('deps').push(through.obj(
-			function(row, enc, next) {
-				// format of row is { id, file, source, entry, deps }
-				// deps is {} where key is module name and value is file it comes from
-				console.log(row.file || row.id);
-				for (let k in row.deps) {
-					const v = row.deps[k];
-					console.log('  ', k, ':', v);
-				}
-				next();
-			}));
-	}
-
-	function rebundle_support() {
-		return bundler.bundle()
-			.on('error', function(err) { console.error(err); this.emit('end'); })
-			.pipe(source('support.js'))
-			.pipe(buffer())
-			.pipe(plugins.sourcemaps.init({ loadMaps: true }))
-			.pipe(plugins.sourcemaps.write('./'))
-			.pipe(gulp.dest('./admin/js'));
+function compileScriptsRollupDashboard (watch) {
+	const rollupInputOptions = {
+		input: './admin/src/dashboard.js',
+		plugins: rollupPluginsConfig,
+		external: ['jQuery', 'elasticsearch', 'AWS']
 	}
 
 	if (watch) {
-		bundler = watchify(bundler);
-		bundler.on('update', function() {
-			console.log('-> bundling support...');
-			rebundle_support();
+		const watcher = rollup.watch({
+			...rollupInputOptions,
+			output: rollupOutputOptions,
+			watch: {}
 		})
+
+		// This will make sure that bundles are properly closed after each run
+		watcher.on('event', ({result}) => {
+			if (result) {
+				result.close()
+			}
+		})
+
+		return watcher
 	}
 
-	return rebundle_support();
+	return rollup
+		.rollup(rollupInputOptions)
+		.then(bundle => {
+			return bundle.write(rollupOutputOptions)
+		})
 }
+
+gulp.task('compile_scripts_rollup_dashboard', function () { return compileScriptsRollupDashboard(false) })
+
+function compileScriptsRollupWizard (watch) {
+	const rollupInputOptions = {
+		input: './admin/src/setup_wizard.js',
+		plugins: rollupPluginsConfig,
+		external: ['jQuery', 'elasticsearch', 'AWS']
+	}
+
+	if (watch) {
+		const watcher = rollup.watch({
+			...rollupInputOptions,
+			output: rollupOutputOptions,
+			watch: {}
+		})
+
+		// This will make sure that bundles are properly closed after each run
+		watcher.on('event', ({result}) => {
+			if (result) {
+				result.close()
+			}
+		})
+
+		return watcher
+	}
+
+	return rollup
+		.rollup(rollupInputOptions)
+		.then(bundle => {
+			return bundle.write(rollupOutputOptions)
+		})
+}
+
+gulp.task('compile_scripts_rollup_wizard', function () { return compileScriptsRollupWizard(false) })
+
+function compileScriptsRollupSupport (watch) {
+	const rollupInputOptions = {
+		input: './admin/src/support.js',
+		plugins: rollupPluginsConfig,
+		external: ['jQuery', 'elasticsearch', 'AWS']
+	}
+
+	if (watch) {
+		const watcher = rollup.watch({
+			...rollupInputOptions,
+			output: rollupOutputOptions,
+			watch: {}
+		})
+
+		// This will make sure that bundles are properly closed after each run
+		watcher.on('event', ({result}) => {
+			if (result) {
+				result.close()
+			}
+		})
+
+		return watcher
+	}
+
+	return rollup
+		.rollup(rollupInputOptions)
+		.then(bundle => {
+			return bundle.write(rollupOutputOptions)
+		})
+}
+
+gulp.task('compile_scripts_rollup_support', function () { return compileScriptsRollupSupport(false) })
+
+function scriptCompileRollupProductionSequence (cb) {
+	gulp.series('apply-prod-environment', 'compile_scripts_rollup_dashboard', 'compile_scripts_rollup_wizard', 'compile_scripts_rollup_support')(cb)
+}
+
+gulp.task('compile_production_rollup', scriptCompileRollupProductionSequence)
+
+function scriptCompileRollupDevelopmentSequence (cb) {
+	gulp.series('compile_scripts_rollup_dashboard', 'compile_scripts_rollup_wizard', 'compile_scripts_rollup_support')(cb)
+}
+
+gulp.task('compile_dev_rollup', scriptCompileRollupDevelopmentSequence)
+
+/**
+ * This function just copies the JS code for elasticsearch in the admin/js directory
+ */
+function compile_elasticsearch_admin (watch) {
+	return gulp.src('./admin/src/vendor/elasticsearch-js/elasticsearch.js')
+		.pipe(gulp.dest('./admin/js/vendor'))
+}
+gulp.task('compile_elasticsearch_admin', function () { return compile_elasticsearch_admin() })
 
 function copyOtherScripts() {
 	return gulp.src(['./admin/src/admin-notices.js'])
@@ -206,81 +250,89 @@ function copyOtherScripts() {
 }
 gulp.task('copy_other_scripts', function() { return copyOtherScripts(); });
 
-function watch_dashboard() {
-	return compile_dashboard(true);
+function watch_dashboard () {
+	return compileScriptsRollupDashboard(true)
 }
 
-function watch_setup_wizard() {
-	return compile_setup_wizard(true);
+function watch_setup_wizard () {
+	return compileScriptsRollupWizard(true)
 }
 
-function watch_support() {
-	return compile_support(true);
+function watch_support () {
+	return compileScriptsRollupSupport(true)
 }
 
 // This DOESN'T exclude the need for --production!!!
-function setProductionEnvironment( done ) {
-	process.stdout.write("Setting NODE_ENV to 'production'" + "\n");
-	process.env.NODE_ENV = 'production';
+function setProductionEnvironment (done) {
+	process.stdout.write('Setting NODE_ENV to \'production\'' + '\n')
+	process.env.NODE_ENV = 'production'
 	if (process.env.NODE_ENV !== 'production') {
-		throw new Error("Failed to set NODE_ENV to production!!!!");
+		throw new Error('Failed to set NODE_ENV to production!!!!')
 	} else {
-		process.stdout.write("Successfully set NODE_ENV to production" + "\n");
+		process.stdout.write('Successfully set NODE_ENV to production' + '\n')
 	}
 
 	done()
 }
-setProductionEnvironment.description = 'Set the NODE_ENV environment variable to production.';
-gulp.task( 'apply-prod-environment', setProductionEnvironment );
+
+setProductionEnvironment.description = 'Set the NODE_ENV environment variable to production.'
+gulp.task('apply-prod-environment', setProductionEnvironment)
 
 /**
  * Compile tasks
  */
-gulp.task('compile_support', function() { return compile_support(false); });
-function scriptCompileProductionSupportSequence(cb) {
-	gulp.series( 'apply-prod-environment', 'compile_support' )(cb);
-}
-gulp.task( 'compile_production_support', scriptCompileProductionSupportSequence );
 
 // Compile all - no minify
-function scriptCompileSequence(cb) {
-	return gulp.parallel( 'compile_scripts_rollup', 'compile_production_support', 'copy_other_scripts' )(cb);
+function scriptCompileSequence (cb) {
+	return gulp.parallel('compile_production_rollup', 'compile_elasticsearch_admin', 'copy_other_scripts' )(cb)
 }
-gulp.task( 'compile', scriptCompileSequence );
 
-function scriptCompileProductionSequence(cb) {
-	gulp.series( 'apply-prod-environment', 'compile_scripts_rollup', 'compile_production_support', 'copy_other_scripts' )(cb);
+gulp.task('compile:dev', scriptCompileSequence)
+
+function scriptCompileProductionSequence (cb) {
+	gulp.series('apply-prod-environment', 'compile_production_rollup', 'compile_elasticsearch_admin', 'copy_other_scripts')(cb)
 }
-gulp.task( 'compile_production', scriptCompileProductionSequence );
+
+gulp.task('compile:production', scriptCompileProductionSequence)
 
 // Compile for release - with minify
-function minifyScripts() {
-	return gulp.src(['./admin/js/**/*.js','!./admin/js/**/*.min.js'])
-		.pipe( plugins.unassert() )
-		.pipe( plugins.envify('production') )
-		.pipe( plugins.terser({
+function minifyScripts () {
+	return gulp.src(['./admin/js/**/*.js', '!./admin/js/**/*.min.js'])
+		.pipe(plugins.unassert())
+		.pipe(gulpEnvify('production'))
+		.pipe(plugins.terser({
 			warnings: true,
 			compress: true, mangle: true,
-			output: { comments: 'some' }
+			output: {comments: 'some'}
 		}))
 		.pipe(plugins.rename({
-			suffix: ".min"
+			suffix: '.min'
 		}))
-		.pipe(gulp.dest('./admin/js'));
+		.pipe(gulp.dest('./admin/js'))
 }
-gulp.task( 'minify-scripts', minifyScripts );
 
-function scriptCompileMinifiedSequence(cb) {
-	gulp.series( 'compile_production', 'minify-scripts' )(cb);
+gulp.task('minify-scripts', minifyScripts)
+
+function scriptCompileMinifiedSequence (cb) {
+	gulp.series('compile:production', 'minify-scripts')(cb)
 }
-gulp.task( 'compile_distribution', scriptCompileMinifiedSequence );
+
+gulp.task('compile:distribution', scriptCompileMinifiedSequence)
 
 /**
  * Watch Tasks
  */
-gulp.task('watch_dashboard', function() { return watch_dashboard(true); });
-gulp.task('watch_wizard', function() { return watch_setup_wizard(true); });
-gulp.task('watch_support', function() { return watch_support(true); });
+gulp.task('watch:dashboard', function () { return watch_dashboard(true) })
+gulp.task('watch:wizard', function () { return watch_setup_wizard(true) })
+gulp.task('watch:support', function () { return watch_support(true) })
+
+// Watch SCSS files and JS files
+function watchAllSequence (cb) {
+	return gulp.parallel('watch:dashboard', 'watch:wizard', 'watch:support', 'watch:styles')(cb)
+}
+
+watchAllSequence.description = 'Start all the watchers.'
+gulp.task('watch:all', watchAllSequence)
 
 
 // -----------------------------------------------------------------------------
@@ -373,7 +425,8 @@ function removeUnneededFiles( done ) {
 		'babel.config.js',
 
 		'admin/scss',
-		'admin/src'
+		'admin/src',
+		'admin/js/vendor/elasticsearch.js'
 	];
 
 	files_to_remove.forEach( function( e, k ) {
@@ -421,10 +474,34 @@ gulp.task( 'fix-line-endings', maybeFixIncorrectLineEndings );
 function replaceTextdomainPlaceholder() {
 
 	return gulp.src( '../build/' + plugin + '/**/*.php' )
-		.pipe( plugins.replace( /['|"]__plugin_txtd['|"]/g, '\'' + plugin + '\'' ) )
+		.pipe( plugins.replace( /['|"]__plugin_txtd['|"]/g, '\'' + textDomain + '\'' ) )
 		.pipe( gulp.dest( '../build/' + plugin ) );
 }
 gulp.task( 'txtdomain-replace', replaceTextdomainPlaceholder);
+
+function generatePotFile (done) {
+	if (!fs.existsSync('../build/' + plugin)) {
+		log.error('The build folder (`'+'../build/' + plugin+'`) is missing!')
+		log.error('Aborting...')
+		done(new Error('missing_build_folder'))
+	}
+
+	if (!commandExistsSync('wp')) {
+		log.error('Could not generate the pot file since the wp command is missing. Please install the WP CLI!')
+		log.error('The build task will continue.')
+	} else {
+		cp.execSync('wp i18n make-pot ../build/' + plugin + '/ ../build/' + plugin + '/languages/' + textDomain + '.pot --skip-js',
+			{
+				stdio: 'inherit' // Use the same console as the io for the child process.
+			}
+		);
+	}
+
+	return done();
+}
+
+generatePotFile.description = 'Scan the build files and generate the .pot file.'
+gulp.task('generatepot', generatePotFile)
 
 /**
  * Create a zip archive out of the cleaned folder and delete the folder
@@ -458,7 +535,7 @@ function createZipFile() {
 gulp.task( 'make-zip', createZipFile );
 
 function buildSequence(cb) {
-	return gulp.series( 'copy-folder', 'remove-files', 'fix-build-dir-permissions', 'fix-build-file-permissions', 'fix-line-endings', 'txtdomain-replace' )(cb);
+	return gulp.series( 'copy-folder', 'remove-files', 'fix-build-dir-permissions', 'fix-build-file-permissions', 'fix-line-endings', 'txtdomain-replace', generatePotFile )(cb);
 }
 buildSequence.description = 'Sets up the build folder';
 gulp.task( 'build', buildSequence );
@@ -468,12 +545,3 @@ function zipSequence(cb) {
 }
 zipSequence.description = 'Creates the zip file';
 gulp.task( 'zip', zipSequence  );
-
-
-
-// Watch SCSS files and JS files
-function watchAllSequence(cb) {
-	return gulp.parallel( 'watch_dashboard', 'watch_wizard', 'watch_support' )(cb);
-}
-watchAllSequence.description = 'Start all the JS watchers.';
-gulp.task( 'watch-all', watchAllSequence  );

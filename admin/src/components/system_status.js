@@ -121,7 +121,7 @@ class SystemStatus extends React.Component {
 			} else if ( key === 'theme_version' && !_.isUndefined( entry.is_updateable ) && ! entry.is_updateable ) {
 				installDataClass = 'system-status-up-to-date';
 				installIconClass = 'c-icon c-icon--success';
-				extraInfo = Helpers.replaceParams(Helpers.decodeHtml(_.get(pixassist, 'themeConfig.systemStatus.l10n.themeLatestVersion', '')));
+				extraInfo = Helpers.parseL10n(_.get(pixassist, 'themeConfig.systemStatus.l10n.themeLatestVersion', ''));
 
 			}
 

@@ -222,7 +222,7 @@ class StepsContainer extends Component {
 														notice_id="component_unavailable"
 														type="warning"
 														title={Helpers.decodeHtml(_.get(pixassist, 'themeConfig.l10n.componentUnavailableTitle', ''))}
-														content={Helpers.replaceParams(Helpers.decodeHtml(_.get(pixassist, 'themeConfig.l10n.componentUnavailableContent', '')))}/>
+														content={Helpers.parseL10n(_.get(pixassist, 'themeConfig.l10n.componentUnavailableContent', ''))}/>
 													break;
 											}
 										}
@@ -245,7 +245,7 @@ class StepsContainer extends Component {
 													notice_id="component_unavailable"
 													type="warning"
 													title={Helpers.decodeHtml(_.get(pixassist, 'themeConfig.l10n.componentUnavailableTitle', ''))}
-													content={Helpers.replaceParams(Helpers.decodeHtml(_.get(pixassist, 'themeConfig.l10n.componentUnavailableContent', '')))} />
+													content={Helpers.parseL10n(_.get(pixassist, 'themeConfig.l10n.componentUnavailableContent', ''))} />
 												break;
 										}
 									}
@@ -285,7 +285,7 @@ class StepsContainer extends Component {
 																notice_id="component_unavailable"
 																type="warning"
 																title={Helpers.decodeHtml(_.get(pixassist, 'themeConfig.l10n.componentUnavailableTitle', ''))}
-																content={Helpers.replaceParams(Helpers.decodeHtml(_.get(pixassist, 'themeConfig.l10n.componentUnavailableContent', '')))}/>
+																content={Helpers.parseL10n(_.get(pixassist, 'themeConfig.l10n.componentUnavailableContent', ''))}/>
 															break
 													}
 												}
@@ -308,7 +308,7 @@ class StepsContainer extends Component {
 															notice_id="component_unavailable"
 															type="warning"
 															title={Helpers.decodeHtml(_.get(pixassist, 'themeConfig.l10n.componentUnavailableTitle', ''))}
-															content={Helpers.replaceParams(Helpers.decodeHtml(_.get(pixassist, 'themeConfig.l10n.componentUnavailableContent', '')))} />
+															content={Helpers.parseL10n(_.get(pixassist, 'themeConfig.l10n.componentUnavailableContent', ''))} />
 														break
 												}
 											}
@@ -354,7 +354,7 @@ class StepsContainer extends Component {
 
 													field_output =
 														<p className={field_class}
-														   dangerouslySetInnerHTML={{__html: Helpers.replaceParams(value)}}
+														   dangerouslySetInnerHTML={{__html: Helpers.replaceVariables(value)}}
 														   key={'field' + field_key}></p>
 													break;
 
@@ -364,7 +364,7 @@ class StepsContainer extends Component {
 												case 'h1': {
 													field_output =
 														<h1 className={field_class} key={'field' + field_key}
-														    dangerouslySetInnerHTML={{__html: Helpers.replaceParams(field.value)}}></h1>
+														    dangerouslySetInnerHTML={{__html: Helpers.replaceVariables(field.value)}}></h1>
 													break;
 												}
 
@@ -403,21 +403,21 @@ class StepsContainer extends Component {
 
 													field_output =
 														<h2 className={field_class} key={'field' + field_key}
-														    dangerouslySetInnerHTML={{__html: Helpers.replaceParams(value)}}></h2>
+														    dangerouslySetInnerHTML={{__html: Helpers.replaceVariables(value)}}></h2>
 													break;
 												}
 
 												case 'h3': {
 													field_output =
 														<h3 className={field_class} key={'field' + field_key}
-														    dangerouslySetInnerHTML={{__html: Helpers.replaceParams(field.value)}}></h3>
+														    dangerouslySetInnerHTML={{__html: Helpers.replaceVariables(field.value)}}></h3>
 													break;
 												}
 
 												case 'h4': {
 													field_output =
 														<h4 className={field_class} key={'field' + field_key}
-														    dangerouslySetInnerHTML={{__html: Helpers.replaceParams(field.value)}}></h4>
+														    dangerouslySetInnerHTML={{__html: Helpers.replaceVariables(field.value)}}></h4>
 													break;
 												}
 
@@ -428,7 +428,7 @@ class StepsContainer extends Component {
 													}
 
 													// replace some pre-defined urls
-													field.url = Helpers.replaceUrls(field.url);
+													field.url = Helpers.replaceVariables(field.url);
 
 													field_output =
 														<a className={CSSClass} key={'field' + field_key}

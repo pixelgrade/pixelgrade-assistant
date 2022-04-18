@@ -71,17 +71,28 @@ class PixelgradeAssistant_Support {
 		$rtl_suffix = is_rtl() ? '-rtl' : '';
 		wp_enqueue_style( $this->parent->get_plugin_name(), plugin_dir_url( $this->parent->file ) . 'admin/css/pixelgrade_assistant-admin' . $rtl_suffix . '.css', array( 'dashicons' ), $this->parent->get_version(), 'all' );
 
+		wp_register_script( $this->parent->get_plugin_name() . '-awssdk-js', plugin_dir_url( $this->parent->file ) . 'admin/js/vendor/aws-sdk-2.643.0.min.js' );
+		wp_register_script( $this->parent->get_plugin_name() . '-es-js', plugin_dir_url( $this->parent->file ) . 'admin/js/vendor/elasticsearch.min.js', array(), '15.5.0' );
 		$suffix = ( defined( 'SCRIPT_DEBUG' ) && SCRIPT_DEBUG ) ? '' : '.min';
 		wp_enqueue_script( 'pixelgrade_assistant-support', plugin_dir_url( $this->parent->file ) . 'admin/js/support' . $suffix . '.js', array(
 			'jquery',
 			'wp-util',
 			'wp-a11y',
-			'updates'
+			'updates',
+			$this->parent->get_plugin_name() . '-es-js',
+			$this->parent->get_plugin_name() . '-awssdk-js',
 		), $this->parent->get_version(), true );
 
 		if ( ! wp_script_is('pixelgrade_assistant-dashboard') ) {
 			PixelgradeAssistant_Admin::localize_js_data( 'pixelgrade_assistant-support', true, 'support' );
 		}
+
+		// We need to remove lodash from the global scope
+		// since it overwrites Underscores and everything breaks in the Customizer.
+		$lodash_noconflict = '
+			window.lodash = _.noConflict();
+		';
+		wp_add_inline_script( $this->parent->get_plugin_name() . '-es-js', $lodash_noconflict );
 	}
 
 	/**

@@ -8,25 +8,20 @@
 }
 
 .dashboard-tabs__tab-name {
-  //flex: 0;
-  padding: 2px 26px !important;
+  min-width: 120px !important;
+  padding: 14px 26px !important;
 
   border-bottom: 3px solid transparent !important;
   border-radius: 0;
 
   //font-family: $font-headings !important;
-  font-size: 15px;
-  color: $dark;
+  font-size: 15px !important;
+  color: $dark !important;
   text-transform: none;
 
   opacity: .5;
 
-  //&.is-active {
-  //    border-bottom: 3px solid $accent--purple !important;
-  //    opacity: 1;
-  //}
-
-  &--system-status {
+  &--system-status, &:last-child {
     margin-left: auto !important;
     margin-right: 0 !important;
 

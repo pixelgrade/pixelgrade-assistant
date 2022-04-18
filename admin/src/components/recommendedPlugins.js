@@ -32,12 +32,12 @@ class RecommendedPluginsContainer extends React.Component {
 	render() {
 		let component = this;
 
-		let title = Helpers.replaceParams(Helpers.decodeHtml(_.get(pixassist, 'themeConfig.recommendedPlugins.title', ''))),
-			content = Helpers.replaceParams(Helpers.decodeHtml(_.get(pixassist, 'themeConfig.recommendedPlugins.content', '')));
+		let title = Helpers.parseL10n(_.get(pixassist, 'themeConfig.recommendedPlugins.title', '')),
+			content = Helpers.parseL10n(_.get(pixassist, 'themeConfig.recommendedPlugins.content', ''));
 
 		if (component.props.session.are_plugins_ready) {
-			title = Helpers.replaceParams(Helpers.decodeHtml(_.get(pixassist, 'themeConfig.recommendedPlugins.validatedTitle', '')));
-			content = Helpers.replaceParams(Helpers.decodeHtml(_.get(pixassist, 'themeConfig.recommendedPlugins.validatedContent', '')));
+			title = Helpers.parseL10n(_.get(pixassist, 'themeConfig.recommendedPlugins.validatedTitle', ''));
+			content = Helpers.parseL10n(_.get(pixassist, 'themeConfig.recommendedPlugins.validatedContent', ''));
 		}
 
 		return (

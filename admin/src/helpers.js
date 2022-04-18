@@ -164,57 +164,6 @@ const Helpers = (function (window) {
 
 	};
 
-	/**
-	 * Replaces variables like theme_name or user name in a string
-	 *
-	 * @param string
-	 * @returns {*}
-	 */
-	const replaceParams = function (string) {
-
-		var replacers = {
-			"{{theme_name}}": _.get(pixassist, 'themeSupports.theme_name', 'Theme'),
-			"{{stylecss_theme_name}}": _.get(pixassist, 'themeSupports.stylecss_theme_name', ''),
-			"{{theme_version}}": _.get(pixassist, 'themeSupports.theme_version', '0.0.1'),
-			"{{theme_id}}": _.get(pixassist, 'themeSupports.theme_id', ''),
-			"{{template}}": _.get(pixassist, 'themeSupports.template', ''),
-			"{{original_slug}}": _.get(pixassist, 'themeSupports.original_slug', ''),
-			"{{username}}": _.get(pixassist, 'user.name', 'Name'), // This is the name of the current user, in this installation
-			"{{shopdomain}}": pixassist.shopBaseDomain,
-		};
-
-		// Let's see if we have the display name of the customer from our shop
-		if ( ! _.isUndefined( pixassist.user.pixelgrade_display_name ) ) {
-			replacers["{{username}}"] = _.get(pixassist, 'user.pixelgrade_display_name', 'Name');
-		}
-
-		var re = new RegExp(Object.keys(replacers).join("|"), "gi");
-
-		if ( !_.isUndefined(string) || !!string ) {
-			string = string.replace(re, function (matched) {
-				return replacers[matched];
-			});
-		}
-
-		return string
-	};
-
-	const replaceUrls = function (string) {
-
-		var replacers = {
-			"{{dashboard_url}}": pixassist.dashboardUrl,
-			"{{customizer_url}}": pixassist.customizerUrl
-		};
-
-		var re = new RegExp(Object.keys(replacers).join("|"), "gi");
-
-		string = string.replace(re, function (matched) {
-			return replacers[matched];
-		});
-
-		return string
-	};
-
 	const extend = function (target, source) {
 		target = target || {};
 		for (var prop in source) {
@@ -494,7 +443,7 @@ const Helpers = (function (window) {
 				Helpers.updateNotification({
 					notice_id: 'outdated_theme',
 					title: "Theme updated successfully!",
-					content: Helpers.replaceParams("All things look great! Enjoy crafting your site with {{theme_name}}."),
+					content: Helpers.parseL10n("All things look great! Enjoy crafting your site with {{theme_name}}."),
 					type: 'success',
 					ctaLabel: false,
 					secondaryCtaLabel: false,
@@ -679,8 +628,88 @@ const Helpers = (function (window) {
 		return null;
 	}
 
+	/**
+	 * Replaces variables like theme_name or username in a string.
+	 *
+	 * @param string
+	 * @returns {*}
+	 */
+	const replaceVariables = function (string) {
+
+		const replacers = {
+			'{{themeName}}': _.get(pixassist, 'themeSupports.theme_name', 'Theme'),
+			'{{theme_name}}': _.get(pixassist, 'themeSupports.theme_name', 'Theme'),
+
+			'{{stylecssThemeName}}': _.get(pixassist, 'themeSupports.stylecss_theme_name', ''),
+			'{{stylecss_theme_name}}': _.get(pixassist, 'themeSupports.stylecss_theme_name', ''),
+
+			'{{themeVersion}}': _.get(pixassist, 'themeSupports.theme_version', '0.0.1'),
+			'{{theme_version}}': _.get(pixassist, 'themeSupports.theme_version', '0.0.1'),
+
+			'{{themeId}}': _.get(pixassist, 'themeSupports.theme_id', ''),
+			'{{theme_id}}': _.get(pixassist, 'themeSupports.theme_id', ''),
+
+			'{{template}}': _.get(pixassist, 'themeSupports.template', ''),
+
+			'{{originalSlug}}': _.get(pixassist, 'themeSupports.original_slug', ''),
+			'{{original_slug}}': _.get(pixassist, 'themeSupports.original_slug', ''),
+
+			'{{mainProductSku}}': _.get(pixassist, 'themeSupports.main_product_sku', _.get(pixassist, 'themeSupports.original_slug', '')),
+			'{{main_product_sku}}': _.get(pixassist, 'themeSupports.main_product_sku', _.get(pixassist, 'themeSupports.original_slug', '')),
+
+			'{{username}}': _.get(pixassist, 'user.name', 'Name'), // This is the name of the current user, in this installation
+
+			'{{shopBase}}': pixassist.shopBase,
+			'{{shopbase}}': pixassist.shopBase,
+
+			'{{shopDomain}}': pixassist.shopBaseDomain,
+			'{{shopdomain}}': pixassist.shopBaseDomain,
+
+			'{{supportEmailAddress}}': pixassist.supportEmail,
+			'{{support_email_address}}': pixassist.supportEmail,
+
+			'{{supportEmailAddressLink}}': '<a href="mailto:'+pixassist.supportEmail+'" target="_blank">'+pixassist.supportEmail+'</a>',
+			'{{support_email_address_link}}': '<a href="mailto:'+pixassist.supportEmail+'" target="_blank">'+pixassist.supportEmail+'</a>',
+
+			'{{dashboardUrl}}': pixassist.dashboardUrl,
+			'{{dashboard_url}}': pixassist.dashboardUrl,
+
+			'{{customizerUrl}}': pixassist.customizerUrl,
+			'{{customizer_url}}': pixassist.customizerUrl
+		}
+
+		// Let's see if we have the display name of the customer from our shop
+		if (!_.isUndefined(pixassist.user.pixelgrade_display_name)) {
+			replacers['{{username}}'] = _.get(pixassist, 'user.pixelgrade_display_name', 'Name')
+		}
+
+		const re = new RegExp(Object.keys(replacers).join('|'), 'gi')
+
+		if (!_.isUndefined(string) || !!string) {
+			string = string.replace(re, function (matched) {
+				// We should first search for the matched, as it is.
+				if (!_.isUndefined(replacers[matched])) {
+					return replacers[matched]
+				}
+
+				// But also give the full lowercase match a change.
+				if (!_.isUndefined(replacers[matched.toLowerCase()])) {
+					return replacers[matched.toLowerCase()]
+				}
+
+				return matched;
+			})
+		}
+
+		return string
+	}
+
 	const decodeHtml = function(encodedHtmlText) {
 		return decode(encodedHtmlText);
+	}
+
+	const parseL10n = function (l10nText) {
+		return self::decodeHtml(self::replaceVariables(l10nText))
 	}
 
 	const trailingslashit = function(url) {
@@ -694,9 +723,12 @@ const Helpers = (function (window) {
 		removeNotification: removeNotification,
 		notify500Error: notify500Error,
 		notify400Error: notify400Error,
-		// replacers
-		replaceParams: replaceParams,
-		replaceUrls: replaceUrls,
+
+		// HTML and replacers
+		decodeHtml: decodeHtml,
+		replaceVariables: replaceVariables,
+		parseL10n: parseL10n,
+
 		//helpers
 		extend: extend,
 		// auth & requests
@@ -714,7 +746,6 @@ const Helpers = (function (window) {
 		getLicense: getLicense,
 		compareVersion: compareVersion,
 		getFirstItem: getFirstItem,
-		decodeHtml: decodeHtml,
 		trailingslashit: trailingslashit,
 	};
 

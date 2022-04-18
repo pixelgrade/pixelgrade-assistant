@@ -130,7 +130,7 @@ class StickyContainer extends React.Component {
 										</div> :
 										<div>{this.props.support.ticketError}</div> }
 									</div> :
-									<div className="notification__blue notification clear sticky">{Helpers.replaceParams(Helpers.decodeHtml(_.get(pixassist.themeConfig, 'knowledgeBase.openTicket.blocks.sticky.fields.notConnected.value', '')))}</div>
+									<div className="notification__blue notification clear sticky">{Helpers.parseL10n(_.get(pixassist.themeConfig, 'knowledgeBase.openTicket.blocks.sticky.fields.notConnected.value', ''))}</div>
 					}
 				</Paper>
 			</div>
@@ -186,11 +186,16 @@ class StickyContainer extends React.Component {
 				pixassist.apiEndpoints.pxm.createTicket.url,
 				params,
 				function (response) {
-					if ( response.code !== 'success') {
+					if ( _.isUndefined(response.code) || response.code !== 'success') {
+						let errorMessage = Helpers.parseL10n(_.get(pixcare, 'themeConfig.knowledgeBase.l10n.ticketSendError', ''))
+						if (!_.isUndefined(response.message)) {
+							errorMessage = response.message
+						}
+
 						// Set the state of the topics component to show error message
-						component.props.onSupportError(true, response.message);
+						component.props.onSupportError(true, errorMessage);
 						component.props.onStickyValue(undefined);
-						component.props.onTicketError(response.message);
+						component.props.onTicketError(errorMessage);
 					} else {
 						// Create a new Custom (Search) Event
 						let ticketEvent = new CustomEvent(
@@ -207,16 +212,19 @@ class StickyContainer extends React.Component {
 
 						document.getElementById('pixassist-support-button').dispatchEvent(ticketEvent);
 
-						let email_message = Helpers.replaceParams(Helpers.decodeHtml(_.get(pixassist,'themeConfig.knowledgeBase.l10n.emailMessage', '' )));
+						let emailAddressPartial = Helpers.parseL10n(_.get(pixassist,'themeConfig.knowledgeBase.l10n.emailMessage', '' ));
 
 						if ( ! _.isUndefined(pixassist.user.pixelgrade_user_email)) {
-							email_message = '<strong>' + Helpers.decodeHtml(pixassist.user.pixelgrade_user_email) + '</strong> (' + email_message + ')';
+							emailAddressPartial = '<strong>' + Helpers.decodeHtml(pixassist.user.pixelgrade_user_email) + '</strong> (' + emailAddressPartial + ')';
 						}
 
 						component.handleCloseSticky(event);
 
 						// Set the state of the topics component to show ticket submission, after the closeSticky since it clears everything.
-						component.props.onSupportError(false, '<h1>'+Helpers.decodeHtml(_.get(pixassist,'themeConfig.knowledgeBase.l10n.ticketSendSuccessTitle', '' ))+'</h1><p>' + Helpers.decodeHtml(_.get(pixassist,'themeConfig.knowledgeBase.l10n.ticketSendSuccessContent', '' )) + ' ' + email_message + '</p><p>'+Helpers.decodeHtml(_.get(pixassist,'themeConfig.knowledgeBase.l10n.ticketSendSuccessGreeting', '' ))+'</p>')
+						component.props.onSupportError(false,
+							'<h1>'+Helpers.parseL10n(_.get(pixassist,'themeConfig.knowledgeBase.l10n.ticketSendSuccessTitle', '' ))+'</h1>'
+							+ Helpers.parseL10n(_.get(pixassist,'themeConfig.knowledgeBase.l10n.ticketSendSuccessContent', '' ).replace('{{email_address}}', emailAddressPartial))
+							+ '<p>'+Helpers.parseL10n(_.get(pixassist,'themeConfig.knowledgeBase.l10n.ticketSendSuccessGreeting', '' ))+'</p>')
 					}
 
 					return response;

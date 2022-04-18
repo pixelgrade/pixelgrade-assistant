@@ -48,6 +48,12 @@ const support = ( supportState = getDefaultSupportState(), action ) => {
 			return {...supportState, ...{
 				is_support_active: false
 			}};
+		case 'ELASTICSEARCH_SEARCH_TEXT':
+			return {
+				...supportState, ...{
+					esSearchText: action.searchText,
+				}
+			};
 		case 'ELASTICSEARCH_RESULTS':
 			return {...supportState, ...{
 					es_data: action.es_data,
@@ -63,6 +69,12 @@ const support = ( supportState = getDefaultSupportState(), action ) => {
 					es_data: undefined,
 					es_error: true
 				}};
+		case 'ELASTICSEARCH_OK':
+			return {
+				...supportState, ...{
+					es_error: false
+				}
+			};
 		case 'STICKY':
 			return {...supportState, ...{
 				is_sticky: action.value

@@ -1,5 +1,6 @@
 import React from 'react';
 import { ThemeProvider } from '@material-ui/styles';
+import { StylesProvider, createGenerateClassName } from '@material-ui/core/styles'
 import ourTheme from '../mui-theme';
 
 import SupportButton from './button';
@@ -187,11 +188,17 @@ const SupportDashboard = connect(
 	mapDispatchToProps
 )(SupportDashboardContainer);
 
+const generateClassName = createGenerateClassName({
+	productionPrefix: 'pixsupp',
+})
+
 const SupportContainer = () => {
 	return (
-		<ThemeProvider theme={ourTheme} injectFirst>
+		<StylesProvider generateClassName={generateClassName}>
+		<ThemeProvider theme={ourTheme}>
 			<SupportDashboard />
 		</ThemeProvider>
+		</StylesProvider>
 	);
 };
 

@@ -1,6 +1,6 @@
-import { createMuiTheme } from '@material-ui/core/styles';
+import { createTheme } from '@material-ui/core/styles'
 
-const muiTheme = createMuiTheme({
+const muiTheme = createTheme({
 	palette: {
 		type: 'dark',
 		primary: {
@@ -51,6 +51,6 @@ const muiTheme = createMuiTheme({
 	MuiButtonBase: {
 		disableRipple: true, // No more ripple, on the whole application!
 	},
-});
+})
 
-export default muiTheme;
+export default muiTheme
