@@ -1,10 +1,10 @@
 === Pixelgrade Assistant ===
 Contributors: pixelgrade, vlad.olaru
-Tags: dashboard, support, pixelgrade, starter-content, demo-data, documentation
+Tags: dashboard, support, pixelgrade, starter-content, demo-data, documentation, interactive
 Requires at least: 4.9.9
-Tested up to: 5.8.3
+Tested up to: 5.9.4
 Requires PHP: 5.6.40
-Stable tag: 1.3.5
+Stable tag: 1.4.0
 License: GPLv3.0
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -96,6 +96,12 @@ No. We are not tracking you or your site. We ask your permission to share with u
 6. Site setup wizard
 
 == Changelog ==
+
+= 1.4.0 =
+* Fixes and improvements throughout the plugin dashboard
+* Prevent updates to unsupported version of plugins that our themes rely upon (e.g. Nova Blocks, Style Manager).
+* Update node packages to their latest version
+* Ensure compatibility with the latest WordPress 5.9.3.
 
 = 1.3.5 =
 * Tested with the latest WordPress 5.8.3.
