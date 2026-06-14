@@ -360,23 +360,6 @@ const Helpers = (function (window) {
 		}
 	};
 
-	// We would only like to display the most relevant ES results.
-	const esTrimHits = function (hits, maxScore) {
-		let relevant_hits = [];
-
-		Object.keys(hits).map(function (key, index) {
-			if (hits[key]._score > 0.3 * maxScore) {
-				relevant_hits.push(hits[key]);
-			}
-		});
-
-		return relevant_hits;
-	};
-
-	const getESIndex = function () {
-		return pixassist.themeConfig.eskb.index;
-	};
-
 	/**
 	 * This is the js-queue npm https://github.com/RIAEvangelist/js-queue
 	 * The only difference is that we added a 200 ms delay to each call.
@@ -558,9 +541,6 @@ const Helpers = (function (window) {
 		restRequest: restRequest,
 		$ajax: $ajax,
 		checkHttpStatus: checkHttpStatus,
-		// elastic search
-		esTrimHits: esTrimHits,
-		getESIndex: getESIndex,
 		// others
 		Queue: Queue,
 		clickUpdateTheme: clickUpdateTheme,

@@ -193,36 +193,6 @@ class PixelgradeAssistant_Admin {
 				    'method' => 'GET',
 				    'url' => PIXELGRADE_ASSISTANT__API_BASE . 'wp-json/pxm/v2/front/get_config',
 			    ),
-			    'createTicket'      => array(
-				    'method' => 'POST',
-				    'url' => PIXELGRADE_ASSISTANT__API_BASE . 'wp-json/pxm/v2/front/create_ticket',
-			    ),
-			    'getHTKBCategories' => array(
-				    'method' => 'GET',
-				    'url' => PIXELGRADE_ASSISTANT__API_BASE . 'wp-json/pxm/v2/front/get_htkb_categories',
-			    ),
-			    'htVoting'          => array(
-				    'method' => 'POST',
-				    'url' => PIXELGRADE_ASSISTANT__API_BASE . 'wp-json/pxm/v2/front/ht_voting',
-			    ),
-			    'htVotingFeedback'  => array(
-				    'method' => 'POST',
-				    'url' => PIXELGRADE_ASSISTANT__API_BASE . 'wp-json/pxm/v2/front/ht_voting_feedback',
-			    ),
-			    'htViews'           => array(
-				    'method' => 'POST',
-				    'url' => PIXELGRADE_ASSISTANT__API_BASE . 'wp-json/pxm/v2/front/ht_views',
-			    ),
-		    ),
-		    'wupl' => array(
-			    'licenses' => array(
-				    'method' => 'POST',
-				    'url' => PIXELGRADE_ASSISTANT__API_BASE . 'wp-json/wupl/v2/front/get_licenses',
-			    ),
-			    'licenseAction' => array(
-				    'method' => 'POST',
-				    'url' => PIXELGRADE_ASSISTANT__API_BASE . 'wp-json/wupl/v2/front/license_action',
-			    ),
 		    ),
 	    ) );
 

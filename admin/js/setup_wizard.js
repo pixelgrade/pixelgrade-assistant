@@ -20075,21 +20075,6 @@
 	        throw 'A 5xx error occurred';
 	      }
 	    }
-	  }; // We would only like to display the most relevant ES results.
-
-
-	  var esTrimHits = function esTrimHits(hits, maxScore) {
-	    var relevant_hits = [];
-	    Object.keys(hits).map(function (key, index) {
-	      if (hits[key]._score > 0.3 * maxScore) {
-	        relevant_hits.push(hits[key]);
-	      }
-	    });
-	    return relevant_hits;
-	  };
-
-	  var getESIndex = function getESIndex() {
-	    return pixassist.themeConfig.eskb.index;
 	  };
 	  /**
 	   * This is the js-queue npm https://github.com/RIAEvangelist/js-queue
@@ -20291,9 +20276,6 @@
 	    restRequest: restRequest,
 	    $ajax: $ajax,
 	    checkHttpStatus: checkHttpStatus,
-	    // elastic search
-	    esTrimHits: esTrimHits,
-	    getESIndex: getESIndex,
 	    // others
 	    Queue: Queue,
 	    clickUpdateTheme: clickUpdateTheme,
