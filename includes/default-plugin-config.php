@@ -419,7 +419,7 @@ function pixassist_get_default_config( $original_theme_slug ) {
 		'phpRecommendedVersion' => 5.6,
 		'l10n'                  => array(
 			'title'                          => esc_html__( 'System Status', '__plugin_txtd' ),
-			'description'                    => esc_html__( 'Allow Pixelgrade to collect non-sensitive diagnostic data and usage information. This will allow us to provide better assistance when you reach us through our support system. Thanks!', '__plugin_txtd' ),
+			'description'                    => esc_html__( 'Allow Pixelgrade to collect non-sensitive diagnostic data and usage information about your WordPress install. This is entirely optional and helps us improve the free Pixelgrade stack. Thanks!', '__plugin_txtd' ),
 			'phpOutdatedNotice'              => esc_html__( 'This version is a little old. We recommend you update to PHP ', '__plugin_txtd' ),
 			'wordpressOutdatedNoticeContent' => esc_html__( 'We recommend you update to the latest and greatest WordPress version.', '__plugin_txtd' ),
 			'updateAvailable'                => esc_html__( 'There\'s an update available!', '__plugin_txtd' ),
