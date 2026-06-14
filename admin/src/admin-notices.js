@@ -53,66 +53,11 @@
 					return;
 				}
 
-				var $target = $(event.target);
-
-				// Make the button show a loading icon
-				$target.addClass('updating-message');
-
-				let license = {
-					hash: '',
-				};
-				if ( typeof pixassist.themeMod.licenseHash != "undefined" && pixassist.themeMod.licenseHash.length > 0) {
-					license.hash = pixassist.themeMod.licenseHash;
-				}
-
-				// Send the feedback
-				if ( typeof window.pixassistHelpers !== "undefined" ) {
-					let params = {
-						subject: pixassistNotices.feedbackTicketSubject,
-						topic: 'The feedback you asked through the admin notification.',
-						details: $ratingContainer.find( 'textarea.feedback-message').val(),
-						license_hash: license.hash,
-						tag: 'feedback',
-						site_url: pixassistNotices.installurl,
-						user_id: parseInt(pixassist.user.pixassist_user_ID),
-						theme_slug: pixassist.themeSupports.original_slug,
-						hash_id: pixassist.themeSupports.theme_id,
-						theme_type: pixassist.themeSupports.theme_type
-					};
-
-					window.pixassistHelpers.restOauth1Request(
-						pixassist.apiEndpoints.pxm.createTicket.method,
-						pixassist.apiEndpoints.pxm.createTicket.url,
-						params,
-						function (response) {
-							if ( response.code !== 'success') {
-								console.log(response);
-							}
-
-							$initialStep.hide(); // just to be safe
-							$notEnjoyedStep.hide();
-							$feedbackThankYouStep.show();
-
-							return response;
-						},function(error) {
-							console.log(error)
-						}, function(response) {
-							// HTTP error status check part of the restRequest promise chain
-							// Get the first digit of the status
-							let status = (!_.isUndefined(response.status)) ? parseInt(response.status.toString()[0]) : parseInt(response.code.toString()[0]);
-							// If the status is not in the 2xx form - throw exception
-							if (status !== 2) {
-								console.log(response);
-							}
-
-							return response;
-						}
-					);
-				} else {
-					$initialStep.hide(); // just to be safe
-					$notEnjoyedStep.hide();
-					$feedbackThankYouStep.show();
-				}
+				// The free wp.org build does not send feedback to any external service.
+				// Acknowledge the input locally and show the thank-you step.
+				$initialStep.hide(); // just to be safe
+				$notEnjoyedStep.hide();
+				$feedbackThankYouStep.show();
 			})
 
 			$ratingContainer.find('.js-pixassist-notnow-handle').on('click', function (event) {

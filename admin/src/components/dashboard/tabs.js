@@ -11,7 +11,6 @@ import Tools from '../tools';
 import Notice from '../notice';
 import Notificator from '../notificator';
 
-import Authenticator from '../authenticator';
 import StarterContent from '../starter_content';
 import PluginManager from '../plugin_manager';
 import RecommendedPlugins from '../recommendedPlugins';
@@ -412,13 +411,6 @@ class DashboardTabsContainer extends React.Component {
 			case 'component': {
 
 				switch (field.value) {
-
-					case 'authenticator': {
-						field_output =
-							<Authenticator
-								key={'field-' + field_key}/>
-						break
-					}
 
 					case 'system-status': {
 						field_output = <SystemStatus

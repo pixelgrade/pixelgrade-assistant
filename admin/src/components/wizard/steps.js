@@ -9,7 +9,6 @@ import StepLabel from '@material-ui/core/StepLabel';
 import DoneIcon from '@material-ui/icons/CheckCircle';
 
 import Notice from '../notice';
-import Authenticator from '../authenticator';
 import PluginManager from '../plugin_manager';
 import StarterContent from '../starter_content';
 
@@ -464,11 +463,6 @@ class StepsContainer extends Component {
 
 												case 'component': {
 													switch (field.value) {
-														case 'authenticator': {
-															field_output = <Authenticator key={'field' + field_key} />
-															break
-														}
-
 														case 'plugin-manager': {
 															field_output = <PluginManager
 																key={'field' + field_key}
@@ -825,7 +819,7 @@ class StepsContainer extends Component {
 		// ensure that the default actions ar bound
 		var component = this;
 
-		// force the step_index to 0 since the authenticator will follow ... always
+		// force the step_index to 0 so the wizard always starts at the first step
 		$state = { ...$state, ...{ loading: false, step_index: 0 } };
 
 		this.setState( $state, function () {
