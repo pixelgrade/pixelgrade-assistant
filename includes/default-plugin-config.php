@@ -757,6 +757,22 @@ function pixassist_get_default_config( $original_theme_slug ) {
 		'validatedContent' => wp_kses_post( __( 'You can rest assured that {{theme_name}} can do its best for you and your site.', '__plugin_txtd' ) ),
 	);
 
+	// Local recommended companions for the free LT stack — installed from WordPress.org by slug.
+	// Filterable so the team / a commercial build can adjust the list (e.g. add Style Manager once
+	// it is re-published on wp.org, or add account-gated companions via Pixelgrade Plus).
+	$config['requiredPlugins'] = array(
+		'plugins' => apply_filters( 'pixassist_recommended_plugins', array(
+			array(
+				'name'        => 'Nova Blocks',
+				'slug'        => 'nova-blocks',
+				'required'    => false,
+				'order'       => 10,
+				'selected'    => true,
+				'description' => esc_html__( 'Beautiful, flexible content blocks that power the Pixelgrade LT design experience.', '__plugin_txtd' ),
+			),
+		) ),
+	);
+
 	$update_core = get_site_transient( 'update_core' );
 
 	if ( ! empty( $update_core->updates ) && ! empty( $update_core->updates[0] ) ) {
