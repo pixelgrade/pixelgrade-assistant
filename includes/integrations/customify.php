@@ -58,7 +58,8 @@ function pixassist_add_site_data_to_customify_cloud_request_data( $site_data ) {
 add_filter( 'customify_style_manager_get_site_data', 'pixassist_add_site_data_to_customify_cloud_request_data', 10, 1 );
 
 function pixassist_add_cloud_stats_endpoint( $config ) {
-	if ( empty( $config['cloud']['stats'] ) ) {
+	// Guard the constant: it is defined by Style Manager / Care, which may not be present.
+	if ( defined( 'PIXELGRADE_CLOUD__API_BASE' ) && empty( $config['cloud']['stats'] ) ) {
 		$config['cloud']['stats'] = array(
 			'method' => 'POST',
 			'url' => PIXELGRADE_CLOUD__API_BASE . 'wp-json/pixcloud/v1/front/stats',
@@ -75,6 +76,11 @@ add_filter( 'customify_style_manager_external_api_endpoints', 'pixassist_add_clo
  * @param bool $custom_palette
  */
 function pixassist_send_cloud_stats( $custom_palette ) {
+	// External/cloud telemetry is opt-in: only send when the user has enabled data collection.
+	if ( ! class_exists( 'PixelgradeAssistant_DataCollector' ) || ! PixelgradeAssistant_DataCollector::allow_data_collector() ) {
+		return;
+	}
+
 	if ( class_exists( 'Customify_Cloud_Api' ) && ! empty( Customify_Cloud_Api::$externalApiEndpoints['cloud']['stats'] ) ) {
 		$cloud_api = new Customify_Cloud_Api();
 		$cloud_api->send_stats();

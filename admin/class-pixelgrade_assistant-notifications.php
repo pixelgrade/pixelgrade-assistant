@@ -174,7 +174,7 @@ class PixelgradeAssistant_Notifications {
 					// Test the link
 					$response = wp_remote_head( $temp_link, array(
 						'timeout' => 2,
-						'sslverify' => false,
+						'sslverify' => true,
 					) );
 					if ( ! empty( $response['response']['code'] ) && WP_Http::OK == $response['response']['code'] ) {
 						$review_link = $temp_link;

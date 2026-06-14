@@ -25,6 +25,7 @@ class PixelgradeAssistantDeactivator {
 	 * Run on plugin deactivation.
 	 */
 	public static function deactivate() {
-		set_theme_mod( 'pixassist_install_notice_dismissed', false );
+		// Nothing to clean up on deactivation. (Removed a dead 'pixassist_install_notice_dismissed'
+		// theme-mod reset that nothing else in the plugin read or set.)
 	}
 }

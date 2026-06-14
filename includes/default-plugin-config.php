@@ -51,10 +51,10 @@ function pixassist_get_default_config( $original_theme_slug ) {
 		'starterContentImportLabel'                     => esc_html__( 'Import starter content', '__plugin_txtd' ),
 		'starterContentImportSelectedLabel'             => esc_html__( 'Import selected', '__plugin_txtd' ),
 		'setupWizardWelcomeTitle'                       => esc_html__( 'Welcome to the site setup wizard', '__plugin_txtd' ),
-		'setupWizardWelcomeContent'                     => esc_html__( 'Go through this quick setup wizard to make sure you install all the recommended plugins and pre-load the site with helpful demo content. It\'s safe and fast.', '__plugin_txtd' ),
+		'setupWizardWelcomeContent'                     => esc_html__( 'This quick, optional setup helps you install recommended free plugins and load helpful demo content. It\'s safe and fast — and you can skip it anytime.', '__plugin_txtd' ),
 		'setupWizardStartButtonLabel'                   => esc_html__( 'Let\'s get started!', '__plugin_txtd' ),
 		'authenticatorDashboardConnectTitle'            => esc_html__( 'Connect your site to Pixelgrade', '__plugin_txtd' ),
-		'authenticatorDashboardConnectContent'          => wp_kses_post( __( 'Securely connect to {{shopdomain}}, create <strong>a free account</strong>, and make sure you don\'t miss any of the following perks.
+		'authenticatorDashboardConnectContent'          => wp_kses_post( __( 'Optionally connect a free {{shopdomain}} account to unlock a few extras:
 					<ul class="benefits">
 						<li><i></i><span><strong>Hand-picked plugins</strong> to boost your website.</span></li>
 						<li><i></i><span><strong>Starter content</strong> to make your website look like the demo.</span></li>
@@ -233,7 +233,6 @@ function pixassist_get_default_config( $original_theme_slug ) {
 					),
 				),
 				'plugins'        => array(
-					'notconnected' => 'hidden',
 					'fields'       => array(
 						'recommended_plugins' => array(
 							'type'  => 'component',
@@ -242,7 +241,6 @@ function pixassist_get_default_config( $original_theme_slug ) {
 					),
 				),
 				'starterContent' => array(
-					'notconnected' => 'hidden',
 					'fields'       => array(
 						'title'          => array(
 							'type'             => 'h2',
@@ -703,12 +701,12 @@ function pixassist_get_default_config( $original_theme_slug ) {
 	// the authenticator config is based on the component status which can be: not_validated, loading, validated
 	$config['authentication'] = array(
 		// general strings
-		'title'               => esc_html__( 'You are almost finished!', '__plugin_txtd' ),
+		'title'               => esc_html__( 'Connect a Pixelgrade account (optional)', '__plugin_txtd' ),
 		// validated string
 		'validatedTitle'      => '<span class="c-icon c-icon--success"></span> ' . esc_html__( 'Site connected! You\'re all set 👌', '__plugin_txtd' ),
 		'validatedContent'    => wp_kses_post( __( '<strong>Well done, {{username}}!</strong> Your site is successfully connected to {{shopdomain}} and all the tools are available to make it shine.', '__plugin_txtd' ) ),
 		//  not validated strings
-		'notValidatedContent' => wp_kses_post( __( 'In order to get access to <strong>premium support, starter content, in-dashboard documentation,</strong> and many others, your site needs to have <strong>an active connection</strong> to {{shopdomain}}.<br/><br/>This <strong>does not mean</strong> we gain direct (admin) access to this site. You remain the only one who can log in and make changes. <strong>Connecting means</strong> that this site and {{shopdomain}} share a few details needed to communicate securely.', '__plugin_txtd' ) ),
+		'notValidatedContent' => wp_kses_post( __( 'Connecting a free {{shopdomain}} account is <strong>optional</strong>. It unlocks extras like <strong>cloud starter content, in-dashboard documentation, and premium support</strong>.<br/><br/>This <strong>does not mean</strong> we gain direct (admin) access to this site. You remain the only one who can log in and make changes. <strong>Connecting means</strong> that this site and {{shopdomain}} share a few details needed to communicate securely.', '__plugin_txtd' ) ),
 		'notValidatedButton'  => esc_html__( 'Connect to {{shopdomain}}', '__plugin_txtd' ),
 		// no themes from shop
 		'noThemeContent'      => esc_html__( 'Ups! You are logged in, but it seems you don\'t have a license for this theme yet.', '__plugin_txtd' ),

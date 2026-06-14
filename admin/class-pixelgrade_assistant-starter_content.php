@@ -447,7 +447,7 @@ class PixelgradeAssistant_StarterContent {
 			'timeout'   => 5,
 			'blocking'  => true,
 			'body'      => $request_data,
-			'sslverify' => false,
+			'sslverify' => true,
 		);
 
 		// Increase timeout if the target URL is a development one so we can account for slow local (development) installations.
@@ -681,7 +681,7 @@ class PixelgradeAssistant_StarterContent {
 			'timeout'   => 5,
 			'blocking'  => true,
 			'body'      => $request_data,
-			'sslverify' => false,
+			'sslverify' => true,
 		);
 
 		// Increase timeout if the target URL is a development one so we can account for slow local (development) installations.
@@ -945,7 +945,7 @@ class PixelgradeAssistant_StarterContent {
 			'timeout'   => 5,
 			'blocking'  => true,
 			'body'      => $request_data,
-			'sslverify' => false,
+			'sslverify' => true,
 		);
 
 		// Increase timeout if the target URL is a development one so we can account for slow local (development) installations.
@@ -1353,7 +1353,13 @@ class PixelgradeAssistant_StarterContent {
 	 * @return false|int
 	 */
 	public function permission_nonce_callback( $request ) {
-		return wp_verify_nonce( $this->get_nonce( $request ), 'pixelgrade_assistant_rest' );
+		// Defense in depth: starter-content import is an admin-only operation (it creates posts,
+		// uploads media, and writes theme mods/options), so require the capability plus the nonce.
+		if ( ! current_user_can( 'manage_options' ) ) {
+			return false;
+		}
+
+		return (bool) wp_verify_nonce( $this->get_nonce( $request ), 'pixelgrade_assistant_rest' );
 	}
 
 	/**

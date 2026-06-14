@@ -197,10 +197,6 @@ class PixelgradeAssistant_Admin {
 				    'method' => 'POST',
 				    'url' => PIXELGRADE_ASSISTANT__API_BASE . 'wp-json/pxm/v2/front/create_ticket',
 			    ),
-			    'demoContent'       => array(
-				    'method' => 'GET',
-				    'url' => PIXELGRADE_ASSISTANT__API_BASE . 'wp-json/pxm/v2/front/get_demo_content',
-			    ),
 			    'getHTKBCategories' => array(
 				    'method' => 'GET',
 				    'url' => PIXELGRADE_ASSISTANT__API_BASE . 'wp-json/pxm/v2/front/get_htkb_categories',
@@ -258,18 +254,14 @@ class PixelgradeAssistant_Admin {
 			$this,
 			'transient_remove_theme_version',
 		), 10 );
-		add_filter( 'pre_set_site_transient_update_themes', array(
-			$this,
-			'transient_update_remote_config',
-		), 12 );
+		// Remote config is fetched lazily when the dashboard is opened (cached), and license
+		// details refresh on theme switch / explicit user action — NOT on the theme-update cron —
+		// so Assistant makes no unsolicited remote calls to pixelgrade.com on every update check.
+		// TODO (M2): license refresh ownership moves to the account/Plus path.
 		add_filter( 'pre_set_site_transient_update_themes', array(
 			$this,
 			'transient_maybe_cleanup_oauth_token',
 		), 14 );
-		add_filter( 'pre_set_site_transient_update_themes', array(
-			$this,
-			'transient_update_license_data',
-		), 15 );
 
 		// On theme switch try and get a license and activate it, if the user is connected
 		add_action( 'after_switch_theme', array( 'PixelgradeAssistant_Admin', 'fetch_and_activate_theme_license' ), 10 );
@@ -283,7 +275,12 @@ class PixelgradeAssistant_Admin {
 		// Prevent TGMPA admin notices since we manage plugins in the Pixelgrade Care dashboard.
 		add_filter( 'tgmpa_show_admin_notices', array( $this, 'prevent_tgmpa_notices' ), 10, 1 );
 
-		add_filter( 'plugins_api', array( $this, 'handle_external_required_plugins_ajax_install' ), 100, 3 );
+		// External-ZIP plugin install is a commercial concern (Pixelgrade Plus). The free wp.org
+		// build only installs wp.org-hosted plugins through core APIs, so this filter is never
+		// registered here. Ref: https://make.wordpress.org/plugins/2024/09/09/guidance-on-plugins-that-install-other-plugins/
+		if ( pixassist_is_commercial() ) {
+			add_filter( 'plugins_api', array( $this, 'handle_external_required_plugins_ajax_install' ), 100, 3 );
+		}
 
 		// Auto-update Pixelgrade Assistant by default.
 		add_filter( 'auto_update_plugin', array( $this, 'handle_plugin_autoupdate' ), 10, 2 );
@@ -415,20 +412,25 @@ class PixelgradeAssistant_Admin {
             $show_bubble = true;
         }
 
-        $current_user = self::get_theme_activation_user();
-		if ( empty( $current_user ) || empty( $current_user->ID ) ) {
-			$show_bubble = true;
-		} else {
-			// Check if we are not connected.
-			$pixelgrade_user_login = get_user_meta( $current_user->ID, 'pixelgrade_user_login', true );
-			if ( empty( $pixelgrade_user_login ) ) {
+		// The account/license "Heads Up" bubble is a commercial concern handled by Pixelgrade Plus.
+		// Free users must never see an account/license nag. Fail-safe: gate behind the commercial flag.
+		// TODO (M2): move account/license bubble ownership into Pixelgrade Plus via an extension point.
+		if ( pixassist_is_commercial() ) {
+			$current_user = self::get_theme_activation_user();
+			if ( empty( $current_user ) || empty( $current_user->ID ) ) {
 				$show_bubble = true;
 			} else {
-				// We are connected.
-				// Show bubble if the license is expired.
-				$license_status = self::get_license_mod_entry( 'license_status' );
-				if ( empty( $license_status ) || in_array( $license_status, array( 'expired' ) ) ) {
+				// Check if we are not connected.
+				$pixelgrade_user_login = get_user_meta( $current_user->ID, 'pixelgrade_user_login', true );
+				if ( empty( $pixelgrade_user_login ) ) {
 					$show_bubble = true;
+				} else {
+					// We are connected.
+					// Show bubble if the license is expired.
+					$license_status = self::get_license_mod_entry( 'license_status' );
+					if ( empty( $license_status ) || in_array( $license_status, array( 'expired' ) ) ) {
+						$show_bubble = true;
+					}
 				}
 			}
 		}
@@ -1161,7 +1163,7 @@ class PixelgradeAssistant_Admin {
 					'type' => self::get_theme_type(),
 					'theme_headers' => self::get_theme_headers(),
 				),
-				'sslverify' => false,
+				'sslverify' => true,
 			);
 
 			// Increase timeout if the target URL is a development one so we can account for slow local (development) installations.
@@ -1334,7 +1336,7 @@ class PixelgradeAssistant_Admin {
 				'timeout'   => 6,
 				'blocking'  => true,
 				'body'      => $data,
-				'sslverify' => false,
+				'sslverify' => true,
 			);
 
 			// Increase timeout if the target URL is a development one so we can account for slow local (development) installations.
@@ -1468,7 +1470,7 @@ class PixelgradeAssistant_Admin {
                     // @todo this parameter naming is quite confusing
                     'version' => self::$pixelgrade_assistant_manager_api_version,
                 ),
-                'sslverify' => false,
+                'sslverify' => true,
             );
 
             // Increase timeout when using the PIXELGRADE_ASSISTANT__SKIP_CONFIG_CACHE constant so we can account for slow local (development) installations.
@@ -2126,6 +2128,16 @@ class PixelgradeAssistant_Admin {
 					continue;
 				}
 
+				// Free build: pin recommendations to WordPress.org. Strip any external (URL) source
+				// so the plugin can only be installed from the wp.org repository by its slug — the
+				// wp.org build must not install plugins from external servers.
+				if ( ! pixassist_is_commercial()
+				     && ! empty( $config['requiredPlugins']['plugins'][ $key ]['source'] )
+				     && false !== filter_var( $config['requiredPlugins']['plugins'][ $key ]['source'], FILTER_VALIDATE_URL ) ) {
+					unset( $config['requiredPlugins']['plugins'][ $key ]['source'] );
+					unset( $config['requiredPlugins']['plugins'][ $key ]['source_type'] );
+				}
+
 				// Make sure that the plugin is not required, only recommended.
 				$config['requiredPlugins']['plugins'][ $key ]['required'] = false;
 			}
@@ -2181,6 +2193,11 @@ class PixelgradeAssistant_Admin {
 	 * @return mixed
 	 */
 	public function handle_external_required_plugins_ajax_install( $res, $action, $args ) {
+		// Defense in depth: installing from an external server only ever happens in the commercial build.
+		if ( ! pixassist_is_commercial() ) {
+			return $res;
+		}
+
 		// This is a key we only put from the Pixelgrade Assistant JS. So we know that the current request is one of ours.
 		if ( empty( $_POST['pixassist_plugin_install'] ) ) {
 			return $res;

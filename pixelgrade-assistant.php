@@ -27,7 +27,14 @@ defined( 'PIXELGRADE_ASSISTANT__SHOP_BASE' )         || define( 'PIXELGRADE_ASSI
 defined( 'PIXELGRADE_ASSISTANT__SHOP_BASE_DOMAIN' )  || define( 'PIXELGRADE_ASSISTANT__SHOP_BASE_DOMAIN', 'pixelgrade.com' );
 defined( 'PIXELGRADE_ASSISTANT__DEV_MODE' )          || define( 'PIXELGRADE_ASSISTANT__DEV_MODE', false );
 
+// Fail-safe guard for commercial behavior. Default false: the WordPress.org build is free.
+// Commercial features belong in the separate Pixelgrade Plus plugin, not behind this flag.
+defined( 'PIXELGRADE_ASSISTANT__IS_COMMERCIAL' )     || define( 'PIXELGRADE_ASSISTANT__IS_COMMERCIAL', false );
+
 require_once plugin_dir_path( __FILE__ ) . 'vendor/autoload.php';
+
+// Capability helpers: free vs commercial, and Pixelgrade Plus / Care detection.
+require_once plugin_dir_path( __FILE__ ) . 'includes/capabilities.php';
 
 // Include functions that might assist when in dev mode.
 require_once plugin_dir_path( __FILE__ ) . 'includes/integrations/devmode.php';

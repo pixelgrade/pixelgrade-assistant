@@ -40,6 +40,15 @@ class PixelgradeAssistant_Support {
 	 * Initialize this module.
 	 */
 	public function init() {
+		// The premium support overlay (docs search + ticketing, AWS/ElasticSearch) is a commercial
+		// concern handled by Pixelgrade Plus. The free wp.org build does not load it at all — this
+		// avoids shipping ~1 MB of AWS SDK + ElasticSearch JS (and browser-side credentials) on
+		// every admin screen, and free/unlicensed users only ever saw a "connect" prompt here anyway.
+		// TODO (M2): the free dashboard surfaces plain documentation links instead.
+		if ( ! pixassist_is_commercial() ) {
+			return;
+		}
+
 		// Allow others to disable this module
 		if ( false === apply_filters( 'pixassist_allow_support_module', true ) ) {
 			return;
@@ -177,7 +186,7 @@ class PixelgradeAssistant_Support {
 		$request_args = array(
 			'method' => PixelgradeAssistant_Admin::$externalApiEndpoints['pxm']['getHTKBCategories']['method'],
 			'timeout' => 5,
-			'sslverify' => false, // there is no need to verify the SSL certificate - this is not sensitive data
+			'sslverify' => true,
 		);
 		// Add the slug of the theme to the request args so we will only receive data for the current theme
 		$request_args['body']['kb_current_product_sku'] = PixelgradeAssistant_Admin::get_original_theme_slug();

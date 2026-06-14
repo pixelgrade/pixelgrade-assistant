@@ -89,8 +89,6 @@ class PixelgradeAssistant_SetupWizard {
 		PixelgradeAssistant_Admin::localize_js_data( 'pixelgrade_assistant-setup-wizard' );
 
 		update_option( 'pixelgrade_assistant_version', $this->parent->get_version() );
-		// Delete redirect transient
-		$this->delete_redirect_transient();
 
 		ob_start();
 		$this->setup_wizard_header();
@@ -179,12 +177,6 @@ class PixelgradeAssistant_SetupWizard {
 		}
 
 		return false;
-	}
-
-	public function delete_redirect_transient() {
-		$delete_transient = delete_site_transient( '_pixassist_activation_redirect' );
-
-		return $delete_transient;
 	}
 
 	/**

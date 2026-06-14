@@ -74,7 +74,13 @@ class PixelgradeAssistant_AdminRestInterface {
 	 * @return false|int
 	 */
 	public function permission_nonce_callback( $request ) {
-		return wp_verify_nonce( $this->get_nonce( $request ), 'pixelgrade_assistant_rest' );
+		// Defense in depth: these are admin dashboard endpoints, so require the dashboard
+		// capability in addition to the custom nonce.
+		if ( ! current_user_can( 'manage_options' ) ) {
+			return false;
+		}
+
+		return (bool) wp_verify_nonce( $this->get_nonce( $request ), 'pixelgrade_assistant_rest' );
 	}
 
 	/**
@@ -452,7 +458,7 @@ class PixelgradeAssistant_AdminRestInterface {
 				'timeout'   => 10,
 				'blocking'  => false, // We don't care about the response so don't use blocking requests
 				'body'      => $data,
-				'sslverify' => false,
+				'sslverify' => true,
 			);
 
 			// We will do a non-blocking request

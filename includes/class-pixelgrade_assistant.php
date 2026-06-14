@@ -333,6 +333,23 @@ class PixelgradeAssistant {
 	}
 
 	/**
+	 * Calm, dismissible heads-up shown when Pixelgrade Care is active.
+	 *
+	 * Assistant intentionally stays inactive while Care runs, to avoid duplicate dashboards or
+	 * competing license state. This is informational, not an error.
+	 */
+	public function add_care_compatibility_notice() {
+		$message = sprintf(
+			/* translators: 1: Pixelgrade Assistant plugin name, 2: Pixelgrade Care plugin name */
+			esc_html__( '%1$s stays inactive while %2$s is active, so the two never overlap. Your current setup keeps working — no action needed.', '__plugin_txtd' ),
+			'Pixelgrade Assistant',
+			'Pixelgrade Care'
+		);
+
+		printf( '<div class="notice notice-info is-dismissible"><p>%s</p></div>', wp_kses_post( $message ) );
+	}
+
+	/**
 	 * Check if we can load this plugin safely.
 	 */
 	protected function check() {
@@ -344,25 +361,13 @@ class PixelgradeAssistant {
 			return false;
 		}
 
-		// We can't have it loaded with Pixelgrade Care since all sorts of nasty things would happen.
-		// Normally one should not have both plugins active, but it is best to be safe than sorry.
-		if ( defined( 'PIXELGRADE_CARE__PLUGIN_FILE' ) && class_exists( 'PixelgradeAssistant' ) ) {
-			add_action( 'admin_notices', function () {
-				$allowed = array(
-					'div'    => array(
-						'class' => array(),
-						'id'    => array(),
-					),
-					'p'      => array(),
-					'br'     => array(),
-					'strong' => array(),
-				);
-				$html    = '<div class="updated fade">' .
-				           sprintf( esc_html__( 'Error: plugin "%1$s" can\'t be loaded when "%2$s" is active.', '__plugin_txtd' ), 'Pixelgrade Assistant', 'Pixelgrade Care' ) .
-				           '<br/>' . sprintf( esc_html__( 'Please first deactivate "%s" if you wish to activate this plugin.', '__plugin_txtd' ), 'Pixelgrade Care' ) .
-				           '</div>';
-				echo wp_kses( $html, $allowed );
-			} );
+		// Pixelgrade Care (the legacy commercial companion) owns the experience on existing
+		// premium sites. While it is active, Assistant stays out of the way — it loads no modules,
+		// menu, REST routes, or license state, so there are never duplicate dashboards or competing
+		// license state. We surface a calm, dismissible heads-up instead of a hard error.
+		// TODO (M2): point this toward the Pixelgrade Plus migration path for new LT sites.
+		if ( pixassist_is_care_active() ) {
+			add_action( 'admin_notices', array( $this, 'add_care_compatibility_notice' ) );
 
 			return false;
 		}
