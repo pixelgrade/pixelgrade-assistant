@@ -386,9 +386,6 @@ class PixelgradeAssistant_AdminRestInterface {
 		// Delete the license details
 		PixelgradeAssistant_Admin::delete_license_mod();
 
-		// Delete KB cached data
-		PixelgradeAssistant_Support::clear_knowledgeBase_data_cache();
-
 		// Delete all the Pixelgrade Assistant plugin options
 		PixelgradeAssistant_Admin::delete_options();
 
@@ -476,9 +473,6 @@ class PixelgradeAssistant_AdminRestInterface {
 
 		// Delete the license details
 		PixelgradeAssistant_Admin::delete_license_mod();
-
-		// Delete KB cached data
-		PixelgradeAssistant_Support::clear_knowledgeBase_data_cache();
 
 		// We will also clear the theme update transient because when one reconnects it might use a different license
 		// and that license might allow for updates

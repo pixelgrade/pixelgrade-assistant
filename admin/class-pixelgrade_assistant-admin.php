@@ -539,7 +539,6 @@ class PixelgradeAssistant_Admin {
 			    'pixassist_nonce' => $local_plugin->plugin_admin->pixassist_nonce,
 		    ),
 		    'systemStatus'   => PixelgradeAssistant_DataCollector::get_system_status_data(),
-		    'knowledgeBase'  => PixelgradeAssistant_Support::get_knowledgeBase_data(),
 		    'siteUrl'        => home_url( '/' ),
 		    'dashboardUrl'   => admin_url( 'admin.php?page=pixelgrade_assistant' ),
 		    'adminUrl'       => admin_url(),

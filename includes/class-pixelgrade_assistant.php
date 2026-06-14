@@ -206,12 +206,6 @@ class PixelgradeAssistant {
 		$this->plugin_data_collector = PixelgradeAssistant_DataCollector::instance( $this );
 
 		/**
-		 * The class responsible for defining all actions that occur in support section.
-		 */
-		require_once plugin_dir_path( $this->file ) . 'admin/class-pixelgrade_assistant-support.php';
-		$this->plugin_support = PixelgradeAssistant_Support::instance( $this );
-
-		/**
 		 * The class responsible for various admin notifications.
 		 */
 		require_once plugin_dir_path( $this->file ) . 'admin/class-pixelgrade_assistant-notifications.php';

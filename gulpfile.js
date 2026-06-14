@@ -190,35 +190,10 @@ function compileScriptsRollupWizard (watch) {
 
 gulp.task('compile_scripts_rollup_wizard', function () { return compileScriptsRollupWizard(false) })
 
+// The AWS/ElasticSearch support overlay was removed from the free wp.org build (M2 R1).
+// No-op so existing task series keep working; the dead task is fully removed in the R5 cleanup.
 function compileScriptsRollupSupport (watch) {
-	const rollupInputOptions = {
-		input: './admin/src/support.js',
-		plugins: rollupPluginsConfig,
-		external: ['jQuery', 'elasticsearch', 'AWS']
-	}
-
-	if (watch) {
-		const watcher = rollup.watch({
-			...rollupInputOptions,
-			output: rollupOutputOptions,
-			watch: {}
-		})
-
-		// This will make sure that bundles are properly closed after each run
-		watcher.on('event', ({result}) => {
-			if (result) {
-				result.close()
-			}
-		})
-
-		return watcher
-	}
-
-	return rollup
-		.rollup(rollupInputOptions)
-		.then(bundle => {
-			return bundle.write(rollupOutputOptions)
-		})
+	return Promise.resolve()
 }
 
 gulp.task('compile_scripts_rollup_support', function () { return compileScriptsRollupSupport(false) })
@@ -239,8 +214,8 @@ gulp.task('compile_dev_rollup', scriptCompileRollupDevelopmentSequence)
  * This function just copies the JS code for elasticsearch in the admin/js directory
  */
 function compile_elasticsearch_admin (watch) {
-	return gulp.src('./admin/src/vendor/elasticsearch-js/elasticsearch.js')
-		.pipe(gulp.dest('./admin/js/vendor'))
+	// ElasticSearch vendor copy removed from the free wp.org build (M2 R1). No-op; fully removed in R5.
+	return Promise.resolve()
 }
 gulp.task('compile_elasticsearch_admin', function () { return compile_elasticsearch_admin() })
 
@@ -358,7 +333,19 @@ function copyFolder() {
 			recursive: true,
 			emptyDirectories: true,
 			clean: true,
-			exclude: ['node_modules']
+			exclude: [
+				'node_modules',
+				'AGENTS.md',
+				'CLAUDE.md',
+				'AGENTS.local.md',
+				'AGENTS.local.example.md',
+				'.ai',
+				'.claude',
+				'.private',
+				'.env',
+				'.env.local',
+				'.env.*.local'
+			]
 		}));
 }
 gulp.task( 'copy-folder', copyFolder );
@@ -407,6 +394,16 @@ function removeUnneededFiles( done ) {
 		'**/__MACOSX',
 		'+development.rb',
 		'+production.rb',
+		'AGENTS.md',
+		'CLAUDE.md',
+		'AGENTS.local.md',
+		'AGENTS.local.example.md',
+		'.ai',
+		'.claude',
+		'.private',
+		'.env',
+		'.env.local',
+		'.env.*.local',
 		'README.md',
 		'admin/src',
 		'admin/scss',
