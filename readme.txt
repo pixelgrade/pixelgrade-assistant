@@ -1,8 +1,8 @@
 === Pixelgrade Assistant ===
 Contributors: pixelgrade, vlad.olaru
-Tags: dashboard, support, pixelgrade, starter-content, demo-data, documentation, interactive
+Tags: dashboard, starter-content, demo-content, recommended-plugins, pixelgrade
 Requires at least: 4.9.9
-Tested up to: 5.9.4
+Tested up to: 7.0
 Requires PHP: 5.6.40
 Stable tag: 1.4.0
 License: GPLv3.0
