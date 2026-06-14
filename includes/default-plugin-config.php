@@ -780,6 +780,28 @@ function pixassist_get_default_config( $original_theme_slug ) {
 		$config['systemStatus']['wpRecommendedVersion'] = $new_update->current;
 	}
 
+	// Adapt the Pixelgrade Plus discovery card to the live Plus status (discovery / set up / manage).
+	// Plus is the source of truth via the `pixelgrade_assistant_plus_status` contract; Assistant only reads it.
+	if ( function_exists( 'pixassist_get_plus_status' ) && ! empty( $config['dashboard']['general']['blocks']['pixelgradePlus']['fields'] ) ) {
+		$plus_status = pixassist_get_plus_status();
+		if ( ! empty( $plus_status['is_plus_active'] ) ) {
+			$plus_url = ! empty( $plus_status['plus_settings_url'] ) ? esc_url_raw( $plus_status['plus_settings_url'] ) : trailingslashit( PIXELGRADE_ASSISTANT__SHOP_BASE ) . 'plus/';
+			if ( ! empty( $plus_status['is_plus_licensed'] ) ) {
+				$plus_label   = esc_html__( 'Manage Pixelgrade Plus', '__plugin_txtd' );
+				$plus_content = wp_kses_post( __( 'Pixelgrade Plus is active. Manage your advanced design tools and settings.', '__plugin_txtd' ) );
+			} else {
+				$plus_label   = esc_html__( 'Set up Pixelgrade Plus', '__plugin_txtd' );
+				$plus_content = wp_kses_post( __( 'Pixelgrade Plus is installed. Activate it to unlock advanced design tools — motion controls, advanced Style Manager sections, pro starter sites, design packs, cloud assets, and priority support.', '__plugin_txtd' ) );
+			}
+			$plus_fields                     = &$config['dashboard']['general']['blocks']['pixelgradePlus']['fields'];
+			$plus_fields['content']['value'] = $plus_content;
+			$plus_fields['cta']['label']     = $plus_label;
+			$plus_fields['cta']['url']        = $plus_url;
+			$plus_fields['cta']['target']    = ''; // internal admin URL — not a new tab
+			unset( $plus_fields );
+		}
+	}
+
 	$config = apply_filters( 'pixassist_default_config', $config );
 
 	return $config;
