@@ -34,7 +34,8 @@ export const getDefaultState = () => {
 	// The setup wizard must never require a Pixelgrade account to proceed; the Connect step is optional.
 	state.is_wizard_next = true;
 
-	state.has_license = !!_.get(pixassist, 'themeMod.licenseHash', '' );
+	// License & entitlement are owned by Pixelgrade Plus (M2 R3); Assistant never reports a license.
+	state.has_license = false;
 
 	if ( ! _.isUndefined( pixassist.themeMod.licenseType ) ) {
 		state.license_type = pixassist.themeMod.licenseType;
@@ -46,7 +47,7 @@ export const getDefaultState = () => {
 		state.license_expiry = mlist[ expiry_date.getMonth() ] + ' ' + expiry_date.getDate() + ', ' + expiry_date.getFullYear();
 	}
 
-	state.is_active = !!_.get(pixassist, 'themeMod.licenseStatus') && (pixassist.themeMod.licenseStatus === 'active' || pixassist.themeMod.licenseStatus === 'valid');
+	state.is_active = false; // Active-license/entitlement state is owned by Pixelgrade Plus (M2 R3).
 
 	// if the user already has the oauth tokens, get them
 	if ( !_.isUndefined( pixassist.user ) ) {

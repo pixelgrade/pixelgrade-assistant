@@ -263,9 +263,6 @@ class PixelgradeAssistant_Admin {
 			'transient_maybe_cleanup_oauth_token',
 		), 14 );
 
-		// On theme switch try and get a license and activate it, if the user is connected
-		add_action( 'after_switch_theme', array( 'PixelgradeAssistant_Admin', 'fetch_and_activate_theme_license' ), 10 );
-
 		// On theme switch clear the cache for the remote config
 		add_action( 'after_switch_theme', array( 'PixelgradeAssistant_Admin', 'clear_remote_config_cache' ), 11 );
 
