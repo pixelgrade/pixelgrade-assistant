@@ -31,19 +31,48 @@ if ( ! function_exists( 'pixassist_is_commercial' ) ) {
 	}
 }
 
+if ( ! function_exists( 'pixassist_get_plus_status' ) ) {
+	/**
+	 * Discover Pixelgrade Plus via its published status contract.
+	 *
+	 * Pixelgrade Plus (the premium companion) registers a callback on the
+	 * `pixelgrade_assistant_plus_status` filter and reports its status there. Assistant only READS
+	 * this — it never owns license enforcement, account connection, or commercial installs.
+	 *
+	 * Contract keys: is_plus_active (bool), is_plus_licensed (bool), plus_settings_url (string),
+	 * plus_product_label (string).
+	 *
+	 * @return array
+	 */
+	function pixassist_get_plus_status() {
+		$defaults = array(
+			// Fallback to the Plus plugin's own constant in case its filter callback is not
+			// registered yet at the time of the call (Plus loads after Assistant alphabetically).
+			'is_plus_active'     => defined( 'PIXELGRADE_PLUS_PLUGIN_FILE' ),
+			'is_plus_licensed'   => false,
+			'plus_settings_url'  => '',
+			'plus_product_label' => 'Pixelgrade Plus',
+		);
+
+		$status = apply_filters( 'pixelgrade_assistant_plus_status', $defaults );
+
+		return wp_parse_args( is_array( $status ) ? $status : array(), $defaults );
+	}
+}
+
 if ( ! function_exists( 'pixassist_is_plus_active' ) ) {
 	/**
-	 * Whether the premium companion (Pixelgrade Plus) is present.
+	 * Whether the premium companion (Pixelgrade Plus) is present/active.
 	 *
-	 * Detection only — Assistant must never auto-enable commercial behavior simply because
-	 * Plus is detected.
+	 * Detection only — Assistant must never auto-enable commercial behavior simply because Plus is
+	 * detected; Pixelgrade Plus owns all commercial behavior.
 	 *
 	 * @return bool
 	 */
 	function pixassist_is_plus_active() {
-		$is_active = defined( 'PIXELGRADE_PLUS__PLUGIN_FILE' );
+		$status = pixassist_get_plus_status();
 
-		return (bool) apply_filters( 'pixassist_is_plus_active', $is_active );
+		return (bool) apply_filters( 'pixassist_is_plus_active', ! empty( $status['is_plus_active'] ) );
 	}
 }
 
