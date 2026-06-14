@@ -28738,10 +28738,6 @@
 	          data_activate_url = plugin.activate_url.replace(/&amp;/g, '&');
 	        }
 
-	        if ('external' === get_1(plugin, 'source_type', false)) {
-	          data_source_type = 'external';
-	        }
-
 	        if (!!plugin.author) {
 	          plugin_author = /*#__PURE__*/React$1.createElement("span", {
 	            className: "plugin-author"

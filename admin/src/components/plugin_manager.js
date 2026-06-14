@@ -229,10 +229,6 @@ class PluginManagerContainer extends React.Component {
 						data_activate_url = plugin.activate_url.replace(/&amp;/g, '&');
 					}
 
-					if ( 'external' === _.get(plugin, 'source_type', false) ) {
-						data_source_type = 'external';
-					}
-
 					if ( !!plugin.author ) {
 						plugin_author = (
 							<span className="plugin-author"> by {plugin.author}</span>

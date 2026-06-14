@@ -275,13 +275,6 @@ class PixelgradeAssistant_Admin {
 		// Prevent TGMPA admin notices since we manage plugins in the Pixelgrade Care dashboard.
 		add_filter( 'tgmpa_show_admin_notices', array( $this, 'prevent_tgmpa_notices' ), 10, 1 );
 
-		// External-ZIP plugin install is a commercial concern (Pixelgrade Plus). The free wp.org
-		// build only installs wp.org-hosted plugins through core APIs, so this filter is never
-		// registered here. Ref: https://make.wordpress.org/plugins/2024/09/09/guidance-on-plugins-that-install-other-plugins/
-		if ( pixassist_is_commercial() ) {
-			add_filter( 'plugins_api', array( $this, 'handle_external_required_plugins_ajax_install' ), 100, 3 );
-		}
-
 		// Auto-update Pixelgrade Assistant by default.
 		add_filter( 'auto_update_plugin', array( $this, 'handle_plugin_autoupdate' ), 10, 2 );
 	}
@@ -2182,51 +2175,8 @@ class PixelgradeAssistant_Admin {
 		return false;
 	}
 
-	/**
-	 * Since the core AJAX function wp_ajax_install_plugin(), that handles the AJAX installing of plugins,
-	 * only knows to install plugins from the WordPress.org repo, we need to handle the external plugins installation.
-	 * Like from WUpdates.
-	 *
-	 * @param $res
-	 * @param $action
-	 * @param $args
-	 *
-	 * @return mixed
-	 */
-	public function handle_external_required_plugins_ajax_install( $res, $action, $args ) {
-		// Defense in depth: installing from an external server only ever happens in the commercial build.
-		if ( ! pixassist_is_commercial() ) {
-			return $res;
-		}
-
-		// This is a key we only put from the Pixelgrade Assistant JS. So we know that the current request is one of ours.
-		if ( empty( $_POST['pixassist_plugin_install'] ) ) {
-			return $res;
-		}
-
-		// Do nothing if this is not an external plugin.
-		if ( empty( $_POST['plugin_source_type'] ) || 'external' !== $_POST['plugin_source_type'] ) {
-			return $res;
-		}
-
-		// Get the TGMPA instance
-		$tgmpa = call_user_func( array( get_class( $GLOBALS['tgmpa'] ), 'get_instance' ) );
-		// If the slug doesn't correspond to a TGMPA registered plugin or it has no source URL, bail.
-		if ( empty( $tgmpa->plugins[ $_POST['slug'] ] ) || empty( $tgmpa->plugins[ $_POST['slug'] ]['source'] ) ) {
-			return $res;
-		}
-
-		// Manufacture a minimal response.
-		$res = array(
-			'slug' => $_POST['slug'],
-			'name' => ! empty( $tgmpa->plugins[ $_POST['slug'] ]['name'] ) ? $tgmpa->plugins[ $_POST['slug'] ]['name'] : $_POST['slug'],
-			'version' => '0.0.1', // We don't really know the plugin version.
-			'download_link' => $tgmpa->plugins[ $_POST['slug'] ]['source'],
-		);
-
-		// The response must be an object.
-		return (object) $res;
-	}
+	// handle_external_required_plugins_ajax_install() was removed (M2 R2): the wp.org build installs
+	// only WordPress.org-hosted plugins through core APIs. External/premium installs belong to Pixelgrade Plus.
 
 	public function handle_plugin_autoupdate( $update, $item ) {
 		// We want to force enable the auto-update feature for Pixelgrade Assistant.
