@@ -190,34 +190,17 @@ function compileScriptsRollupWizard (watch) {
 
 gulp.task('compile_scripts_rollup_wizard', function () { return compileScriptsRollupWizard(false) })
 
-// The AWS/ElasticSearch support overlay was removed from the free wp.org build (M2 R1).
-// No-op so existing task series keep working; the dead task is fully removed in the R5 cleanup.
-function compileScriptsRollupSupport (watch) {
-	return Promise.resolve()
-}
-
-gulp.task('compile_scripts_rollup_support', function () { return compileScriptsRollupSupport(false) })
-
 function scriptCompileRollupProductionSequence (cb) {
-	gulp.series('apply-prod-environment', 'compile_scripts_rollup_dashboard', 'compile_scripts_rollup_wizard', 'compile_scripts_rollup_support')(cb)
+	gulp.series('apply-prod-environment', 'compile_scripts_rollup_dashboard', 'compile_scripts_rollup_wizard')(cb)
 }
 
 gulp.task('compile_production_rollup', scriptCompileRollupProductionSequence)
 
 function scriptCompileRollupDevelopmentSequence (cb) {
-	gulp.series('compile_scripts_rollup_dashboard', 'compile_scripts_rollup_wizard', 'compile_scripts_rollup_support')(cb)
+	gulp.series('compile_scripts_rollup_dashboard', 'compile_scripts_rollup_wizard')(cb)
 }
 
 gulp.task('compile_dev_rollup', scriptCompileRollupDevelopmentSequence)
-
-/**
- * This function just copies the JS code for elasticsearch in the admin/js directory
- */
-function compile_elasticsearch_admin (watch) {
-	// ElasticSearch vendor copy removed from the free wp.org build (M2 R1). No-op; fully removed in R5.
-	return Promise.resolve()
-}
-gulp.task('compile_elasticsearch_admin', function () { return compile_elasticsearch_admin() })
 
 function copyOtherScripts() {
 	return gulp.src(['./admin/src/admin-notices.js'])
@@ -231,10 +214,6 @@ function watch_dashboard () {
 
 function watch_setup_wizard () {
 	return compileScriptsRollupWizard(true)
-}
-
-function watch_support () {
-	return compileScriptsRollupSupport(true)
 }
 
 // This DOESN'T exclude the need for --production!!!
@@ -259,13 +238,13 @@ gulp.task('apply-prod-environment', setProductionEnvironment)
 
 // Compile all - no minify
 function scriptCompileSequence (cb) {
-	return gulp.parallel('compile_production_rollup', 'compile_elasticsearch_admin', 'copy_other_scripts' )(cb)
+	return gulp.parallel('compile_production_rollup', 'copy_other_scripts' )(cb)
 }
 
 gulp.task('compile:dev', scriptCompileSequence)
 
 function scriptCompileProductionSequence (cb) {
-	gulp.series('apply-prod-environment', 'compile_production_rollup', 'compile_elasticsearch_admin', 'copy_other_scripts')(cb)
+	gulp.series('apply-prod-environment', 'compile_production_rollup', 'copy_other_scripts')(cb)
 }
 
 gulp.task('compile:production', scriptCompileProductionSequence)
@@ -299,11 +278,10 @@ gulp.task('compile:distribution', scriptCompileMinifiedSequence)
  */
 gulp.task('watch:dashboard', function () { return watch_dashboard(true) })
 gulp.task('watch:wizard', function () { return watch_setup_wizard(true) })
-gulp.task('watch:support', function () { return watch_support(true) })
 
 // Watch SCSS files and JS files
 function watchAllSequence (cb) {
-	return gulp.parallel('watch:dashboard', 'watch:wizard', 'watch:support', 'watch:styles')(cb)
+	return gulp.parallel('watch:dashboard', 'watch:wizard', 'watch:styles')(cb)
 }
 
 watchAllSequence.description = 'Start all the watchers.'
