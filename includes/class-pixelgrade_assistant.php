@@ -38,11 +38,6 @@ class PixelgradeAssistant {
 	public $starter_content = null;
 
 	/**
-	 * @var PixelgradeAssistant_Support
-	 */
-	public $plugin_support = null;
-
-	/**
 	 * @var PixelgradeAssistant_SetupWizard
 	 */
 	public $plugin_setup_wizard = null;
