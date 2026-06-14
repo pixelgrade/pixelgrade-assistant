@@ -8,24 +8,39 @@ Stable tag: 1.4.0
 License: GPLv3.0
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
-Help and assistance for Pixelgrade WordPress themes.
+The free companion for the Pixelgrade LT stack — stack health, recommended plugins, and starter content. No account required.
 
 == Description ==
 
-Pixelgrade Assistant is a plugin to go along with any free WordPress theme made by Pixelgrade.
+Pixelgrade Assistant is the free companion for the Pixelgrade LT stack — the Anima LT theme together with the Style Manager and Nova Blocks plugins.
 
-It will elevate the whole experience of setting up your site:
+It gives you a calm, in-dashboard home for getting the most out of your free Pixelgrade site:
 
-* **recommended plugins**
-* **starter/demo content one-click import**
-* **premium support access** right in your WordPress dashboard
-* **theme documentation** right in your WordPress dashboard
-* various functionality and logic that a theme may need to do it's best work.
+* **Stack health** — see at a glance whether Style Manager and Nova Blocks are installed, active, or need an update.
+* **One-click install** of recommended free companions, straight from WordPress.org.
+* **Starter content** to give your new site a head start.
+* **Documentation** links to help you along the way.
+* Behind-the-scenes compatibility logic so your theme and its companion plugins play nicely together.
 
-All these facilities and enhancements are *conditioned* by having your site connected with pixelgrade.com. This way we can leverage our already existing infrastructure to best serve our free themes users also, with the efficiency required by a small team.
-You can chose not to use Pixelgrade Assistant but you will not be able to access the benefits that accompany your Pixelgrade theme.
+**No account required.** Pixelgrade Assistant works out of the box — you do not need a Pixelgrade.com account or a license to use the free stack. Connecting an account is entirely optional and only unlocks extras such as cloud starter content, account sync, and premium support (see *External services* below).
+
+Looking for more? **Pixelgrade Plus** is the optional premium companion that adds advanced design tools — motion and animation controls, advanced Style Manager sections, pro starter sites, design packs, and priority support. It is never required, and you can explore it any time from the Pixelgrade screen.
 
 **Made with love by [Pixelgrade](https://pixelgrade.com)**
+
+== External services ==
+
+Pixelgrade Assistant is built to work without contacting any external service. The free experience — recommended-plugin install from WordPress.org, local starter content, documentation links, and stack-health information — runs entirely on your site.
+
+A few optional features connect to Pixelgrade services, and only when you choose to use them:
+
+* **Theme configuration (pixelgrade.com).** When you open the Pixelgrade Assistant screen, the plugin may request a small configuration file for your theme from `https://pixelgrade.com` (`/wp-json/pxm/v2/front/get_config`). It sends only your theme identifier, the result is cached locally, and it is not requested on every page load or on a schedule.
+* **Optional account connection (pixelgrade.com).** If you choose to connect a free Pixelgrade.com account, the plugin uses a secure OAuth 1.0a handshake with `https://pixelgrade.com`. This is never required for the free stack and unlocks extras such as cloud starter content, account sync, and premium support.
+* **Optional usage data.** If — and only if — you opt in, the plugin may share non-identifying information about your WordPress install to help us resolve support requests faster. This is off by default.
+
+The WordPress.org build never downloads or installs plugin code from servers other than WordPress.org.
+
+Your use of these optional Pixelgrade.com services is subject to Pixelgrade's privacy policy and terms, available at [pixelgrade.com](https://pixelgrade.com/).
 
 == Issues ==
 
@@ -69,6 +84,18 @@ Installing "Pixelgrade Assistant" can be done either by searching for "Pixelgrad
 4. Head over to `Pixelgrade` and set things up.
 
 == Frequently Asked Questions ==
+
+= Do I need a Pixelgrade.com account or a license? =
+
+No. Pixelgrade Assistant works fully without an account or a license. You can install the recommended free plugins, import starter content, and use the dashboard with no connection at all. Connecting an account is optional and only adds extras like cloud starter content and premium support.
+
+= What is Pixelgrade Plus? =
+
+Pixelgrade Plus is the optional premium companion for the Pixelgrade LT stack. It adds advanced design tools — motion and animation controls, advanced Style Manager sections, pro starter sites, design packs, and priority support. You can keep using the free stack indefinitely; Plus is there if you want more. Learn more at [pixelgrade.com](https://pixelgrade.com/).
+
+= I'm already using Pixelgrade Care — will this conflict? =
+
+No. If Pixelgrade Care (our legacy companion for premium themes) is active, Pixelgrade Assistant detects it and stays out of the way — it does not load a second dashboard or touch your existing license. Your current setup keeps working exactly as before. New LT-stack sites use Pixelgrade Assistant, with Pixelgrade Plus as the optional premium path.
 
 = Is the site connection secure? =
 

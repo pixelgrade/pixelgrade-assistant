@@ -534,7 +534,7 @@ class StepsContainer extends Component {
 								</div>
 						</div>
 						{ ( last_step === true )
-							? <a className="btn  btn--text  btn--return-to-dashboard" href={pixassist.dashboardUrl}  onClick={this.handleFinishWizard}>{Helpers.decodeHtml(_.get(pixassist, 'themeConfig.l10n.returnToDashboard', 'Return to dashboard'))}</a>
+							? <a className="btn  btn--text  btn--return-to-dashboard" href={pixassist.dashboardUrl}>{Helpers.decodeHtml(_.get(pixassist, 'themeConfig.l10n.returnToDashboard', 'Return to dashboard'))}</a>
 							: <span className="logo-pixelgrade"></span> }
 					</div>
 				</div>

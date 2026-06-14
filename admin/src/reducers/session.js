@@ -9,7 +9,7 @@ export const getDefaultState = () => {
 		is_active: false,
 		is_expired: false,
 		is_wizard_next: true,
-		is_wizard_skip: false,
+		is_wizard_skip: true,
 		is_support_active: false,
 		is_pixelgrade_theme: false,
 		is_next_button_disabled: false,
@@ -31,7 +31,8 @@ export const getDefaultState = () => {
 
 	state.is_logged = !_.isUndefined(pixassist.user.pixassist_user_ID);
 
-	state.is_wizard_next = !_.isUndefined(pixassist.user.pixassist_user_ID);
+	// The setup wizard must never require a Pixelgrade account to proceed; the Connect step is optional.
+	state.is_wizard_next = true;
 
 	state.has_license = !!_.get(pixassist, 'themeMod.licenseHash', '' );
 

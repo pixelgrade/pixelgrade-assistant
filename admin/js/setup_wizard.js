@@ -8850,7 +8850,7 @@
 	    is_active: false,
 	    is_expired: false,
 	    is_wizard_next: true,
-	    is_wizard_skip: false,
+	    is_wizard_skip: true,
 	    is_support_active: false,
 	    is_pixelgrade_theme: false,
 	    is_next_button_disabled: false,
@@ -8870,8 +8870,9 @@
 	    state.originalSlug = pixassist.themeSupports.original_slug;
 	  }
 
-	  state.is_logged = !isUndefined_1(pixassist.user.pixassist_user_ID);
-	  state.is_wizard_next = !isUndefined_1(pixassist.user.pixassist_user_ID);
+	  state.is_logged = !isUndefined_1(pixassist.user.pixassist_user_ID); // The setup wizard must never require a Pixelgrade account to proceed; the Connect step is optional.
+
+	  state.is_wizard_next = true;
 	  state.has_license = !!get_1(pixassist, 'themeMod.licenseHash', '');
 
 	  if (!isUndefined_1(pixassist.themeMod.licenseType)) {
@@ -35792,8 +35793,7 @@
 	        disabled: this.state.nextButtonDisable
 	      }) : '' : null)), last_step === true ? /*#__PURE__*/React$1.createElement("a", {
 	        className: "btn  btn--text  btn--return-to-dashboard",
-	        href: pixassist.dashboardUrl,
-	        onClick: this.handleFinishWizard
+	        href: pixassist.dashboardUrl
 	      }, Helpers.decodeHtml(get_1(pixassist, 'themeConfig.l10n.returnToDashboard', 'Return to dashboard'))) : /*#__PURE__*/React$1.createElement("span", {
 	        className: "logo-pixelgrade"
 	      }))));
