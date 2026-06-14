@@ -263,6 +263,28 @@ function pixassist_get_default_config( $original_theme_slug ) {
 						),
 					),
 				),
+				'pixelgradePlus' => array(
+					'class'  => 'full',
+					'fields' => array(
+						'title'   => array(
+							'type'  => 'h2',
+							'value' => esc_html__( 'Pixelgrade Plus', '__plugin_txtd' ),
+							'class' => 'section__title',
+						),
+						'content' => array(
+							'type'  => 'text',
+							'value' => wp_kses_post( __( 'Advanced design tools for your Pixelgrade LT site. Pixelgrade Plus is the optional premium companion that adds:<ul class="benefits"><li>Motion and advanced animation controls</li><li>Advanced Style Manager sections</li><li>Pro starter sites and design packs</li><li>Cloud design assets</li><li>Priority support</li></ul>You can keep using the free stack for as long as you like — Plus is here when you want more.', '__plugin_txtd' ) ),
+							'class' => 'section__content',
+						),
+						'cta'     => array(
+							'type'   => 'button',
+							'class'  => 'btn btn--action  btn--blue',
+							'label'  => esc_html__( 'Explore Pixelgrade Plus', '__plugin_txtd' ),
+							'url'    => trailingslashit( PIXELGRADE_ASSISTANT__SHOP_BASE ) . 'plus/',
+							'target' => '_blank',
+						),
+					),
+				),
 			),
 		),
 
