@@ -71,22 +71,6 @@ function pixassist_get_default_config( $original_theme_slug ) {
 
 	$config['setupWizard'] = array(
 
-		'activation' => array(
-			'stepName' => 'Connect',
-			'blocks'   => array(
-				'authenticator' => array(
-					'class'  => 'full white',
-					'fields' => array(
-						'authenticator_component' => array(
-							'title' => esc_html__( 'Connect to {{shopdomain}}!', '__plugin_txtd' ),
-							'type'  => 'component',
-							'value' => 'authenticator',
-						),
-					),
-				),
-			),
-		),
-
 		'plugins' => array(
 			'stepName' => esc_html__( 'Plugins', '__plugin_txtd' ),
 			'blocks'   => array(
@@ -223,15 +207,6 @@ function pixassist_get_default_config( $original_theme_slug ) {
 		'general' => array(
 			'name'   => esc_html__( 'General', '__plugin_txtd' ),
 			'blocks' => array(
-				'authenticator'  => array(
-					'class'  => 'full white',
-					'fields' => array(
-						'authenticator' => array(
-							'type'  => 'component',
-							'value' => 'authenticator',
-						),
-					),
-				),
 				'plugins'        => array(
 					'fields'       => array(
 						'recommended_plugins' => array(

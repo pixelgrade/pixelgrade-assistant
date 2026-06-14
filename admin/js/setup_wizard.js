@@ -8868,9 +8868,10 @@
 
 	  if (!isUndefined_1(pixassist.themeSupports.original_slug)) {
 	    state.originalSlug = pixassist.themeSupports.original_slug;
-	  }
+	  } // Account connection is owned by Pixelgrade Plus (M2 R4); Assistant never reports a connected account.
 
-	  state.is_logged = !isUndefined_1(pixassist.user.pixassist_user_ID); // The setup wizard must never require a Pixelgrade account to proceed; the Connect step is optional.
+
+	  state.is_logged = false; // The setup wizard must never require a Pixelgrade account to proceed; the Connect step is optional.
 
 	  state.is_wizard_next = true; // License & entitlement are owned by Pixelgrade Plus (M2 R3); Assistant never reports a license.
 

@@ -29,7 +29,8 @@ export const getDefaultState = () => {
     	state.originalSlug = pixassist.themeSupports.original_slug;
 	}
 
-	state.is_logged = !_.isUndefined(pixassist.user.pixassist_user_ID);
+	// Account connection is owned by Pixelgrade Plus (M2 R4); Assistant never reports a connected account.
+	state.is_logged = false;
 
 	// The setup wizard must never require a Pixelgrade account to proceed; the Connect step is optional.
 	state.is_wizard_next = true;
