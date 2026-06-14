@@ -408,7 +408,9 @@ class PixelgradeAssistant_Admin {
         $show_bubble = false;
         // If the theme directory has been changed, show bubble.
         $theme_checks = self::get_theme_checks();
-        if ( ! $theme_checks['has_original_name'] || ! $theme_checks['has_original_directory'] ) {
+        // The theme-integrity check yields false positives on legitimate fresh installs
+        // (wp.org / GitHub / Studio), so this bubble is a commercial-only signal — no nag for free users.
+        if ( pixassist_is_commercial() && ( ! $theme_checks['has_original_name'] || ! $theme_checks['has_original_directory'] ) ) {
             $show_bubble = true;
         }
 
