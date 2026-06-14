@@ -17692,11 +17692,11 @@
 	        }
 	      })), /*#__PURE__*/React.createElement("div", {
 	        className: "header-toolbar__wing  header-toolbar__wing--right"
-	      }, /*#__PURE__*/React.createElement("a", {
+	      }, this.props.session.is_logged ? /*#__PURE__*/React.createElement("a", {
 	        className: "btn  btn--text",
 	        href: this.props.myAccountLink,
 	        target: "_blank"
-	      }, this.props.myAccountLabel), !isUndefined_1(this.props.ctaOnClick) ? /*#__PURE__*/React.createElement("a", {
+	      }, this.props.myAccountLabel) : '', !isUndefined_1(this.props.ctaOnClick) ? /*#__PURE__*/React.createElement("a", {
 	        className: "btn  btn--text",
 	        onClick: this.props.ctaOnClick
 	      }, this.props.ctaLabel) : ''));
@@ -32019,28 +32019,15 @@
 	  }, {
 	    key: "getHeaderData",
 	    value: function getHeaderData() {
-	      // assume by default that the user is logged in and up to date
+	      // The free build reports theme health only; account/license state is a Pixelgrade Plus concern.
 	      var headerData = {
 	        status: 'ok',
-	        msg: Helpers.decodeHtml(get_1(pixassist, 'themeConfig.l10n.themeValidationNoticeOk', ''))
-	      }; // but, if is not active, show the proper message
+	        msg: ''
+	      }; // Surface a genuine theme update when one is available (theme health, not licensing).
 
-	      if (!this.props.session.is_active) {
-	        headerData.status = 'not-ok';
-	        headerData.msg = Helpers.decodeHtml(get_1(pixassist, 'themeConfig.l10n.themeValidationNoticeFail', ''));
-
-	        if (Helpers.compareVersion(get_1(pixassist, 'themeSupports.theme_version', '0.0.1'), get_1(pixassist, 'themeMod.themeNewVersion.new_version', '0.0.1')) === -1) {
-	          headerData.msg += ' ' + Helpers.decodeHtml(get_1(pixassist, 'themeConfig.l10n.themeValidationNoticeUpdateAvailable', ''));
-	        } // the user may have an active license, but the theme may be outdated
-
-	      } else if (Helpers.compareVersion(get_1(pixassist, 'themeSupports.theme_version', '0.0.1'), get_1(pixassist, 'themeMod.themeNewVersion.new_version', '0.0.1')) === -1) {
+	      if (Helpers.compareVersion(get_1(pixassist, 'themeSupports.theme_version', '0.0.1'), get_1(pixassist, 'themeMod.themeNewVersion.new_version', '0.0.1')) === -1) {
 	        headerData.status = 'not-ok';
 	        headerData.msg = Helpers.decodeHtml(get_1(pixassist, 'themeConfig.l10n.themeValidationNoticeOutdatedWithUpdate', ''));
-	      }
-
-	      if (!this.props.session.is_logged) {
-	        headerData.status = 'not-ok';
-	        headerData.msg = Helpers.decodeHtml(get_1(pixassist, 'themeConfig.l10n.themeValidationNoticeNotConnected', ''));
 	      }
 
 	      return headerData;

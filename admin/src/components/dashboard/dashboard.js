@@ -113,30 +113,16 @@ class DashboardContainer extends React.Component {
 	 * @returns {{status: string, msg: *}}
 	 */
 	getHeaderData() {
-		// assume by default that the user is logged in and up to date
+		// The free build reports theme health only; account/license state is a Pixelgrade Plus concern.
 		let headerData = {
 			status: 'ok',
-			msg: Helpers.decodeHtml(_.get(pixassist, 'themeConfig.l10n.themeValidationNoticeOk', ''))
+			msg: ''
 		};
 
-		// but, if is not active, show the proper message
-		if (! this.props.session.is_active) {
-			headerData.status = 'not-ok';
-			headerData.msg = Helpers.decodeHtml(_.get(pixassist, 'themeConfig.l10n.themeValidationNoticeFail', ''));
-
-			if ( Helpers.compareVersion(_.get(pixassist, 'themeSupports.theme_version', '0.0.1'), _.get(pixassist, 'themeMod.themeNewVersion.new_version', '0.0.1') ) === -1 ) {
-				headerData.msg += ' ' + Helpers.decodeHtml(_.get(pixassist, 'themeConfig.l10n.themeValidationNoticeUpdateAvailable', ''));
-			}
-
-			// the user may have an active license, but the theme may be outdated
-		} else if (Helpers.compareVersion(_.get(pixassist, 'themeSupports.theme_version', '0.0.1'), _.get(pixassist, 'themeMod.themeNewVersion.new_version', '0.0.1') ) === -1) {
+		// Surface a genuine theme update when one is available (theme health, not licensing).
+		if (Helpers.compareVersion(_.get(pixassist, 'themeSupports.theme_version', '0.0.1'), _.get(pixassist, 'themeMod.themeNewVersion.new_version', '0.0.1') ) === -1) {
 			headerData.status = 'not-ok';
 			headerData.msg = Helpers.decodeHtml(_.get(pixassist, 'themeConfig.l10n.themeValidationNoticeOutdatedWithUpdate', ''));
-		}
-
-		if (!this.props.session.is_logged) {
-			headerData.status = 'not-ok';
-			headerData.msg = Helpers.decodeHtml(_.get(pixassist, 'themeConfig.l10n.themeValidationNoticeNotConnected', ''));
 		}
 
 		return headerData;
