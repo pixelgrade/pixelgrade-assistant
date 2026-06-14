@@ -101,7 +101,7 @@ If you have a support question that requires us to take a look in your WordPress
 
 = Is this plugin tracking me? =
 
-No. We are not tracking you or your site. We ask your permission to share with us non-specific theme usage data and information about your WordPress install so we can resolve support questions faster - we are a small team and need to be as efficient as possible.
+No. We are not tracking you or your site. Sharing is entirely optional and off by default. If you opt in, we collect non-specific theme usage data and information about your WordPress install so we can improve the free Pixelgrade stack and help you faster when you reach out - we are a small team and need to be as efficient as possible.
 
 *It is up to you if you are willing to share this data with us.* We respect your decision. We truly appreciate it if you do, but we will do our best to serve you regardless.
 
