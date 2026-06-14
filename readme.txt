@@ -107,12 +107,11 @@ No. We are not tracking you or your site. We ask your permission to share with u
 
 == Screenshots ==
 
-1. Main dashboard tab
-2. Useful links tab
-3. System status tab
-4. Main theme help tab
-5. Open support ticket tab
-6. Site setup wizard
+1. The dashboard — stack health at a glance and recommended free plugins
+2. The Customizations tab
+3. The System Status tab
+4. The optional, skippable site setup wizard
+5. Pixelgrade Plus — the optional premium companion
 
 == Changelog ==
 
