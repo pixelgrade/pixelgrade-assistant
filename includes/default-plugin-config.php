@@ -248,7 +248,7 @@ function pixassist_get_default_config( $original_theme_slug ) {
 						),
 						'content' => array(
 							'type'  => 'text',
-							'value' => wp_kses_post( __( 'Advanced design tools for your Pixelgrade LT site. Pixelgrade Plus is the optional premium companion that adds:<ul class="benefits"><li>Motion and advanced animation controls</li><li>Advanced Style Manager sections</li><li>Pro starter sites and design packs</li><li>Cloud design assets</li><li>Priority support</li></ul>You can keep using the free stack for as long as you like — Plus is here when you want more.', '__plugin_txtd' ) ),
+							'value' => wp_kses_post( __( 'Pixelgrade Plus is the optional premium companion for the Pixelgrade LT stack — advanced design tools that build on everything in the free stack. You can keep using the free stack for as long as you like; Plus is here when you want more.', '__plugin_txtd' ) ),
 							'class' => 'section__content',
 						),
 						'cta'     => array(
@@ -573,7 +573,7 @@ function pixassist_get_default_config( $original_theme_slug ) {
 				$plus_content = wp_kses_post( __( 'Pixelgrade Plus is active. Manage your advanced design tools and settings.', '__plugin_txtd' ) );
 			} else {
 				$plus_label   = esc_html__( 'Set up Pixelgrade Plus', '__plugin_txtd' );
-				$plus_content = wp_kses_post( __( 'Pixelgrade Plus is installed. Activate it to unlock advanced design tools — motion controls, advanced Style Manager sections, pro starter sites, design packs, cloud assets, and priority support.', '__plugin_txtd' ) );
+				$plus_content = wp_kses_post( __( 'Pixelgrade Plus is installed. Activate it to unlock its advanced design tools for your Pixelgrade LT site.', '__plugin_txtd' ) );
 			}
 			$plus_fields                     = &$config['dashboard']['general']['blocks']['pixelgradePlus']['fields'];
 			$plus_fields['content']['value'] = $plus_content;
