@@ -314,9 +314,15 @@ class PixelgradeAssistant {
 			'strong' => array(),
 		);
 		$html = '<div class="updated fade">' .
-		        sprintf( esc_html__( 'Error: plugin "%s" requires a newer version of PHP to be running.', '__plugin_txtd' ), $this->plugin_name ) .
-		        '<br/>' . sprintf( esc_html__( 'Minimal version of PHP required: %s', '__plugin_txtd' ), '<strong>' . $this->minimalRequiredPhpVersion . '</strong>' ) .
-		        '<br/>' . sprintf( esc_html__( 'Your server\'s PHP version: %s', '__plugin_txtd' ), '<strong>' . phpversion() . '</strong>' ) .
+		        sprintf(
+			        /* translators: %s: the plugin name. */
+			        esc_html__( 'Error: plugin "%s" requires a newer version of PHP to be running.', '__plugin_txtd' ), $this->plugin_name ) .
+		        '<br/>' . sprintf(
+			        /* translators: %s: the minimum required PHP version. */
+			        esc_html__( 'Minimal version of PHP required: %s', '__plugin_txtd' ), '<strong>' . $this->minimalRequiredPhpVersion . '</strong>' ) .
+		        '<br/>' . sprintf(
+			        /* translators: %s: the server current PHP version. */
+			        esc_html__( 'Your server\'s PHP version: %s', '__plugin_txtd' ), '<strong>' . phpversion() . '</strong>' ) .
 		        '</div>';
 		echo wp_kses( $html, $allowed );
 	}

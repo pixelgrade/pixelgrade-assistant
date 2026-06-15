@@ -66,7 +66,6 @@ function pixassist_get_default_config( $original_theme_slug ) {
 		'authenticatorActivationErrorTitle'             => esc_html__( 'Something Went Wrong!', '__plugin_txtd' ),
 		'authenticatorActivationErrorContent'           => esc_html__( 'We couldn\'t properly activate your theme. Please try again later.', '__plugin_txtd' ),
 		'authenticatorErrorMessage1'                    => esc_html__( 'An error occurred. Please refresh the page to try again. Error: ', '__plugin_txtd' ),
-		'authenticatorErrorMessage2'                    => wp_kses_post( __( 'If the error persists please contact our support team at <a href="mailto:help@pixelgrade.com?Subject=Help%20with%20connecting%20my%20site" target="_top">help@pixelgrade.com</a>.', '__plugin_txtd' ) ),
 	);
 
 	$config['setupWizard'] = array(
