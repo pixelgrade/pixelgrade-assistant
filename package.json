@@ -11,8 +11,8 @@
 		"Dashboard"
 	],
 	"engines": {
-		"node": ">=14.15.3",
-		"npm": ">=6.14.9"
+		"node": ">=20.0.0",
+		"npm": ">=9.0.0"
 	},
 	"scripts": {
 		"watch": "gulp watch:all",
