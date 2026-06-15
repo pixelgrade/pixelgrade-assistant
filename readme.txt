@@ -1,10 +1,10 @@
 === Pixelgrade Assistant ===
 Contributors: pixelgrade, vlad.olaru
 Tags: dashboard, starter-content, demo-content, recommended-plugins, pixelgrade
-Requires at least: 4.9.9
+Requires at least: 5.9
 Tested up to: 7.0
-Requires PHP: 5.6.40
-Stable tag: 1.4.0
+Requires PHP: 7.4
+Stable tag: 2.0.0
 License: GPLv3.0
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -95,13 +95,22 @@ No. We are not tracking you or your site. Sharing is entirely optional and off b
 
 == Screenshots ==
 
-1. The dashboard — stack health at a glance and recommended free plugins
-2. The Customizations tab
-3. The System Status tab
-4. The optional, skippable site setup wizard
-5. Pixelgrade Plus — the optional premium companion
+1. Main dashboard tab
+2. Useful links tab
+3. System status tab
+4. Main theme help tab
+5. Open support ticket tab
+6. Site setup wizard
 
 == Changelog ==
+
+= 2.0.0 =
+* Reborn as the free, community-first companion for the Pixelgrade LT stack (Anima LT, Style Manager, and Nova Blocks).
+* No account and no license required — install the recommended free plugins from WordPress.org and import starter content right out of the box.
+* Removed the legacy in-dashboard support overlay, the external-plugin installer, and the account/license machinery. Premium design tools now live in the optional Pixelgrade Plus companion.
+* Calmer dashboard — the header reflects your theme's health, with no connection nags.
+* Added a clear "External services" disclosure; usage data is strictly opt-in and off by default.
+* Lighter, faster admin bundle. Now requires WordPress 5.9 and PHP 7.4.
 
 = 1.4.0 =
 * Fixes and improvements throughout the plugin dashboard

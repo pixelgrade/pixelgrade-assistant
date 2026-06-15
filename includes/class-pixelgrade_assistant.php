@@ -84,7 +84,7 @@ class PixelgradeAssistant {
 	 * The lowest supported WordPress version
 	 * @var string
 	 */
-	protected $wp_support = '4.9.9';
+	protected $wp_support = '5.9';
 
 	protected $theme_support = false;
 
@@ -94,7 +94,7 @@ class PixelgradeAssistant {
 	 * @access  private
 	 * @since   1.3.0
 	 */
-	private $minimalRequiredPhpVersion  = '5.3.0';
+	private $minimalRequiredPhpVersion  = '7.4';
 
 	/**
 	 * Define the core functionality of the plugin.
