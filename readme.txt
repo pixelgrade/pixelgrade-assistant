@@ -30,17 +30,15 @@ Looking for more? **Pixelgrade Plus** is the optional premium companion that add
 
 == External services ==
 
-Pixelgrade Assistant is built to work without contacting any external service. The free experience — recommended-plugin install from WordPress.org, local starter content, documentation links, and stack-health information — runs entirely on your site.
+Pixelgrade Assistant runs almost entirely on your own site — installing recommended plugins (from WordPress.org), documentation links, and the stack-health information never leave your server. A few features reach Pixelgrade-hosted services, described below. No Pixelgrade.com account is required for any of them.
 
-A few optional features connect to Pixelgrade services, and only when you choose to use them:
-
-* **Theme configuration (pixelgrade.com).** When you open the Pixelgrade Assistant screen, the plugin may request a small configuration file for your theme from `https://pixelgrade.com` (`/wp-json/pxm/v2/front/get_config`). It sends only your theme identifier, the result is cached locally, and it is not requested on every page load or on a schedule.
-* **Optional account connection (pixelgrade.com).** If you choose to connect a free Pixelgrade.com account, the plugin uses a secure OAuth 1.0a handshake with `https://pixelgrade.com`. This is never required for the free stack and unlocks extras such as cloud starter content, account sync, and premium support.
-* **Optional usage data.** If — and only if — you opt in, the plugin may share non-identifying information about your WordPress install to help us resolve support requests faster. This is off by default.
+* **Theme configuration (pixelgrade.com).** When you open the Pixelgrade Assistant screen, the plugin requests a small configuration file for your theme from `https://pixelgrade.com` (`/wp-json/pxm/v2/front/get_config`). It sends only your theme identifier, the result is cached locally, and it is not requested on every page load or on a schedule.
+* **Starter content (demos.pixelgrade.com).** When — and only when — you click Import on the starter content, the plugin downloads your theme's demo content (text, settings, menus, and images) from `https://demos.pixelgrade.com`. Nothing is downloaded until you start an import, and no account is required.
+* **Optional usage data (pixelgrade.com).** If — and only if — you opt in, the plugin may share non-identifying information about your WordPress install so we can improve the free Pixelgrade stack and assist you faster. This is off by default.
 
 The WordPress.org build never downloads or installs plugin code from servers other than WordPress.org.
 
-Your use of these optional Pixelgrade.com services is subject to Pixelgrade's privacy policy and terms, available at [pixelgrade.com](https://pixelgrade.com/).
+Your use of these Pixelgrade services is subject to Pixelgrade's privacy policy and terms, available at [pixelgrade.com](https://pixelgrade.com/).
 
 == Issues ==
 
@@ -88,16 +86,6 @@ Pixelgrade Plus is the optional premium companion for the Pixelgrade LT stack. I
 = I'm already using Pixelgrade Care — will this conflict? =
 
 No. If Pixelgrade Care (our legacy companion for premium themes) is active, Pixelgrade Assistant detects it and stays out of the way — it does not load a second dashboard or touch your existing license. Your current setup keeps working exactly as before. New LT-stack sites use Pixelgrade Assistant, with Pixelgrade Plus as the optional premium path.
-
-= Is the site connection secure? =
-
-Yes. We use a secure authorization protocol (OAuth1.0a) for setting up the connection.
-
-= If I connect my site, do you gain access to my site? =
-
-No. Connecting your site is just a small exchange of keys meant to establish a way to securely send information, when needed. We don't have your passwords or other methods to gain access to your site.
-
-If you have a support question that requires us to take a look in your WordPress dashboard, we will ask you for a *temporary username and password* with admin permissions. But **that is up to you to provide.**
 
 = Is this plugin tracking me? =
 
