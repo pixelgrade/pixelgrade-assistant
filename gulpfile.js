@@ -310,6 +310,7 @@ function copyFolder() {
 			clean: true,
 			exclude: [
 				'node_modules',
+				'.vscode',
 				'AGENTS.md',
 				'CLAUDE.md',
 				'AGENTS.local.md',
@@ -360,6 +361,7 @@ function removeUnneededFiles( done ) {
 		'pxg.json',
 		'build',
 		'.idea',
+		'.vscode',
 		'**/*.css.map',
 		'**/.git*',
 		'*.sublime-project',

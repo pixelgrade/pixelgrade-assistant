@@ -26,6 +26,9 @@ public/css/*.map
 .DS_Store
 *.sublime-workspace
 
+# Editor settings (personal, machine-specific)
+.vscode/
+
 # Private local overlays
 .env
 .env.local
