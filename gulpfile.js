@@ -65,8 +65,6 @@ function watch() {
 
 const rollup = require('rollup')
 const babel = require('rollup-plugin-babel')
-const builtins = require('rollup-plugin-node-builtins')
-const globals = require('rollup-plugin-node-globals')
 const resolve = require('@rollup/plugin-node-resolve').nodeResolve
 const commonjs = require('@rollup/plugin-commonjs')
 const replace = require('@rollup/plugin-replace')
@@ -105,8 +103,6 @@ const rollupPluginsConfig = [
 			'@material-ui/styles': ['withStyles'],
 		}
 	}),
-	globals(),
-	builtins(),
 	json(),
 ]
 
