@@ -59,6 +59,33 @@ class PixelgradeAssistant_AdminRestInterface {
 			'permission_callback' => array( $this, 'permission_nonce_callback' ),
 			'show_in_index'       => false, // We don't need others to know about this (API discovery)
 		) );
+
+		// Theme Help: lazily serve the (cached) public documentation categories for the active theme.
+		register_rest_route( $namespace, '/kb_categories', array(
+			'methods'             => WP_REST_Server::READABLE,
+			'callback'            => array( $this, 'get_kb_categories' ),
+			'permission_callback' => array( $this, 'permission_nonce_callback' ),
+			'show_in_index'       => false, // We don't need others to know about this (API discovery)
+		) );
+	}
+
+	/**
+	 * Return the (cached) public documentation categories for the active theme's knowledge base.
+	 *
+	 * @param WP_REST_Request $request
+	 *
+	 * @return WP_REST_Response
+	 */
+	public function get_kb_categories( $request ) {
+		$skip_cache = ! empty( $request->get_param( 'skip_cache' ) );
+
+		return rest_ensure_response( array(
+			'code'    => 'success',
+			'message' => '',
+			'data'    => array(
+				'categories' => PixelgradeAssistant_Help::get_kb_categories( $skip_cache ),
+			),
+		) );
 	}
 
 	/**

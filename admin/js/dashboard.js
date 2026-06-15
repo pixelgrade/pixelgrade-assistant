@@ -20221,7 +20221,7 @@
 	 * @param {Array} [result=[]] The initial result value.
 	 * @returns {Array} Returns the new flattened array.
 	 */
-	function baseFlatten$1(array, depth, predicate, isStrict, result) {
+	function baseFlatten$2(array, depth, predicate, isStrict, result) {
 	  var index = -1,
 	      length = array.length;
 
@@ -20233,7 +20233,7 @@
 	    if (depth > 0 && predicate(value)) {
 	      if (depth > 1) {
 	        // Recursively flatten arrays (susceptible to call stack limits).
-	        baseFlatten$1(value, depth - 1, predicate, isStrict, result);
+	        baseFlatten$2(value, depth - 1, predicate, isStrict, result);
 	      } else {
 	        arrayPush(result, value);
 	      }
@@ -20244,7 +20244,7 @@
 	  return result;
 	}
 
-	var _baseFlatten = baseFlatten$1;
+	var _baseFlatten = baseFlatten$2;
 
 	/**
 	 * The base implementation of `_.sortBy` which uses `comparer` to define the
@@ -20632,7 +20632,7 @@
 
 	var _isIterateeCall = isIterateeCall$1;
 
-	var baseFlatten = _baseFlatten,
+	var baseFlatten$1 = _baseFlatten,
 	    baseOrderBy = _baseOrderBy,
 	    baseRest = _baseRest,
 	    isIterateeCall = _isIterateeCall;
@@ -20676,7 +20676,7 @@
 	  } else if (length > 2 && isIterateeCall(iteratees[0], iteratees[1], iteratees[2])) {
 	    iteratees = [iteratees[0]];
 	  }
-	  return baseOrderBy(collection, baseFlatten(iteratees, 1), []);
+	  return baseOrderBy(collection, baseFlatten$1(iteratees, 1), []);
 	});
 
 	var sortBy_1 = sortBy;
@@ -27140,6 +27140,366 @@
 	}
 	const DashboardTabs = connect(mapStateToProps$1, mapDispatchToProps$1)(withStyles$2(styles)(DashboardTabsContainer));
 
+	var baseFlatten = _baseFlatten;
+
+	/**
+	 * Flattens `array` a single level deep.
+	 *
+	 * @static
+	 * @memberOf _
+	 * @since 0.1.0
+	 * @category Array
+	 * @param {Array} array The array to flatten.
+	 * @returns {Array} Returns the new flattened array.
+	 * @example
+	 *
+	 * _.flatten([1, [2, [3, [4]], 5]]);
+	 * // => [1, 2, [3, [4]], 5]
+	 */
+	function flatten(array) {
+	  var length = array == null ? 0 : array.length;
+	  return length ? baseFlatten(array, 1) : [];
+	}
+
+	var flatten_1 = flatten;
+
+	/**
+	 * Theme Help — a self-contained, account-free documentation side panel.
+	 *
+	 * It lazily loads the active theme's public docs (knowledge base) when first opened, lets the
+	 * user browse categories → articles, read an article inline, search client-side across all
+	 * articles, and leave a "was this helpful?" vote. No AWS/ElasticSearch, no account, no tickets.
+	 *
+	 * Data comes from the `kbCategories` REST endpoint (a server-cached, public docs fetch). If the
+	 * theme has no knowledge base, the panel falls back to a link to the online documentation.
+	 */
+	class ThemeHelp extends React.Component {
+	  constructor(props) {
+	    super(props);
+	    this.state = {
+	      open: false,
+	      loading: false,
+	      loaded: false,
+	      error: false,
+	      categories: [],
+	      // [{ id, name, articles: [article] }]
+	      allArticles: [],
+	      // flat list for search
+	      search: '',
+	      activeCategory: null,
+	      activeArticle: null,
+	      feedback: {} // { [articleId]: 'up' | 'down' }
+	    };
+	    this.open = this.open.bind(this);
+	    this.close = this.close.bind(this);
+	    this.onKeyDown = this.onKeyDown.bind(this);
+	    this.onSearch = this.onSearch.bind(this);
+	  }
+	  componentDidMount() {
+	    document.addEventListener('keydown', this.onKeyDown);
+	  }
+	  componentWillUnmount() {
+	    document.removeEventListener('keydown', this.onKeyDown);
+	  }
+	  onKeyDown(e) {
+	    if (e.key === 'Escape' && this.state.open) {
+	      this.close();
+	    }
+	  }
+	  open() {
+	    this.setState({
+	      open: true
+	    });
+	    if (!this.state.loaded && !this.state.loading) {
+	      this.fetchDocs();
+	    }
+	  }
+	  close() {
+	    this.setState({
+	      open: false
+	    });
+	  }
+	  fetchDocs() {
+	    const endpoint = get_1(pixassist, 'wpRest.endpoint.kbCategories');
+	    if (!endpoint || !endpoint.url) {
+	      this.setState({
+	        error: true
+	      });
+	      return;
+	    }
+	    this.setState({
+	      loading: true,
+	      error: false
+	    });
+	    Helpers.$ajax(endpoint.url, endpoint.method || 'GET', {}, response => {
+	      if (response && response.code === 'success') {
+	        const categories = this.normalize(get_1(response, 'data.categories', []));
+	        const allArticles = flatten_1(categories.map(c => c.articles));
+	        this.setState({
+	          categories,
+	          allArticles,
+	          loaded: true,
+	          loading: false
+	        });
+	      } else {
+	        this.setState({
+	          error: true,
+	          loading: false
+	        });
+	      }
+	    }, () => this.setState({
+	      error: true,
+	      loading: false
+	    }));
+	  }
+
+	  /**
+	   * Flatten the (possibly nested) categories tree into a simple
+	   * [{ id, name, articles: [{ id, title, content, excerpt, url }] }] shape.
+	   */
+	  normalize(raw) {
+	    const list = Array.isArray(raw) ? raw : Object.values(raw || {});
+	    const mapArticles = articles => {
+	      const arr = Array.isArray(articles) ? articles : Object.values(articles || {});
+	      return arr.map(a => ({
+	        id: a.ID || a.id,
+	        title: Helpers.decodeHtml(a.post_title || a.title || ''),
+	        content: a.post_content || '',
+	        excerpt: a.post_excerpt || '',
+	        url: a.external_url || a.url || a.guid || ''
+	      }));
+	    };
+
+	    // Gather a category's own articles plus any nested children's articles.
+	    const gather = cat => {
+	      let articles = mapArticles(cat.articles);
+	      const children = cat.children || cat.subcategories || cat.sub_categories;
+	      if (!isEmpty_1(children)) {
+	        const childList = Array.isArray(children) ? children : Object.values(children);
+	        childList.forEach(child => {
+	          articles = articles.concat(gather(child));
+	        });
+	      }
+	      return articles;
+	    };
+	    return list.map(cat => ({
+	      id: cat.term_id || cat.cat_ID || cat.id,
+	      name: Helpers.decodeHtml(cat.name || cat.cat_name || ''),
+	      articles: gather(cat)
+	    })).filter(cat => cat.articles.length > 0);
+	  }
+	  onSearch(e) {
+	    this.setState({
+	      search: e.target.value,
+	      activeArticle: null
+	    });
+	  }
+	  openCategory(category) {
+	    this.setState({
+	      activeCategory: category,
+	      activeArticle: null,
+	      search: ''
+	    });
+	  }
+	  openArticle(article) {
+	    this.setState({
+	      activeArticle: article
+	    });
+	    const panel = document.querySelector('.pixassist-help__body');
+	    if (panel) {
+	      panel.scrollTop = 0;
+	    }
+	  }
+	  back() {
+	    this.setState({
+	      activeArticle: null
+	    });
+	  }
+	  vote(article, value) {
+	    // Reflect the vote immediately; record it best-effort (never block the UI on it).
+	    this.setState(prev => ({
+	      feedback: {
+	        ...prev.feedback,
+	        [article.id]: value
+	      }
+	    }));
+	    const endpoint = get_1(pixassist, 'wpRest.endpoint.kbVote');
+	    if (endpoint && endpoint.url && article.id) {
+	      Helpers.$ajax(endpoint.url, endpoint.method || 'POST', {
+	        key: article.id,
+	        vote: value
+	      }, () => {}, () => {});
+	    }
+	  }
+	  getSearchResults() {
+	    const q = this.state.search.trim().toLowerCase();
+	    if (!q) {
+	      return [];
+	    }
+	    const plain = html => (html || '').replace(/<[^>]*>/g, ' ').toLowerCase();
+	    return this.state.allArticles.filter(a => a.title.toLowerCase().indexOf(q) !== -1 || plain(a.content).indexOf(q) !== -1).slice(0, 30);
+	  }
+	  l10n(key, fallback) {
+	    return Helpers.decodeHtml(get_1(pixassist, 'themeConfig.l10n.' + key, fallback));
+	  }
+	  renderArticle(article) {
+	    const vote = this.state.feedback[article.id];
+	    return /*#__PURE__*/React.createElement("div", {
+	      className: "pixassist-help__article"
+	    }, /*#__PURE__*/React.createElement("button", {
+	      type: "button",
+	      className: "pixassist-help__back",
+	      onClick: () => this.back()
+	    }, "\u2190 ", this.l10n('themeHelpBack', 'Back')), /*#__PURE__*/React.createElement("h3", {
+	      className: "pixassist-help__article-title"
+	    }, article.title), /*#__PURE__*/React.createElement("div", {
+	      className: "pixassist-help__article-content entry-content",
+	      dangerouslySetInnerHTML: {
+	        __html: article.content
+	      }
+	    }), /*#__PURE__*/React.createElement("div", {
+	      className: "pixassist-help__feedback"
+	    }, vote ? /*#__PURE__*/React.createElement("span", {
+	      className: "pixassist-help__feedback-thanks"
+	    }, this.l10n('themeHelpFeedbackThanks', 'Thanks for your feedback!')) : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("span", null, this.l10n('themeHelpFeedbackPrompt', 'Was this helpful?')), /*#__PURE__*/React.createElement("button", {
+	      type: "button",
+	      className: "pixassist-help__feedback-btn",
+	      onClick: () => this.vote(article, 'up')
+	    }, this.l10n('themeHelpFeedbackYes', 'Yes')), /*#__PURE__*/React.createElement("button", {
+	      type: "button",
+	      className: "pixassist-help__feedback-btn",
+	      onClick: () => this.vote(article, 'down')
+	    }, this.l10n('themeHelpFeedbackNo', 'No')))), article.url ? /*#__PURE__*/React.createElement("p", {
+	      className: "pixassist-help__article-link"
+	    }, /*#__PURE__*/React.createElement("a", {
+	      href: article.url,
+	      target: "_blank",
+	      rel: "noopener noreferrer"
+	    }, this.l10n('themeHelpReadOnline', 'Read this article online'), " \u2192")) : null);
+	  }
+	  renderArticleList(articles) {
+	    if (!articles.length) {
+	      return /*#__PURE__*/React.createElement("p", {
+	        className: "pixassist-help__empty"
+	      }, this.l10n('themeHelpNoResults', 'No matching articles.'));
+	    }
+	    return /*#__PURE__*/React.createElement("ul", {
+	      className: "pixassist-help__articles"
+	    }, articles.map(a => /*#__PURE__*/React.createElement("li", {
+	      key: a.id
+	    }, /*#__PURE__*/React.createElement("button", {
+	      type: "button",
+	      onClick: () => this.openArticle(a)
+	    }, a.title))));
+	  }
+	  renderBrowse() {
+	    const {
+	      activeCategory,
+	      categories
+	    } = this.state;
+	    if (activeCategory) {
+	      return /*#__PURE__*/React.createElement("div", {
+	        className: "pixassist-help__category"
+	      }, /*#__PURE__*/React.createElement("button", {
+	        type: "button",
+	        className: "pixassist-help__back",
+	        onClick: () => this.openCategory(null)
+	      }, "\u2190 ", this.l10n('themeHelpAllTopics', 'All topics')), /*#__PURE__*/React.createElement("h3", {
+	        className: "pixassist-help__category-title"
+	      }, activeCategory.name), this.renderArticleList(activeCategory.articles));
+	    }
+	    return /*#__PURE__*/React.createElement("ul", {
+	      className: "pixassist-help__categories"
+	    }, categories.map(c => /*#__PURE__*/React.createElement("li", {
+	      key: c.id
+	    }, /*#__PURE__*/React.createElement("button", {
+	      type: "button",
+	      onClick: () => this.openCategory(c)
+	    }, /*#__PURE__*/React.createElement("span", {
+	      className: "pixassist-help__category-name"
+	    }, c.name), /*#__PURE__*/React.createElement("span", {
+	      className: "pixassist-help__category-count"
+	    }, c.articles.length)))));
+	  }
+	  renderFallback() {
+	    const docsUrl = get_1(pixassist, 'help.docsUrl', 'https://pixelgrade.com/docs');
+	    return /*#__PURE__*/React.createElement("div", {
+	      className: "pixassist-help__fallback"
+	    }, /*#__PURE__*/React.createElement("p", null, this.l10n('themeHelpFallback', 'Browse the full documentation for step-by-step guides and answers.')), /*#__PURE__*/React.createElement("a", {
+	      className: "btn btn--action",
+	      href: docsUrl,
+	      target: "_blank",
+	      rel: "noopener noreferrer"
+	    }, this.l10n('themeHelpBrowseDocs', 'Browse the documentation'), " \u2192"));
+	  }
+	  renderBody() {
+	    const {
+	      loading,
+	      error,
+	      loaded,
+	      categories,
+	      activeArticle,
+	      search
+	    } = this.state;
+	    if (loading) {
+	      return /*#__PURE__*/React.createElement("div", {
+	        className: "pixassist-help__loading"
+	      }, /*#__PURE__*/React.createElement("span", {
+	        className: "pixassist-help__spinner"
+	      }), this.l10n('themeHelpLoading', 'Loading documentation…'));
+	    }
+	    if (error) {
+	      return this.renderFallback();
+	    }
+	    if (activeArticle) {
+	      return this.renderArticle(activeArticle);
+	    }
+	    if (search.trim()) {
+	      return this.renderArticleList(this.getSearchResults());
+	    }
+	    if (loaded && !categories.length) {
+	      return this.renderFallback();
+	    }
+	    return this.renderBrowse();
+	  }
+	  render() {
+	    const {
+	      open
+	    } = this.state;
+	    const showSearch = !this.state.activeArticle && !this.state.error && (this.state.loaded || this.state.loading);
+	    return /*#__PURE__*/React.createElement("div", {
+	      className: 'pixassist-help' + (open ? ' is-open' : '')
+	    }, /*#__PURE__*/React.createElement("button", {
+	      type: "button",
+	      className: "pixassist-help__trigger",
+	      onClick: this.open
+	    }, this.l10n('kbButton', 'Theme Help')), open ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+	      className: "pixassist-help__overlay",
+	      onClick: this.close
+	    }), /*#__PURE__*/React.createElement("aside", {
+	      className: "pixassist-help__panel",
+	      role: "dialog",
+	      "aria-label": this.l10n('kbButton', 'Theme Help')
+	    }, /*#__PURE__*/React.createElement("div", {
+	      className: "pixassist-help__header"
+	    }, /*#__PURE__*/React.createElement("h2", null, this.l10n('kbButton', 'Theme Help')), /*#__PURE__*/React.createElement("button", {
+	      type: "button",
+	      className: "pixassist-help__close",
+	      "aria-label": "Close",
+	      onClick: this.close
+	    }, "\xD7")), showSearch ? /*#__PURE__*/React.createElement("div", {
+	      className: "pixassist-help__search"
+	    }, /*#__PURE__*/React.createElement("input", {
+	      type: "search",
+	      value: this.state.search,
+	      onChange: this.onSearch,
+	      placeholder: this.l10n('themeHelpSearchPlaceholder', 'Search the documentation…')
+	    })) : null, /*#__PURE__*/React.createElement("div", {
+	      className: "pixassist-help__body"
+	    }, this.renderBody()))) : null);
+	  }
+	}
+
 	const mapStateToProps = state => {
 	  return {
 	    session: state
@@ -27203,7 +27563,7 @@
 	    return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement(DashboardHeader, {
 	      status: headerData.status,
 	      msg: headerData.msg
-	    }), /*#__PURE__*/React.createElement(DashboardTabs, null));
+	    }), /*#__PURE__*/React.createElement(DashboardTabs, null), /*#__PURE__*/React.createElement(ThemeHelp, null));
 	  }
 
 	  /**

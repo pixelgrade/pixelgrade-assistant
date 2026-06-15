@@ -160,6 +160,12 @@ class PixelgradeAssistant_Admin {
 			    'url'    => esc_url_raw( rest_url() . 'pixassist/v1/cleanup' ),
 		    ),
 
+		    // Theme Help documentation categories (fetched lazily when the panel opens).
+		    'kbCategories'       => array(
+			    'method' => 'GET',
+			    'url'    => esc_url_raw( rest_url() . 'pixassist/v1/kb_categories' ),
+		    ),
+
 		    // Starter content needed endpoints
 		    'import'             => array(
 			    'method' => 'POST',

@@ -48,6 +48,11 @@ class PixelgradeAssistant {
 	public $plugin_data_collector = null;
 
 	/**
+	 * @var PixelgradeAssistant_Help
+	 */
+	public $plugin_help = null;
+
+	/**
 	 * @var PixelgradeAssistant_Notifications
 	 */
 	public $plugin_notifications = null;
@@ -201,6 +206,12 @@ class PixelgradeAssistant {
 		 */
 		require_once plugin_dir_path( $this->file ) . 'includes/class-pixelgrade_assistant-data-collector.php';
 		$this->plugin_data_collector = PixelgradeAssistant_DataCollector::instance( $this );
+
+		/**
+		 * Theme Help: in-dashboard documentation (knowledge base) for the active theme.
+		 */
+		require_once plugin_dir_path( $this->file ) . 'admin/class-pixelgrade_assistant-help.php';
+		$this->plugin_help = PixelgradeAssistant_Help::instance( $this );
 
 		/**
 		 * The class responsible for various admin notifications.

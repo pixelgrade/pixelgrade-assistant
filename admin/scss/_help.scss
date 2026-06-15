@@ -1,0 +1,278 @@
+// -----------------------------------------------------------------------------
+// Theme Help — documentation side panel
+// -----------------------------------------------------------------------------
+
+$help-z: 100000;
+$help-width: 420px;
+
+.pixassist-help {
+
+	&__trigger {
+		position: fixed;
+		right: 24px;
+		bottom: 24px;
+		z-index: $help-z - 1;
+
+		padding: 12px 22px;
+
+		background-color: $accent--purple;
+		color: $white;
+		border: 0;
+		border-radius: 40px;
+
+		font-size: 14px;
+		font-weight: 600;
+		line-height: 1;
+		cursor: pointer;
+
+		box-shadow: 0 6px 18px rgba($dark, 0.25);
+		transition: transform .15s ease, box-shadow .15s ease;
+
+		&:hover {
+			transform: translateY(-1px);
+			box-shadow: 0 8px 22px rgba($dark, 0.3);
+			color: $white;
+		}
+	}
+
+	&__overlay {
+		position: fixed;
+		top: 0;
+		right: 0;
+		bottom: 0;
+		left: 0;
+		z-index: $help-z;
+
+		background: rgba($dark, 0.4);
+	}
+
+	&__panel {
+		position: fixed;
+		top: 0;
+		right: 0;
+		bottom: 0;
+		z-index: $help-z + 1;
+
+		display: flex;
+		flex-direction: column;
+		width: $help-width;
+		max-width: 100vw;
+
+		background: $white;
+		box-shadow: -8px 0 32px rgba($dark, 0.25);
+
+		animation: pixassist-help-slide-in .2s ease;
+	}
+
+	&__header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+
+		padding: 18px 24px;
+		border-bottom: 1px solid $borders-alt;
+
+		h2 {
+			margin: 0;
+			font-size: 18px;
+			font-weight: 600;
+			color: $darker;
+		}
+	}
+
+	&__close {
+		background: none;
+		border: 0;
+		font-size: 28px;
+		line-height: 1;
+		color: $light;
+		cursor: pointer;
+
+		&:hover { color: $darker; }
+	}
+
+	&__search {
+		padding: 16px 24px;
+		border-bottom: 1px solid $borders-alt;
+
+		input {
+			width: 100%;
+			padding: 10px 14px;
+			border: 1px solid $borders;
+			border-radius: 4px;
+			font-size: 14px;
+
+			&:focus {
+				border-color: $accent--purple;
+				outline: none;
+				box-shadow: 0 0 0 1px $accent--purple;
+			}
+		}
+	}
+
+	&__body {
+		flex: 1 1 auto;
+		overflow-y: auto;
+		padding: 16px 24px 32px;
+	}
+
+	&__categories,
+	&__articles {
+		margin: 0;
+		padding: 0;
+		list-style: none;
+
+		li { margin: 0; }
+
+		button {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			width: 100%;
+
+			padding: 14px 4px;
+			border: 0;
+			border-bottom: 1px solid $borders-alt;
+			background: none;
+
+			font-size: 15px;
+			text-align: left;
+			color: $dark;
+			cursor: pointer;
+
+			&:hover { color: $accent--purple; }
+		}
+	}
+
+	&__category-count {
+		flex: 0 0 auto;
+		margin-left: 12px;
+		padding: 2px 9px;
+
+		background: $grey;
+		border-radius: 20px;
+
+		font-size: 12px;
+		color: $light;
+	}
+
+	&__back {
+		display: inline-block;
+		margin-bottom: 14px;
+		padding: 0;
+
+		background: none;
+		border: 0;
+
+		font-size: 13px;
+		color: $light;
+		cursor: pointer;
+
+		&:hover { color: $accent--purple; }
+	}
+
+	&__category-title,
+	&__article-title {
+		margin: 0 0 16px;
+		font-size: 20px;
+		font-weight: 600;
+		color: $darker;
+	}
+
+	&__article-content {
+		font-size: 14px;
+		line-height: 1.7;
+		color: $dark;
+
+		img { max-width: 100%; height: auto; }
+		h1, h2, h3, h4 { margin: 1.4em 0 .5em; color: $darker; }
+		p { margin: 0 0 1em; }
+		ul, ol { margin: 0 0 1em 1.2em; }
+		a { color: $accent--purple; }
+		code {
+			padding: 2px 5px;
+			background: $grey;
+			border-radius: 3px;
+			font-size: 13px;
+		}
+		pre {
+			padding: 12px;
+			background: $grey;
+			border-radius: 4px;
+			overflow-x: auto;
+		}
+	}
+
+	&__feedback {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+
+		margin-top: 28px;
+		padding-top: 18px;
+		border-top: 1px solid $borders-alt;
+
+		font-size: 14px;
+		color: $light;
+	}
+
+	&__feedback-btn {
+		padding: 6px 18px;
+		background: none;
+		border: 1px solid $borders;
+		border-radius: 4px;
+		font-size: 13px;
+		color: $dark;
+		cursor: pointer;
+
+		&:hover {
+			border-color: $accent--purple;
+			color: $accent--purple;
+		}
+	}
+
+	&__feedback-thanks { color: $accent--green; font-weight: 600; }
+
+	&__article-link {
+		margin-top: 20px;
+		font-size: 13px;
+
+		a { color: $accent--purple; }
+	}
+
+	&__loading,
+	&__empty,
+	&__fallback {
+		padding: 24px 4px;
+		font-size: 14px;
+		color: $light;
+	}
+
+	&__fallback .btn {
+		display: inline-block;
+		margin-top: 12px;
+	}
+
+	&__spinner {
+		display: inline-block;
+		width: 16px;
+		height: 16px;
+		margin-right: 10px;
+		vertical-align: middle;
+
+		border: 2px solid $borders;
+		border-top-color: $accent--purple;
+		border-radius: 50%;
+
+		animation: pixassist-help-spin .7s linear infinite;
+	}
+}
+
+@keyframes pixassist-help-slide-in {
+	from { transform: translateX(100%); }
+	to   { transform: translateX(0); }
+}
+
+@keyframes pixassist-help-spin {
+	to { transform: rotate(360deg); }
+}
