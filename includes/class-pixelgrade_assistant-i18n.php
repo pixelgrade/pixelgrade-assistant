@@ -51,10 +51,12 @@ class PixelgradeAssistant_i18n {
 	 */
 	public function load_plugin_textdomain() {
 
+		// The third arg must be a path relative to the plugins directory, not a URL,
+		// otherwise WordPress can't locate the bundled .mo files.
 		load_plugin_textdomain(
 			'pixelgrade_assistant',
 			false,
-			plugin_dir_url( $this->parent->file ) . 'languages/'
+			dirname( plugin_basename( $this->parent->file ) ) . '/languages/'
 		);
 
 	}
