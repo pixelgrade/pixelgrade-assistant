@@ -1153,9 +1153,18 @@ class PixelgradeAssistant_Admin {
 	    }
 
         if ( true === $skip_cache || false === $config ) {
-            // Retrieve the config from the server
+            // Retrieve the config from the server. The theme-config endpoint is fixed, so don't depend on
+            // init() having populated the static $externalApiEndpoints property — get_remote_config() can run
+            // on a cold cache before that runs (it would otherwise warn on a null array offset).
+            $get_config = ! empty( self::$externalApiEndpoints['pxm']['getConfig'] )
+                ? self::$externalApiEndpoints['pxm']['getConfig']
+                : array(
+                    'method' => 'GET',
+                    'url'    => PIXELGRADE_ASSISTANT__API_BASE . 'wp-json/pxm/v2/front/get_config',
+                );
+
             $request_args = array(
-                'method' => PixelgradeAssistant_Admin::$externalApiEndpoints['pxm']['getConfig']['method'],
+                'method' => $get_config['method'],
                 'timeout'   => 4,
                 'blocking'  => true,
                 'body' => array(
@@ -1169,11 +1178,11 @@ class PixelgradeAssistant_Admin {
 
             // Increase timeout when using the PIXELGRADE_ASSISTANT__SKIP_CONFIG_CACHE constant so we can account for slow local (development) installations.
 	        // Also do this if the target URL is a development one.
-	        if ( ( defined( 'PIXELGRADE_ASSISTANT__SKIP_CONFIG_CACHE' ) && PIXELGRADE_ASSISTANT__SKIP_CONFIG_CACHE === true ) || self::is_development_url( PixelgradeAssistant_Admin::$externalApiEndpoints['pxm']['getConfig']['url'] ) ) {
+	        if ( ( defined( 'PIXELGRADE_ASSISTANT__SKIP_CONFIG_CACHE' ) && PIXELGRADE_ASSISTANT__SKIP_CONFIG_CACHE === true ) || self::is_development_url( $get_config['url'] ) ) {
 		        $request_args['timeout'] = 10;
 	        }
 
-            $response = wp_remote_request( PixelgradeAssistant_Admin::$externalApiEndpoints['pxm']['getConfig']['url'], $request_args  );
+            $response = wp_remote_request( $get_config['url'], $request_args  );
             if ( is_wp_error( $response ) ) {
                 return false;
             }
