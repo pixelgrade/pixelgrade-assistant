@@ -1,5 +1,5 @@
 === Pixelgrade Assistant ===
-Contributors: pixelgrade, vlad.olaru
+Contributors: pixelgrade, vlad.olaru, babbardel
 Tags: dashboard, starter-content, demo-content, recommended-plugins, pixelgrade
 Requires at least: 5.9
 Tested up to: 7.0
