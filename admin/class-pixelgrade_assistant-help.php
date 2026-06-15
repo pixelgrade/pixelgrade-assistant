@@ -46,19 +46,22 @@ class PixelgradeAssistant_Help {
 	/**
 	 * The knowledge-base product SKU for the active theme.
 	 *
-	 * LT/Lite themes inherit their premium parent's KB, so we strip a trailing `-lt`/`-lite`
-	 * from the theme slug by default. Filterable so the mapping can be corrected per theme.
+	 * Send the theme's actual slug (e.g. `pile-lt`). The KB server resolves the specific product
+	 * from it and decides which article groups apply — LT themes are intentionally mapped to their
+	 * shared/parent KB on the server side (per product `docs_article_groups`), NOT by stripping a
+	 * suffix here. Stripping `-lt` would resolve to the *premium* product and serve the wrong docs.
+	 * Filterable so the mapping can still be overridden per theme if ever needed.
 	 *
 	 * @return string
 	 */
 	public static function get_kb_product_sku() {
-		$slug = (string) PixelgradeAssistant_Admin::get_original_theme_slug();
-		$sku  = preg_replace( '/-(lt|lite)$/', '', strtolower( $slug ) );
+		$slug = strtolower( (string) PixelgradeAssistant_Admin::get_original_theme_slug() );
+		$sku  = $slug;
 
 		/**
 		 * Filter the knowledge-base product SKU used to fetch in-dashboard documentation.
 		 *
-		 * @param string $sku  The resolved SKU (premium parent for LT/Lite themes).
+		 * @param string $sku  The resolved SKU (the theme's own slug by default).
 		 * @param string $slug The original theme slug.
 		 */
 		return apply_filters( 'pixassist_kb_product_sku', $sku, $slug );
