@@ -5,6 +5,10 @@
  * It knows how to handle:
  * - the "Pixelgrade Plugin Supports" theme headers that specify semver ranges for acceptable plugin updates.
  *
+ * NOTE: the public filters in this class intentionally keep the legacy `pixelgrade_care/...` hook
+ * names (rather than `pixassist/...`). They are a back-compat contract — external integrations and
+ * sibling plugins hook into them — so do NOT rename them without a deliberate deprecation path.
+ *
  * @see         https://pixelgrade.com
  * @author      Pixelgrade
  */
@@ -125,6 +129,7 @@ if ( ! class_exists( 'PixelgradeAssistant_Conditional_Updates' ) ) :
 		 * @return void
 		 */
 		public function setup() {
+			// Legacy `pixelgrade_care/...` hook name kept for back-compat (see class note).
 			$this->target_plugins = apply_filters( 'pixelgrade_care/conditional_updates/target_plugins', $this->target_plugins );
 		}
 
@@ -489,6 +494,7 @@ if ( ! class_exists( 'PixelgradeAssistant_Conditional_Updates' ) ) :
 				}
 			}
 
+			// Legacy `pixelgrade_care/...` hook name kept for back-compat (see class note).
 			return apply_filters( 'pixelgrade_care/conditional_updates/get_theme_plugin_supports', $plugin_supports, $current_theme );
 		}
 
@@ -534,6 +540,7 @@ if ( ! class_exists( 'PixelgradeAssistant_Conditional_Updates' ) ) :
 				$supports[ $identifier ] = $semver_range;
 			}
 
+			// Legacy `pixelgrade_care/...` hook name kept for back-compat (see class note).
 			return apply_filters( 'pixelgrade_care/conditional_updates/parse_supports_header', $supports, $supports_raw_header );
 		}
 
@@ -583,6 +590,7 @@ if ( ! class_exists( 'PixelgradeAssistant_Conditional_Updates' ) ) :
 				$filenames = reset( $filenames );
 			}
 
+			// Legacy `pixelgrade_care/...` hook name kept for back-compat (see class note).
 			return apply_filters( 'pixelgrade_care/conditional_updates/get_plugin_file', $filenames, $plugin_details, $single );
 		}
 
@@ -608,6 +616,7 @@ if ( ! class_exists( 'PixelgradeAssistant_Conditional_Updates' ) ) :
 				}
 			}
 
+			// Legacy `pixelgrade_care/...` hook name kept for back-compat (see class note).
 			return apply_filters( 'pixelgrade_care/conditional_updates/get_plugin_data', $plugins_data, $plugin_details );
 		}
 
@@ -627,6 +636,7 @@ if ( ! class_exists( 'PixelgradeAssistant_Conditional_Updates' ) ) :
 				$installed = true;
 			}
 
+			// Legacy `pixelgrade_care/...` hook name kept for back-compat (see class note).
 			return apply_filters( 'pixelgrade_care/conditional_updates/is_plugin_installed', $installed, $plugin_details );
 		}
 
