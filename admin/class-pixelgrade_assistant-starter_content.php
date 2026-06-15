@@ -270,6 +270,16 @@ class PixelgradeAssistant_StarterContent {
 		$type     = sanitize_text_field( $params['type'] );
 		$args     = $params['args'];
 
+		// Only fetch starter content from a host we actually serve demos from, never an
+		// arbitrary URL supplied by the request (SSRF guard, on top of the manage_options check).
+		if ( ! $this->is_allowed_demo_url( $base_url ) ) {
+			return rest_ensure_response( array(
+				'code'    => 'invalid_source',
+				'message' => esc_html__( 'The starter content source is not allowed.', '__plugin_txtd' ),
+				'data'    => array(),
+			) );
+		}
+
 		// Remember the demo base URL so end_import() can rewrite demo links reliably,
 		// even if its own request body carries no `url` (e.g. a JSON request leaves $_POST empty).
 		set_transient( 'pixassist_sce_demo_url', $base_url, HOUR_IN_SECONDS );
@@ -405,6 +415,80 @@ class PixelgradeAssistant_StarterContent {
 		}
 
 		return $val;
+	}
+
+	/**
+	 * Whether a starter-content base URL points to a host we actually serve demos from.
+	 *
+	 * The legitimate demo sources are defined in the (server-provided) theme config; we never
+	 * fetch from an arbitrary host supplied by the request. An exact host match or a subdomain
+	 * of an allowed host passes.
+	 *
+	 * @param string $base_url
+	 *
+	 * @return bool
+	 */
+	private function is_allowed_demo_url( $base_url ) {
+		$host = strtolower( (string) wp_parse_url( $base_url, PHP_URL_HOST ) );
+		if ( empty( $host ) ) {
+			return false;
+		}
+
+		foreach ( $this->get_allowed_demo_hosts() as $allowed ) {
+			$allowed = strtolower( $allowed );
+			if ( empty( $allowed ) ) {
+				continue;
+			}
+
+			// Exact host match or a subdomain of an allowed host.
+			if ( $host === $allowed || substr( $host, - strlen( '.' . $allowed ) ) === '.' . $allowed ) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	/**
+	 * The hosts starter-content imports are allowed to fetch from.
+	 *
+	 * Derived from the demo sources in the current theme config, plus the Pixelgrade API host,
+	 * and filterable so a companion plugin can register additional sources.
+	 *
+	 * @return array
+	 */
+	private function get_allowed_demo_hosts() {
+		$hosts = array();
+
+		$config = PixelgradeAssistant_Admin::get_config();
+		if ( ! empty( $config['starterContent']['demos'] ) && is_array( $config['starterContent']['demos'] ) ) {
+			foreach ( $config['starterContent']['demos'] as $demo ) {
+				foreach ( array( 'url', 'baseRestUrl' ) as $key ) {
+					if ( empty( $demo[ $key ] ) ) {
+						continue;
+					}
+					$demo_host = wp_parse_url( $demo[ $key ], PHP_URL_HOST );
+					if ( ! empty( $demo_host ) ) {
+						$hosts[] = strtolower( $demo_host );
+					}
+				}
+			}
+		}
+
+		// Always allow the Pixelgrade host (and its subdomains, e.g. demos.pixelgrade.com)
+		// that serves the configs and demo content.
+		if ( defined( 'PIXELGRADE_ASSISTANT__API_BASE_DOMAIN' ) ) {
+			$hosts[] = strtolower( PIXELGRADE_ASSISTANT__API_BASE_DOMAIN );
+		}
+
+		$hosts = array_values( array_unique( array_filter( $hosts ) ) );
+
+		/**
+		 * Filter the hosts that starter-content imports are allowed to fetch from.
+		 *
+		 * @param array $hosts
+		 */
+		return apply_filters( 'pixassist_sce_allowed_demo_hosts', $hosts );
 	}
 
 	/**
