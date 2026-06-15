@@ -100,9 +100,8 @@ function pixassist_get_default_config( $original_theme_slug ) {
 							'value_errored'    => esc_html__( 'Sadly, errors have happened and the started content could not be imported at this time. Please try again in a little while or reach out to our support crew.', '__plugin_txtd' ),
 						),
 						'starterContent' => array(
-							'type'         => 'component',
-							'value'        => 'starter-content',
-							'notconnected' => 'hidden',
+							'type'  => 'component',
+							'value' => 'starter-content',
 						),
 						'content'        => '',
 						'links'          => '',
