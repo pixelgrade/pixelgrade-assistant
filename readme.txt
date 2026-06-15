@@ -4,7 +4,7 @@ Tags: dashboard, starter-content, demo-content, recommended-plugins, pixelgrade
 Requires at least: 5.9
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 2.0.0
+Stable tag: 2.1.0
 License: GPLv3.0
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -103,6 +103,14 @@ No. We are not tracking you or your site. Sharing is entirely optional and off b
 6. Site setup wizard
 
 == Changelog ==
+
+= 2.1.0 =
+* New: Theme Help — browse and search your theme's documentation right inside the WordPress dashboard, no account required.
+* Finished moving account and license features out to the optional Pixelgrade Plus companion; the free plugin is now fully account-free.
+* Added extension points so companion plugins (like Pixelgrade Plus) can build on the dashboard cleanly.
+* The starter content card now always shows, regardless of any leftover connection state.
+* Fixes: bundled translations now load correctly; in-dashboard documentation resolves to the right theme; hardened starter-content downloads against unexpected sources.
+* Under the hood: modernized the build toolchain (Node 20 LTS, Dart Sass) and cleared all dependency security advisories.
 
 = 2.0.0 =
 * Reborn as the free, community-first companion for the Pixelgrade LT stack (Anima LT, Style Manager, and Nova Blocks).
