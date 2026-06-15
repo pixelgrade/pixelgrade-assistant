@@ -39,8 +39,8 @@ $shop_small-font-size: 14px;
 $shop_tiny-font-size: 13px;
 
 $shop_base-spacing-unit: $shop_base-line-height;
-$shop_base-spacing-unit-tiny: $shop_base-spacing-unit / 4;
-$shop_base-spacing-unit-small: $shop_base-spacing-unit / 2;
+$shop_base-spacing-unit-tiny: $shop_base-spacing-unit * 0.25;
+$shop_base-spacing-unit-small: $shop_base-spacing-unit * 0.5;
 $shop_base-spacing-unit-large: $shop_base-spacing-unit * 2;
 $shop_base-spacing-unit-big: $shop_base-spacing-unit * 4;
 $shop_base-spacing-unit-huge: $shop_base-spacing-unit * 6;
