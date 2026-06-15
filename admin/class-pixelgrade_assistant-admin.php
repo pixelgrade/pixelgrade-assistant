@@ -517,6 +517,15 @@ class PixelgradeAssistant_Admin {
             $localized_data['themeMod']['themeNewVersion'] = $new_theme_version;
         }
 
+        /*
+         * Pixelgrade Plus discovery (read-only).
+         *
+         * Expose the Plus status contract to JS so the UI can gate on Plus being active/licensed
+         * without reverse-engineering theme mods. Assistant never owns this state — Pixelgrade Plus
+         * reports it via the `pixelgrade_assistant_plus_status` filter.
+         */
+        $localized_data['plus'] = function_exists( 'pixassist_get_plus_status' ) ? pixassist_get_plus_status() : array();
+
 	    // Give some instructions to the JS part. Stuff to do like clear the local storage because things have changed.
 	    $localized_data['todos'] = array();
 	    if( PixelgradeAssistant_Admin::get_option( 'theme_switched', false ) ) {
