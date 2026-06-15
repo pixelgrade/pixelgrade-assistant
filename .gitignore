@@ -25,3 +25,13 @@ public/css/*.map
 *.map
 .DS_Store
 *.sublime-workspace
+
+# Private local overlays
+.env
+.env.local
+.env.*.local
+AGENTS.local.md
+.ai/
+.claude/napkin.md
+.claude/local/
+.private/
