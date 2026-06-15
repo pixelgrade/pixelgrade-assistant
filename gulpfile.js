@@ -5,7 +5,7 @@ var plugin = 'pixelgrade-assistant',
 
 	gulp = require( 'gulp' ),
 	plugins = require( 'gulp-load-plugins' )(),
-	sass = require('gulp-sass')(require('node-sass')),
+	sass = require('gulp-sass')(require('sass')),
 	gulpEnvify = require('@ladjs/gulp-envify'),
 	fs = require('fs'),
 	del = require('del'),
@@ -23,7 +23,7 @@ var plugin = 'pixelgrade-assistant',
 
 function stylesAdmin() {
 	return gulp.src( source_SCSS.admin )
-		.pipe( sass.sync( {'sourcemap': false, style: 'compact'} ).on( 'error', sass.logError ) )
+		.pipe( sass.sync( {style: 'expanded'} ).on( 'error', sass.logError ) )
 		.pipe( plugins.autoprefixer() )
 		.pipe(plugins.replace(/^@charset \"UTF-8\";\n/gm, ''))
 		.pipe(cleanCSS())
