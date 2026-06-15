@@ -64,7 +64,7 @@ function watch() {
 // -----------------------------------------------------------------------------
 
 const rollup = require('rollup')
-const babel = require('rollup-plugin-babel')
+const { babel } = require('@rollup/plugin-babel')
 const resolve = require('@rollup/plugin-node-resolve').nodeResolve
 const commonjs = require('@rollup/plugin-commonjs')
 const replace = require('@rollup/plugin-replace')
@@ -76,6 +76,7 @@ const rollupPluginsConfig = [
 		preventAssignment: true,
 	}),
 	babel({
+		babelHelpers: 'bundled',
 		exclude: [
 			'node_modules/**',
 		],
