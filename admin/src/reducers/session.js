@@ -77,11 +77,6 @@ const session = ( state = getDefaultState(), action ) => {
 			return {...state, ...{
 				loading: true
 			}};
-		case 'LOADING_LICENSES':
-			return {...state, ...{
-				loading: true,
-				loadingLicenses: true,
-			}};
 		case 'LOADING_DONE':
 			return {...state, ...{
 				loading: false

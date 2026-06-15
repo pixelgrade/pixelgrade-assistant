@@ -6,8 +6,6 @@ if ( ! defined( 'ABSPATH' ) ) {
 function pixassist_get_default_config( $original_theme_slug ) {
 	// General strings ready to be translated
 	$config['l10n'] = array(
-		'myAccountBtn'                                  => esc_html__( 'My account', '__plugin_txtd' ),
-		'needHelpBtn'                                   => esc_html__( 'Need help?', '__plugin_txtd' ),
 		'returnToDashboard'                             => esc_html__( 'Continue to your WordPress dashboard', '__plugin_txtd' ),
 		'nextButton'                                    => esc_html__( 'Continue', '__plugin_txtd' ),
 		'skipButton'                                    => esc_html__( 'Skip this step', '__plugin_txtd' ),
@@ -32,16 +30,9 @@ function pixassist_get_default_config( $original_theme_slug ) {
 		'themeNameChangedTitle'                         => esc_html__( 'Your theme NAME is changed!', '__plugin_txtd' ),
 		'themeNameChanged'                              => wp_kses_post( __( 'The theme name specified in the "style.css" file in the theme\'s directory is <strong>"{{stylecss_theme_name}}".</strong> The next time you <strong>update your theme</strong> this name will be <strong>changed back to "{{theme_name}}".</strong>', '__plugin_txtd' ) ),
 		'childThemeNameChanged'                         => wp_kses_post( __( 'On your next theme update, your parent theme name will be <strong>changed back to its original one: "{{stylecss_theme_name}}".</strong> To avoid issues with your child theme, you will need to <strong>update the style.css file of both your parent and child theme</strong> with <strong>the original theme name: "{{theme_name}}".</strong>', '__plugin_txtd' ) ),
-		'forceDisconnected'                             => esc_html__( 'Unfortunately, we\'ve lost your connection with pixelgrade.com. Just reconnect and all will be back to normal.', '__plugin_txtd' ),
-		'connectionLostTitle'                           => esc_html__( 'Your connection is out of sight!', '__plugin_txtd' ),
-		'connectionLost'                                => esc_html__( 'Unfortunately, we\'ve lost your connection with {{shopdomain}}. Just reconnect and all will be back to normal.', '__plugin_txtd' ),
-		'connectButtonLabel'                            => esc_html__( 'Connect to {{shopdomain}}', '__plugin_txtd' ),
-		'refreshConnectionButtonLabel'                  => esc_html__( 'Refresh your site connection', '__plugin_txtd' ),
 		'setupWizardTitle'                              => esc_html__( 'Site setup wizard', '__plugin_txtd' ),
 		'internalErrorTitle'                            => esc_html__( 'An internal server error has occurred', '__plugin_txtd' ),
 		'internalErrorContent'                          => esc_html__( 'Something went wrong while trying to process your request. Please try again.', '__plugin_txtd' ),
-		'disconnectLabel'                               => esc_html__( 'Disconnect', '__plugin_txtd' ),
-		'disconnectConfirm'                             => esc_html__( "Are you sure you want to do this?\nYou will lose the connection with {{shopdomain}}.\nBut don't worry, you can always reconnect.", '__plugin_txtd' ),
 		'componentUnavailableTitle'                     => esc_html__( 'Unavailable', '__plugin_txtd' ),
 		'componentUnavailableContent'                   => esc_html__( 'This feature is available only if your site is connected to {{shopdomain}}.', '__plugin_txtd' ),
 		'pluginInstallLabel'                            => esc_html__( 'Install', '__plugin_txtd' ),
@@ -53,19 +44,6 @@ function pixassist_get_default_config( $original_theme_slug ) {
 		'setupWizardWelcomeTitle'                       => esc_html__( 'Welcome to the site setup wizard', '__plugin_txtd' ),
 		'setupWizardWelcomeContent'                     => esc_html__( 'This quick, optional setup helps you install recommended free plugins and load helpful demo content. It\'s safe and fast — and you can skip it anytime.', '__plugin_txtd' ),
 		'setupWizardStartButtonLabel'                   => esc_html__( 'Let\'s get started!', '__plugin_txtd' ),
-		'authenticatorDashboardConnectTitle'            => esc_html__( 'Connect your site to Pixelgrade', '__plugin_txtd' ),
-		'authenticatorDashboardConnectContent'          => wp_kses_post( __( 'Optionally connect a free {{shopdomain}} account to unlock a few extras:
-					<ul class="benefits">
-						<li><i></i><span><strong>Hand-picked plugins</strong> to boost your website.</span></li>
-						<li><i></i><span><strong>Starter content</strong> to make your website look like the demo.</span></li>
-						<li><i></i><span><strong>Premium support</strong> to guide you through everything you need.</span></li>
-                    </ul>', '__plugin_txtd' ) ),
-		'authenticatorDashboardConnectLoadingContent'   => esc_html__( 'Take a break while you securely authorize Pixelgrade Assistant to connect to {{shopdomain}}. It\'s going to happen in a newly open browser window or tab, just so you know.', '__plugin_txtd' ),
-		'authenticatorDashboardConnectedSuccessTitle'   => esc_html__( 'Yaaay, site connected! 👏', '__plugin_txtd' ),
-		'authenticatorDashboardConnectedSuccessContent' => wp_kses_post( __( 'Well done, <strong>{{username}}</strong>! Your website is successfully connected with {{shopdomain}}. Carry on and install the recommended plugins or starter content in the blink of an eye.', '__plugin_txtd' ) ),
-		'authenticatorActivationErrorTitle'             => esc_html__( 'Something Went Wrong!', '__plugin_txtd' ),
-		'authenticatorActivationErrorContent'           => esc_html__( 'We couldn\'t properly activate your theme. Please try again later.', '__plugin_txtd' ),
-		'authenticatorErrorMessage1'                    => esc_html__( 'An error occurred. Please refresh the page to try again. Error: ', '__plugin_txtd' ),
 	);
 
 	$config['setupWizard'] = array(
@@ -499,33 +477,6 @@ function pixassist_get_default_config( $original_theme_slug ) {
 		),
 		'defaultSceRestPath' => 'wp-json/sce/v2',
 		// this will be appended to the starter content source URL if we are not given a baseRestUrl
-	);
-
-	// the authenticator config is based on the component status which can be: not_validated, loading, validated
-	$config['authentication'] = array(
-		// general strings
-		'title'               => esc_html__( 'Connect a Pixelgrade account (optional)', '__plugin_txtd' ),
-		// validated string
-		'validatedTitle'      => '<span class="c-icon c-icon--success"></span> ' . esc_html__( 'Site connected! You\'re all set 👌', '__plugin_txtd' ),
-		'validatedContent'    => wp_kses_post( __( '<strong>Well done, {{username}}!</strong> Your site is successfully connected to {{shopdomain}} and all the tools are available to make it shine.', '__plugin_txtd' ) ),
-		//  not validated strings
-		'notValidatedContent' => wp_kses_post( __( 'Connecting a free {{shopdomain}} account is <strong>optional</strong>. It unlocks extras like <strong>cloud starter content, in-dashboard documentation, and premium support</strong>.<br/><br/>This <strong>does not mean</strong> we gain direct (admin) access to this site. You remain the only one who can log in and make changes. <strong>Connecting means</strong> that this site and {{shopdomain}} share a few details needed to communicate securely.', '__plugin_txtd' ) ),
-		'notValidatedButton'  => esc_html__( 'Connect to {{shopdomain}}', '__plugin_txtd' ),
-		// no themes from shop
-		'noThemeContent'      => esc_html__( 'Ups! You are logged in, but it seems you don\'t have a license for this theme yet.', '__plugin_txtd' ),
-		'noThemeRetryButton'  => esc_html__( 'Retry to activate', '__plugin_txtd' ),
-		'noThemeLicense'      => esc_html__( 'You don\'t seem to have any licenses for this theme', '__plugin_txtd' ),
-		// Not our theme or broken beyond recognition
-		'brokenTitle'         => esc_html__( 'Huston, we have a problem.. Really!', '__plugin_txtd' ),
-		'brokenContent'       => wp_kses_post( __( 'This doesn\'t seem to be <strong>a Pixelgrade theme.</strong> Are you sure you are <strong>using the original theme code</strong>?<br/><strong>We can\'t activate this theme</strong> in it\'s current state.<br/><br/>Reach us at <a href="mailto:help@pixelgrade.com?Subject=Help%20with%20broken%20theme" target="_top">help@pixelgrade.com</a> if you need further help.', '__plugin_txtd' ) ),
-		// loading strings
-		'loadingTitle'        => esc_html__( 'Connection in progress', '__plugin_txtd' ),
-		'loadingContent'      => esc_html__( 'Getting a couple of details to make sure everything is working and secure...', '__plugin_txtd' ),
-		'loadingPrepare'      => esc_html__( 'Preparing...', '__plugin_txtd' ),
-		'loadingError'        => esc_html__( 'Sorry... I can\'t do this right now!', '__plugin_txtd' ),
-		// license urls
-		'buyThemeUrl'         => esc_url( trailingslashit( PIXELGRADE_ASSISTANT__SHOP_BASE ) . 'pricing' ),
-		'renewLicenseUrl'     => esc_url( trailingslashit( PIXELGRADE_ASSISTANT__SHOP_BASE ) . 'my-account' ),
 	);
 
 	// the recommended plugins config is based on the component status which can be: not_validated, loading, validated

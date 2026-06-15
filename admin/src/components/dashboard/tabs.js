@@ -46,19 +46,9 @@ const mapStateToProps = (state) => {
 
 const mapDispatchToProps = (dispatch) => {
 	return {
-		onConnected: () => {
-			dispatch({
-				type: 'CONNECTED'
-			});
-		},
 		onLoading: () => {
 			dispatch({
 				type: 'LOADING'
-			})
-		},
-		onDisconnect: () => {
-			dispatch({
-				type: 'DISCONNECTED'
 			})
 		}
 	}

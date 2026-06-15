@@ -28,19 +28,9 @@ const mapStateToProps = (state) => {
 
 const mapDispatchToProps = (dispatch) => {
 	return {
-		onConnected: () => {
-			dispatch({
-				type: 'CONNECTED'
-			});
-		},
 		onLoading: () => {
 			dispatch({
 				type: 'LOADING'
-			})
-		},
-		onDisconnect: () => {
-			dispatch({
-				type: 'DISCONNECTED'
 			})
 		},
 		onAvailableNextButton: () => {
@@ -48,9 +38,6 @@ const mapDispatchToProps = (dispatch) => {
 		},
 		onUnAvailableNextButton: () => {
 			dispatch({ type: 'NEXT_BUTTON_UNAVAILABLE' })
-		},
-		onConnectURLReady: ( url ) => {
-			dispatch({ type: 'CONNECT_URL_READY', url: url });
 		},
 		onAvailableSkipButton: () => {
 			dispatch({ type: 'SKIP_BUTTON_AVAILABLE' })

@@ -18,21 +18,6 @@ const mapStateToProps = (state) => {
 
 const mapDispatchToProps = (dispatch) => {
 	return {
-		onConnected: () => {
-			dispatch({
-				type: 'CONNECTED'
-			});
-		},
-		onLoading: () => {
-			dispatch({
-				type: 'LOADING'
-			})
-		},
-		onDisconnect: () => {
-			dispatch({
-				type: 'DISCONNECTED'
-			})
-		},
 		onUpdatedLocalized: () => {
 			dispatch({ type: 'ON_UPDATED_LOCALIZED' });
 		}
@@ -54,7 +39,6 @@ class DashboardContainer extends React.Component {
 		this.getHeaderData = this.getHeaderData.bind(this);
 		this.addNotices = this.addNotices.bind(this);
 
-		this.disconnectUser = this.disconnectUser.bind(this);
 		this.updatedTheme = this.updatedTheme.bind(this);
 		this.updateHeaderData = this.updateHeaderData.bind(this);
 	}
@@ -99,9 +83,7 @@ class DashboardContainer extends React.Component {
 			headerData = component.state.headerData;
 
 		return <div>
-			{ component.props.session.is_logged // when the user is logged in we need to bound the disconnect action
-				? <DashboardHeader status={headerData.status} msg={headerData.msg} ctaOnClick={component.disconnectUser} />
-				: <DashboardHeader status={headerData.status} msg={headerData.msg} /> }
+			<DashboardHeader status={headerData.status} msg={headerData.msg} />
 
 			<DashboardTabs />
 		</div>
@@ -126,44 +108,6 @@ class DashboardContainer extends React.Component {
 		}
 
 		return headerData;
-	}
-
-	disconnectUser() {
-		let component = this,
-			confirm = window.confirm(Helpers.parseL10n(_.get(pixassist, 'themeConfig.l10n.disconnectConfirm', '')));
-
-		if ( confirm ) {
-            // Add disabled class to the whole dashboard on disconnect
-            jQuery('#pixelgrade_assistant_dashboard').addClass('disabled-element').append('<div class="disabled-loader"></div>');
-
-            // Clear The local Storage as well
-			clearState();
-
-			Helpers.$ajax(
-				pixassist.wpRest.endpoint.disconnectUser.url,
-				pixassist.wpRest.endpoint.disconnectUser.method,
-				{
-					'user_id': pixassist.user.id
-				},
-				function (response) {
-					if ( response.code === 'success' ) {
-
-						// after disconnecting we need to rebuild the info from the localized JS pixassist variable.
-						component.updateLocalized();
-
-						jQuery('#pixelgrade_care_dashboard .disabled-loader').remove();
-						jQuery('#pixelgrade_care_dashboard').removeClass('disabled-element');
-
-						component.props.onDisconnect();
-
-						// No need for now.
-						// window.location.reload();
-					} else {
-						alert('We\'ve hit a snag, it seems ('+response.code+').\nSomething about: '+response.message );
-					}
-				}
-			)
-		}
 	}
 
 	updateLocalized() {

@@ -22,27 +22,6 @@ const mapDispatchToProps = (dispatch) => {
 		onLoadingFinished: () => {
 			dispatch({ type: 'LOADING_DONE' });
 		},
-		onDisconnect: () => {
-			dispatch({ type: 'DISCONNECTED' });
-		},
-		onConnected: () => {
-			dispatch({ type: 'CONNECTED' });
-		},
-		onConnectError: () => {
-			dispatch({ type: 'OAUTH_CONNECT_ERROR' });
-		},
-		onLicenseFound: () => {
-			dispatch({ type: 'HAS_LICENSE' });
-		},
-		onNoLicenseFound: () => {
-			dispatch({ type: 'NO_LICENSE' });
-		},
-		onExpiredLicense: () => {
-			dispatch({ type: 'EXPIRED_LICENSE' });
-		},
-		onValidatedLicense: () => {
-			dispatch({ type: 'VALIDATED_LICENSE'});
-		},
 		onWizard: () => {
 			dispatch({ type: 'IS_SETUP_WIZARD' });
 		},
@@ -51,15 +30,6 @@ const mapDispatchToProps = (dispatch) => {
 		},
 		onUnAvailableNextButton: () => {
 			dispatch({ type: 'NEXT_BUTTON_UNAVAILABLE' })
-		},
-		onConnectURLReady: ( url, user ) => {
-			dispatch({ type: 'CONNECT_URL_READY', url: url, user: user });
-		},
-		onSupportActive: () => {
-			dispatch({ type: 'SUPPORT_ON' });
-		},
-		onSupportClosed: () => {
-			dispatch({ type: 'SUPPORT_OFF' });
 		},
 		onAvailableSkipButton: () => {
 			dispatch({ type: 'SKIP_BUTTON_AVAILABLE' })

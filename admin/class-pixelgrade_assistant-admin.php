@@ -159,10 +159,6 @@ class PixelgradeAssistant_Admin {
 			    'method' => 'POST',
 			    'url'    => esc_url_raw( rest_url() . 'pixassist/v1/cleanup' ),
 		    ),
-		    'disconnectUser'     => array(
-			    'method' => 'POST',
-			    'url'    => esc_url_raw( rest_url() . 'pixassist/v1/disconnect_user' ),
-		    ),
 
 		    // Starter content needed endpoints
 		    'import'             => array(
@@ -224,14 +220,6 @@ class PixelgradeAssistant_Admin {
 			$this,
 			'transient_remove_theme_version',
 		), 10 );
-		// Remote config is fetched lazily when the dashboard is opened (cached), and license
-		// details refresh on theme switch / explicit user action — NOT on the theme-update cron —
-		// so Assistant makes no unsolicited remote calls to pixelgrade.com on every update check.
-		// TODO (M2): license refresh ownership moves to the account/Plus path.
-		add_filter( 'pre_set_site_transient_update_themes', array(
-			$this,
-			'transient_maybe_cleanup_oauth_token',
-		), 14 );
 
 		// On theme switch clear the cache for the remote config
 		add_action( 'after_switch_theme', array( 'PixelgradeAssistant_Admin', 'clear_remote_config_cache' ), 11 );
@@ -515,78 +503,15 @@ class PixelgradeAssistant_Admin {
 	    );
 
         /*
-         * User data
-         */
-        $oauth_token = get_user_meta( $current_user->ID, 'pixassist_oauth_token', true );
-        if ( ! empty( $oauth_token ) ) {
-            $localized_data['user']['oauth_token'] = $oauth_token;
-        }
-        $oauth_token_secret = get_user_meta( $current_user->ID, 'pixassist_oauth_token_secret', true );
-        if ( ! empty( $oauth_token_secret ) ) {
-            $localized_data['user']['oauth_token_secret'] = $oauth_token_secret;
-        }
-        $oauth_verifier = get_user_meta( $current_user->ID, 'pixassist_oauth_verifier', true );
-        if ( ! empty( $oauth_verifier ) ) {
-            $localized_data['user']['oauth_verifier'] = $oauth_verifier;
-        }
-        $pixassist_user_ID = get_user_meta( $current_user->ID, 'pixassist_user_ID', true );
-        if ( ! empty( $pixassist_user_ID ) ) {
-            $localized_data['user']['pixassist_user_ID'] = $pixassist_user_ID;
-        }
-        $pixelgrade_user_login = get_user_meta( $current_user->ID, 'pixelgrade_user_login', true );
-        if ( ! empty( $pixelgrade_user_login ) ) {
-            $localized_data['user']['pixelgrade_user_login'] = $pixelgrade_user_login;
-        }
-        $pixelgrade_user_email = get_user_meta( $current_user->ID, 'pixelgrade_user_email', true );
-        if ( ! empty( $pixelgrade_user_email ) ) {
-            $localized_data['user']['pixelgrade_user_email'] = $pixelgrade_user_email;
-        }
-        $pixelgrade_display_name = get_user_meta( $current_user->ID, 'pixelgrade_display_name', true );
-        if ( ! empty( $pixelgrade_user_email ) ) {
-            $localized_data['user']['pixelgrade_display_name'] = $pixelgrade_display_name;
-        }
-        $user_force_disconnected = get_user_meta( $current_user->ID, 'pixassist_force_disconnected', true );
-        if ( ! empty( $user_force_disconnected ) ) {
-            $localized_data['user']['force_disconnected'] = true;
-            // Delete the user meta so we don't nag the user, forever.
-            delete_user_meta( $current_user->ID, 'pixassist_force_disconnected' );
-        } else {
-            $localized_data['user']['force_disconnected'] = false;
-        }
-
-        /*
          * Theme data
+         *
+         * Only a genuine theme-update marker (theme health) is surfaced here; account/license
+         * state is no longer part of the free plugin.
          */
-
 	    $localized_data['themeMod'] = array(
-		    'licenseHash' => false,
-		    'licenseStatus' => false,
-		    'licenseType' => false,
-		    'licenseExpiryDate' => false,
 		    'themeNewVersion' => false,
 	    );
 
-        // We will only put the license details if the current active theme is one of ours
-	    if ( self::is_pixelgrade_theme() ) {
-		    $license_hash = self::get_license_mod_entry( 'license_hash' );
-		    if ( ! empty( $license_hash ) ) {
-			    $localized_data['themeMod']['licenseHash'] = $license_hash;
-		    }
-		    $license_status = self::get_license_mod_entry( 'license_status' );
-		    if ( ! empty( $license_status ) ) {
-			    $localized_data['themeMod']['licenseStatus'] = $license_status;
-		    }
-		    // localize the license type - can be either shop, envato or free
-		    $license_type = self::get_license_mod_entry( 'license_type' );
-		    if ( ! empty( $license_type ) ) {
-			    $localized_data['themeMod']['licenseType'] = $license_type;
-		    }
-		    // localize the license expiry date
-		    $license_exp = self::get_license_mod_entry( 'license_expiry_date' );
-		    if ( ! empty( $license_exp ) ) {
-			    $localized_data['themeMod']['licenseExpiryDate'] = $license_exp;
-		    }
-	    }
         $new_theme_version = get_theme_mod( 'pixassist_new_theme_version' );
         if ( ! empty( $new_theme_version ) ) {
             $localized_data['themeMod']['themeNewVersion'] = $new_theme_version;
@@ -1326,27 +1251,13 @@ class PixelgradeAssistant_Admin {
 	}
 
 	/**
-	 * Cleanup the OAuth saved details if the current user doesn't have the connection details.
+	 * Delete any legacy OAuth connection meta for a user.
 	 *
-	 * @param object $transient
+	 * Kept for the dashboard reset/cleanup path so installs that connected before 2.0 can purge
+	 * leftover account data.
 	 *
-	 * @return object
+	 * @param int|false $user_id
 	 */
-	public static function transient_maybe_cleanup_oauth_token( $transient ) {
-        $current_user    = self::get_theme_activation_user();
-		if ( ! empty( $current_user ) && ! empty( $current_user->ID ) ) {
-			$user_token_meta = get_user_meta( $current_user->ID, 'pixassist_oauth_token' );
-			$user_pixassist_id = get_user_meta( $current_user->ID, 'pixassist_user_ID' );
-
-			// If the user ID is missing, clear everything.
-			if ( $user_token_meta && empty( $user_pixassist_id ) ) {
-				self::cleanup_oauth_token( $current_user->ID );
-			}
-		}
-
-        return $transient;
-    }
-
     public static function cleanup_oauth_token( $user_id = false ) {
 		if ( empty( $user_id ) ) {
 			$current_user    = self::get_theme_activation_user();

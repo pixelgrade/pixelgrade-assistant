@@ -7772,14 +7772,6 @@
 	          loading: true
 	        }
 	      };
-	    case 'LOADING_LICENSES':
-	      return {
-	        ...state,
-	        ...{
-	          loading: true,
-	          loadingLicenses: true
-	        }
-	      };
 	    case 'LOADING_DONE':
 	      return {
 	        ...state,
@@ -24754,41 +24746,6 @@
 	        type: 'LOADING_DONE'
 	      });
 	    },
-	    onDisconnect: () => {
-	      dispatch({
-	        type: 'DISCONNECTED'
-	      });
-	    },
-	    onConnected: () => {
-	      dispatch({
-	        type: 'CONNECTED'
-	      });
-	    },
-	    onConnectError: () => {
-	      dispatch({
-	        type: 'OAUTH_CONNECT_ERROR'
-	      });
-	    },
-	    onLicenseFound: () => {
-	      dispatch({
-	        type: 'HAS_LICENSE'
-	      });
-	    },
-	    onNoLicenseFound: () => {
-	      dispatch({
-	        type: 'NO_LICENSE'
-	      });
-	    },
-	    onExpiredLicense: () => {
-	      dispatch({
-	        type: 'EXPIRED_LICENSE'
-	      });
-	    },
-	    onValidatedLicense: () => {
-	      dispatch({
-	        type: 'VALIDATED_LICENSE'
-	      });
-	    },
 	    onWizard: () => {
 	      dispatch({
 	        type: 'IS_SETUP_WIZARD'
@@ -24802,23 +24759,6 @@
 	    onUnAvailableNextButton: () => {
 	      dispatch({
 	        type: 'NEXT_BUTTON_UNAVAILABLE'
-	      });
-	    },
-	    onConnectURLReady: (url, user) => {
-	      dispatch({
-	        type: 'CONNECT_URL_READY',
-	        url: url,
-	        user: user
-	      });
-	    },
-	    onSupportActive: () => {
-	      dispatch({
-	        type: 'SUPPORT_ON'
-	      });
-	    },
-	    onSupportClosed: () => {
-	      dispatch({
-	        type: 'SUPPORT_OFF'
 	      });
 	    },
 	    onAvailableSkipButton: () => {
@@ -25625,19 +25565,9 @@
 	};
 	const mapDispatchToProps = dispatch => {
 	  return {
-	    onConnected: () => {
-	      dispatch({
-	        type: 'CONNECTED'
-	      });
-	    },
 	    onLoading: () => {
 	      dispatch({
 	        type: 'LOADING'
-	      });
-	    },
-	    onDisconnect: () => {
-	      dispatch({
-	        type: 'DISCONNECTED'
 	      });
 	    },
 	    onAvailableNextButton: () => {
@@ -25648,12 +25578,6 @@
 	    onUnAvailableNextButton: () => {
 	      dispatch({
 	        type: 'NEXT_BUTTON_UNAVAILABLE'
-	      });
-	    },
-	    onConnectURLReady: url => {
-	      dispatch({
-	        type: 'CONNECT_URL_READY',
-	        url: url
 	      });
 	    },
 	    onAvailableSkipButton: () => {
