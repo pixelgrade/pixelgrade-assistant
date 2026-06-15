@@ -1,5 +1,10 @@
 {
     "require": {
         "composer/semver": "^3.3"
+    },
+    "scripts": {
+        "test": [
+            "php tests/plus-status-contract-test.php"
+        ]
     }
 }
