@@ -24,7 +24,7 @@ It gives you a calm, in-dashboard home for getting the most out of your free Pix
 
 **No account required.** Pixelgrade Assistant works out of the box — you do not need a Pixelgrade.com account or a license to use the free stack. Connecting an account is entirely optional and only unlocks extras such as cloud starter content, account sync, and premium support (see *External services* below).
 
-Looking for more? **Pixelgrade Plus** is the optional premium companion that adds advanced design tools — motion and animation controls, advanced Style Manager sections, pro starter sites, design packs, and priority support. It is never required, and you can explore it any time from the Pixelgrade screen.
+Looking for more? **Pixelgrade Plus** is the optional premium companion that adds advanced design tools on top of the free stack. It is never required, and you can explore it any time from the Pixelgrade screen.
 
 **Made with love by [Pixelgrade](https://pixelgrade.com)**
 
@@ -81,7 +81,7 @@ No. Pixelgrade Assistant works fully without an account or a license. You can in
 
 = What is Pixelgrade Plus? =
 
-Pixelgrade Plus is the optional premium companion for the Pixelgrade LT stack. It adds advanced design tools — motion and animation controls, advanced Style Manager sections, pro starter sites, design packs, and priority support. You can keep using the free stack indefinitely; Plus is there if you want more. Learn more at [pixelgrade.com](https://pixelgrade.com/).
+Pixelgrade Plus is the optional premium companion for the Pixelgrade LT stack — advanced design tools that build on everything in the free stack. You can keep using the free stack indefinitely; Plus is there if you want more. Learn more at [pixelgrade.com](https://pixelgrade.com/).
 
 = I'm already using Pixelgrade Care — will this conflict? =
 
