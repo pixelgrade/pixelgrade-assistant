@@ -41,6 +41,9 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/capabilities.php';
 // Asset helpers for enqueuing @wordpress/scripts build artifacts (admin/build/*.asset.php).
 require_once plugin_dir_path( __FILE__ ) . 'includes/assets.php';
 
+// Host extension surface for companion plugins (hub tab registry + host-account read accessors).
+require_once plugin_dir_path( __FILE__ ) . 'includes/host-extension-surface.php';
+
 // Include functions that might assist when in dev mode.
 require_once plugin_dir_path( __FILE__ ) . 'includes/integrations/devmode.php';
 

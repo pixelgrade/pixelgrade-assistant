@@ -79,6 +79,14 @@ Pixelgrade Plus and other companions extend Assistant through public hooks rathe
 - **`pixassist_sce_allowed_demo_hosts` (filter)** — allow additional hosts for starter-content imports.
 - **`pixassist_allow_*_module` (filters)** — disable individual core modules (setup wizard, notifications, data collector).
 
+### Host extension surface (0.9.0 — Assistant as host shell)
+
+The reverse direction of the Plus contract: Assistant is the host and exposes a small, curated, PHP-first surface companions consume (`includes/host-extension-surface.php`). **Shared contract** — same lockstep rule and source of truth as the status filter: `../pixelgrade-plus/docs/architecture/plus-assistant-contract.md` (§"Host extension surface"). Assistant's pin test is `tests/host-extension-surface-test.php`; the Plus consumer side + its pin test are `pixelgrade-plus#56`.
+
+- **`pixelgrade/admin_hub/tabs` (PHP filter) + `pixassist_get_admin_hub_tabs()`** — register Appearance → Pixelgrade hub tabs. Descriptor: `id` (required, `sanitize_key`'d, first wins), `label`, `capability` (default `manage_options`; **this is the access control** — inaccessible tabs are dropped), `gate` (cosmetic upsell hint: `''`|`plus`|`plus_licensed`), `component` (JS registry key; cleared for link tabs), `url` (non-empty ⇒ link tab), `icon`, `order` (default 10, ties by label). The hub React app (#43) localizes the normalized list and re-applies the JS filter `pixelgrade.adminHub.tabs` (`@wordpress/hooks`) to bind components.
+- **`pixassist_get_account()` / `pixassist_is_account_connected()`** — host-owned pixelgrade.com account READ accessors. Returns EXACTLY eight identity keys (`is_connected`, `email`, `display_name`, `user_login`, `pixelgrade_user_id`, `avatar_url`, `wp_user_id`, `connected_at`), whitelisted + type-coerced via the `pixassist_account` filter. **Identity only — never OAuth tokens/secrets** (a PHP-only credentials accessor is deferred to #45). Legacy storage today; #45 modernizes behind the same contract.
+- **Docs-panel escalation SlotFill** — scope `pixelgrade-docs` (reserved/documented; the `<Slot>` ships with the editor docs panel in #46).
+
 Conditional-updates also exposes public filters under the legacy `pixelgrade_care/...` namespace — kept stable for back-compat (see the class note); do not rename them.
 
 ## Build System
