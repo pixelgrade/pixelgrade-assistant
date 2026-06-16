@@ -160,7 +160,7 @@ class PixelgradeAssistant_Admin {
 			    'url'    => esc_url_raw( rest_url() . 'pixassist/v1/cleanup' ),
 		    ),
 
-		    // Theme Help documentation categories (fetched lazily when the panel opens).
+			    // Pixelgrade Docs documentation categories (fetched lazily when the editor sidebar opens).
 		    'kbCategories'       => array(
 			    'method' => 'GET',
 			    'url'    => esc_url_raw( rest_url() . 'pixassist/v1/kb_categories' ),
@@ -215,6 +215,7 @@ class PixelgradeAssistant_Admin {
 
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_styles' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_scripts' ) );
+		add_action( 'enqueue_block_editor_assets', array( $this, 'enqueue_docs_editor_assets' ) );
 
 		// We we will remember the theme version when the transient is updated
 		add_filter( 'pre_set_site_transient_update_themes', array(
@@ -318,6 +319,19 @@ class PixelgradeAssistant_Admin {
 		    self::localize_js_data( 'wp-block-editor', true, 'editor' );
 	    }
     }
+
+	/**
+	 * Register the contextual Pixelgrade Docs sidebar on block editor screens.
+	 */
+	public function enqueue_docs_editor_assets() {
+		if ( ! function_exists( 'pixassist_docs_can_access' ) || ! pixassist_docs_can_access() ) {
+			return;
+		}
+
+		$handle = pixassist_enqueue_built_script( 'pixelgrade-docs', 'docs' );
+		wp_localize_script( $handle, 'pixelgradeDocs', pixassist_get_docs_data() );
+		self::localize_js_data( $handle, true, 'editor' );
+	}
 
     /**
      * Check if everything is in order with the theme's support for Pixelgrade Assistant.

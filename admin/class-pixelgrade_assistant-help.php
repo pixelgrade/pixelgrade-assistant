@@ -4,7 +4,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * Theme Help: in-dashboard documentation (knowledge base) for the active theme.
+ * Pixelgrade Docs: documentation knowledge base helpers for the active theme.
  *
  * Free and account-free by design: it reads the PUBLIC Pixelgrade docs categories endpoint
  * (`get_htkb_categories`) — no AWS/ElasticSearch, no OAuth, no license, no support tickets
@@ -152,7 +152,7 @@ class PixelgradeAssistant_Help {
 
 	/**
 	 * Expose lightweight help metadata to JS. The full docs payload is NOT shipped on every page
-	 * load — it is fetched lazily over REST when the user opens the Theme Help panel.
+	 * load; it is fetched lazily over REST when the user opens the editor docs panel.
 	 *
 	 * @param array $localized_data
 	 *

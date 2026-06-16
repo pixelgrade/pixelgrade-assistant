@@ -892,10 +892,6 @@ msgstr ""
 msgid "View changelog"
 msgstr ""
 
-#: includes/default-plugin-config.php:25
-msgid "Theme Help"
-msgstr ""
-
 #: includes/default-plugin-config.php:26
 msgid "Oh, snap! Something went wrong and we are unable to make sense of the actual problem."
 msgstr ""

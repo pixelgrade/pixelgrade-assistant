@@ -5,7 +5,6 @@ import ourTheme from '../mui-theme';
 
 import DashboardHeader from './header';
 import DashboardTabs from './tabs';
-import ThemeHelp from '../help/theme-help';
 import {connect} from 'react-redux';
 import Helpers from '../../helpers';
 import { clearState } from '../../localStorage';
@@ -87,8 +86,6 @@ class DashboardContainer extends React.Component {
 			<DashboardHeader status={headerData.status} msg={headerData.msg} />
 
 			<DashboardTabs />
-
-			<ThemeHelp />
 		</div>
 	}
 

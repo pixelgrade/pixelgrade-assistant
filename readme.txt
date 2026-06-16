@@ -98,14 +98,14 @@ No. We are not tracking you or your site. Sharing is entirely optional and off b
 1. Main dashboard tab
 2. Useful links tab
 3. System status tab
-4. Main theme help tab
+4. Contextual docs sidebar
 5. Open support ticket tab
 6. Site setup wizard
 
 == Changelog ==
 
 = 2.1.0 =
-* New: Theme Help — browse and search your theme's documentation right inside the WordPress dashboard, no account required.
+* New: Pixelgrade Docs sidebar - browse, search, read, and rate your theme's documentation right inside the block editor.
 * Finished moving account and license features out to the optional Pixelgrade Plus companion; the free plugin is now fully account-free.
 * Added extension points so companion plugins (like Pixelgrade Plus) can build on the dashboard cleanly.
 * The starter content card now always shows, regardless of any leftover connection state.

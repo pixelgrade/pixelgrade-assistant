@@ -20,6 +20,7 @@ module.exports = {
 	target: [ 'web', 'es2017' ],
 	entry: {
 		index: path.resolve( process.cwd(), 'admin/src-modern', 'index.js' ),
+		docs: path.resolve( process.cwd(), 'admin/src-modern/docs', 'index.js' ),
 	},
 	output: {
 		...defaultConfig.output,

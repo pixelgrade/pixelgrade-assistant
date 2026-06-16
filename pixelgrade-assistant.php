@@ -53,6 +53,9 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/admin-hub.php';
 // Free Overview tab: registers itself on the hub registry + builds its bootstrap payload.
 require_once plugin_dir_path( __FILE__ ) . 'includes/admin-overview.php';
 
+// Contextual editor docs panel: bootstrap data + safe server-side docs actions.
+require_once plugin_dir_path( __FILE__ ) . 'includes/admin-docs.php';
+
 // Include functions that might assist when in dev mode.
 require_once plugin_dir_path( __FILE__ ) . 'includes/integrations/devmode.php';
 

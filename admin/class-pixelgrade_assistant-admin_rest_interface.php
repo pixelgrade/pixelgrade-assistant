@@ -60,11 +60,25 @@ class PixelgradeAssistant_AdminRestInterface {
 			'show_in_index'       => false, // We don't need others to know about this (API discovery)
 		) );
 
-		// Theme Help: lazily serve the (cached) public documentation categories for the active theme.
+		// Pixelgrade Docs: lazily serve the (cached) public documentation categories for the active theme.
 		register_rest_route( $namespace, '/kb_categories', array(
 			'methods'             => WP_REST_Server::READABLE,
 			'callback'            => array( $this, 'get_kb_categories' ),
-			'permission_callback' => array( $this, 'permission_nonce_callback' ),
+			'permission_callback' => array( $this, 'permission_docs_callback' ),
+			'show_in_index'       => false, // We don't need others to know about this (API discovery)
+		) );
+
+		register_rest_route( $namespace, '/kb_vote', array(
+			'methods'             => WP_REST_Server::CREATABLE,
+			'callback'            => array( $this, 'record_kb_vote' ),
+			'permission_callback' => array( $this, 'permission_docs_callback' ),
+			'show_in_index'       => false, // We don't need others to know about this (API discovery)
+		) );
+
+		register_rest_route( $namespace, '/docs_ticket', array(
+			'methods'             => WP_REST_Server::CREATABLE,
+			'callback'            => array( $this, 'submit_docs_ticket' ),
+			'permission_callback' => array( $this, 'permission_docs_callback' ),
 			'show_in_index'       => false, // We don't need others to know about this (API discovery)
 		) );
 	}
@@ -89,6 +103,28 @@ class PixelgradeAssistant_AdminRestInterface {
 	}
 
 	/**
+	 * Record a documentation helpful/not-helpful vote.
+	 *
+	 * @param WP_REST_Request $request Request object.
+	 *
+	 * @return WP_REST_Response
+	 */
+	public function record_kb_vote( $request ) {
+		return rest_ensure_response( pixassist_record_docs_vote( $request ) );
+	}
+
+	/**
+	 * Submit a docs-panel support request through the host account.
+	 *
+	 * @param WP_REST_Request $request Request object.
+	 *
+	 * @return WP_REST_Response
+	 */
+	public function submit_docs_ticket( $request ) {
+		return rest_ensure_response( pixassist_submit_docs_ticket( $request ) );
+	}
+
+	/**
 	 * @param WP_REST_Request $request
 	 *
 	 * @return false|int
@@ -97,6 +133,21 @@ class PixelgradeAssistant_AdminRestInterface {
 		// Defense in depth: these are admin dashboard endpoints, so require the dashboard
 		// capability in addition to the custom nonce.
 		if ( ! current_user_can( 'manage_options' ) ) {
+			return false;
+		}
+
+		return (bool) wp_verify_nonce( $this->get_nonce( $request ), 'pixelgrade_assistant_rest' );
+	}
+
+	/**
+	 * Check docs-panel REST permissions.
+	 *
+	 * @param WP_REST_Request $request Request object.
+	 *
+	 * @return bool
+	 */
+	public function permission_docs_callback( $request ) {
+		if ( ! function_exists( 'pixassist_docs_can_access' ) || ! pixassist_docs_can_access() ) {
 			return false;
 		}
 

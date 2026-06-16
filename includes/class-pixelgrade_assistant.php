@@ -208,7 +208,7 @@ class PixelgradeAssistant {
 		$this->plugin_data_collector = PixelgradeAssistant_DataCollector::instance( $this );
 
 		/**
-		 * Theme Help: in-dashboard documentation (knowledge base) for the active theme.
+		 * Pixelgrade Docs: documentation knowledge base helpers for the active theme.
 		 */
 		require_once plugin_dir_path( $this->file ) . 'admin/class-pixelgrade_assistant-help.php';
 		$this->plugin_help = PixelgradeAssistant_Help::instance( $this );
