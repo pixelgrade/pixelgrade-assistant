@@ -270,6 +270,11 @@ class PixelgradeAssistant_Admin {
         	$rtl_suffix = is_rtl() ? '-rtl' : '';
         	wp_enqueue_style( $this->parent->get_plugin_name(), plugin_dir_url( $this->parent->file ) . 'admin/css/pixelgrade_assistant-admin' . $rtl_suffix . '.css', array( 'dashicons' ), $this->parent->get_version(), 'all' );
         }
+
+        if ( self::is_pixelgrade_admin_hub() ) {
+            // The modern hub shell is built on @wordpress/components; load WP core's component styles.
+            wp_enqueue_style( 'wp-components' );
+        }
     }
 
     /**
@@ -290,6 +295,15 @@ class PixelgradeAssistant_Admin {
             ), $this->parent->get_version(), true );
 
             self::localize_js_data( 'pixelgrade_assistant-dashboard', true, 'dashboard');
+        }
+
+        if ( self::is_pixelgrade_admin_hub() ) {
+            // Modern host shell (admin/src-modern/hub) built via @wordpress/scripts (#41).
+            // Dependencies + cache-busting version come from the build manifest; the visible tab list
+            // is collected/capability-gated/sorted server-side from the #42 registry.
+            $handle = pixassist_enqueue_built_script( 'pixelgrade-admin-hub', 'index' );
+            wp_localize_script( $handle, 'pixelgradeAdminHub', pixassist_get_admin_hub_data() );
+            self::localize_js_data( $handle, true, 'hub' );
         }
 
 	    // If we are in a block editor page, we need to localize our data since NovaBlocks might make use of it.
@@ -446,6 +460,19 @@ class PixelgradeAssistant_Admin {
             $this,
             'pixelgrade_assistant_options_page',
         ) );
+
+        // 0.9.0 host shell: the modern Appearance -> Pixelgrade hub (React shell). Added ALONGSIDE the
+        // classic dashboard during the transition — the classic dashboard above stays reachable until
+        // the hub's tabs reach parity, then the top-level menu + legacy SPA are retired (issue #43).
+        // Capability mirrors WP's Appearance section.
+        add_submenu_page(
+            'themes.php',
+            esc_html__( 'Pixelgrade', '__plugin_txtd' ),
+            esc_html__( 'Pixelgrade', '__plugin_txtd' ),
+            'edit_theme_options',
+            'pixelgrade',
+            array( $this, 'render_admin_hub_page' )
+        );
     }
 
     /**
@@ -680,6 +707,19 @@ class PixelgradeAssistant_Admin {
     }
 
     /**
+     * Render the modern Appearance -> Pixelgrade hub page.
+     *
+     * Outputs only the React mount node; the shell (admin/src-modern/hub) renders the tab bar and the
+     * active tab, bootstrapped from the data localized in enqueue_scripts(). See issue #43.
+     */
+    public function render_admin_hub_page() { ?>
+        <div class="wrap">
+            <div id="pixelgrade-admin-hub"></div>
+        </div>
+        <?php
+    }
+
+    /**
      * Prepare the theme mods which should hold content
      *
      * @param array $value The current value being set up in theme mod
@@ -857,6 +897,18 @@ class PixelgradeAssistant_Admin {
 	 */
 	public static function is_pixelgrade_assistant_dashboard() {
         if ( ! empty( $_GET['page'] ) && 'pixelgrade_assistant' === $_GET['page'] ) {
+            return true;
+        }
+        return false;
+    }
+
+	/**
+	 * Determine if we are looking at the modern Appearance -> Pixelgrade hub page (slug `pixelgrade`).
+	 *
+	 * @return bool
+	 */
+	public static function is_pixelgrade_admin_hub() {
+        if ( ! empty( $_GET['page'] ) && 'pixelgrade' === $_GET['page'] ) {
             return true;
         }
         return false;

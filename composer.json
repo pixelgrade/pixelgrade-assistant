@@ -6,7 +6,8 @@
         "test": [
             "php tests/plus-status-contract-test.php",
             "php tests/built-asset-test.php",
-            "php tests/host-extension-surface-test.php"
+            "php tests/host-extension-surface-test.php",
+            "php tests/admin-hub-test.php"
         ]
     }
 }
