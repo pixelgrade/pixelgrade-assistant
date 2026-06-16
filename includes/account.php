@@ -1,0 +1,1187 @@
+<?php
+/**
+ * Host-owned pixelgrade.com account connection (#45).
+ *
+ * Assistant owns the single pixelgrade.com account connection for the modern host shell. This module
+ * relocates the OAuth1 flow behind the existing identity accessors, exposes PHP-only credentials for
+ * server-side signing, and registers the free Account hub tab.
+ *
+ * @package    PixelgradeAssistant
+ * @subpackage PixelgradeAssistant/includes
+ */
+
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
+if ( ! function_exists( 'pixassist_account_option_key' ) ) {
+	/**
+	 * Retrieves the plugin option key used by the existing options array.
+	 *
+	 * @return string
+	 */
+	function pixassist_account_option_key() {
+		return 'pixassist_options';
+	}
+}
+
+if ( ! function_exists( 'pixassist_account_nonce_action' ) ) {
+	/**
+	 * Retrieves the nonce/state action for account connect and disconnect actions.
+	 *
+	 * @return string
+	 */
+	function pixassist_account_nonce_action() {
+		return 'pixassist_account_connect';
+	}
+}
+
+if ( ! function_exists( 'pixassist_account_capability' ) ) {
+	/**
+	 * Retrieves the capability required to manage the host account connection.
+	 *
+	 * @return string
+	 */
+	function pixassist_account_capability() {
+		return 'manage_options';
+	}
+}
+
+if ( ! function_exists( 'pixassist_account_sanitize_string' ) ) {
+	/**
+	 * Sanitizes a scalar string for account storage.
+	 *
+	 * @param mixed $value Raw value.
+	 *
+	 * @return string
+	 */
+	function pixassist_account_sanitize_string( $value ) {
+		if ( ! is_scalar( $value ) ) {
+			return '';
+		}
+
+		$value = trim( (string) $value );
+
+		return function_exists( 'sanitize_text_field' ) ? sanitize_text_field( $value ) : $value;
+	}
+}
+
+if ( ! function_exists( 'pixassist_account_sanitize_email' ) ) {
+	/**
+	 * Sanitizes an email-like scalar for account storage.
+	 *
+	 * @param mixed $value Raw value.
+	 *
+	 * @return string
+	 */
+	function pixassist_account_sanitize_email( $value ) {
+		if ( ! is_scalar( $value ) ) {
+			return '';
+		}
+
+		$value = trim( (string) $value );
+
+		return function_exists( 'sanitize_email' ) ? sanitize_email( $value ) : $value;
+	}
+}
+
+if ( ! function_exists( 'pixassist_account_normalize_connection' ) ) {
+	/**
+	 * Normalizes account connection storage.
+	 *
+	 * @param array $data Raw connection data.
+	 *
+	 * @return array Normalized connection data.
+	 */
+	function pixassist_account_normalize_connection( $data ) {
+		$defaults = array(
+			'pixelgrade_user_id'  => 0,
+			'email'               => '',
+			'display_name'        => '',
+			'user_login'          => '',
+			'avatar_url'          => '',
+			'wp_user_id'          => 0,
+			'connected_at'        => '',
+			'oauth_token'         => '',
+			'oauth_token_secret'  => '',
+		);
+
+		$data = wp_parse_args( is_array( $data ) ? $data : array(), $defaults );
+
+		return array(
+			'pixelgrade_user_id'  => isset( $data['pixelgrade_user_id'] ) ? absint( $data['pixelgrade_user_id'] ) : 0,
+			'email'               => pixassist_account_sanitize_email( $data['email'] ),
+			'display_name'        => pixassist_account_sanitize_string( $data['display_name'] ),
+			'user_login'          => pixassist_account_sanitize_string( $data['user_login'] ),
+			'avatar_url'          => function_exists( 'esc_url_raw' ) ? esc_url_raw( (string) $data['avatar_url'] ) : (string) $data['avatar_url'],
+			'wp_user_id'          => isset( $data['wp_user_id'] ) ? absint( $data['wp_user_id'] ) : 0,
+			'connected_at'        => pixassist_account_sanitize_string( $data['connected_at'] ),
+			'oauth_token'         => pixassist_account_sanitize_string( $data['oauth_token'] ),
+			'oauth_token_secret'  => pixassist_account_sanitize_string( $data['oauth_token_secret'] ),
+		);
+	}
+}
+
+if ( ! function_exists( 'pixassist_account_get_options' ) ) {
+	/**
+	 * Retrieves the existing plugin options array.
+	 *
+	 * @return array
+	 */
+	function pixassist_account_get_options() {
+		if ( ! function_exists( 'get_option' ) ) {
+			return array();
+		}
+
+		$options = get_option( pixassist_account_option_key(), array() );
+
+		return is_array( $options ) ? $options : array();
+	}
+}
+
+if ( ! function_exists( 'pixassist_account_update_options' ) ) {
+	/**
+	 * Updates the existing plugin options array.
+	 *
+	 * @param array $options Options array.
+	 *
+	 * @return bool
+	 */
+	function pixassist_account_update_options( $options ) {
+		if ( ! function_exists( 'update_option' ) ) {
+			return false;
+		}
+
+		return (bool) update_option( pixassist_account_option_key(), is_array( $options ) ? $options : array() );
+	}
+}
+
+if ( ! function_exists( 'pixassist_account_get_stored_connection' ) ) {
+	/**
+	 * Retrieves the modern host account connection from plugin options.
+	 *
+	 * @return array Normalized account connection data.
+	 */
+	function pixassist_account_get_stored_connection() {
+		$options = pixassist_account_get_options();
+		$account = isset( $options['account'] ) && is_array( $options['account'] ) ? $options['account'] : array();
+
+		return pixassist_account_normalize_connection( $account );
+	}
+}
+
+if ( ! function_exists( 'pixassist_account_current_wp_user_id' ) ) {
+	/**
+	 * Retrieves the current local WordPress user id.
+	 *
+	 * @return int
+	 */
+	function pixassist_account_current_wp_user_id() {
+		return function_exists( 'get_current_user_id' ) ? absint( get_current_user_id() ) : 0;
+	}
+}
+
+if ( ! function_exists( 'pixassist_save_account_connection' ) ) {
+	/**
+	 * Saves a modern host account connection and mirrors legacy user meta for compatibility.
+	 *
+	 * @param array $connection Raw account connection data.
+	 * @param int   $wp_user_id Optional. Local WordPress user id that owns the connection.
+	 *
+	 * @return bool
+	 */
+	function pixassist_save_account_connection( $connection, $wp_user_id = 0 ) {
+		$wp_user_id = absint( $wp_user_id );
+		if ( 0 === $wp_user_id ) {
+			$wp_user_id = pixassist_account_current_wp_user_id();
+		}
+
+		$connection = pixassist_account_normalize_connection( $connection );
+		if ( 0 === (int) $connection['wp_user_id'] ) {
+			$connection['wp_user_id'] = $wp_user_id;
+		}
+		if ( '' === $connection['connected_at'] ) {
+			$connection['connected_at'] = function_exists( 'current_time' ) ? (string) current_time( 'mysql', true ) : gmdate( 'Y-m-d H:i:s' );
+		}
+
+		$options            = pixassist_account_get_options();
+		$options['account'] = $connection;
+		$saved              = pixassist_account_update_options( $options );
+
+		if ( 0 < $wp_user_id && function_exists( 'update_user_meta' ) ) {
+			update_user_meta( $wp_user_id, 'pixassist_oauth_token', $connection['oauth_token'] );
+			update_user_meta( $wp_user_id, 'pixassist_oauth_token_secret', $connection['oauth_token_secret'] );
+			update_user_meta( $wp_user_id, 'pixassist_user_ID', $connection['pixelgrade_user_id'] );
+			update_user_meta( $wp_user_id, 'pixelgrade_user_login', $connection['user_login'] );
+			update_user_meta( $wp_user_id, 'pixelgrade_user_email', $connection['email'] );
+			update_user_meta( $wp_user_id, 'pixelgrade_display_name', $connection['display_name'] );
+		}
+
+		return $saved;
+	}
+}
+
+if ( ! function_exists( 'pixassist_account_legacy_user_id' ) ) {
+	/**
+	 * Finds the legacy connection user id when possible.
+	 *
+	 * @return int
+	 */
+	function pixassist_account_legacy_user_id() {
+		if ( class_exists( 'PixelgradeAssistant_Admin' ) && method_exists( 'PixelgradeAssistant_Admin', 'get_theme_activation_user' ) ) {
+			$user = PixelgradeAssistant_Admin::get_theme_activation_user();
+			if ( ! empty( $user ) && ! empty( $user->ID ) ) {
+				return absint( $user->ID );
+			}
+		}
+
+		return 0;
+	}
+}
+
+if ( ! function_exists( 'pixassist_delete_account_connection' ) ) {
+	/**
+	 * Deletes the modern account connection and legacy compatibility meta.
+	 *
+	 * @param int $wp_user_id Optional. User id to clear. Falls back to stored/current/legacy user.
+	 *
+	 * @return bool
+	 */
+	function pixassist_delete_account_connection( $wp_user_id = 0 ) {
+		$stored  = pixassist_account_get_stored_connection();
+		$options = pixassist_account_get_options();
+
+		if ( isset( $options['account'] ) ) {
+			unset( $options['account'] );
+		}
+
+		$saved = pixassist_account_update_options( $options );
+
+		$user_ids = array_filter(
+			array_unique(
+				array_map(
+					'absint',
+					array(
+						$wp_user_id,
+						$stored['wp_user_id'],
+						pixassist_account_current_wp_user_id(),
+						pixassist_account_legacy_user_id(),
+					)
+				)
+			)
+		);
+
+		if ( function_exists( 'delete_user_meta' ) ) {
+			foreach ( $user_ids as $user_id ) {
+				delete_user_meta( $user_id, 'pixassist_oauth_token' );
+				delete_user_meta( $user_id, 'pixassist_oauth_token_secret' );
+				delete_user_meta( $user_id, 'pixassist_oauth_verifier' );
+				delete_user_meta( $user_id, 'pixassist_user_ID' );
+				delete_user_meta( $user_id, 'pixelgrade_user_login' );
+				delete_user_meta( $user_id, 'pixelgrade_user_email' );
+				delete_user_meta( $user_id, 'pixelgrade_display_name' );
+			}
+		}
+
+		return $saved;
+	}
+}
+
+if ( ! function_exists( 'pixassist_read_modern_account_identity' ) ) {
+	/**
+	 * Reads the modern account identity for the public identity accessor.
+	 *
+	 * @return array|null Identity payload or null when disconnected.
+	 */
+	function pixassist_read_modern_account_identity() {
+		$connection = pixassist_account_get_stored_connection();
+
+		if ( 0 >= (int) $connection['pixelgrade_user_id'] ) {
+			return null;
+		}
+
+		$avatar_url = $connection['avatar_url'];
+		if ( '' === $avatar_url && '' !== $connection['email'] && function_exists( 'get_avatar_url' ) ) {
+			$avatar_url = (string) get_avatar_url( $connection['email'] );
+		}
+
+		return array(
+			'is_connected'       => true,
+			'email'              => $connection['email'],
+			'display_name'       => $connection['display_name'],
+			'user_login'         => $connection['user_login'],
+			'pixelgrade_user_id' => (int) $connection['pixelgrade_user_id'],
+			'avatar_url'         => $avatar_url,
+			'wp_user_id'         => (int) $connection['wp_user_id'],
+			'connected_at'       => $connection['connected_at'],
+		);
+	}
+}
+
+if ( ! function_exists( 'pixassist_filter_modern_account_identity' ) ) {
+	/**
+	 * Supplies modern account storage through the existing identity-only accessor seam.
+	 *
+	 * @param array $account Existing identity payload.
+	 *
+	 * @return array
+	 */
+	function pixassist_filter_modern_account_identity( $account ) {
+		$identity = pixassist_read_modern_account_identity();
+
+		if ( ! is_array( $identity ) ) {
+			return $account;
+		}
+
+		return array_merge( is_array( $account ) ? $account : array(), $identity );
+	}
+}
+
+if ( ! function_exists( 'pixassist_get_account_credentials' ) ) {
+	/**
+	 * Retrieves PHP-only OAuth credentials for server-side signing.
+	 *
+	 * Never localize this return value to JavaScript and never merge it into pixassist_get_account().
+	 *
+	 * @return array|null Credentials (`token`, `token_secret`) or null when disconnected.
+	 */
+	function pixassist_get_account_credentials() {
+		$connection = pixassist_account_get_stored_connection();
+
+		if ( '' !== $connection['oauth_token'] ) {
+			return array(
+				'token'        => $connection['oauth_token'],
+				'token_secret' => $connection['oauth_token_secret'],
+			);
+		}
+
+		if ( function_exists( 'get_user_meta' ) ) {
+			$user_id = pixassist_account_legacy_user_id();
+			if ( 0 < $user_id ) {
+				$token = (string) get_user_meta( $user_id, 'pixassist_oauth_token', true );
+				if ( '' !== $token ) {
+					return array(
+						'token'        => $token,
+						'token_secret' => (string) get_user_meta( $user_id, 'pixassist_oauth_token_secret', true ),
+					);
+				}
+			}
+		}
+
+		return null;
+	}
+}
+
+if ( ! function_exists( 'pixassist_account_oauth_config' ) ) {
+	/**
+	 * Resolves OAuth1 account connection configuration.
+	 *
+	 * Assistant does not duplicate the Plus consumer secret. During the transition, if Plus is active
+	 * its constants are read lazily; otherwise deployments may define Assistant-specific constants or
+	 * filter this config.
+	 *
+	 * @return array Config with base_url, consumer_key, consumer_secret, source.
+	 */
+	function pixassist_account_oauth_config() {
+		$config = array(
+			'base_url'        => defined( 'PIXELGRADE_ASSISTANT_ACCOUNT_API_BASE' ) ? (string) constant( 'PIXELGRADE_ASSISTANT_ACCOUNT_API_BASE' ) : ( defined( 'PIXELGRADE_PLUS_ACCOUNT_API_BASE' ) ? (string) constant( 'PIXELGRADE_PLUS_ACCOUNT_API_BASE' ) : PIXELGRADE_ASSISTANT__API_BASE ),
+			'consumer_key'    => defined( 'PIXELGRADE_ASSISTANT_ACCOUNT_CONSUMER_KEY' ) ? (string) constant( 'PIXELGRADE_ASSISTANT_ACCOUNT_CONSUMER_KEY' ) : ( defined( 'PIXELGRADE_PLUS_ACCOUNT_CONSUMER_KEY' ) ? (string) constant( 'PIXELGRADE_PLUS_ACCOUNT_CONSUMER_KEY' ) : 'pkDQYLDpG7ji' ),
+			'consumer_secret' => defined( 'PIXELGRADE_ASSISTANT_ACCOUNT_CONSUMER_SECRET' ) ? (string) constant( 'PIXELGRADE_ASSISTANT_ACCOUNT_CONSUMER_SECRET' ) : ( defined( 'PIXELGRADE_PLUS_ACCOUNT_CONSUMER_SECRET' ) ? (string) constant( 'PIXELGRADE_PLUS_ACCOUNT_CONSUMER_SECRET' ) : '' ),
+			'source'          => 'pixelgrade-assistant',
+		);
+
+		/**
+		 * Filters the host account OAuth configuration.
+		 *
+		 * @param array $config Config with base_url, consumer_key, consumer_secret, source.
+		 */
+		$config = apply_filters( 'pixassist_account_oauth_config', $config );
+
+		return is_array( $config ) ? wp_parse_args( $config, array() ) : array();
+	}
+}
+
+if ( ! function_exists( 'pixassist_account_oauth_is_configured' ) ) {
+	/**
+	 * Whether the OAuth client has the credentials needed to start the flow.
+	 *
+	 * @return bool
+	 */
+	function pixassist_account_oauth_is_configured() {
+		$config = pixassist_account_oauth_config();
+
+		return ! empty( $config['base_url'] ) && ! empty( $config['consumer_key'] ) && ! empty( $config['consumer_secret'] );
+	}
+}
+
+if ( ! function_exists( 'pixassist_oauth1_base_string' ) ) {
+	/**
+	 * Builds an OAuth1 signature base string.
+	 *
+	 * @param string $method HTTP method.
+	 * @param string $url    Request URL.
+	 * @param array  $params Request parameters.
+	 *
+	 * @return string
+	 */
+	function pixassist_oauth1_base_string( $method, $url, $params ) {
+		$pairs = array();
+
+		foreach ( (array) $params as $key => $value ) {
+			$pairs[] = rawurlencode( (string) $key ) . '=' . rawurlencode( (string) $value );
+		}
+
+		sort( $pairs );
+
+		return strtoupper( (string) $method ) . '&' . rawurlencode( (string) $url ) . '&' . rawurlencode( implode( '&', $pairs ) );
+	}
+}
+
+if ( ! function_exists( 'pixassist_oauth1_signature' ) ) {
+	/**
+	 * Computes the OAuth1 HMAC-SHA1 signature.
+	 *
+	 * @param string $method          HTTP method.
+	 * @param string $url             Request URL.
+	 * @param array  $params          Request parameters.
+	 * @param string $consumer_secret Consumer secret.
+	 * @param string $token_secret    Token secret.
+	 *
+	 * @return string
+	 */
+	function pixassist_oauth1_signature( $method, $url, $params, $consumer_secret, $token_secret ) {
+		unset( $params['oauth_signature'] );
+
+		$key = rawurlencode( (string) $consumer_secret ) . '&' . rawurlencode( (string) $token_secret );
+
+		return base64_encode( hash_hmac( 'sha1', pixassist_oauth1_base_string( $method, $url, $params ), $key, true ) );
+	}
+}
+
+if ( ! function_exists( 'pixassist_oauth1_authorization_header' ) ) {
+	/**
+	 * Builds an OAuth Authorization header.
+	 *
+	 * @param string $method          HTTP method.
+	 * @param string $url             Request URL.
+	 * @param array  $params          OAuth parameters.
+	 * @param string $consumer_secret Consumer secret.
+	 * @param string $token_secret    Token secret.
+	 *
+	 * @return string
+	 */
+	function pixassist_oauth1_authorization_header( $method, $url, $params, $consumer_secret, $token_secret ) {
+		$params['oauth_signature'] = pixassist_oauth1_signature( $method, $url, $params, $consumer_secret, $token_secret );
+
+		$parts = array();
+		foreach ( $params as $key => $value ) {
+			if ( 0 !== strpos( (string) $key, 'oauth_' ) ) {
+				continue;
+			}
+			$parts[] = rawurlencode( (string) $key ) . '="' . rawurlencode( (string) $value ) . '"';
+		}
+
+		sort( $parts );
+
+		return 'OAuth ' . implode( ', ', $parts );
+	}
+}
+
+if ( ! function_exists( 'pixassist_account_oauth_base_params' ) ) {
+	/**
+	 * Builds base OAuth params for a request.
+	 *
+	 * @param string $consumer_key OAuth consumer key.
+	 *
+	 * @return array
+	 */
+	function pixassist_account_oauth_base_params( $consumer_key ) {
+		return array(
+			'oauth_consumer_key'     => (string) $consumer_key,
+			'oauth_nonce'            => function_exists( 'random_bytes' ) ? bin2hex( random_bytes( 16 ) ) : md5( uniqid( '', true ) ),
+			'oauth_signature_method' => 'HMAC-SHA1',
+			'oauth_timestamp'        => (string) time(),
+			'oauth_version'          => '1.0',
+		);
+	}
+}
+
+if ( ! function_exists( 'pixassist_account_oauth_endpoint' ) ) {
+	/**
+	 * Builds an OAuth endpoint URL.
+	 *
+	 * @param string $path Endpoint path.
+	 *
+	 * @return string
+	 */
+	function pixassist_account_oauth_endpoint( $path ) {
+		$config   = pixassist_account_oauth_config();
+		$base_url = ! empty( $config['base_url'] ) ? (string) $config['base_url'] : PIXELGRADE_ASSISTANT__API_BASE;
+
+		return trailingslashit( $base_url ) . ltrim( (string) $path, '/' );
+	}
+}
+
+if ( ! function_exists( 'pixassist_account_oauth_parse_body' ) ) {
+	/**
+	 * Parses an OAuth response body.
+	 *
+	 * @param string $body Response body.
+	 *
+	 * @return array
+	 */
+	function pixassist_account_oauth_parse_body( $body ) {
+		$parsed = array();
+		parse_str( (string) $body, $parsed );
+
+		if ( isset( $parsed['oauth_token'] ) ) {
+			return $parsed;
+		}
+
+		$json = json_decode( (string) $body, true );
+
+		return is_array( $json ) ? $json : ( is_array( $parsed ) ? $parsed : array() );
+	}
+}
+
+if ( ! function_exists( 'pixassist_account_oauth_request' ) ) {
+	/**
+	 * Performs a signed OAuth request.
+	 *
+	 * @param string $leg          OAuth leg (`request` or `access`).
+	 * @param string $method       HTTP method.
+	 * @param string $url          Request URL.
+	 * @param array  $params       OAuth params.
+	 * @param string $token_secret Token secret.
+	 *
+	 * @return array|null Parsed response or null on failure.
+	 */
+	function pixassist_account_oauth_request( $leg, $method, $url, $params, $token_secret ) {
+		$config = pixassist_account_oauth_config();
+
+		/**
+		 * Short-circuits the host account OAuth response for tests/integrations.
+		 *
+		 * @param array|null $response Parsed response.
+		 * @param string     $leg      OAuth leg.
+		 * @param array      $params   OAuth parameters.
+		 * @param array      $config   OAuth config.
+		 */
+		$pre_response = apply_filters( 'pre_pixassist_account_oauth1_response', null, $leg, $params, $config );
+		if ( null !== $pre_response ) {
+			return is_array( $pre_response ) ? $pre_response : null;
+		}
+
+		if ( ! function_exists( 'wp_remote_request' ) || empty( $config['consumer_secret'] ) ) {
+			return null;
+		}
+
+		$header   = pixassist_oauth1_authorization_header( $method, $url, $params, (string) $config['consumer_secret'], $token_secret );
+		$response = wp_remote_request(
+			$url,
+			array(
+				'method'  => $method,
+				'timeout' => 15,
+				'headers' => array( 'Authorization' => $header ),
+			)
+		);
+
+		if ( function_exists( 'is_wp_error' ) && is_wp_error( $response ) ) {
+			return null;
+		}
+
+		if ( function_exists( 'wp_remote_retrieve_response_code' ) && 400 <= wp_remote_retrieve_response_code( $response ) ) {
+			return null;
+		}
+
+		if ( ! function_exists( 'wp_remote_retrieve_body' ) ) {
+			return null;
+		}
+
+		return pixassist_account_oauth_parse_body( (string) wp_remote_retrieve_body( $response ) );
+	}
+}
+
+if ( ! function_exists( 'pixassist_account_oauth_request_token' ) ) {
+	/**
+	 * Requests temporary OAuth credentials.
+	 *
+	 * @param string $callback_url Callback URL.
+	 *
+	 * @return array
+	 */
+	function pixassist_account_oauth_request_token( $callback_url ) {
+		$config = pixassist_account_oauth_config();
+		$params = pixassist_account_oauth_base_params( isset( $config['consumer_key'] ) ? (string) $config['consumer_key'] : '' );
+
+		$params['oauth_callback'] = (string) $callback_url;
+
+		$response = pixassist_account_oauth_request( 'request', 'GET', pixassist_account_oauth_endpoint( 'oauth1/request' ), $params, '' );
+
+		if ( ! is_array( $response ) || empty( $response['oauth_token'] ) || ! isset( $response['oauth_token_secret'] ) ) {
+			return array();
+		}
+
+		return array(
+			'oauth_token'        => (string) $response['oauth_token'],
+			'oauth_token_secret' => (string) $response['oauth_token_secret'],
+		);
+	}
+}
+
+if ( ! function_exists( 'pixassist_account_oauth_authorize_url' ) ) {
+	/**
+	 * Builds the Pixelgrade account authorize URL.
+	 *
+	 * @param string $request_token        Request token.
+	 * @param string $request_token_secret Request token secret.
+	 * @param array  $extra                Extra query args.
+	 *
+	 * @return string
+	 */
+	function pixassist_account_oauth_authorize_url( $request_token, $request_token_secret = '', $extra = array() ) {
+		$config = pixassist_account_oauth_config();
+		$args   = array_merge(
+			array(
+				'oauth_token'        => (string) $request_token,
+				'oauth_token_secret' => (string) $request_token_secret,
+				'source'             => ! empty( $config['source'] ) ? (string) $config['source'] : 'pixelgrade-assistant',
+			),
+			(array) $extra
+		);
+
+		$pairs = array();
+		foreach ( $args as $key => $value ) {
+			$pairs[] = rawurlencode( (string) $key ) . '=' . rawurlencode( (string) $value );
+		}
+
+		$url = pixassist_account_oauth_endpoint( 'oauth1/authorize' ) . '?' . implode( '&', $pairs );
+
+		/**
+		 * Filters the host account authorize URL.
+		 *
+		 * @param string $url  Authorize URL.
+		 * @param array  $args Query args.
+		 */
+		return (string) apply_filters( 'pixassist_account_authorize_url', $url, $args );
+	}
+}
+
+if ( ! function_exists( 'pixassist_account_extract_user_id' ) ) {
+	/**
+	 * Extracts a positive Pixelgrade user ID from an OAuth response.
+	 *
+	 * @param array $response Response data.
+	 *
+	 * @return int
+	 */
+	function pixassist_account_extract_user_id( $response ) {
+		foreach ( array( 'user_ID', 'user_id', 'pixelgrade_user_id', 'ID' ) as $key ) {
+			if ( isset( $response[ $key ] ) && is_scalar( $response[ $key ] ) ) {
+				return absint( $response[ $key ] );
+			}
+		}
+
+		return 0;
+	}
+}
+
+if ( ! function_exists( 'pixassist_account_first_scalar' ) ) {
+	/**
+	 * Returns the first scalar value for the given keys.
+	 *
+	 * @param array $response Response data.
+	 * @param array $keys     Candidate keys.
+	 *
+	 * @return string
+	 */
+	function pixassist_account_first_scalar( $response, $keys ) {
+		foreach ( (array) $keys as $key ) {
+			if ( isset( $response[ $key ] ) && is_scalar( $response[ $key ] ) ) {
+				return (string) $response[ $key ];
+			}
+		}
+
+		return '';
+	}
+}
+
+if ( ! function_exists( 'pixassist_account_oauth_access_token' ) ) {
+	/**
+	 * Exchanges a verifier for token credentials and identity.
+	 *
+	 * @param string $request_token        Request token.
+	 * @param string $request_token_secret Request token secret.
+	 * @param string $verifier             OAuth verifier.
+	 *
+	 * @return array
+	 */
+	function pixassist_account_oauth_access_token( $request_token, $request_token_secret, $verifier ) {
+		$config = pixassist_account_oauth_config();
+		$params = pixassist_account_oauth_base_params( isset( $config['consumer_key'] ) ? (string) $config['consumer_key'] : '' );
+
+		$params['oauth_token']    = (string) $request_token;
+		$params['oauth_verifier'] = (string) $verifier;
+
+		$response = pixassist_account_oauth_request( 'access', 'GET', pixassist_account_oauth_endpoint( 'oauth1/access' ), $params, (string) $request_token_secret );
+
+		if ( ! is_array( $response ) || empty( $response['oauth_token'] ) ) {
+			return array();
+		}
+
+		$user_id = pixassist_account_extract_user_id( $response );
+		if ( 0 >= $user_id ) {
+			return array();
+		}
+
+		return array(
+			'oauth_token'        => (string) $response['oauth_token'],
+			'oauth_token_secret' => (string) ( isset( $response['oauth_token_secret'] ) ? $response['oauth_token_secret'] : '' ),
+			'pixelgrade_user_id' => $user_id,
+			'email'              => pixassist_account_first_scalar( $response, array( 'user_email', 'email' ) ),
+			'display_name'       => pixassist_account_first_scalar( $response, array( 'display_name', 'user_login' ) ),
+			'user_login'         => pixassist_account_first_scalar( $response, array( 'user_login', 'login' ) ),
+		);
+	}
+}
+
+if ( ! function_exists( 'pixassist_account_request_token_key' ) ) {
+	/**
+	 * Builds the transient key for a request token.
+	 *
+	 * @param string $token Request token.
+	 *
+	 * @return string
+	 */
+	function pixassist_account_request_token_key( $token ) {
+		return 'pixassist_oauth_rt_' . md5( (string) $token );
+	}
+}
+
+if ( ! function_exists( 'pixassist_account_save_request_token_secret' ) ) {
+	/**
+	 * Stores a request-token secret between OAuth legs.
+	 *
+	 * @param string $token  Request token.
+	 * @param string $secret Request token secret.
+	 * @param int    $ttl    Optional TTL.
+	 *
+	 * @return bool
+	 */
+	function pixassist_account_save_request_token_secret( $token, $secret, $ttl = 0 ) {
+		if ( ! function_exists( 'set_site_transient' ) ) {
+			return false;
+		}
+
+		$expiration = 0 < (int) $ttl ? (int) $ttl : 15 * ( defined( 'MINUTE_IN_SECONDS' ) ? MINUTE_IN_SECONDS : 60 );
+
+		return (bool) set_site_transient( pixassist_account_request_token_key( $token ), (string) $secret, $expiration );
+	}
+}
+
+if ( ! function_exists( 'pixassist_account_get_request_token_secret' ) ) {
+	/**
+	 * Retrieves a stored request-token secret.
+	 *
+	 * @param string $token Request token.
+	 *
+	 * @return string|null
+	 */
+	function pixassist_account_get_request_token_secret( $token ) {
+		if ( ! function_exists( 'get_site_transient' ) ) {
+			return null;
+		}
+
+		$value = get_site_transient( pixassist_account_request_token_key( $token ) );
+
+		return ( false === $value || ! is_scalar( $value ) ) ? null : (string) $value;
+	}
+}
+
+if ( ! function_exists( 'pixassist_account_delete_request_token_secret' ) ) {
+	/**
+	 * Deletes a stored request-token secret.
+	 *
+	 * @param string $token Request token.
+	 *
+	 * @return bool
+	 */
+	function pixassist_account_delete_request_token_secret( $token ) {
+		return function_exists( 'delete_site_transient' )
+			? (bool) delete_site_transient( pixassist_account_request_token_key( $token ) )
+			: false;
+	}
+}
+
+if ( ! function_exists( 'pixassist_account_callback_url' ) ) {
+	/**
+	 * Builds the OAuth callback URL.
+	 *
+	 * @return string
+	 */
+	function pixassist_account_callback_url() {
+		$state = function_exists( 'wp_create_nonce' ) ? (string) wp_create_nonce( pixassist_account_nonce_action() ) : '';
+
+		return add_query_arg(
+			array(
+				'action'          => 'pixassist_account_connect',
+				'pixassist_state' => $state,
+			),
+			admin_url( 'admin-post.php' )
+		);
+	}
+}
+
+if ( ! function_exists( 'pixassist_account_verify_nonce' ) ) {
+	/**
+	 * Verifies an account action nonce/state.
+	 *
+	 * @param mixed $value Nonce value.
+	 *
+	 * @return bool
+	 */
+	function pixassist_account_verify_nonce( $value ) {
+		if ( is_string( $value ) && function_exists( 'wp_unslash' ) ) {
+			$value = wp_unslash( $value );
+		}
+
+		return function_exists( 'wp_verify_nonce' ) && (bool) wp_verify_nonce( $value, pixassist_account_nonce_action() );
+	}
+}
+
+if ( ! function_exists( 'pixassist_account_can_manage' ) ) {
+	/**
+	 * Whether the current user may manage the account connection.
+	 *
+	 * @return bool
+	 */
+	function pixassist_account_can_manage() {
+		return function_exists( 'current_user_can' ) && current_user_can( pixassist_account_capability() );
+	}
+}
+
+if ( ! function_exists( 'pixassist_account_result' ) ) {
+	/**
+	 * Builds a small account action result.
+	 *
+	 * @param string $status       Status code.
+	 * @param string $message      Optional message.
+	 * @param string $redirect_url Optional redirect URL.
+	 *
+	 * @return array
+	 */
+	function pixassist_account_result( $status, $message = '', $redirect_url = '' ) {
+		return array(
+			'status'       => (string) $status,
+			'message'      => (string) $message,
+			'redirect_url' => (string) $redirect_url,
+		);
+	}
+}
+
+if ( ! function_exists( 'pixassist_account_initiate_connection' ) ) {
+	/**
+	 * Starts the OAuth account connection.
+	 *
+	 * @param array $request Request data.
+	 *
+	 * @return array Account action result.
+	 */
+	function pixassist_account_initiate_connection( $request ) {
+		if ( ( function_exists( 'pixassist_is_care_active' ) && pixassist_is_care_active() )
+			|| ! pixassist_account_can_manage()
+			|| ! pixassist_account_verify_nonce( isset( $request['_wpnonce'] ) ? $request['_wpnonce'] : '' ) ) {
+			return pixassist_account_result( 'denied', esc_html__( 'You are not allowed to connect a Pixelgrade account.', '__plugin_txtd' ) );
+		}
+
+		if ( ! pixassist_account_oauth_is_configured() ) {
+			return pixassist_account_result( 'not_configured', esc_html__( 'The Pixelgrade account connection is not configured for this build.', '__plugin_txtd' ) );
+		}
+
+		$request_token = pixassist_account_oauth_request_token( pixassist_account_callback_url() );
+		if ( empty( $request_token['oauth_token'] ) ) {
+			return pixassist_account_result( 'connect_failed', esc_html__( 'We could not reach the Pixelgrade account service. Please try again.', '__plugin_txtd' ) );
+		}
+
+		pixassist_account_save_request_token_secret( $request_token['oauth_token'], isset( $request_token['oauth_token_secret'] ) ? (string) $request_token['oauth_token_secret'] : '' );
+
+		return pixassist_account_result(
+			'redirect',
+			'',
+			pixassist_account_oauth_authorize_url( $request_token['oauth_token'], isset( $request_token['oauth_token_secret'] ) ? (string) $request_token['oauth_token_secret'] : '' )
+		);
+	}
+}
+
+if ( ! function_exists( 'pixassist_account_handle_callback' ) ) {
+	/**
+	 * Completes the OAuth account connection callback.
+	 *
+	 * @param array $request Callback request data.
+	 *
+	 * @return array Account action result.
+	 */
+	function pixassist_account_handle_callback( $request ) {
+		if ( ( function_exists( 'pixassist_is_care_active' ) && pixassist_is_care_active() )
+			|| ! pixassist_account_can_manage()
+			|| ! pixassist_account_verify_nonce( isset( $request['pixassist_state'] ) ? $request['pixassist_state'] : '' ) ) {
+			return pixassist_account_result( 'denied', esc_html__( 'You are not allowed to connect a Pixelgrade account.', '__plugin_txtd' ) );
+		}
+
+		$oauth_token = pixassist_account_sanitize_string( isset( $request['oauth_token'] ) ? $request['oauth_token'] : '' );
+		$verifier    = pixassist_account_sanitize_string( isset( $request['oauth_verifier'] ) ? $request['oauth_verifier'] : '' );
+		$secret      = '' !== $oauth_token ? pixassist_account_get_request_token_secret( $oauth_token ) : null;
+
+		if ( null === $secret ) {
+			return pixassist_account_result( 'connect_failed', esc_html__( 'We could not connect your Pixelgrade account. Please try again.', '__plugin_txtd' ) );
+		}
+
+		$access = pixassist_account_oauth_access_token( $oauth_token, $secret, $verifier );
+		pixassist_account_delete_request_token_secret( $oauth_token );
+
+		if ( empty( $access ) || 0 >= (int) ( isset( $access['pixelgrade_user_id'] ) ? $access['pixelgrade_user_id'] : 0 ) ) {
+			return pixassist_account_result( 'connect_failed', esc_html__( 'We could not connect your Pixelgrade account. Please try again.', '__plugin_txtd' ) );
+		}
+
+		pixassist_save_account_connection(
+			array(
+				'pixelgrade_user_id' => $access['pixelgrade_user_id'],
+				'email'              => isset( $access['email'] ) ? $access['email'] : '',
+				'display_name'       => isset( $access['display_name'] ) ? $access['display_name'] : '',
+				'user_login'         => isset( $access['user_login'] ) ? $access['user_login'] : '',
+				'oauth_token'        => isset( $access['oauth_token'] ) ? $access['oauth_token'] : '',
+				'oauth_token_secret' => isset( $access['oauth_token_secret'] ) ? $access['oauth_token_secret'] : '',
+			)
+		);
+
+		return pixassist_account_result( 'connected', esc_html__( 'Your Pixelgrade account is connected.', '__plugin_txtd' ) );
+	}
+}
+
+if ( ! function_exists( 'pixassist_account_disconnect' ) ) {
+	/**
+	 * Disconnects the host account.
+	 *
+	 * @param array $request Request data.
+	 *
+	 * @return array Account action result.
+	 */
+	function pixassist_account_disconnect( $request ) {
+		if ( ( function_exists( 'pixassist_is_care_active' ) && pixassist_is_care_active() )
+			|| ! pixassist_account_can_manage()
+			|| ! pixassist_account_verify_nonce( isset( $request['_wpnonce'] ) ? $request['_wpnonce'] : '' ) ) {
+			return pixassist_account_result( 'denied', esc_html__( 'You are not allowed to disconnect this Pixelgrade account.', '__plugin_txtd' ) );
+		}
+
+		pixassist_delete_account_connection();
+
+		return pixassist_account_result( 'disconnected', esc_html__( 'Your Pixelgrade account is disconnected.', '__plugin_txtd' ) );
+	}
+}
+
+if ( ! function_exists( 'pixassist_account_hub_url' ) ) {
+	/**
+	 * Builds the Account tab URL, optionally with a notice status.
+	 *
+	 * @param string $status Optional status.
+	 *
+	 * @return string
+	 */
+	function pixassist_account_hub_url( $status = '' ) {
+		$url = admin_url( 'themes.php?page=pixelgrade&tab=account' );
+
+		if ( '' !== $status ) {
+			$url = add_query_arg( array( 'pixassist_account' => sanitize_key( $status ) ), $url );
+		}
+
+		return $url;
+	}
+}
+
+if ( ! function_exists( 'pixassist_handle_account_connect_init' ) ) {
+	/**
+	 * Admin-post edge that starts the OAuth connection.
+	 */
+	function pixassist_handle_account_connect_init() {
+		$request = function_exists( 'wp_unslash' ) ? wp_unslash( $_GET ) : $_GET; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Nonce validated below.
+		$result  = pixassist_account_initiate_connection( is_array( $request ) ? $request : array() );
+
+		if ( 'redirect' === $result['status'] && '' !== $result['redirect_url'] && function_exists( 'wp_redirect' ) ) {
+			wp_redirect( $result['redirect_url'] ); // phpcs:ignore WordPress.Security.SafeRedirect.wp_redirect_wp_redirect -- External OAuth provider redirect.
+			if ( ! defined( 'PIXELGRADE_ASSISTANT_TESTING' ) ) {
+				exit;
+			}
+			return;
+		}
+
+		if ( function_exists( 'wp_safe_redirect' ) ) {
+			wp_safe_redirect( pixassist_account_hub_url( $result['status'] ) );
+			if ( ! defined( 'PIXELGRADE_ASSISTANT_TESTING' ) ) {
+				exit;
+			}
+		}
+	}
+}
+
+if ( ! function_exists( 'pixassist_handle_account_connect_callback' ) ) {
+	/**
+	 * Admin-post edge that completes the OAuth callback.
+	 */
+	function pixassist_handle_account_connect_callback() {
+		$request = function_exists( 'wp_unslash' ) ? wp_unslash( $_GET ) : $_GET; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- State is validated below.
+		$result  = pixassist_account_handle_callback( is_array( $request ) ? $request : array() );
+
+		if ( function_exists( 'wp_safe_redirect' ) ) {
+			wp_safe_redirect( pixassist_account_hub_url( $result['status'] ) );
+			if ( ! defined( 'PIXELGRADE_ASSISTANT_TESTING' ) ) {
+				exit;
+			}
+		}
+	}
+}
+
+if ( ! function_exists( 'pixassist_handle_account_disconnect' ) ) {
+	/**
+	 * Admin-post edge that disconnects the account.
+	 */
+	function pixassist_handle_account_disconnect() {
+		$request = function_exists( 'wp_unslash' ) ? wp_unslash( $_POST ) : $_POST; // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Nonce validated below.
+		$result  = pixassist_account_disconnect( is_array( $request ) ? $request : array() );
+
+		if ( function_exists( 'wp_safe_redirect' ) ) {
+			wp_safe_redirect( pixassist_account_hub_url( $result['status'] ) );
+			if ( ! defined( 'PIXELGRADE_ASSISTANT_TESTING' ) ) {
+				exit;
+			}
+		}
+	}
+}
+
+if ( ! function_exists( 'pixassist_register_account_tab' ) ) {
+	/**
+	 * Registers the free Account tab in the modern hub.
+	 *
+	 * @param array $tabs Existing tab descriptors.
+	 *
+	 * @return array
+	 */
+	function pixassist_register_account_tab( $tabs ) {
+		if ( ! is_array( $tabs ) ) {
+			$tabs = array();
+		}
+
+		$tabs[] = array(
+			'id'         => 'account',
+			'label'      => esc_html__( 'Account', '__plugin_txtd' ),
+			'capability' => pixassist_account_capability(),
+			'component'  => 'account',
+			'gate'       => '',
+			'order'      => 10,
+		);
+
+		return $tabs;
+	}
+}
+
+if ( ! function_exists( 'pixassist_get_account_connect_url' ) ) {
+	/**
+	 * Builds the connect action URL.
+	 *
+	 * @return string
+	 */
+	function pixassist_get_account_connect_url() {
+		return add_query_arg(
+			array(
+				'action'   => 'pixassist_account_connect_init',
+				'_wpnonce' => function_exists( 'wp_create_nonce' ) ? wp_create_nonce( pixassist_account_nonce_action() ) : '',
+			),
+			admin_url( 'admin-post.php' )
+		);
+	}
+}
+
+if ( ! function_exists( 'pixassist_get_account_notice' ) ) {
+	/**
+	 * Builds the current Account tab notice from the URL status.
+	 *
+	 * @return array|null Notice data.
+	 */
+	function pixassist_get_account_notice() {
+		$status = '';
+		if ( isset( $_GET['pixassist_account'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only notice status.
+			$status = sanitize_key( wp_unslash( $_GET['pixassist_account'] ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		}
+
+		$notices = array(
+			'connected'      => array(
+				'status'  => 'connected',
+				'type'    => 'success',
+				'message' => esc_html__( 'Your Pixelgrade account is connected.', '__plugin_txtd' ),
+			),
+			'disconnected'   => array(
+				'status'  => 'disconnected',
+				'type'    => 'success',
+				'message' => esc_html__( 'Your Pixelgrade account is disconnected.', '__plugin_txtd' ),
+			),
+			'connect_failed' => array(
+				'status'  => 'connect_failed',
+				'type'    => 'error',
+				'message' => esc_html__( 'We could not connect your Pixelgrade account. Please try again.', '__plugin_txtd' ),
+			),
+			'not_configured' => array(
+				'status'  => 'not_configured',
+				'type'    => 'warning',
+				'message' => esc_html__( 'The Pixelgrade account connection is not configured for this build.', '__plugin_txtd' ),
+			),
+			'denied'         => array(
+				'status'  => 'denied',
+				'type'    => 'error',
+				'message' => esc_html__( 'You are not allowed to manage the Pixelgrade account connection.', '__plugin_txtd' ),
+			),
+		);
+
+		return isset( $notices[ $status ] ) ? $notices[ $status ] : null;
+	}
+}
+
+if ( ! function_exists( 'pixassist_get_account_data' ) ) {
+	/**
+	 * Builds the Account tab bootstrap payload.
+	 *
+	 * @return array
+	 */
+	function pixassist_get_account_data() {
+		return array(
+			'account' => function_exists( 'pixassist_get_account' ) ? pixassist_get_account() : array( 'is_connected' => false ),
+			'actions' => array(
+				'connectUrl'       => pixassist_get_account_connect_url(),
+				'disconnectUrl'    => admin_url( 'admin-post.php' ),
+				'disconnectAction' => 'pixassist_account_disconnect',
+				'disconnectNonce'  => function_exists( 'wp_create_nonce' ) ? wp_create_nonce( pixassist_account_nonce_action() ) : '',
+			),
+			'notice'  => pixassist_get_account_notice(),
+			'oauth'   => array(
+				'isConfigured' => pixassist_account_oauth_is_configured(),
+			),
+			'copy'    => array(
+				'title'                  => esc_html__( 'Pixelgrade account', '__plugin_txtd' ),
+				'connectedDescription'   => esc_html__( 'This site can use your connected pixelgrade.com account for support and future account-gated services.', '__plugin_txtd' ),
+				'disconnectedDescription' => esc_html__( 'Connect a free pixelgrade.com account to identify this site when you ask for help.', '__plugin_txtd' ),
+				'connectLabel'           => esc_html__( 'Connect account', '__plugin_txtd' ),
+				'disconnectLabel'        => esc_html__( 'Disconnect', '__plugin_txtd' ),
+				'notConfiguredLabel'     => esc_html__( 'Account connection is not configured.', '__plugin_txtd' ),
+			),
+		);
+	}
+}
+
+if ( function_exists( 'add_filter' ) ) {
+	add_filter( 'pixassist_account', 'pixassist_filter_modern_account_identity' );
+	add_filter( 'pixelgrade/admin_hub/tabs', 'pixassist_register_account_tab' );
+}
+
+if ( function_exists( 'add_action' ) ) {
+	add_action( 'admin_post_pixassist_account_connect_init', 'pixassist_handle_account_connect_init' );
+	add_action( 'admin_post_pixassist_account_connect', 'pixassist_handle_account_connect_callback' );
+	add_action( 'admin_post_pixassist_account_disconnect', 'pixassist_handle_account_disconnect' );
+}

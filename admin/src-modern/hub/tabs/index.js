@@ -9,9 +9,16 @@
  */
 import { addFilter } from '@wordpress/hooks';
 import { Overview } from './Overview';
+import { Account } from './Account';
 
 addFilter( 'pixelgrade.adminHub.tabs', 'pixelgrade-assistant/overview', ( map ) => {
 	map.overview = { component: Overview };
+
+	return map;
+} );
+
+addFilter( 'pixelgrade.adminHub.tabs', 'pixelgrade-assistant/account', ( map ) => {
+	map.account = { component: Account };
 
 	return map;
 } );

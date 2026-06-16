@@ -11,8 +11,9 @@
  *     `pixelgrade/admin_hub/tabs` PHP filter. The hub React app (#43) localizes this and re-applies
  *     the JS filter `pixelgrade.adminHub.tabs` (@wordpress/hooks) before rendering.
  *   - pixassist_get_account() / pixassist_is_account_connected(): host-owned account READ accessors.
- *     Identity only — never OAuth tokens/secrets. The legacy storage is read today; #45 modernizes
- *     it behind this same contract.
+ *     Identity only — never OAuth tokens/secrets.
+ *   - pixassist_get_account_credentials() (defined by includes/account.php): PHP-only OAuth
+ *     credentials for server-side signing; never localized and never merged into identity.
  *
  * Documented (wired with their UI, not here): the `pixelgrade.adminHub.tabs` JS filter (#43) and the
  * `pixelgrade-docs` docs-panel escalation SlotFill scope (#46).
@@ -120,8 +121,8 @@ if ( ! function_exists( 'pixassist_read_host_account_identity' ) ) {
 	 * meta (set by the historic activation flow). Otherwise this returns null and the account reads
 	 * as disconnected. Guarded so the file loads/tests standalone without the admin class or WP.
 	 *
-	 * #45 (account modernization) will repoint this reader at the modern storage; callers depend on
-	 * pixassist_get_account(), not this internal.
+	 * Modern storage is supplied through the `pixassist_account` filter by includes/account.php; this
+	 * legacy reader remains as a compatibility fallback for installs that connected before #45.
 	 *
 	 * @return array|null Raw identity (subset of the account keys) or null when disconnected.
 	 */

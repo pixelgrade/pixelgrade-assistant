@@ -306,6 +306,9 @@ class PixelgradeAssistant_Admin {
             // The free Overview tab (#44) reads its own bootstrap payload (theme status, quick links,
             // Plus discovery card). Tab-specific data channel, kept out of the generic hub bootstrap.
             wp_localize_script( $handle, 'pixelgradeOverview', pixassist_get_overview_data() );
+            // The free Account tab (#45) reads identity + action URLs only. OAuth credentials stay
+            // PHP-only via pixassist_get_account_credentials() and are never localized.
+            wp_localize_script( $handle, 'pixelgradeAccount', pixassist_get_account_data() );
             self::localize_js_data( $handle, true, 'hub' );
         }
 

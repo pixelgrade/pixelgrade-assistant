@@ -44,6 +44,9 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/assets.php';
 // Host extension surface for companion plugins (hub tab registry + host-account read accessors).
 require_once plugin_dir_path( __FILE__ ) . 'includes/host-extension-surface.php';
 
+// Host-owned pixelgrade.com account connection + Account hub tab.
+require_once plugin_dir_path( __FILE__ ) . 'includes/account.php';
+
 // Appearance -> Pixelgrade hub: server-side bootstrap data for the React shell.
 require_once plugin_dir_path( __FILE__ ) . 'includes/admin-hub.php';
 
