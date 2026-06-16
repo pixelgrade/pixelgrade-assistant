@@ -4,7 +4,8 @@
     },
     "scripts": {
         "test": [
-            "php tests/plus-status-contract-test.php"
+            "php tests/plus-status-contract-test.php",
+            "php tests/built-asset-test.php"
         ]
     }
 }

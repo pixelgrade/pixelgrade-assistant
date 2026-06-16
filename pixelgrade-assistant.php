@@ -38,6 +38,9 @@ require_once plugin_dir_path( __FILE__ ) . 'vendor/autoload.php';
 // Capability helpers: free vs commercial, and Pixelgrade Plus / Care detection.
 require_once plugin_dir_path( __FILE__ ) . 'includes/capabilities.php';
 
+// Asset helpers for enqueuing @wordpress/scripts build artifacts (admin/build/*.asset.php).
+require_once plugin_dir_path( __FILE__ ) . 'includes/assets.php';
+
 // Include functions that might assist when in dev mode.
 require_once plugin_dir_path( __FILE__ ) . 'includes/integrations/devmode.php';
 
