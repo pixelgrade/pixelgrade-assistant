@@ -11,6 +11,9 @@
  */
 import { createElement, createRoot, render } from '@wordpress/element';
 import { App } from './hub/App';
+// Registers Assistant's free tab components (Overview, #44) on the `pixelgrade.adminHub.tabs`
+// filter at load, before the shell renders.
+import './hub/tabs';
 
 const MOUNT_ID = 'pixelgrade-admin-hub';
 

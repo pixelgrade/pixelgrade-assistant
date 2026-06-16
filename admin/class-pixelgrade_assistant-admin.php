@@ -303,6 +303,9 @@ class PixelgradeAssistant_Admin {
             // is collected/capability-gated/sorted server-side from the #42 registry.
             $handle = pixassist_enqueue_built_script( 'pixelgrade-admin-hub', 'index' );
             wp_localize_script( $handle, 'pixelgradeAdminHub', pixassist_get_admin_hub_data() );
+            // The free Overview tab (#44) reads its own bootstrap payload (theme status, quick links,
+            // Plus discovery card). Tab-specific data channel, kept out of the generic hub bootstrap.
+            wp_localize_script( $handle, 'pixelgradeOverview', pixassist_get_overview_data() );
             self::localize_js_data( $handle, true, 'hub' );
         }
 

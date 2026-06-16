@@ -47,6 +47,9 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/host-extension-surface.php'
 // Appearance -> Pixelgrade hub: server-side bootstrap data for the React shell.
 require_once plugin_dir_path( __FILE__ ) . 'includes/admin-hub.php';
 
+// Free Overview tab: registers itself on the hub registry + builds its bootstrap payload.
+require_once plugin_dir_path( __FILE__ ) . 'includes/admin-overview.php';
+
 // Include functions that might assist when in dev mode.
 require_once plugin_dir_path( __FILE__ ) . 'includes/integrations/devmode.php';
 
