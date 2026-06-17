@@ -160,3 +160,10 @@ unzip -p ../Pixelgrade-assistant-X-Y-Z.zip pixelgrade-assistant/readme.txt | gre
 ```
 
 The first command should produce no matches.
+
+### Local Test Sites
+
+- `pixelgrade-integrated-check` (Studio, `/Users/georgeolaru/Studio/pixelgrade-integrated-check`) is the canonical Assistant-active local verify site for the Pixelgrade hub. Use it instead of `style-manager.local` when the Assistant must load; `style-manager.local` has Pixelgrade Care active, so Assistant is dormant there.
+- Runtime: `studio site start --path /Users/georgeolaru/Studio/pixelgrade-integrated-check --skip-browser`; stop with `studio site stop --path /Users/georgeolaru/Studio/pixelgrade-integrated-check`; inspect access with `studio site status --path /Users/georgeolaru/Studio/pixelgrade-integrated-check`.
+- URL/admin: `http://localhost:8889/`; wp-admin via `http://localhost:8889/studio-auto-login?redirect_to=%2Fwp-admin%2F` or directly to the hub with `http://localhost:8889/studio-auto-login?redirect_to=%2Fwp-admin%2Fadmin.php%3Fpage%3Dpixelgrade`.
+- Verified 2026-06-17: Anima LT active; Pixelgrade Assistant and Pixelgrade Plus active; Pixelgrade Care not active; the Appearance -> Pixelgrade hub renders. Style Manager and Nova Blocks are installed but inactive, and the site is not connected/licensed (`pixassist_get_account()` false, no account credentials/theme license, Plus unlicensed), so do not use it for entitlement, Plus-license, or starter-identity tests until that state is intentionally changed.
