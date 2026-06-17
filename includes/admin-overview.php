@@ -148,14 +148,14 @@ if ( ! function_exists( 'pixassist_get_overview_links' ) ) {
 		if ( $is_block ) {
 			$links[] = array(
 				'id'      => 'site-editor',
-				'label'   => esc_html__( 'Open the Site Editor', '__plugin_txtd' ),
-				'url'     => admin_url( 'site-editor.php' ),
+				'label'   => esc_html__( 'Edit Styles', '__plugin_txtd' ),
+				'url'     => admin_url( 'site-editor.php?path=%2Fwp_global_styles' ),
 				'primary' => true,
 			);
 		} else {
 			$links[] = array(
 				'id'      => 'customize',
-				'label'   => esc_html__( 'Open the Customizer', '__plugin_txtd' ),
+				'label'   => esc_html__( 'Edit Styles', '__plugin_txtd' ),
 				'url'     => admin_url( 'customize.php' ),
 				'primary' => true,
 			);
@@ -166,7 +166,7 @@ if ( ! function_exists( 'pixassist_get_overview_links' ) ) {
 		if ( $starter ) {
 			$links[] = array(
 				'id'      => 'starter-sites',
-				'label'   => '' !== $starter['label'] ? $starter['label'] : esc_html__( 'Starter Sites', '__plugin_txtd' ),
+				'label'   => esc_html__( 'Browse Starter Sites', '__plugin_txtd' ),
 				'url'     => pixassist_overview_tab_url( $starter, $base_url ),
 				'primary' => false,
 			);
@@ -177,14 +177,14 @@ if ( ! function_exists( 'pixassist_get_overview_links' ) ) {
 		if ( $help ) {
 			$links[] = array(
 				'id'      => 'help',
-				'label'   => '' !== $help['label'] ? $help['label'] : esc_html__( 'Help', '__plugin_txtd' ),
+				'label'   => esc_html__( 'Get Help', '__plugin_txtd' ),
 				'url'     => pixassist_overview_tab_url( $help, $base_url ),
 				'primary' => false,
 			);
 		} else {
 			$links[] = array(
 				'id'      => 'help',
-				'label'   => esc_html__( 'Get help', '__plugin_txtd' ),
+				'label'   => esc_html__( 'Get Help', '__plugin_txtd' ),
 				'url'     => $base_url . '&tab=help',
 				'primary' => false,
 			);

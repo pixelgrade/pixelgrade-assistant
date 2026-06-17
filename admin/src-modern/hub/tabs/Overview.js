@@ -1,11 +1,17 @@
 /**
- * The free Overview tab — the Appearance -> Pixelgrade hub's landing surface (#44).
+ * The free Overview tab — the Appearance -> Pixelgrade hub's orientation surface (#44, #55).
  *
- * Presentational only: all logic + copy come from the server-assembled `window.pixelgradeOverview`
- * payload (pixassist_get_overview_data(), localized on the hub page) — theme status, quick links
- * (the canvas link first, then sibling Starter Sites / Help tabs when present), and the Pixelgrade
- * Plus discovery/manage card across its three 4-key states. The host account, when connected, shows
- * as a small chip (identity only; #45 modernizes the source behind the same accessor).
+ * This is the branded orientation hub: it explains, at a value level, what the Pixelgrade design
+ * system is, then routes *out* to where the work actually happens (Style Manager lives in the Site
+ * Editor -> Styles; the hub never owns the design-editing surface). Top-to-bottom it renders an
+ * always-on orientation lead, three value areas that double as routes out, the demoted theme card,
+ * and the Pixelgrade Plus discovery/manage card.
+ *
+ * Presentational only: all *data* (theme, account, plus state, and the link list — labels, URLs, and
+ * which links exist) comes from the server-assembled `window.pixelgradeOverview` payload
+ * (pixassist_get_overview_data(), localized on the hub page). The orientation copy (lead + value-area
+ * titles/descriptions) is product chrome, so it lives here as static `__()` strings. The three value
+ * areas bind to the server links by id, so availability stays server-decided (canvas link first).
  *
  * No JSX, matching the rest of the hub bundle (keeps externals to wp-element/components/i18n/hooks).
  */
@@ -15,12 +21,114 @@ import { Card, CardHeader, CardBody, Button, Flex, FlexItem } from '@wordpress/c
 
 const DEFAULT_OVERVIEW = { theme: {}, links: [], plus: {}, account: { is_connected: false } };
 
+// The three value areas, in order. Each binds to the first server link whose id matches `ids`; if no
+// such link exists (server-decided availability), the area is skipped. Titles + descriptions are
+// orientation copy owned here; the CTA label + URL come from the bound server link. "motion" here
+// describes the scope of the design system, not a free guarantee — the Plus card carries the upsell.
+const VALUE_AREAS = [
+	{
+		ids: [ 'site-editor', 'customize' ],
+		title: __( 'A design system you control', 'pixelgrade_assistant' ),
+		description: __(
+			'Colors, fonts, spacing, and motion live in Style Manager — change them once and your theme and blocks update together.',
+			'pixelgrade_assistant'
+		),
+	},
+	{
+		ids: [ 'starter-sites' ],
+		title: __( 'A head start', 'pixelgrade_assistant' ),
+		description: __(
+			'Launch from a starter site and build pages from ready-made patterns instead of a blank canvas.',
+			'pixelgrade_assistant'
+		),
+	},
+	{
+		ids: [ 'help' ],
+		title: __( 'Help when you need it', 'pixelgrade_assistant' ),
+		description: __( 'Documentation and guidance, built right into your dashboard.', 'pixelgrade_assistant' ),
+	},
+];
+
 function getOverview() {
 	if ( typeof window !== 'undefined' && window.pixelgradeOverview ) {
 		return window.pixelgradeOverview;
 	}
 
 	return DEFAULT_OVERVIEW;
+}
+
+function findLink( links, ids ) {
+	for ( let i = 0; i < ids.length; i++ ) {
+		const match = links.find( ( link ) => link && link.id === ids[ i ] );
+		if ( match ) {
+			return match;
+		}
+	}
+
+	return null;
+}
+
+function renderOrientation() {
+	return createElement(
+		'div',
+		{ className: 'pixelgrade-overview__intro', style: { margin: '8px 0 20px' } },
+		createElement(
+			'h2',
+			{ style: { margin: '0 0 8px', fontSize: '1.5em' } },
+			__( 'Pixelgrade turns your site into a complete design system.', 'pixelgrade_assistant' )
+		),
+		createElement(
+			'p',
+			{ style: { margin: 0, fontSize: '1.05em', color: '#50575e', maxWidth: '46em' } },
+			__( 'Set your colors, fonts, spacing, and motion once — and your whole site follows.', 'pixelgrade_assistant' )
+		)
+	);
+}
+
+function renderValueAreas( links ) {
+	const cards = VALUE_AREAS.map( ( area ) => {
+		const link = findLink( links, area.ids );
+		if ( ! link ) {
+			return null;
+		}
+
+		return createElement(
+			Card,
+			{
+				key: link.id,
+				className: 'pixelgrade-overview__value pixelgrade-overview__value--' + link.id,
+			},
+			createElement(
+				CardBody,
+				null,
+				createElement( 'h3', { style: { margin: '0 0 4px' } }, area.title ),
+				createElement( 'p', { style: { margin: '0 0 16px', color: '#50575e' } }, area.description ),
+				createElement(
+					Button,
+					{ variant: link.primary ? 'primary' : 'secondary', href: link.url },
+					link.label || link.id
+				)
+			)
+		);
+	} ).filter( Boolean );
+
+	if ( ! cards.length ) {
+		return null;
+	}
+
+	return createElement(
+		'div',
+		{
+			className: 'pixelgrade-overview__values',
+			style: {
+				display: 'grid',
+				gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+				gap: '16px',
+				margin: '0 0 24px',
+			},
+		},
+		cards
+	);
 }
 
 function renderAccountChip( account ) {
@@ -102,31 +210,6 @@ function renderThemeCard( theme, account ) {
 	);
 }
 
-function renderQuickLinks( links ) {
-	if ( ! Array.isArray( links ) || ! links.length ) {
-		return null;
-	}
-
-	return createElement(
-		'div',
-		{
-			className: 'pixelgrade-overview__links',
-			style: { display: 'flex', flexWrap: 'wrap', gap: '8px', margin: '16px 0' },
-		},
-		links.map( ( link ) =>
-			createElement(
-				Button,
-				{
-					key: link.id,
-					href: link.url,
-					variant: link.primary ? 'primary' : 'secondary',
-				},
-				link.label || link.id
-			)
-		)
-	);
-}
-
 function renderPlusCard( plus ) {
 	if ( ! plus || ! plus.label ) {
 		return null;
@@ -166,8 +249,9 @@ export function Overview() {
 	return createElement(
 		Fragment,
 		null,
+		renderOrientation(),
+		renderValueAreas( links ),
 		renderThemeCard( theme, account ),
-		renderQuickLinks( links ),
 		renderPlusCard( plus )
 	);
 }

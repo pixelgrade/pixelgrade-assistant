@@ -175,6 +175,7 @@ assert_same( false, $overview['theme']['isBlockTheme'], 'Classic theme must read
 $canvas = $overview['links'][0];
 assert_same( 'customize', $canvas['id'], 'Classic theme canvas link must be the Customizer.' );
 assert_same( 'https://example.test/wp-admin/customize.php', $canvas['url'], 'Customizer link URL must resolve.' );
+assert_same( 'Edit Styles', $canvas['label'], 'The classic-theme canvas CTA must read "Edit Styles".' );
 assert_true( ! empty( $canvas['primary'] ), 'The canvas link must be the primary quick link.' );
 
 assert_same( null, paf_find_link( $overview['links'], 'starter-sites' ), 'No Starter Sites link without a Starter tab.' );
@@ -182,6 +183,7 @@ assert_same( null, paf_find_link( $overview['links'], 'starter-sites' ), 'No Sta
 $help = paf_find_link( $overview['links'], 'help' );
 assert_true( null !== $help, 'A Help link is always present.' );
 assert_same( 'https://example.test/wp-admin/themes.php?page=pixelgrade&tab=help', $help['url'], 'Help falls back to the hub Help tab when no Help tab descriptor exists.' );
+assert_same( 'Get Help', $help['label'], 'The Help CTA must read "Get Help".' );
 
 assert_same( 'discover', $overview['plus']['state'], 'Inactive Plus must be in the discover state.' );
 assert_same( false, $overview['plus']['isActive'], 'Inactive Plus must report isActive=false.' );
@@ -219,11 +221,13 @@ $overview = pixassist_get_overview_data();
 
 $canvas = $overview['links'][0];
 assert_same( 'site-editor', $canvas['id'], 'Block theme canvas link must be the Site Editor.' );
-assert_same( 'https://example.test/wp-admin/site-editor.php', $canvas['url'], 'Site Editor link URL must resolve.' );
+assert_same( 'https://example.test/wp-admin/site-editor.php?path=%2Fwp_global_styles', $canvas['url'], 'Site Editor canvas link must deep-link into the Styles view.' );
+assert_same( 'Edit Styles', $canvas['label'], 'The block-theme canvas CTA must read "Edit Styles".' );
 
 $starter = paf_find_link( $overview['links'], 'starter-sites' );
 assert_true( null !== $starter, 'Starter Sites link appears when the tab is registered.' );
 assert_same( 'https://example.test/wp-admin/themes.php?page=pixelgrade&tab=starter-sites', $starter['url'], 'Starter Sites resolves to its in-hub deep link.' );
+assert_same( 'Browse Starter Sites', $starter['label'], 'The Starter Sites CTA must read "Browse Starter Sites".' );
 
 $help = paf_find_link( $overview['links'], 'help' );
 assert_same( 'https://example.test/wp-admin/themes.php?page=pixelgrade&tab=help', $help['url'], 'Help resolves to the Help hub tab when registered.' );
