@@ -17,6 +17,10 @@ export function getDocsData() {
 		return window.pixelgradeDocs;
 	}
 
+	if ( 'undefined' !== typeof window && window.pixelgradeHelp ) {
+		return window.pixelgradeHelp;
+	}
+
 	return DEFAULT_DATA;
 }
 

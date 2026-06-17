@@ -264,6 +264,7 @@ function BaseEscalation( { context } ) {
 		} ),
 		createElement( TextControl, {
 			label: getCopy( 'ticketSubjectLabel', __( 'Subject', 'pixelgrade_assistant' ) ),
+			__next40pxDefaultSize: true,
 			value: subject,
 			onChange: setSubject,
 		} ),
@@ -287,7 +288,7 @@ function BaseEscalation( { context } ) {
 	);
 }
 
-export function KbPanel( { context, EscalationSlot } ) {
+export function KbPanel( { context, EscalationSlot, showEscalation = true } ) {
 	const [ categories, setCategories ] = useState( [] );
 	const [ loading, setLoading ] = useState( true );
 	const [ error, setError ] = useState( false );
@@ -381,6 +382,7 @@ export function KbPanel( { context, EscalationSlot } ) {
 		! activeArticle
 			? createElement( TextControl, {
 					label: getCopy( 'searchPlaceholder', __( 'Search the documentation...', 'pixelgrade_assistant' ) ),
+					__next40pxDefaultSize: true,
 					hideLabelFromVision: true,
 					type: 'search',
 					value: search,
@@ -392,7 +394,7 @@ export function KbPanel( { context, EscalationSlot } ) {
 			  } )
 			: null,
 		body,
-		createElement( BaseEscalation, { context: activeContext } ),
-		EscalationSlot ? createElement( EscalationSlot, { fillProps: { context: activeContext } } ) : null
+		showEscalation ? createElement( BaseEscalation, { context: activeContext } ) : null,
+		showEscalation && EscalationSlot ? createElement( EscalationSlot, { fillProps: { context: activeContext } } ) : null
 	);
 }

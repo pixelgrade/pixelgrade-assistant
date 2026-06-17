@@ -56,6 +56,9 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/admin-overview.php';
 // Contextual editor docs panel: bootstrap data + safe server-side docs actions.
 require_once plugin_dir_path( __FILE__ ) . 'includes/admin-docs.php';
 
+// Free Help tab: registers itself on the hub registry and reuses the docs KB source.
+require_once plugin_dir_path( __FILE__ ) . 'includes/admin-help.php';
+
 // Include functions that might assist when in dev mode.
 require_once plugin_dir_path( __FILE__ ) . 'includes/integrations/devmode.php';
 

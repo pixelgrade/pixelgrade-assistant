@@ -310,6 +310,9 @@ class PixelgradeAssistant_Admin {
             // The free Account tab (#45) reads identity + action URLs only. OAuth credentials stay
             // PHP-only via pixassist_get_account_credentials() and are never localized.
             wp_localize_script( $handle, 'pixelgradeAccount', pixassist_get_account_data() );
+            // The free Help tab (#47) reuses the editor docs KB data layer; keep its bootstrap on a
+            // tab-specific global so the hub shell stays generic.
+            wp_localize_script( $handle, 'pixelgradeHelp', pixassist_get_docs_data() );
             self::localize_js_data( $handle, true, 'hub' );
         }
 
