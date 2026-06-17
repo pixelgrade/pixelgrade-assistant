@@ -2,21 +2,21 @@
 # This file is distributed under the GPL-3.0.
 msgid ""
 msgstr ""
-"Project-Id-Version: Pixelgrade Assistant 2.0.0\n"
+"Project-Id-Version: Pixelgrade Assistant 2.1.0\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/pixelgrade-assistant\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-06-15T07:35:59+00:00\n"
+"POT-Creation-Date: 2026-06-17T11:20:59+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: pixelgrade_assistant\n"
 
 #. Plugin Name of the plugin
 #: pixelgrade-assistant.php
-#: admin/class-pixelgrade_assistant-admin.php:728
+#: admin/class-pixelgrade_assistant-admin.php:615
 msgid "Pixelgrade Assistant"
 msgstr ""
 
@@ -32,7 +32,6 @@ msgstr ""
 
 #. Author of the plugin
 #: pixelgrade-assistant.php
-#: admin/class-pixelgrade_assistant-admin.php:447
 msgid "Pixelgrade"
 msgstr ""
 
@@ -41,53 +40,50 @@ msgstr ""
 msgid "https://pixelgrade.com"
 msgstr ""
 
-#: admin/class-pixelgrade_assistant-admin.php:447
-msgid "Pixelgrade Assistant Dashboard"
+#: admin/class-pixelgrade_assistant-admin.php:390
+#: admin/class-pixelgrade_assistant-admin.php:391
+msgid "Pixelgrade Design"
 msgstr ""
 
-#: admin/class-pixelgrade_assistant-admin.php:451
-msgid "Dashboard"
-msgstr ""
-
-#: admin/class-pixelgrade_assistant-admin.php:688
-#: includes/default-plugin-config.php:176
-#: includes/default-plugin-config.php:296
+#: admin/class-pixelgrade_assistant-admin.php:575
+#: includes/default-plugin-config.php:152
+#: includes/default-plugin-config.php:272
 msgid "Learn more"
 msgstr ""
 
-#: admin/class-pixelgrade_assistant-admin.php:730
+#: admin/class-pixelgrade_assistant-admin.php:617
 msgid "Pixelgrade Assistant Site Setup"
 msgstr ""
 
-#: admin/class-pixelgrade_assistant-admin.php:731
+#: admin/class-pixelgrade_assistant-admin.php:618
 msgid "Setup Pixelgrade Assistant"
 msgstr ""
 
-#: admin/class-pixelgrade_assistant-admin.php:1722
+#: admin/class-pixelgrade_assistant-admin.php:1604
 msgid "New Theme Update is Available!"
 msgstr ""
 
-#: admin/class-pixelgrade_assistant-admin.php:1724
+#: admin/class-pixelgrade_assistant-admin.php:1606
 #, php-format
 msgid "Great news! A new theme update is available for your <strong>%s</strong> theme, version <strong>%s</strong>. To update go to your <a href=\"%s\">Theme Dashboard</a>."
 msgstr ""
 
-#: admin/class-pixelgrade_assistant-admin.php:1897
-#: admin/class-pixelgrade_assistant-admin.php:1904
+#: admin/class-pixelgrade_assistant-admin.php:1779
+#: admin/class-pixelgrade_assistant-admin.php:1786
 #: admin/class-pixelgrade_assistant-notifications.php:436
 #: admin/class-pixelgrade_assistant-notifications.php:444
-#: admin/class-pixelgrade_assistant-setup_wizard.php:204
-#: admin/class-pixelgrade_assistant-setup_wizard.php:212
-#: admin/class-pixelgrade_assistant-starter_content.php:1460
-#: admin/class-pixelgrade_assistant-starter_content.php:1468
+#: admin/class-pixelgrade_assistant-setup_wizard.php:201
+#: admin/class-pixelgrade_assistant-setup_wizard.php:209
+#: admin/class-pixelgrade_assistant-starter_content.php:1544
+#: admin/class-pixelgrade_assistant-starter_content.php:1552
 #: includes/class-pixelgrade_assistant-data-collector.php:471
 #: includes/class-pixelgrade_assistant-data-collector.php:479
-#: includes/class-pixelgrade_assistant-i18n.php:84
-#: includes/class-pixelgrade_assistant-i18n.php:92
-#: includes/class-pixelgrade_assistant.php:398
-#: includes/class-pixelgrade_assistant.php:406
-#: includes/modules/conditional-updates/class-pixelgrade_assistant-conditional-updates.php:775
+#: includes/class-pixelgrade_assistant-i18n.php:86
+#: includes/class-pixelgrade_assistant-i18n.php:94
+#: includes/class-pixelgrade_assistant.php:422
+#: includes/class-pixelgrade_assistant.php:430
 #: includes/modules/conditional-updates/class-pixelgrade_assistant-conditional-updates.php:785
+#: includes/modules/conditional-updates/class-pixelgrade_assistant-conditional-updates.php:795
 #: includes/theme-helpers/jetpack-fallbacks/portfolio-shortcode/class-jetpack-portfolio-shortcode.php:372
 #: includes/theme-helpers/jetpack-fallbacks/portfolio-shortcode/class-jetpack-portfolio-shortcode.php:379
 #: includes/theme-helpers/jetpack_customization.php:176
@@ -99,44 +95,32 @@ msgstr ""
 msgid "You should not do that!"
 msgstr ""
 
-#: admin/class-pixelgrade_assistant-admin_rest_interface.php:228
+#: admin/class-pixelgrade_assistant-admin_rest_interface.php:211
 msgid "State saved successfully!"
 msgstr ""
 
-#: admin/class-pixelgrade_assistant-admin_rest_interface.php:271
+#: admin/class-pixelgrade_assistant-admin_rest_interface.php:254
 msgid "State deleted successfully!"
 msgstr ""
 
-#: admin/class-pixelgrade_assistant-admin_rest_interface.php:328
+#: admin/class-pixelgrade_assistant-admin_rest_interface.php:311
 msgid "You haven't provided the necessary data."
 msgstr ""
 
-#: admin/class-pixelgrade_assistant-admin_rest_interface.php:341
+#: admin/class-pixelgrade_assistant-admin_rest_interface.php:324
 msgid "Something went wrong. Could not save the option."
 msgstr ""
 
-#: admin/class-pixelgrade_assistant-admin_rest_interface.php:348
+#: admin/class-pixelgrade_assistant-admin_rest_interface.php:331
 msgid "Data saved successfully!"
 msgstr ""
 
-#: admin/class-pixelgrade_assistant-admin_rest_interface.php:372
+#: admin/class-pixelgrade_assistant-admin_rest_interface.php:355
 msgid "Your need to do better on your math."
 msgstr ""
 
-#: admin/class-pixelgrade_assistant-admin_rest_interface.php:399
+#: admin/class-pixelgrade_assistant-admin_rest_interface.php:382
 msgid "All nice and clean!"
-msgstr ""
-
-#: admin/class-pixelgrade_assistant-admin_rest_interface.php:420
-msgid "No user ID provided."
-msgstr ""
-
-#: admin/class-pixelgrade_assistant-admin_rest_interface.php:430
-msgid "You cannot disconnect someone else!"
-msgstr ""
-
-#: admin/class-pixelgrade_assistant-admin_rest_interface.php:489
-msgid "User has been disconnected!"
 msgstr ""
 
 #: admin/class-pixelgrade_assistant-notifications.php:187
@@ -262,7 +246,7 @@ msgstr ""
 msgid "User Feedback for %s (via Pixelgrade Assistant)"
 msgstr ""
 
-#: admin/class-pixelgrade_assistant-setup_wizard.php:120
+#: admin/class-pixelgrade_assistant-setup_wizard.php:117
 msgid "Pixelgrade Assistant &rsaquo; Setup Wizard"
 msgstr ""
 
@@ -282,13 +266,17 @@ msgstr ""
 msgid "You need to provide all the needed parameters."
 msgstr ""
 
-#: admin/class-pixelgrade_assistant-starter_content.php:472
-#: admin/class-pixelgrade_assistant-starter_content.php:707
+#: admin/class-pixelgrade_assistant-starter_content.php:278
+msgid "The starter content source is not allowed."
+msgstr ""
+
+#: admin/class-pixelgrade_assistant-starter_content.php:556
+#: admin/class-pixelgrade_assistant-starter_content.php:791
 msgid "Something went wrong with decoding the data received."
 msgstr ""
 
 #. translators: %s: the taxonomy name
-#: admin/class-pixelgrade_assistant-starter_content.php:657
+#: admin/class-pixelgrade_assistant-starter_content.php:741
 #, php-format
 msgid "%s does not exists!"
 msgstr ""
@@ -298,7 +286,7 @@ msgid "Install Required Plugins"
 msgstr ""
 
 #: admin/required-plugins/class-tgm-plugin-activation.php:328
-#: includes/default-plugin-config.php:93
+#: includes/default-plugin-config.php:70
 msgid "Install Plugins"
 msgstr ""
 
@@ -397,20 +385,20 @@ msgstr ""
 
 #: admin/required-plugins/class-tgm-plugin-activation.php:387
 #: admin/required-plugins/class-tgm-plugin-activation.php:3190
-#: includes/default-plugin-config.php:457
+#: includes/default-plugin-config.php:433
 msgid "Plugin activated successfully."
 msgstr ""
 
 #: admin/required-plugins/class-tgm-plugin-activation.php:388
 #: admin/required-plugins/class-tgm-plugin-activation.php:2983
-#: includes/default-plugin-config.php:456
+#: includes/default-plugin-config.php:432
 msgid "The following plugin was activated successfully:"
 msgid_plural "The following plugins were activated successfully:"
 msgstr[0] ""
 msgstr[1] ""
 
 #: admin/required-plugins/class-tgm-plugin-activation.php:389
-#: includes/default-plugin-config.php:458
+#: includes/default-plugin-config.php:434
 msgid "No action taken. Plugin was already active."
 msgstr ""
 
@@ -472,10 +460,12 @@ msgid "TGMPA v%s"
 msgstr ""
 
 #: admin/required-plugins/class-tgm-plugin-activation.php:2304
+#: includes/admin-plugins.php:116
 msgid "Required"
 msgstr ""
 
 #: admin/required-plugins/class-tgm-plugin-activation.php:2307
+#: includes/admin-plugins.php:117
 msgid "Recommended"
 msgstr ""
 
@@ -500,6 +490,7 @@ msgid "Installed But Not Activated"
 msgstr ""
 
 #: admin/required-plugins/class-tgm-plugin-activation.php:2352
+#: includes/admin-plugins.php:123
 msgid "Active"
 msgstr ""
 
@@ -585,6 +576,7 @@ msgid "Source"
 msgstr ""
 
 #: admin/required-plugins/class-tgm-plugin-activation.php:2580
+#: includes/admin-docs.php:146
 msgid "Type"
 msgstr ""
 
@@ -619,18 +611,21 @@ msgid "Upgrade message from the plugin author:"
 msgstr ""
 
 #: admin/required-plugins/class-tgm-plugin-activation.php:2748
-#: includes/default-plugin-config.php:47
+#: includes/admin-plugins.php:120
+#: includes/default-plugin-config.php:37
 msgid "Install"
 msgstr ""
 
 #: admin/required-plugins/class-tgm-plugin-activation.php:2754
-#: includes/default-plugin-config.php:49
-#: includes/default-plugin-config.php:448
+#: includes/admin-plugins.php:122
+#: includes/default-plugin-config.php:39
+#: includes/default-plugin-config.php:424
 msgid "Update"
 msgstr ""
 
 #: admin/required-plugins/class-tgm-plugin-activation.php:2757
-#: includes/default-plugin-config.php:48
+#: includes/admin-plugins.php:121
+#: includes/default-plugin-config.php:38
 msgid "Activate"
 msgstr ""
 
@@ -720,6 +715,515 @@ msgstr ""
 msgid "Installing Plugin %1$s (%2$d/%3$d)"
 msgstr ""
 
+#: includes/account.php:894
+#: includes/account.php:928
+msgid "You are not allowed to connect a Pixelgrade account."
+msgstr ""
+
+#: includes/account.php:898
+#: includes/account.php:1134
+msgid "The Pixelgrade account connection is not configured for this build."
+msgstr ""
+
+#: includes/account.php:903
+msgid "We could not reach the Pixelgrade account service. Please try again."
+msgstr ""
+
+#: includes/account.php:936
+#: includes/account.php:943
+#: includes/account.php:1129
+msgid "We could not connect your Pixelgrade account. Please try again."
+msgstr ""
+
+#: includes/account.php:957
+#: includes/account.php:1119
+msgid "Your Pixelgrade account is connected."
+msgstr ""
+
+#: includes/account.php:973
+msgid "You are not allowed to disconnect this Pixelgrade account."
+msgstr ""
+
+#: includes/account.php:978
+#: includes/account.php:1124
+msgid "Your Pixelgrade account is disconnected."
+msgstr ""
+
+#: includes/account.php:1075
+msgid "Account"
+msgstr ""
+
+#: includes/account.php:1139
+msgid "You are not allowed to manage the Pixelgrade account connection."
+msgstr ""
+
+#: includes/account.php:1167
+msgid "Pixelgrade account"
+msgstr ""
+
+#: includes/account.php:1168
+msgid "This site can use your connected pixelgrade.com account for support and future account-gated services."
+msgstr ""
+
+#: includes/account.php:1169
+msgid "Connect a free pixelgrade.com account to identify this site when you ask for help."
+msgstr ""
+
+#: includes/account.php:1170
+#: includes/admin-docs.php:143
+msgid "Connect account"
+msgstr ""
+
+#: includes/account.php:1171
+msgid "Disconnect"
+msgstr ""
+
+#: includes/account.php:1172
+msgid "Account connection is not configured."
+msgstr ""
+
+#: includes/admin-docs.php:126
+#: includes/admin-docs.php:127
+msgid "Pixelgrade Docs"
+msgstr ""
+
+#: includes/admin-docs.php:128
+msgid "Search the documentation..."
+msgstr ""
+
+#: includes/admin-docs.php:129
+msgid "All topics"
+msgstr ""
+
+#: includes/admin-docs.php:130
+msgid "Back"
+msgstr ""
+
+#: includes/admin-docs.php:131
+msgid "No matching articles."
+msgstr ""
+
+#: includes/admin-docs.php:132
+msgid "Loading documentation..."
+msgstr ""
+
+#: includes/admin-docs.php:133
+msgid "Browse the full documentation for step-by-step guides and answers."
+msgstr ""
+
+#: includes/admin-docs.php:134
+msgid "Browse docs"
+msgstr ""
+
+#: includes/admin-docs.php:135
+msgid "Read online"
+msgstr ""
+
+#: includes/admin-docs.php:136
+msgid "Was this helpful?"
+msgstr ""
+
+#: includes/admin-docs.php:137
+msgid "Yes"
+msgstr ""
+
+#: includes/admin-docs.php:138
+msgid "No"
+msgstr ""
+
+#: includes/admin-docs.php:139
+msgid "Thanks for your feedback."
+msgstr ""
+
+#: includes/admin-docs.php:140
+msgid "Still need help?"
+msgstr ""
+
+#: includes/admin-docs.php:141
+msgid "Send the current context to Pixelgrade support."
+msgstr ""
+
+#: includes/admin-docs.php:142
+msgid "Connect a free pixelgrade.com account before sending a support request."
+msgstr ""
+
+#: includes/admin-docs.php:144
+msgid "Subject"
+msgstr ""
+
+#: includes/admin-docs.php:145
+msgid "Details"
+msgstr ""
+
+#: includes/admin-docs.php:147
+msgid "Help request"
+msgstr ""
+
+#: includes/admin-docs.php:148
+msgid "Bug report"
+msgstr ""
+
+#: includes/admin-docs.php:149
+msgid "Send request"
+msgstr ""
+
+#: includes/admin-docs.php:150
+msgid "Sending..."
+msgstr ""
+
+#: includes/admin-docs.php:151
+msgid "Your request has been sent."
+msgstr ""
+
+#: includes/admin-docs.php:152
+msgid "The request could not be sent. Please try again."
+msgstr ""
+
+#: includes/admin-docs.php:153
+#, php-format
+msgid "Keep the subject under %d characters. Add extra context in Details."
+msgstr ""
+
+#: includes/admin-docs.php:154
+msgid "The subject is too long. Shorten it and move the extra context to Details."
+msgstr ""
+
+#: includes/admin-docs.php:330
+#: includes/admin-docs.php:346
+msgid "The request could not be sent."
+msgstr ""
+
+#: includes/admin-docs.php:351
+msgid "The request returned an invalid response."
+msgstr ""
+
+#: includes/admin-docs.php:375
+msgid "You are not allowed to record documentation feedback."
+msgstr ""
+
+#: includes/admin-docs.php:389
+msgid "The documentation feedback request is invalid."
+msgstr ""
+
+#: includes/admin-docs.php:493
+msgid "You are not allowed to submit a support request."
+msgstr ""
+
+#: includes/admin-docs.php:500
+msgid "Connect your Pixelgrade account before submitting a support request."
+msgstr ""
+
+#: includes/admin-docs.php:505
+msgid "Please add a subject and details before sending your request."
+msgstr ""
+
+#: includes/admin-docs.php:512
+#, php-format
+msgid "Keep the subject under %d characters and add extra context in Details."
+msgstr ""
+
+#: includes/admin-docs.php:521
+#: includes/admin-docs.php:526
+msgid "The Pixelgrade account connection is not configured for support requests."
+msgstr ""
+
+#: includes/admin-help.php:38
+msgid "Help"
+msgstr ""
+
+#: includes/admin-overview.php:44
+msgid "Overview"
+msgstr ""
+
+#: includes/admin-overview.php:151
+#: includes/admin-overview.php:158
+msgid "Edit Styles"
+msgstr ""
+
+#: includes/admin-overview.php:169
+msgid "Browse Starter Sites"
+msgstr ""
+
+#: includes/admin-overview.php:180
+#: includes/admin-overview.php:187
+msgid "Get Help"
+msgstr ""
+
+#: includes/admin-overview.php:257
+#: includes/default-plugin-config.php:232
+msgid "Explore Pixelgrade Plus"
+msgstr ""
+
+#: includes/admin-overview.php:258
+msgid "Unlock advanced design tools, starter sites, and premium support for your Pixelgrade site."
+msgstr ""
+
+#: includes/admin-overview.php:264
+#: includes/admin-starter-sites.php:273
+#: includes/default-plugin-config.php:524
+msgid "Set up Pixelgrade Plus"
+msgstr ""
+
+#: includes/admin-overview.php:265
+msgid "Pixelgrade Plus is installed. Activate it to unlock its advanced design tools."
+msgstr ""
+
+#: includes/admin-overview.php:271
+#: includes/admin-starter-sites.php:274
+#: includes/default-plugin-config.php:521
+msgid "Manage Pixelgrade Plus"
+msgstr ""
+
+#: includes/admin-overview.php:272
+#: includes/default-plugin-config.php:522
+msgid "Pixelgrade Plus is active. Manage your advanced design tools and settings."
+msgstr ""
+
+#: includes/admin-plugins.php:34
+#: includes/default-plugin-config.php:51
+msgid "Plugins"
+msgstr ""
+
+#: includes/admin-plugins.php:110
+#: includes/default-plugin-config.php:484
+msgid "Manage plugins"
+msgstr ""
+
+#: includes/admin-plugins.php:111
+msgid "Install and activate the plugins recommended for your Pixelgrade site."
+msgstr ""
+
+#: includes/admin-plugins.php:112
+msgid "Plugins ready"
+msgstr ""
+
+#: includes/admin-plugins.php:113
+msgid "The recommended plugins are active."
+msgstr ""
+
+#: includes/admin-plugins.php:114
+msgid "You are all set. There are no recommended plugins for this theme right now."
+msgstr ""
+
+#: includes/admin-plugins.php:124
+msgid "Installed"
+msgstr ""
+
+#: includes/admin-plugins.php:125
+msgid "Not installed"
+msgstr ""
+
+#: includes/admin-plugins.php:126
+msgid "Update available"
+msgstr ""
+
+#: includes/admin-plugins.php:127
+msgid "Working..."
+msgstr ""
+
+#: includes/admin-plugins.php:128
+msgid "Action failed. Please try again from Plugins > Installed Plugins."
+msgstr ""
+
+#: includes/admin-plugins.php:129
+msgid "Refresh the page to confirm the latest plugin status."
+msgstr ""
+
+#: includes/admin-starter-sites.php:33
+#: includes/admin-starter-sites.php:255
+msgid "Starter Sites"
+msgstr ""
+
+#: includes/admin-starter-sites.php:256
+msgid "Import the content from a Pixelgrade starter site."
+msgstr ""
+
+#: includes/admin-starter-sites.php:257
+#: includes/default-plugin-config.php:447
+msgid "{{theme_name}} demo content"
+msgstr ""
+
+#: includes/admin-starter-sites.php:258
+msgid "No starter sites are currently configured."
+msgstr ""
+
+#: includes/admin-starter-sites.php:259
+msgid "Starter content was already imported. Import it again?"
+msgstr ""
+
+#: includes/admin-starter-sites.php:260
+#: includes/default-plugin-config.php:452
+msgid "Getting data about available content..."
+msgstr ""
+
+#: includes/admin-starter-sites.php:261
+msgid "This starter content is not available right now. Please try again later."
+msgstr ""
+
+#: includes/admin-starter-sites.php:262
+msgid "Something went wrong."
+msgstr ""
+
+#: includes/admin-starter-sites.php:263
+msgid "Successfully imported."
+msgstr ""
+
+#: includes/admin-starter-sites.php:265
+msgid "Free"
+msgstr ""
+
+#: includes/admin-starter-sites.php:266
+msgid "Premium"
+msgstr ""
+
+#: includes/admin-starter-sites.php:267
+msgid "Requires Pixelgrade Plus"
+msgstr ""
+
+#: includes/admin-starter-sites.php:270
+#: includes/default-plugin-config.php:471
+msgid "Import"
+msgstr ""
+
+#: includes/admin-starter-sites.php:271
+#: includes/default-plugin-config.php:470
+msgid "Imported"
+msgstr ""
+
+#: includes/admin-starter-sites.php:272
+msgid "Preview"
+msgstr ""
+
+#: includes/admin-starter-sites.php:275
+msgid "Importing..."
+msgstr ""
+
+#: includes/admin-starter-sites.php:371
+#: includes/default-plugin-config.php:448
+msgid "Import the content from the theme demo."
+msgstr ""
+
+#: includes/admin-system-status.php:32
+#: includes/admin-system-status.php:114
+#: includes/default-plugin-config.php:377
+#: includes/default-plugin-config.php:396
+msgid "System Status"
+msgstr ""
+
+#: includes/admin-system-status.php:115
+msgid "Review your WordPress installation, server details, and active plugins."
+msgstr ""
+
+#: includes/admin-system-status.php:116
+msgid "Allow diagnostic data collection"
+msgstr ""
+
+#: includes/admin-system-status.php:117
+msgid "Diagnostic data collection is enabled."
+msgstr ""
+
+#: includes/admin-system-status.php:118
+msgid "Diagnostic data collection is disabled."
+msgstr ""
+
+#: includes/admin-system-status.php:119
+msgid "Enable"
+msgstr ""
+
+#: includes/admin-system-status.php:120
+msgid "Disable"
+msgstr ""
+
+#: includes/admin-system-status.php:121
+msgid "Refresh data"
+msgstr ""
+
+#: includes/admin-system-status.php:122
+msgid "Open Site Health"
+msgstr ""
+
+#: includes/admin-system-status.php:123
+msgid "No diagnostic rows are available yet."
+msgstr ""
+
+#: includes/admin-system-status.php:124
+msgid "Enable diagnostic data collection to show installation and system details."
+msgstr ""
+
+#: includes/admin-system-status.php:126
+msgid "WordPress Installation"
+msgstr ""
+
+#: includes/admin-system-status.php:127
+msgid "System"
+msgstr ""
+
+#: includes/admin-system-status.php:128
+#: includes/default-plugin-config.php:415
+msgid "Active Plugins"
+msgstr ""
+
+#: includes/admin-tools.php:32
+#: includes/admin-tools.php:92
+msgid "Tools"
+msgstr ""
+
+#: includes/admin-tools.php:93
+msgid "Utilities for maintaining the Pixelgrade Assistant setup on this site."
+msgstr ""
+
+#: includes/admin-tools.php:94
+msgid "Reset Pixelgrade Assistant"
+msgstr ""
+
+#: includes/admin-tools.php:95
+msgid "Reset Assistant options, cached state, and onboarding progress."
+msgstr ""
+
+#: includes/admin-tools.php:96
+msgid "Solve the confirmation challenge to reset Pixelgrade Assistant."
+msgstr ""
+
+#: includes/admin-tools.php:97
+msgid "Confirmation answer"
+msgstr ""
+
+#: includes/admin-tools.php:98
+msgid "Type the result:"
+msgstr ""
+
+#: includes/admin-tools.php:99
+msgid "Confirm reset"
+msgstr ""
+
+#: includes/admin-tools.php:100
+msgid "Cancel"
+msgstr ""
+
+#: includes/admin-tools.php:101
+msgid "The confirmation answer is incorrect."
+msgstr ""
+
+#: includes/admin-tools.php:102
+msgid "Resetting..."
+msgstr ""
+
+#: includes/admin-tools.php:103
+msgid "Pixelgrade Assistant was reset. Refresh the page to load the clean state."
+msgstr ""
+
+#: includes/admin-tools.php:104
+msgid "Reset failed. Please try again."
+msgstr ""
+
+#: includes/admin-tools.php:105
+msgid "Clear browser cache for this admin app"
+msgstr ""
+
+#: includes/admin-tools.php:106
+msgid "Browser cache cleared for this admin app."
+msgstr ""
+
 #: includes/class-pixelgrade_assistant-data-collector.php:114
 msgid "Home URL"
 msgstr ""
@@ -788,533 +1292,438 @@ msgstr ""
 msgid "DB Charset"
 msgstr ""
 
-#: includes/class-pixelgrade_assistant.php:147
+#: includes/class-pixelgrade_assistant.php:152
 msgid "Pixelgrade Assistant requires WordPress version"
 msgstr ""
 
-#: includes/class-pixelgrade_assistant.php:149
+#: includes/class-pixelgrade_assistant.php:154
 msgid "or later"
 msgstr ""
 
-#: includes/class-pixelgrade_assistant.php:150
+#: includes/class-pixelgrade_assistant.php:155
 msgid "You're using an old version of WordPress"
 msgstr ""
 
-#: includes/class-pixelgrade_assistant.php:152
+#: includes/class-pixelgrade_assistant.php:157
 msgid "which is not compatible with the plugin. Please update to the latest version to benefit from all its features."
 msgstr ""
 
 #. translators: %s: the plugin name.
-#: includes/class-pixelgrade_assistant.php:319
+#: includes/class-pixelgrade_assistant.php:343
 #, php-format
 msgid "Error: plugin \"%s\" requires a newer version of PHP to be running."
 msgstr ""
 
 #. translators: %s: the minimum required PHP version.
-#: includes/class-pixelgrade_assistant.php:322
+#: includes/class-pixelgrade_assistant.php:346
 #, php-format
 msgid "Minimal version of PHP required: %s"
 msgstr ""
 
 #. translators: %s: the server current PHP version.
-#: includes/class-pixelgrade_assistant.php:325
+#: includes/class-pixelgrade_assistant.php:349
 #, php-format
 msgid "Your server's PHP version: %s"
 msgstr ""
 
 #. translators: 1: Pixelgrade Assistant plugin name, 2: Pixelgrade Care plugin name
-#: includes/class-pixelgrade_assistant.php:339
+#: includes/class-pixelgrade_assistant.php:363
 #, php-format
 msgid "%1$s stays inactive while %2$s is active, so the two never overlap. Your current setup keeps working — no action needed."
 msgstr ""
 
 #: includes/default-plugin-config.php:9
-msgid "My account"
-msgstr ""
-
-#: includes/default-plugin-config.php:10
-msgid "Need help?"
-msgstr ""
-
-#: includes/default-plugin-config.php:11
 msgid "Continue to your WordPress dashboard"
 msgstr ""
 
-#: includes/default-plugin-config.php:12
+#: includes/default-plugin-config.php:10
 msgid "Continue"
 msgstr ""
 
-#: includes/default-plugin-config.php:13
+#: includes/default-plugin-config.php:11
 msgid "Skip this step"
 msgstr ""
 
-#: includes/default-plugin-config.php:14
+#: includes/default-plugin-config.php:12
 msgid "Not right now"
 msgstr ""
 
-#: includes/default-plugin-config.php:15
+#: includes/default-plugin-config.php:13
 msgid "Something went wrong"
 msgstr ""
 
-#: includes/default-plugin-config.php:16
+#: includes/default-plugin-config.php:14
 msgid "Not activated."
 msgstr ""
 
-#: includes/default-plugin-config.php:17
+#: includes/default-plugin-config.php:15
 msgid "Connected & up-to-date!"
 msgstr ""
 
-#: includes/default-plugin-config.php:18
+#: includes/default-plugin-config.php:16
 msgid "Your theme is outdated, but an update is available!"
 msgstr ""
 
-#: includes/default-plugin-config.php:19
+#: includes/default-plugin-config.php:17
 msgid "Not connected"
 msgstr ""
 
-#: includes/default-plugin-config.php:20
+#: includes/default-plugin-config.php:18
 msgid "New theme update is available!"
 msgstr ""
 
-#: includes/default-plugin-config.php:21
+#: includes/default-plugin-config.php:19
 msgid "Great news! There is a new version of {{theme_name}} available."
 msgstr ""
 
-#: includes/default-plugin-config.php:22
+#: includes/default-plugin-config.php:20
 msgid "Sorry but we could not recognize your theme. This might have happened because you have made changes to the functions.php file. If that is the case - please try to revert to the original contents of that file and retry to validate your theme license."
 msgstr ""
 
-#: includes/default-plugin-config.php:23
+#: includes/default-plugin-config.php:21
 msgid "Update now"
 msgstr ""
 
-#: includes/default-plugin-config.php:24
+#: includes/default-plugin-config.php:22
 msgid "View changelog"
 msgstr ""
 
-#: includes/default-plugin-config.php:26
+#: includes/default-plugin-config.php:23
 msgid "Oh, snap! Something went wrong and we are unable to make sense of the actual problem."
 msgstr ""
 
-#: includes/default-plugin-config.php:28
+#: includes/default-plugin-config.php:25
 msgid "There is something wrong with the current setup of this WordPress installation."
 msgstr ""
 
-#: includes/default-plugin-config.php:30
+#: includes/default-plugin-config.php:27
 msgid "Your theme DIRECTORY is changed!"
 msgstr ""
 
-#: includes/default-plugin-config.php:31
+#: includes/default-plugin-config.php:28
 msgid "This will give you <strong>all kinds of trouble</strong> when installing updates for the theme. To be able to <strong>successfully install updates</strong> please <strong>change the theme's directory</strong> from \"{{template}}\" to \"{{original_slug}}\"."
 msgstr ""
 
-#: includes/default-plugin-config.php:32
+#: includes/default-plugin-config.php:29
 msgid "Your theme NAME is changed!"
 msgstr ""
 
-#: includes/default-plugin-config.php:33
+#: includes/default-plugin-config.php:30
 msgid "The theme name specified in the \"style.css\" file in the theme's directory is <strong>\"{{stylecss_theme_name}}\".</strong> The next time you <strong>update your theme</strong> this name will be <strong>changed back to \"{{theme_name}}\".</strong>"
 msgstr ""
 
-#: includes/default-plugin-config.php:34
+#: includes/default-plugin-config.php:31
 msgid "On your next theme update, your parent theme name will be <strong>changed back to its original one: \"{{stylecss_theme_name}}\".</strong> To avoid issues with your child theme, you will need to <strong>update the style.css file of both your parent and child theme</strong> with <strong>the original theme name: \"{{theme_name}}\".</strong>"
 msgstr ""
 
-#: includes/default-plugin-config.php:35
-msgid "Unfortunately, we've lost your connection with pixelgrade.com. Just reconnect and all will be back to normal."
-msgstr ""
-
-#: includes/default-plugin-config.php:36
-msgid "Your connection is out of sight!"
-msgstr ""
-
-#: includes/default-plugin-config.php:37
-msgid "Unfortunately, we've lost your connection with {{shopdomain}}. Just reconnect and all will be back to normal."
-msgstr ""
-
-#: includes/default-plugin-config.php:38
-#: includes/default-plugin-config.php:513
-msgid "Connect to {{shopdomain}}"
-msgstr ""
-
-#: includes/default-plugin-config.php:39
-msgid "Refresh your site connection"
-msgstr ""
-
-#: includes/default-plugin-config.php:40
+#: includes/default-plugin-config.php:32
 msgid "Site setup wizard"
 msgstr ""
 
-#: includes/default-plugin-config.php:41
+#: includes/default-plugin-config.php:33
 msgid "An internal server error has occurred"
 msgstr ""
 
-#: includes/default-plugin-config.php:42
+#: includes/default-plugin-config.php:34
 msgid "Something went wrong while trying to process your request. Please try again."
 msgstr ""
 
-#: includes/default-plugin-config.php:43
-msgid "Disconnect"
-msgstr ""
-
-#: includes/default-plugin-config.php:44
-msgid ""
-"Are you sure you want to do this?\n"
-"You will lose the connection with {{shopdomain}}.\n"
-"But don't worry, you can always reconnect."
-msgstr ""
-
-#: includes/default-plugin-config.php:45
+#: includes/default-plugin-config.php:35
 msgid "Unavailable"
 msgstr ""
 
-#: includes/default-plugin-config.php:46
+#: includes/default-plugin-config.php:36
 msgid "This feature is available only if your site is connected to {{shopdomain}}."
 msgstr ""
 
-#: includes/default-plugin-config.php:50
+#: includes/default-plugin-config.php:40
 msgid "selected plugins"
 msgstr ""
 
-#: includes/default-plugin-config.php:51
-#: includes/default-plugin-config.php:111
+#: includes/default-plugin-config.php:41
+#: includes/default-plugin-config.php:88
 msgid "Import starter content"
 msgstr ""
 
-#: includes/default-plugin-config.php:52
-#: includes/default-plugin-config.php:495
+#: includes/default-plugin-config.php:42
+#: includes/default-plugin-config.php:472
 msgid "Import selected"
 msgstr ""
 
-#: includes/default-plugin-config.php:53
+#: includes/default-plugin-config.php:43
 msgid "Welcome to the site setup wizard"
 msgstr ""
 
-#: includes/default-plugin-config.php:54
+#: includes/default-plugin-config.php:44
 msgid "This quick, optional setup helps you install recommended free plugins and load helpful demo content. It's safe and fast — and you can skip it anytime."
 msgstr ""
 
-#: includes/default-plugin-config.php:55
+#: includes/default-plugin-config.php:45
 msgid "Let's get started!"
 msgstr ""
 
-#: includes/default-plugin-config.php:56
-msgid "Connect your site to Pixelgrade"
-msgstr ""
-
-#: includes/default-plugin-config.php:57
-msgid ""
-"Optionally connect a free {{shopdomain}} account to unlock a few extras:\n"
-"\t\t\t\t\t<ul class=\"benefits\">\n"
-"\t\t\t\t\t\t<li><i></i><span><strong>Hand-picked plugins</strong> to boost your website.</span></li>\n"
-"\t\t\t\t\t\t<li><i></i><span><strong>Starter content</strong> to make your website look like the demo.</span></li>\n"
-"\t\t\t\t\t\t<li><i></i><span><strong>Premium support</strong> to guide you through everything you need.</span></li>\n"
-"                    </ul>"
-msgstr ""
-
-#: includes/default-plugin-config.php:63
-msgid "Take a break while you securely authorize Pixelgrade Assistant to connect to {{shopdomain}}. It's going to happen in a newly open browser window or tab, just so you know."
-msgstr ""
-
-#: includes/default-plugin-config.php:64
-msgid "Yaaay, site connected! 👏"
-msgstr ""
-
-#: includes/default-plugin-config.php:65
-msgid "Well done, <strong>{{username}}</strong>! Your website is successfully connected with {{shopdomain}}. Carry on and install the recommended plugins or starter content in the blink of an eye."
-msgstr ""
-
-#: includes/default-plugin-config.php:66
-msgid "Something Went Wrong!"
-msgstr ""
-
-#: includes/default-plugin-config.php:67
-msgid "We couldn't properly activate your theme. Please try again later."
-msgstr ""
-
-#: includes/default-plugin-config.php:68
-msgid "An error occurred. Please refresh the page to try again. Error: "
-msgstr ""
-
-#: includes/default-plugin-config.php:74
-msgid "Plugins"
-msgstr ""
-
-#: includes/default-plugin-config.php:81
+#: includes/default-plugin-config.php:58
 msgid "Set up the right plugins"
 msgstr ""
 
-#: includes/default-plugin-config.php:82
+#: includes/default-plugin-config.php:59
 msgid "Setting up plugins.."
 msgstr ""
 
-#: includes/default-plugin-config.php:83
+#: includes/default-plugin-config.php:60
 msgid "All done with plugins!"
 msgstr ""
 
-#: includes/default-plugin-config.php:88
+#: includes/default-plugin-config.php:65
 msgid "Install and activate the plugins that provide recommended functionality for your site. You can add or remove plugins later on from within the WordPress dashboard."
 msgstr ""
 
-#: includes/default-plugin-config.php:89
+#: includes/default-plugin-config.php:66
 msgid "Why not take a peek at our <a href=\"https://twitter.com/pixelgrade\" target=\"_blank\">Twitter page</a> while you wait? (opens in a new tab and the plugins aren't going anywhere)"
 msgstr ""
 
-#: includes/default-plugin-config.php:90
+#: includes/default-plugin-config.php:67
 msgid "You made it! 🙌 You've installed and activated the plugins. You are good to jump to the next step."
 msgstr ""
 
-#: includes/default-plugin-config.php:103
-#: includes/default-plugin-config.php:221
+#: includes/default-plugin-config.php:80
+#: includes/default-plugin-config.php:197
 msgid "Starter content"
 msgstr ""
 
-#: includes/default-plugin-config.php:104
+#: includes/default-plugin-config.php:81
 msgid "Next Step"
 msgstr ""
 
-#: includes/default-plugin-config.php:112
+#: includes/default-plugin-config.php:89
 msgid "Importing starter content.."
 msgstr ""
 
-#: includes/default-plugin-config.php:113
-#: includes/default-plugin-config.php:223
+#: includes/default-plugin-config.php:90
+#: includes/default-plugin-config.php:199
 msgid "Starter content imported!"
 msgstr ""
 
-#: includes/default-plugin-config.php:114
-#: includes/default-plugin-config.php:224
+#: includes/default-plugin-config.php:91
+#: includes/default-plugin-config.php:200
 msgid "Starter content could not be imported!"
 msgstr ""
 
-#: includes/default-plugin-config.php:119
-#: includes/default-plugin-config.php:229
+#: includes/default-plugin-config.php:96
+#: includes/default-plugin-config.php:205
 msgid "Use the demo content to make your site look as eye-candy as the theme's demo. The importer helps you have a strong starting point for your content and speed up the entire process."
 msgstr ""
 
-#: includes/default-plugin-config.php:120
-#: includes/default-plugin-config.php:230
+#: includes/default-plugin-config.php:97
+#: includes/default-plugin-config.php:206
 msgid "Why not join our <a href=\"https://www.facebook.com/groups/PixelGradeUsersGroup/\" target=\"_blank\">Facebook Group</a> while you wait? (opens in a new tab)"
 msgstr ""
 
-#: includes/default-plugin-config.php:121
-#: includes/default-plugin-config.php:231
+#: includes/default-plugin-config.php:98
+#: includes/default-plugin-config.php:207
 msgid "Mission accomplished! 👍 You've successfully imported the starter content, so you're good to move forward. Have fun!"
 msgstr ""
 
-#: includes/default-plugin-config.php:122
-#: includes/default-plugin-config.php:232
+#: includes/default-plugin-config.php:99
+#: includes/default-plugin-config.php:208
 msgid "Sadly, errors have happened and the started content could not be imported at this time. Please try again in a little while or reach out to our support crew."
 msgstr ""
 
-#: includes/default-plugin-config.php:138
+#: includes/default-plugin-config.php:114
 msgid "Ready"
 msgstr ""
 
-#: includes/default-plugin-config.php:145
+#: includes/default-plugin-config.php:121
 msgid "Your site is ready to make an impact!"
 msgstr ""
 
-#: includes/default-plugin-config.php:150
+#: includes/default-plugin-config.php:126
 msgid "<strong>Big congrats, mate!</strong> 👏 Everything's right on track which means that you can start making tweaks of all kinds. Login to your WordPress dashboard to make changes, and feel free to change the default content to match your needs."
 msgstr ""
 
-#: includes/default-plugin-config.php:160
+#: includes/default-plugin-config.php:136
 msgid "Next steps"
 msgstr ""
 
-#: includes/default-plugin-config.php:165
+#: includes/default-plugin-config.php:141
 msgid "View and Customize"
 msgstr ""
 
-#: includes/default-plugin-config.php:182
+#: includes/default-plugin-config.php:158
 msgid "Browse the Theme Documentation"
 msgstr ""
 
-#: includes/default-plugin-config.php:186
+#: includes/default-plugin-config.php:162
 msgid "Learn How to Use WordPress"
 msgstr ""
 
-#: includes/default-plugin-config.php:190
+#: includes/default-plugin-config.php:166
 msgid "Get Help and Support"
 msgstr ""
 
-#: includes/default-plugin-config.php:194
+#: includes/default-plugin-config.php:170
 msgid "Join our Facebook group"
 msgstr ""
 
-#: includes/default-plugin-config.php:207
+#: includes/default-plugin-config.php:183
 msgid "General"
 msgstr ""
 
-#: includes/default-plugin-config.php:222
+#: includes/default-plugin-config.php:198
 msgid "Starter content importing.."
 msgstr ""
 
-#: includes/default-plugin-config.php:245
+#: includes/default-plugin-config.php:221
 msgid "Pixelgrade Plus"
 msgstr ""
 
-#: includes/default-plugin-config.php:250
+#: includes/default-plugin-config.php:226
 msgid "Pixelgrade Plus is the optional premium companion for the Pixelgrade LT stack — advanced design tools that build on everything in the free stack. You can keep using the free stack for as long as you like; Plus is here when you want more."
 msgstr ""
 
-#: includes/default-plugin-config.php:256
-msgid "Explore Pixelgrade Plus"
-msgstr ""
-
-#: includes/default-plugin-config.php:266
-#: includes/default-plugin-config.php:274
+#: includes/default-plugin-config.php:242
+#: includes/default-plugin-config.php:250
 msgid "Customizations"
 msgstr ""
 
-#: includes/default-plugin-config.php:279
+#: includes/default-plugin-config.php:255
 msgid "We know that each website needs to have an unique voice in tune with your charisma. That's why we created a smart options system to easily make handy color changes, spacing adjustments and balancing fonts, each step bringing you closer to a striking result."
 msgstr ""
 
-#: includes/default-plugin-config.php:285
+#: includes/default-plugin-config.php:261
 msgid "Access the Customizer"
 msgstr ""
 
-#: includes/default-plugin-config.php:301
+#: includes/default-plugin-config.php:277
 msgid "Design & Style"
 msgstr ""
 
-#: includes/default-plugin-config.php:311
+#: includes/default-plugin-config.php:287
 msgid "Tweaking Colors Schemes"
 msgstr ""
 
-#: includes/default-plugin-config.php:316
+#: includes/default-plugin-config.php:292
 msgid "Choose colors that resonate with the statement you want to portray. For example, blue inspires safety and peace, while yellow is translated into energy and joyfulness."
 msgstr ""
 
-#: includes/default-plugin-config.php:320
+#: includes/default-plugin-config.php:296
 msgid "Changing Colors"
 msgstr ""
 
-#: includes/default-plugin-config.php:332
+#: includes/default-plugin-config.php:308
 msgid "Managing Fonts"
 msgstr ""
 
-#: includes/default-plugin-config.php:337
+#: includes/default-plugin-config.php:313
 msgid "We recommend you settle on only a few fonts: it's best to stick with two fonts but if you're feeling ambitious, three is tops."
 msgstr ""
 
-#: includes/default-plugin-config.php:341
+#: includes/default-plugin-config.php:317
 msgid "Changing Fonts"
 msgstr ""
 
-#: includes/default-plugin-config.php:353
+#: includes/default-plugin-config.php:329
 msgid "Custom CSS"
 msgstr ""
 
-#: includes/default-plugin-config.php:358
+#: includes/default-plugin-config.php:334
 msgid "If you're looking for changes that are not possible through the current set of options, swing some Custom CSS code to override the default CSS of your theme."
 msgstr ""
 
-#: includes/default-plugin-config.php:362
+#: includes/default-plugin-config.php:338
 msgid "Using the Custom CSS Editor"
 msgstr ""
 
-#: includes/default-plugin-config.php:374
+#: includes/default-plugin-config.php:350
 msgid "Advanced Customizations"
 msgstr ""
 
-#: includes/default-plugin-config.php:379
+#: includes/default-plugin-config.php:355
 msgid "If you want to change HTML or PHP code, and keep your changes from being overwritten on the next theme update, the best way is to make them in a child theme."
 msgstr ""
 
-#: includes/default-plugin-config.php:383
+#: includes/default-plugin-config.php:359
 msgid "Using a Child Theme"
 msgstr ""
 
-#: includes/default-plugin-config.php:401
-#: includes/default-plugin-config.php:420
-msgid "System Status"
-msgstr ""
-
-#: includes/default-plugin-config.php:421
+#: includes/default-plugin-config.php:397
 msgid "Allow Pixelgrade to collect non-sensitive diagnostic data and usage information about your WordPress install. This is entirely optional and helps us improve the free Pixelgrade stack. Thanks!"
 msgstr ""
 
-#: includes/default-plugin-config.php:422
+#: includes/default-plugin-config.php:398
 msgid "This version is a little old. We recommend you update to PHP "
 msgstr ""
 
-#: includes/default-plugin-config.php:423
+#: includes/default-plugin-config.php:399
 msgid "We recommend you update to the latest and greatest WordPress version."
 msgstr ""
 
-#: includes/default-plugin-config.php:424
-#: includes/default-plugin-config.php:426
+#: includes/default-plugin-config.php:400
+#: includes/default-plugin-config.php:402
 msgid "There's an update available!"
 msgstr ""
 
-#: includes/default-plugin-config.php:425
+#: includes/default-plugin-config.php:401
 msgid "You are running the latest version of {{theme_name}}"
 msgstr ""
 
-#: includes/default-plugin-config.php:427
+#: includes/default-plugin-config.php:403
 msgid "Follow this link to update."
 msgstr ""
 
-#: includes/default-plugin-config.php:428
+#: includes/default-plugin-config.php:404
 msgid "Great!"
 msgstr ""
 
-#: includes/default-plugin-config.php:429
+#: includes/default-plugin-config.php:405
 msgid "Your PHP version isn't supported anymore!"
 msgstr ""
 
-#: includes/default-plugin-config.php:430
+#: includes/default-plugin-config.php:406
 msgid "Please update to a newer PHP version"
 msgstr ""
 
-#: includes/default-plugin-config.php:431
+#: includes/default-plugin-config.php:407
 msgid "Your PHP version is OK."
 msgstr ""
 
-#: includes/default-plugin-config.php:432
+#: includes/default-plugin-config.php:408
 msgid "Your MySQL version isn't supported anymore!"
 msgstr ""
 
-#: includes/default-plugin-config.php:433
+#: includes/default-plugin-config.php:409
 msgid "Please update to a newer MySQL version"
 msgstr ""
 
-#: includes/default-plugin-config.php:434
+#: includes/default-plugin-config.php:410
 msgid "Your MySQL version is OK."
 msgstr ""
 
-#: includes/default-plugin-config.php:435
+#: includes/default-plugin-config.php:411
 msgid "You might have problems with emoji!"
 msgstr ""
 
-#: includes/default-plugin-config.php:436
+#: includes/default-plugin-config.php:412
 msgid "Go all out emoji-style!"
 msgstr ""
 
-#: includes/default-plugin-config.php:437
+#: includes/default-plugin-config.php:413
 msgid "WordPress Install Data"
 msgstr ""
 
-#: includes/default-plugin-config.php:438
+#: includes/default-plugin-config.php:414
 msgid "System Data"
 msgstr ""
 
-#: includes/default-plugin-config.php:439
-msgid "Active Plugins"
-msgstr ""
-
-#: includes/default-plugin-config.php:440
+#: includes/default-plugin-config.php:416
 msgid "Reset Pixelgrade Assistant Plugin Data"
 msgstr ""
 
-#: includes/default-plugin-config.php:441
+#: includes/default-plugin-config.php:417
 msgid "In case you run into trouble, you can reset the plugin data and start over. No content will be lost."
 msgstr ""
 
-#: includes/default-plugin-config.php:442
+#: includes/default-plugin-config.php:418
 msgid ""
 "Are you sure you want to reset Pixelgrade Assistant?\n"
 "\n"
@@ -1322,256 +1731,171 @@ msgid ""
 "OK, just do this simple calculation: "
 msgstr ""
 
-#: includes/default-plugin-config.php:449
+#: includes/default-plugin-config.php:425
 msgid "I could not install the plugin! You will need to install it manually from the plugins page!"
 msgstr ""
 
-#: includes/default-plugin-config.php:450
+#: includes/default-plugin-config.php:426
 msgid "I could not activate the plugin! You need to activate it manually from the plugins page!"
 msgstr ""
 
-#: includes/default-plugin-config.php:451
+#: includes/default-plugin-config.php:427
 msgid "Plugin ready!"
 msgstr ""
 
-#: includes/default-plugin-config.php:452
+#: includes/default-plugin-config.php:428
 msgid "Updating ..."
 msgstr ""
 
-#: includes/default-plugin-config.php:453
+#: includes/default-plugin-config.php:429
 msgid "Installing ..."
 msgstr ""
 
-#: includes/default-plugin-config.php:454
+#: includes/default-plugin-config.php:430
 msgid "Activating ..."
 msgstr ""
 
-#: includes/default-plugin-config.php:455
+#: includes/default-plugin-config.php:431
 msgid "Plugin up to date!"
 msgstr ""
 
-#: includes/default-plugin-config.php:459
+#: includes/default-plugin-config.php:435
 msgid "Sorry, you are not allowed to access this page."
 msgstr ""
 
-#: includes/default-plugin-config.php:461
+#: includes/default-plugin-config.php:437
 msgid "Core plugins needed for your website (required)."
 msgstr ""
 
-#: includes/default-plugin-config.php:462
+#: includes/default-plugin-config.php:438
 msgid "Recommended plugins to enhance your website."
 msgstr ""
 
-#: includes/default-plugin-config.php:464
-msgid "No plugins needed at this time."
+#: includes/default-plugin-config.php:440
+msgid "You are all set"
 msgstr ""
 
-#: includes/default-plugin-config.php:470
-msgid "{{theme_name}} demo content"
+#: includes/default-plugin-config.php:441
+msgid "There are no recommended plugins for this theme right now."
 msgstr ""
 
-#: includes/default-plugin-config.php:471
-msgid "Import the content from the theme demo."
-msgstr ""
-
-#: includes/default-plugin-config.php:472
+#: includes/default-plugin-config.php:449
 msgid "Unfortunately, we don't have any starter content to go with your theme right now."
 msgstr ""
 
-#: includes/default-plugin-config.php:473
+#: includes/default-plugin-config.php:450
 msgid "Starter content was already imported! Are you sure you want to import it again?"
 msgstr ""
 
-#: includes/default-plugin-config.php:474
+#: includes/default-plugin-config.php:451
 msgid "It's OK!"
 msgstr ""
 
-#: includes/default-plugin-config.php:475
-msgid "Getting data about available content..."
-msgstr ""
-
-#: includes/default-plugin-config.php:476
+#: includes/default-plugin-config.php:453
 msgid "Something went wrong!"
 msgstr ""
 
-#: includes/default-plugin-config.php:477
+#: includes/default-plugin-config.php:454
 msgid ""
 "This starter content is not available right now.\n"
 "Please try again later!"
 msgstr ""
 
-#: includes/default-plugin-config.php:478
+#: includes/default-plugin-config.php:455
 msgid "Media already exists!"
 msgstr ""
 
-#: includes/default-plugin-config.php:479
+#: includes/default-plugin-config.php:456
 msgid "We won't import again as there is no need to!"
 msgstr ""
 
-#: includes/default-plugin-config.php:480
+#: includes/default-plugin-config.php:457
 msgid "Importing media: "
 msgstr ""
 
-#: includes/default-plugin-config.php:481
+#: includes/default-plugin-config.php:458
 msgid "Posts already exist!"
 msgstr ""
 
-#: includes/default-plugin-config.php:482
-#: includes/default-plugin-config.php:485
-#: includes/default-plugin-config.php:488
+#: includes/default-plugin-config.php:459
+#: includes/default-plugin-config.php:462
+#: includes/default-plugin-config.php:465
 msgid "We won't import them again!"
 msgstr ""
 
-#: includes/default-plugin-config.php:483
+#: includes/default-plugin-config.php:460
 msgid "Importing "
 msgstr ""
 
-#: includes/default-plugin-config.php:484
+#: includes/default-plugin-config.php:461
 msgid "Taxonomies (like categories) already exist!"
 msgstr ""
 
-#: includes/default-plugin-config.php:486
+#: includes/default-plugin-config.php:463
 msgid "Importing taxonomy: "
 msgstr ""
 
-#: includes/default-plugin-config.php:487
+#: includes/default-plugin-config.php:464
 msgid "Widgets already exist!"
 msgstr ""
 
-#: includes/default-plugin-config.php:489
+#: includes/default-plugin-config.php:466
 msgid "Importing widgets ..."
 msgstr ""
 
-#: includes/default-plugin-config.php:490
+#: includes/default-plugin-config.php:467
 msgid "Preparing the scene for awesomeness..."
 msgstr ""
 
-#: includes/default-plugin-config.php:491
+#: includes/default-plugin-config.php:468
 msgid "Wrapping it up... "
 msgstr ""
 
-#: includes/default-plugin-config.php:492
+#: includes/default-plugin-config.php:469
 msgid "Successfully Imported!"
 msgstr ""
 
-#: includes/default-plugin-config.php:493
-msgid "Imported"
-msgstr ""
-
-#: includes/default-plugin-config.php:494
-msgid "Import"
-msgstr ""
-
-#: includes/default-plugin-config.php:496
+#: includes/default-plugin-config.php:473
 msgid "Pause import"
 msgstr ""
 
-#: includes/default-plugin-config.php:497
+#: includes/default-plugin-config.php:474
 msgid "Resume import"
 msgstr ""
 
-#: includes/default-plugin-config.php:498
+#: includes/default-plugin-config.php:475
 msgid "Currently paused..."
 msgstr ""
 
-#: includes/default-plugin-config.php:507
-msgid "Connect a Pixelgrade account (optional)"
-msgstr ""
-
-#: includes/default-plugin-config.php:509
-msgid "Site connected! You're all set 👌"
-msgstr ""
-
-#: includes/default-plugin-config.php:510
-msgid "<strong>Well done, {{username}}!</strong> Your site is successfully connected to {{shopdomain}} and all the tools are available to make it shine."
-msgstr ""
-
-#: includes/default-plugin-config.php:512
-msgid "Connecting a free {{shopdomain}} account is <strong>optional</strong>. It unlocks extras like <strong>cloud starter content, in-dashboard documentation, and premium support</strong>.<br/><br/>This <strong>does not mean</strong> we gain direct (admin) access to this site. You remain the only one who can log in and make changes. <strong>Connecting means</strong> that this site and {{shopdomain}} share a few details needed to communicate securely."
-msgstr ""
-
-#: includes/default-plugin-config.php:515
-msgid "Ups! You are logged in, but it seems you don't have a license for this theme yet."
-msgstr ""
-
-#: includes/default-plugin-config.php:516
-msgid "Retry to activate"
-msgstr ""
-
-#: includes/default-plugin-config.php:517
-msgid "You don't seem to have any licenses for this theme"
-msgstr ""
-
-#: includes/default-plugin-config.php:519
-msgid "Huston, we have a problem.. Really!"
-msgstr ""
-
-#: includes/default-plugin-config.php:520
-#, php-format
-msgid "This doesn't seem to be <strong>a Pixelgrade theme.</strong> Are you sure you are <strong>using the original theme code</strong>?<br/><strong>We can't activate this theme</strong> in it's current state.<br/><br/>Reach us at <a href=\"mailto:help@pixelgrade.com?Subject=Help%20with%20broken%20theme\" target=\"_top\">help@pixelgrade.com</a> if you need further help."
-msgstr ""
-
-#: includes/default-plugin-config.php:522
-msgid "Connection in progress"
-msgstr ""
-
-#: includes/default-plugin-config.php:523
-msgid "Getting a couple of details to make sure everything is working and secure..."
-msgstr ""
-
-#: includes/default-plugin-config.php:524
-msgid "Preparing..."
-msgstr ""
-
-#: includes/default-plugin-config.php:525
-msgid "Sorry... I can't do this right now!"
-msgstr ""
-
-#: includes/default-plugin-config.php:534
-msgid "Manage plugins"
-msgstr ""
-
-#: includes/default-plugin-config.php:535
+#: includes/default-plugin-config.php:485
 msgid "{{theme_name}} recommends these plugins so you can take full advantage of everything that it offers."
 msgstr ""
 
-#: includes/default-plugin-config.php:537
+#: includes/default-plugin-config.php:487
 msgid "Plugins ready 🧘️"
 msgstr ""
 
-#: includes/default-plugin-config.php:538
+#: includes/default-plugin-config.php:488
 msgid "You can rest assured that {{theme_name}} can do its best for you and your site."
 msgstr ""
 
-#: includes/default-plugin-config.php:552
+#: includes/default-plugin-config.php:502
 msgid "Beautiful, flexible content blocks that power the Pixelgrade LT design experience."
 msgstr ""
 
-#: includes/default-plugin-config.php:571
-msgid "Manage Pixelgrade Plus"
-msgstr ""
-
-#: includes/default-plugin-config.php:572
-msgid "Pixelgrade Plus is active. Manage your advanced design tools and settings."
-msgstr ""
-
-#: includes/default-plugin-config.php:574
-msgid "Set up Pixelgrade Plus"
-msgstr ""
-
-#: includes/default-plugin-config.php:575
+#: includes/default-plugin-config.php:525
 msgid "Pixelgrade Plus is installed. Activate it to unlock its advanced design tools for your Pixelgrade LT site."
 msgstr ""
 
-#: includes/modules/conditional-updates/class-pixelgrade_assistant-conditional-updates.php:158
+#: includes/modules/conditional-updates/class-pixelgrade_assistant-conditional-updates.php:163
 msgid "Your Pixelgrade theme requires different plugin versions than the ones active:"
 msgstr ""
 
-#: includes/modules/conditional-updates/class-pixelgrade_assistant-conditional-updates.php:160
+#: includes/modules/conditional-updates/class-pixelgrade_assistant-conditional-updates.php:165
 msgid "Please <strong>replace the current active plugin versions</strong> with the ones recommended for a smooth experience.<br><strong>The steps are as follows:</strong> download, go to <code>Plugins → Add New</code>, use the <code>Upload Plugin</code> button to select the downloaded zip file, and choose <code>Replace current with uploaded</code> when asked."
 msgstr ""
 
-#: includes/modules/conditional-updates/class-pixelgrade_assistant-conditional-updates.php:325
+#: includes/modules/conditional-updates/class-pixelgrade_assistant-conditional-updates.php:330
 #, php-format
 msgid "<a href=\"%1$s\" target=\"_blank\">%2$s</a> - <strong>recommended version is %3$s;</strong> download it <a href=\"%4$s\" target=\"_blank\">here</a>;"
 msgstr ""
