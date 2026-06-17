@@ -16,7 +16,8 @@
             "php tests/admin-system-status-test.php",
             "php tests/admin-tools-test.php",
             "php tests/admin-help-test.php",
-            "php tests/admin-docs-test.php"
+            "php tests/admin-docs-test.php",
+            "php tests/wupdates-identification-test.php"
         ]
     }
 }

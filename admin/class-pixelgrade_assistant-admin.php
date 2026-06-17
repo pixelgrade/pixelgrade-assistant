@@ -1424,6 +1424,9 @@ class PixelgradeAssistant_Admin {
 	}
 
 	public static function maybe_fill_up_wupdates_identification_data( $wupdates_data ) {
+		if ( ! is_array( $wupdates_data ) ) {
+			$wupdates_data = array();
+		}
 
     	// Maybe tackle the current active theme.
 		$theme_slug = basename( get_template_directory() );
@@ -1435,7 +1438,7 @@ class PixelgradeAssistant_Admin {
 			// We need to know if we have made changes to the data.
 			$theme_data_changed = false;
 
-			if ( ! isset( $wupdates_data[ $theme_slug ] ) ) {
+			if ( ! isset( $wupdates_data[ $theme_slug ] ) || ! is_array( $wupdates_data[ $theme_slug ] ) ) {
 				$wupdates_data[ $theme_slug ] = array();
 			}
 
