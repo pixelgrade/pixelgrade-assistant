@@ -84,6 +84,26 @@ if ( ! function_exists( 'pixassist_docs_product_sku' ) ) {
 	}
 }
 
+if ( ! function_exists( 'pixassist_docs_theme_hash_id' ) ) {
+	/**
+	 * Retrieves the active theme's WUpdates hash id.
+	 *
+	 * Used as a lightweight eligibility/triage signal: support is available for recognized
+	 * Pixelgrade themes, and the hash lets pixelgrade.com route the ticket to the right product.
+	 *
+	 * @return string Empty string when no recognized Pixelgrade theme is active.
+	 */
+	function pixassist_docs_theme_hash_id() {
+		if ( ! class_exists( 'PixelgradeAssistant_Admin' ) || ! method_exists( 'PixelgradeAssistant_Admin', 'get_theme_hash_id' ) ) {
+			return '';
+		}
+
+		$hash_id = PixelgradeAssistant_Admin::get_theme_hash_id();
+
+		return empty( $hash_id ) ? '' : (string) $hash_id;
+	}
+}
+
 if ( ! function_exists( 'pixassist_docs_online_url' ) ) {
 	/**
 	 * Retrieves the online docs fallback URL.
@@ -139,7 +159,7 @@ if ( ! function_exists( 'pixassist_get_docs_data' ) ) {
 				'feedbackThanks'         => esc_html__( 'Thanks for your feedback.', '__plugin_txtd' ),
 				'escalationTitle'        => esc_html__( 'Still need help?', '__plugin_txtd' ),
 				'escalationDescription'  => esc_html__( 'Send the current context to Pixelgrade support.', '__plugin_txtd' ),
-				'connectDescription'     => esc_html__( 'Connect a free pixelgrade.com account before sending a support request.', '__plugin_txtd' ),
+				'connectDescription'     => esc_html__( 'Connect a free pixelgrade.com account to send a support request — free for everyone. Browsing the docs stays open without it.', '__plugin_txtd' ),
 				'connectLabel'           => esc_html__( 'Connect account', '__plugin_txtd' ),
 				'ticketSubjectLabel'     => esc_html__( 'Subject', '__plugin_txtd' ),
 				'ticketDetailsLabel'     => esc_html__( 'Details', '__plugin_txtd' ),
@@ -459,6 +479,7 @@ if ( ! function_exists( 'pixassist_docs_ticket_body' ) ) {
 			'tag'         => pixassist_docs_sanitize_scalar( pixassist_docs_request_value( $request, 'tag' ) ),
 			'source'      => 'pixelgrade-assistant-docs',
 			'product_sku' => pixassist_docs_product_sku(),
+			'hash_id'     => pixassist_docs_theme_hash_id(),
 			'site_url'    => home_url( '/' ),
 			'admin_url'   => admin_url(),
 			'user_id'     => isset( $account['pixelgrade_user_id'] ) ? (string) absint( $account['pixelgrade_user_id'] ) : '',
@@ -498,6 +519,12 @@ if ( ! function_exists( 'pixassist_submit_docs_ticket' ) ) {
 
 		if ( empty( $account['is_connected'] ) || empty( $credentials['token'] ) ) {
 			return pixassist_docs_response( 'not_connected', esc_html__( 'Connect your Pixelgrade account before submitting a support request.', '__plugin_txtd' ) );
+		}
+
+		// Eligibility gate: support is for recognized Pixelgrade themes. Assistant only loads for
+		// Pixelgrade themes, so this is cheap belt-and-suspenders that also keeps tickets triageable.
+		if ( '' === pixassist_docs_theme_hash_id() ) {
+			return pixassist_docs_response( 'no_pixelgrade_theme', esc_html__( 'Support is available for active Pixelgrade themes.', '__plugin_txtd' ) );
 		}
 
 		$body = pixassist_docs_ticket_body( $request );

@@ -376,17 +376,54 @@ if ( ! function_exists( 'pixassist_account_oauth_config' ) ) {
 	/**
 	 * Resolves OAuth1 account connection configuration.
 	 *
-	 * Assistant does not duplicate the Plus consumer secret. During the transition, if Plus is active
-	 * its constants are read lazily; otherwise deployments may define Assistant-specific constants or
-	 * filter this config.
+	 * Assistant ships its own dedicated pixelgrade.com OAuth consumer so free users can connect and
+	 * get support without Pixelgrade Plus. The consumer key + secret are resolved together, as a pair,
+	 * from the first source that supplies BOTH non-empty values:
+	 *
+	 *   1. Assistant constants  (PIXELGRADE_ASSISTANT_ACCOUNT_CONSUMER_KEY / ..._SECRET)
+	 *   2. Plus constants       (PIXELGRADE_PLUS_ACCOUNT_CONSUMER_KEY / ..._SECRET) — optional, back-compat
+	 *   3. Hardcoded Assistant default (`pkDQYLDpG7ji` + its shipped secret)
+	 *
+	 * Resolving key and secret independently would let a half-set override (e.g. only a Plus key,
+	 * no matching secret) produce a mismatched pair and silently broken signing; pairing prevents that.
 	 *
 	 * @return array Config with base_url, consumer_key, consumer_secret, source.
 	 */
 	function pixassist_account_oauth_config() {
+		$base_url = defined( 'PIXELGRADE_ASSISTANT_ACCOUNT_API_BASE' )
+			? (string) constant( 'PIXELGRADE_ASSISTANT_ACCOUNT_API_BASE' )
+			: ( defined( 'PIXELGRADE_PLUS_ACCOUNT_API_BASE' ) ? (string) constant( 'PIXELGRADE_PLUS_ACCOUNT_API_BASE' ) : PIXELGRADE_ASSISTANT__API_BASE );
+
+		// Hardcoded Assistant default. `pkDQYLDpG7ji` is the dedicated Assistant OAuth consumer being
+		// registered on pixelgrade.com (issue #58). Its secret ships here as the literal default once
+		// that registration is finished; until then it stays empty so the whole connection remains
+		// dormant, and it can be supplied for local/staging testing by defining
+		// PIXELGRADE_ASSISTANT_ACCOUNT_CONSUMER_SECRET in wp-config.
+		$consumer_key    = 'pkDQYLDpG7ji';
+		$consumer_secret = ''; // TODO(#58): replace with the shipped Assistant consumer secret.
+		if ( '' === $consumer_secret && defined( 'PIXELGRADE_ASSISTANT_ACCOUNT_CONSUMER_SECRET' ) ) {
+			$consumer_secret = (string) constant( 'PIXELGRADE_ASSISTANT_ACCOUNT_CONSUMER_SECRET' );
+		}
+
+		// Override the default pair only when a source supplies a complete, non-empty key + secret.
+		$pair_sources = array(
+			array( 'PIXELGRADE_ASSISTANT_ACCOUNT_CONSUMER_KEY', 'PIXELGRADE_ASSISTANT_ACCOUNT_CONSUMER_SECRET' ),
+			array( 'PIXELGRADE_PLUS_ACCOUNT_CONSUMER_KEY', 'PIXELGRADE_PLUS_ACCOUNT_CONSUMER_SECRET' ),
+		);
+		foreach ( $pair_sources as $pair ) {
+			if ( defined( $pair[0] ) && defined( $pair[1] )
+				&& '' !== (string) constant( $pair[0] )
+				&& '' !== (string) constant( $pair[1] ) ) {
+				$consumer_key    = (string) constant( $pair[0] );
+				$consumer_secret = (string) constant( $pair[1] );
+				break;
+			}
+		}
+
 		$config = array(
-			'base_url'        => defined( 'PIXELGRADE_ASSISTANT_ACCOUNT_API_BASE' ) ? (string) constant( 'PIXELGRADE_ASSISTANT_ACCOUNT_API_BASE' ) : ( defined( 'PIXELGRADE_PLUS_ACCOUNT_API_BASE' ) ? (string) constant( 'PIXELGRADE_PLUS_ACCOUNT_API_BASE' ) : PIXELGRADE_ASSISTANT__API_BASE ),
-			'consumer_key'    => defined( 'PIXELGRADE_ASSISTANT_ACCOUNT_CONSUMER_KEY' ) ? (string) constant( 'PIXELGRADE_ASSISTANT_ACCOUNT_CONSUMER_KEY' ) : ( defined( 'PIXELGRADE_PLUS_ACCOUNT_CONSUMER_KEY' ) ? (string) constant( 'PIXELGRADE_PLUS_ACCOUNT_CONSUMER_KEY' ) : 'pkDQYLDpG7ji' ),
-			'consumer_secret' => defined( 'PIXELGRADE_ASSISTANT_ACCOUNT_CONSUMER_SECRET' ) ? (string) constant( 'PIXELGRADE_ASSISTANT_ACCOUNT_CONSUMER_SECRET' ) : ( defined( 'PIXELGRADE_PLUS_ACCOUNT_CONSUMER_SECRET' ) ? (string) constant( 'PIXELGRADE_PLUS_ACCOUNT_CONSUMER_SECRET' ) : '' ),
+			'base_url'        => $base_url,
+			'consumer_key'    => $consumer_key,
+			'consumer_secret' => $consumer_secret,
 			'source'          => 'pixelgrade-assistant',
 		);
 
@@ -1165,8 +1202,8 @@ if ( ! function_exists( 'pixassist_get_account_data' ) ) {
 			),
 			'copy'    => array(
 				'title'                  => esc_html__( 'Pixelgrade account', '__plugin_txtd' ),
-				'connectedDescription'   => esc_html__( 'This site can use your connected pixelgrade.com account for support and future account-gated services.', '__plugin_txtd' ),
-				'disconnectedDescription' => esc_html__( 'Connect a free pixelgrade.com account to identify this site when you ask for help.', '__plugin_txtd' ),
+				'connectedDescription'   => esc_html__( 'Your pixelgrade.com account is connected. You can send support requests right from this dashboard.', '__plugin_txtd' ),
+				'disconnectedDescription' => esc_html__( 'Connect a free pixelgrade.com account to send support requests and get help right from your dashboard. It is free for everyone and always optional.', '__plugin_txtd' ),
 				'connectLabel'           => esc_html__( 'Connect account', '__plugin_txtd' ),
 				'disconnectLabel'        => esc_html__( 'Disconnect', '__plugin_txtd' ),
 				'notConfiguredLabel'     => esc_html__( 'Account connection is not configured.', '__plugin_txtd' ),

@@ -19,6 +19,7 @@ $GLOBALS['paf_denied_caps']    = array();
 $GLOBALS['paf_http_requests']  = array();
 $GLOBALS['paf_current_user']   = 7;
 $GLOBALS['paf_current_theme']  = 'anima-lt';
+$GLOBALS['paf_theme_hash']     = 'theme-hash';
 
 function add_filter( $hook, $callback, $priority = 10, $args = 1 ) {
 	$GLOBALS['paf_filters'][ $hook ][] = array(
@@ -172,6 +173,7 @@ function paf_reset_runtime() {
 	$GLOBALS['paf_http_requests'] = array();
 	$GLOBALS['paf_current_user']  = 7;
 	$GLOBALS['paf_current_theme'] = 'anima-lt';
+	$GLOBALS['paf_theme_hash']    = 'theme-hash';
 
 	if ( function_exists( 'pixassist_filter_modern_account_identity' ) ) {
 		add_filter( 'pixassist_account', 'pixassist_filter_modern_account_identity' );
@@ -210,7 +212,7 @@ class PixelgradeAssistant_Admin {
 	}
 
 	public static function get_theme_hash_id() {
-		return 'theme-hash';
+		return $GLOBALS['paf_theme_hash'];
 	}
 
 	public static function get_theme_type() {
@@ -368,8 +370,21 @@ assert_same( 'post', $captured_ticket['body']['surface'], 'Ticket must include s
 assert_same( 'page', $captured_ticket['body']['post_type'], 'Ticket must include sanitized post type context.' );
 assert_same( 'anima//home', $captured_ticket['body']['template_id'], 'Ticket must include sanitized template context.' );
 assert_same( '55', $captured_ticket['body']['article_id'], 'Ticket must include sanitized article context.' );
+assert_same( 'theme-hash', $captured_ticket['body']['hash_id'], 'Ticket body must include the theme hash id for product routing.' );
 assert_true( ! array_key_exists( 'oauth_token', $captured_ticket['body'] ), 'Ticket body must never include oauth_token.' );
 assert_true( ! array_key_exists( 'oauth_token_secret', $captured_ticket['body'] ), 'Ticket body must never include oauth_token_secret.' );
+
+/*
+ * Eligibility gate: support is available for recognized Pixelgrade themes. With no theme hash the
+ * ticket is rejected after the connected check but before any signing or HTTP — even for a
+ * connected account.
+ */
+$captured_ticket           = array();
+$GLOBALS['paf_theme_hash'] = '';
+$no_theme                  = pixassist_submit_docs_ticket( array( 'subject' => 'Need help', 'details' => 'Details.' ) );
+assert_same( 'no_pixelgrade_theme', $no_theme['code'], 'Tickets require a recognized Pixelgrade theme.' );
+assert_same( array(), $captured_ticket, 'A missing theme hash must not be signed or sent.' );
+$GLOBALS['paf_theme_hash'] = 'theme-hash';
 
 $captured_ticket = array();
 $too_long        = pixassist_submit_docs_ticket(

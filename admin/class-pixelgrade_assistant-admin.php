@@ -1465,6 +1465,11 @@ class PixelgradeAssistant_Admin {
 			if ( empty( $wupdates_data[ $theme_slug ]['id'] ) ) {
 				// We will use this hardcoded list of slugs and matching hash IDs.
 				$slug_to_hashid_map = array(
+					// Anima ships a commercial distribution (slug `anima`) and a bare WordPress.org
+					// distribution (slug `anima-lt`) that omits the embedded WUpdates registration;
+					// both resolve to the same product hash so the free LT build is still recognized.
+					'anima' => 'QBAXY',
+					'anima-lt' => 'QBAXY',
 					'gema' => 'ML4Gm',
 					'gema-lite' => 'ML4Gm',
 					'hive' => 'PMAGv',

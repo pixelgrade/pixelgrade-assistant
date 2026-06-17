@@ -428,4 +428,38 @@ assert_same( false, $payload['oauth']['isConfigured'], 'Without a consumer secre
 assert_same( 'Pixelgrade account', $payload['copy']['title'], 'Account tab copy must live in PHP.' );
 unset( $_GET['pixassist_account'] );
 
+/*
+ * OAuth consumer resolution: the consumer key + secret resolve together, as a pair, from the first
+ * source that supplies BOTH. With nothing defined the connection stays dormant (the regression that
+ * keeps the shipped, secret-less build from offering a dead Connect button). Defining the Assistant
+ * secret lights up the shipped `pkDQYLDpG7ji` default; complete Plus constants act as an optional
+ * back-compat override; explicit Assistant constants win over Plus.
+ *
+ * Constants are progressively defined (they cannot be undefined mid-process), so the cases run in
+ * priority order: empty -> Assistant-secret-only default -> Plus pair override -> Assistant pair.
+ */
+paf_reset_runtime();
+
+$cfg = pixassist_account_oauth_config();
+assert_same( 'pkDQYLDpG7ji', $cfg['consumer_key'], 'The default consumer key must be the shipped Assistant key.' );
+assert_same( '', $cfg['consumer_secret'], 'Without any secret source the consumer secret stays empty.' );
+assert_same( false, pixassist_account_oauth_is_configured(), 'An empty secret must keep the connection unconfigured.' );
+
+define( 'PIXELGRADE_ASSISTANT_ACCOUNT_CONSUMER_SECRET', 'assistant-secret' );
+$cfg = pixassist_account_oauth_config();
+assert_same( 'pkDQYLDpG7ji', $cfg['consumer_key'], 'The Assistant secret pairs with the shipped default key.' );
+assert_same( 'assistant-secret', $cfg['consumer_secret'], 'The Assistant secret constant must supply the default pair secret.' );
+assert_same( true, pixassist_account_oauth_is_configured(), 'A present secret must mark the connection configured.' );
+
+define( 'PIXELGRADE_PLUS_ACCOUNT_CONSUMER_KEY', 'plus-key' );
+define( 'PIXELGRADE_PLUS_ACCOUNT_CONSUMER_SECRET', 'plus-secret' );
+$cfg = pixassist_account_oauth_config();
+assert_same( 'plus-key', $cfg['consumer_key'], 'A complete Plus pair overrides the hardcoded default.' );
+assert_same( 'plus-secret', $cfg['consumer_secret'], 'A complete Plus pair supplies its own secret.' );
+
+define( 'PIXELGRADE_ASSISTANT_ACCOUNT_CONSUMER_KEY', 'assistant-key' );
+$cfg = pixassist_account_oauth_config();
+assert_same( 'assistant-key', $cfg['consumer_key'], 'Explicit Assistant constants outrank Plus constants.' );
+assert_same( 'assistant-secret', $cfg['consumer_secret'], 'The Assistant secret pairs with the Assistant key.' );
+
 echo "Account connection OK\n";
