@@ -1,7 +1,7 @@
 # Free account connection + support for all users — design
 
 - **Date:** 2026-06-17
-- **Status:** Plugin-side implementation landed (dormant); waiting on the consumer secret (#58) to go live
+- **Status:** Live — `pkDQYLDpG7ji` consumer secret shipped as the hardcoded default; free connect + support enabled (pending release build). #58 resolved.
 - **Branch (design):** `feat/portfolio-cpt` (doc only)
 - **Branch (implementation):** `feat/free-account-support` — pair-resolution refactor, eligibility gate + `hash_id`, Anima WUpdates back-fill, copy audit, pinning tests
 - **Origin:** Onboarding-testing insight #3 — "Fix the account state honestly: either ship an Assistant OAuth secret so free users can connect + get support, or hide the Account/ticket UI when unconfigured. Today it's visible-but-dead."
@@ -91,18 +91,18 @@ No structural UI work — the guards already swap states once configured. Audit 
 - **Help tab + editor docs panel** (`Help.js`, `KbPanel`): not connected ⇒ prompt to connect (not a dead form); connected + theme ⇒ working ticket form; Plus escalation SlotFill still layers on untouched.
 - **Setup wizard + Overview**: the connect step / CTA become live — message the benefit, keep connect optional (skippable; starters work without it).
 
-## External dependency (the real blocker)
+## External dependency (resolved)
 
-Someone with pixelgrade.com server access must **register/finish the `pkDQYLDpG7ji` OAuth consumer** and return its secret. All plugin-side work can land before this; it stays dormant (current behavior) until the secret is present. This is the only item not completable inside this repo.
+`pkDQYLDpG7ji` was already a live, registered pixelgrade.com consumer — Plus signs with it successfully, and in Plus it is scoped to the account-connect → `SupportTicketClient` (ticket) flow, not licensing. Its secret is now shipped as Assistant's hardcoded default, making free connect + support work without Plus (world-public posture, same as Care). The secret stays overridable via `PIXELGRADE_ASSISTANT_ACCOUNT_CONSUMER_SECRET` for staging/rotation.
 
-**Tracked in:** [#58 — Register dedicated Assistant OAuth consumer on pixelgrade.com](https://github.com/pixelgrade/pixelgrade-assistant/issues/58).
+**Tracked in:** [#58 — Register dedicated Assistant OAuth consumer on pixelgrade.com](https://github.com/pixelgrade/pixelgrade-assistant/issues/58) (resolved).
 
 ## Rollout sequence
 
-1. ✅ Land code (pair-resolution refactor, eligibility gate + `hash_id`, Anima WUpdates back-fill, copy audit), secret read from `PIXELGRADE_ASSISTANT_ACCOUNT_CONSUMER_SECRET`. Safe to merge dormant. Done on `feat/free-account-support`.
-2. Register the consumer on pixelgrade.com.
-3. Drop the secret in as the shipped default ⇒ cut a release.
-4. End-to-end verify.
+1. ✅ Land code (pair-resolution refactor, eligibility gate + `hash_id`, Anima WUpdates back-fill, copy audit) on `feat/free-account-support`.
+2. ✅ Consumer already registered on pixelgrade.com (`pkDQYLDpG7ji`, proven by Plus).
+3. ✅ Shipped the secret as the hardcoded default; tests updated to pin the configured-by-default state. `composer test` green.
+4. End-to-end verify on `pixelgrade-integrated-check` (live authorize + test ticket), then cut a release.
 
 ## Verification
 

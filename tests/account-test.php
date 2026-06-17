@@ -424,26 +424,26 @@ assert_same( 'pixassist_account_disconnect', $payload['actions']['disconnectActi
 assert_same( 'nonce-pixassist_account_connect', $payload['actions']['disconnectNonce'], 'Disconnect payload must carry a nonce.' );
 assert_same( 'connected', $payload['notice']['status'], 'Notice status must come from the URL status.' );
 assert_same( 'success', $payload['notice']['type'], 'Connected notice must be success.' );
-assert_same( false, $payload['oauth']['isConfigured'], 'Without a consumer secret, OAuth must report not configured.' );
+assert_same( true, $payload['oauth']['isConfigured'], 'The shipped build reports OAuth configured out of the box.' );
 assert_same( 'Pixelgrade account', $payload['copy']['title'], 'Account tab copy must live in PHP.' );
 unset( $_GET['pixassist_account'] );
 
 /*
- * OAuth consumer resolution: the consumer key + secret resolve together, as a pair, from the first
- * source that supplies BOTH. With nothing defined the connection stays dormant (the regression that
- * keeps the shipped, secret-less build from offering a dead Connect button). Defining the Assistant
- * secret lights up the shipped `pkDQYLDpG7ji` default; complete Plus constants act as an optional
- * back-compat override; explicit Assistant constants win over Plus.
+ * OAuth consumer resolution: the consumer key + secret resolve together, as a pair. The shipped build
+ * ships the `pkDQYLDpG7ji` default with a working secret, so a stock install is configured out of the
+ * box — free connect + support without Pixelgrade Plus. The secret can be overridden for staging /
+ * rotation via PIXELGRADE_ASSISTANT_ACCOUNT_CONSUMER_SECRET; complete Plus constants act as an optional
+ * back-compat override; explicit Assistant key+secret constants win over Plus.
  *
  * Constants are progressively defined (they cannot be undefined mid-process), so the cases run in
- * priority order: empty -> Assistant-secret-only default -> Plus pair override -> Assistant pair.
+ * priority order: shipped default -> Assistant-secret override -> Plus pair override -> Assistant pair.
  */
 paf_reset_runtime();
 
 $cfg = pixassist_account_oauth_config();
 assert_same( 'pkDQYLDpG7ji', $cfg['consumer_key'], 'The default consumer key must be the shipped Assistant key.' );
-assert_same( '', $cfg['consumer_secret'], 'Without any secret source the consumer secret stays empty.' );
-assert_same( false, pixassist_account_oauth_is_configured(), 'An empty secret must keep the connection unconfigured.' );
+assert_true( '' !== $cfg['consumer_secret'], 'The shipped build ships a working consumer secret for the default key.' );
+assert_same( true, pixassist_account_oauth_is_configured(), 'The shipped build is configured out of the box (free connect + support).' );
 
 define( 'PIXELGRADE_ASSISTANT_ACCOUNT_CONSUMER_SECRET', 'assistant-secret' );
 $cfg = pixassist_account_oauth_config();

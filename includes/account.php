@@ -394,14 +394,15 @@ if ( ! function_exists( 'pixassist_account_oauth_config' ) ) {
 			? (string) constant( 'PIXELGRADE_ASSISTANT_ACCOUNT_API_BASE' )
 			: ( defined( 'PIXELGRADE_PLUS_ACCOUNT_API_BASE' ) ? (string) constant( 'PIXELGRADE_PLUS_ACCOUNT_API_BASE' ) : PIXELGRADE_ASSISTANT__API_BASE );
 
-		// Hardcoded Assistant default. `pkDQYLDpG7ji` is the dedicated Assistant OAuth consumer being
-		// registered on pixelgrade.com (issue #58). Its secret ships here as the literal default once
-		// that registration is finished; until then it stays empty so the whole connection remains
-		// dormant, and it can be supplied for local/staging testing by defining
-		// PIXELGRADE_ASSISTANT_ACCOUNT_CONSUMER_SECRET in wp-config.
+		// Hardcoded Assistant default: `pkDQYLDpG7ji` is Assistant's own pixelgrade.com OAuth consumer,
+		// shipped with its secret so free users can connect + get support without Pixelgrade Plus. This
+		// is the same world-public posture Pixelgrade Care has run for years — the consumer secret is
+		// intentionally public; the per-user OAuth token plus server-side validation are the real auth.
+		// The secret can still be overridden for staging / rotation by defining
+		// PIXELGRADE_ASSISTANT_ACCOUNT_CONSUMER_SECRET in wp-config. See #58.
 		$consumer_key    = 'pkDQYLDpG7ji';
-		$consumer_secret = ''; // TODO(#58): replace with the shipped Assistant consumer secret.
-		if ( '' === $consumer_secret && defined( 'PIXELGRADE_ASSISTANT_ACCOUNT_CONSUMER_SECRET' ) ) {
+		$consumer_secret = 'j5Od0lCf6dSVBxQ0DoVijRkMBzDHpKTQAtN67lDooe5jXiDb';
+		if ( defined( 'PIXELGRADE_ASSISTANT_ACCOUNT_CONSUMER_SECRET' ) && '' !== (string) constant( 'PIXELGRADE_ASSISTANT_ACCOUNT_CONSUMER_SECRET' ) ) {
 			$consumer_secret = (string) constant( 'PIXELGRADE_ASSISTANT_ACCOUNT_CONSUMER_SECRET' );
 		}
 
