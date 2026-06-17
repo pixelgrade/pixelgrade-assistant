@@ -195,7 +195,7 @@ assert_same( false, $overview['account']['is_connected'], 'Account reads disconn
 /*
  * 4. Block theme + Plus active-but-unlicensed, with sibling Starter Sites + Help tabs registered:
  *    canvas link is the Site Editor, Starter + Help resolve to in-hub `?tab=` deep links, and the
- *    Plus card is in the `set up` state pointing at the Plus settings URL.
+ *    Plus card is in the `set up` state pointing at the Plus Account & License URL.
  */
 paf_reset();
 $GLOBALS['paf_is_block_theme'] = true;
@@ -212,7 +212,7 @@ add_filter(
 paf_set_plus_status( array(
 	'is_plus_active'     => true,
 	'is_plus_licensed'   => false,
-	'plus_settings_url'  => 'https://example.test/wp-admin/themes.php?page=pixelgrade&tab=account',
+	'plus_settings_url'  => 'https://example.test/wp-admin/themes.php?page=pixelgrade&tab=account-license',
 	'plus_product_label' => 'Pixelgrade Plus',
 ) );
 
@@ -232,7 +232,7 @@ assert_same( 'https://example.test/wp-admin/themes.php?page=pixelgrade&tab=help'
 assert_same( 'setup', $overview['plus']['state'], 'Active-but-unlicensed Plus must be in the set-up state.' );
 assert_same( true, $overview['plus']['isActive'], 'Active Plus must report isActive=true.' );
 assert_same( false, $overview['plus']['isLicensed'], 'Unlicensed Plus must report isLicensed=false.' );
-assert_same( 'https://example.test/wp-admin/themes.php?page=pixelgrade&tab=account', $overview['plus']['url'], 'Set-up state links to the Plus settings URL.' );
+assert_same( 'https://example.test/wp-admin/themes.php?page=pixelgrade&tab=account-license', $overview['plus']['url'], 'Set-up state links to the Plus Account & License URL.' );
 
 /*
  * 5. Plus active + licensed: the card flips to the manage state.
@@ -242,7 +242,7 @@ add_filter( 'pixelgrade/admin_hub/tabs', 'pixassist_register_overview_tab' );
 paf_set_plus_status( array(
 	'is_plus_active'     => true,
 	'is_plus_licensed'   => true,
-	'plus_settings_url'  => 'https://example.test/wp-admin/themes.php?page=pixelgrade&tab=account',
+	'plus_settings_url'  => 'https://example.test/wp-admin/themes.php?page=pixelgrade&tab=account-license',
 	'plus_product_label' => 'Pixelgrade Plus',
 ) );
 

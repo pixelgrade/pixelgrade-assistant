@@ -89,7 +89,7 @@ function pixassist_get_plus_status() {
 	return array(
 		'is_plus_active'     => true,
 		'is_plus_licensed'   => false,
-		'plus_settings_url'  => 'https://example.test/wp-admin/themes.php?page=pixelgrade-plus',
+		'plus_settings_url'  => 'https://example.test/wp-admin/themes.php?page=pixelgrade&tab=account-license',
 		'plus_product_label' => 'Pixelgrade Plus',
 	);
 }
