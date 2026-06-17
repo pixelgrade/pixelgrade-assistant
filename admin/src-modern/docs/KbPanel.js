@@ -195,6 +195,9 @@ function BaseEscalation( { context } ) {
 	const [ topic, setTopic ] = useState( 'help' );
 	const [ status, setStatus ] = useState( null );
 	const [ submitting, setSubmitting ] = useState( false );
+	const subjectMaxLength = data.ticket && data.ticket.subjectMaxLength ? Number( data.ticket.subjectMaxLength ) : 120;
+	const subjectTooLong = subjectMaxLength > 0 && subject.length > subjectMaxLength;
+	const subjectHelp = getCopy( 'ticketSubjectHelp', __( 'Keep the subject under %d characters. Add extra context in Details.', 'pixelgrade_assistant' ) ).replace( '%d', subjectMaxLength );
 
 	if ( ! account.is_connected ) {
 		return createElement(
@@ -253,6 +256,7 @@ function BaseEscalation( { context } ) {
 		createElement( 'h2', null, getCopy( 'escalationTitle', __( 'Still need help?', 'pixelgrade_assistant' ) ) ),
 		createElement( 'p', null, getCopy( 'escalationDescription', __( 'Send the current context to Pixelgrade support.', 'pixelgrade_assistant' ) ) ),
 		status ? createElement( Notice, { status: status.type, isDismissible: false }, status.message ) : null,
+		subjectTooLong ? createElement( Notice, { status: 'warning', isDismissible: false }, getCopy( 'ticketSubjectTooLong', __( 'The subject is too long. Shorten it and move the extra context to Details.', 'pixelgrade_assistant' ) ) ) : null,
 		createElement( SelectControl, {
 			label: getCopy( 'ticketTopicLabel', __( 'Type', 'pixelgrade_assistant' ) ),
 			value: topic,
@@ -267,6 +271,8 @@ function BaseEscalation( { context } ) {
 			__next40pxDefaultSize: true,
 			value: subject,
 			onChange: setSubject,
+			maxLength: subjectMaxLength,
+			help: subjectHelp,
 		} ),
 		createElement( TextareaControl, {
 			label: getCopy( 'ticketDetailsLabel', __( 'Details', 'pixelgrade_assistant' ) ),
@@ -278,7 +284,7 @@ function BaseEscalation( { context } ) {
 			{
 				variant: 'primary',
 				isBusy: submitting,
-				disabled: submitting || ! subject.trim() || ! details.trim(),
+				disabled: submitting || ! subject.trim() || ! details.trim() || subjectTooLong,
 				onClick: onSubmit,
 			},
 			submitting

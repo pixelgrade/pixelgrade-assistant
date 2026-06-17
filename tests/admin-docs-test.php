@@ -254,10 +254,13 @@ pixassist_save_account_connection(
 $data = pixassist_get_docs_data();
 $keys = array_keys( $data );
 sort( $keys );
-assert_same( array( 'account', 'copy', 'endpoints', 'product', 'slotFill' ), $keys, 'Docs payload must expose exactly account/copy/endpoints/product/slotFill.' );
+assert_same( array( 'account', 'copy', 'endpoints', 'product', 'slotFill', 'ticket' ), $keys, 'Docs payload must expose exactly account/copy/endpoints/product/slotFill/ticket.' );
 
 assert_same( 'anima-lt', $data['product']['sku'], 'Docs payload must be product/theme scoped.' );
 assert_same( 'https://pixelgrade.com/docs', $data['product']['docsUrl'], 'Docs payload must include the online docs fallback.' );
+assert_same( 120, $data['ticket']['subjectMaxLength'], 'Docs payload must expose the support-ticket subject length limit.' );
+assert_true( ! empty( $data['copy']['ticketSubjectHelp'] ), 'Docs payload must include subject guidance copy.' );
+assert_true( ! empty( $data['copy']['ticketSubjectTooLong'] ), 'Docs payload must include a too-long subject error.' );
 assert_same( 'pixelgradeAdminHub.docs', $data['slotFill']['global'], 'Docs SlotFill global must match the shared contract.' );
 assert_same( 'pixelgrade-docs', $data['slotFill']['scope'], 'Docs SlotFill scope must match the shared contract.' );
 assert_same( 'pixelgrade.docs.ticketRequest', $data['slotFill']['ticketRequestFilter'], 'Docs ticket filter must match the shared contract.' );
@@ -367,6 +370,16 @@ assert_same( 'anima//home', $captured_ticket['body']['template_id'], 'Ticket mus
 assert_same( '55', $captured_ticket['body']['article_id'], 'Ticket must include sanitized article context.' );
 assert_true( ! array_key_exists( 'oauth_token', $captured_ticket['body'] ), 'Ticket body must never include oauth_token.' );
 assert_true( ! array_key_exists( 'oauth_token_secret', $captured_ticket['body'] ), 'Ticket body must never include oauth_token_secret.' );
+
+$captured_ticket = array();
+$too_long        = pixassist_submit_docs_ticket(
+	array(
+		'subject' => str_repeat( 'A', pixassist_docs_ticket_subject_max_length() + 1 ),
+		'details' => 'The useful details are here.',
+	)
+);
+assert_same( 'invalid', $too_long['code'], 'Ticket subjects over the limit must be rejected before HTTP.' );
+assert_same( array(), $captured_ticket, 'Too-long ticket subjects must not be signed or sent.' );
 
 $GLOBALS['paf_denied_caps']['edit_theme_options'] = true;
 $denied = pixassist_submit_docs_ticket( array( 'subject' => 'Need help', 'details' => 'Details.' ) );

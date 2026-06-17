@@ -119,6 +119,9 @@ if ( ! function_exists( 'pixassist_get_docs_data' ) ) {
 				'scope'               => 'pixelgrade-docs',
 				'ticketRequestFilter' => 'pixelgrade.docs.ticketRequest',
 			),
+			'ticket'    => array(
+				'subjectMaxLength' => pixassist_docs_ticket_subject_max_length(),
+			),
 			'copy'      => array(
 				'title'                  => esc_html__( 'Pixelgrade Docs', '__plugin_txtd' ),
 				'menuLabel'              => esc_html__( 'Pixelgrade Docs', '__plugin_txtd' ),
@@ -147,6 +150,8 @@ if ( ! function_exists( 'pixassist_get_docs_data' ) ) {
 				'ticketSubmittingLabel'  => esc_html__( 'Sending...', '__plugin_txtd' ),
 				'ticketSuccess'          => esc_html__( 'Your request has been sent.', '__plugin_txtd' ),
 				'ticketFailure'          => esc_html__( 'The request could not be sent. Please try again.', '__plugin_txtd' ),
+				'ticketSubjectHelp'      => esc_html__( 'Keep the subject under %d characters. Add extra context in Details.', '__plugin_txtd' ),
+				'ticketSubjectTooLong'   => esc_html__( 'The subject is too long. Shorten it and move the extra context to Details.', '__plugin_txtd' ),
 			),
 		);
 	}
@@ -224,6 +229,51 @@ if ( ! function_exists( 'pixassist_docs_sanitize_textarea' ) ) {
 		}
 
 		return sanitize_textarea_field( (string) $value );
+	}
+}
+
+if ( ! function_exists( 'pixassist_docs_ticket_subject_max_length' ) ) {
+	/**
+	 * Retrieves the support-ticket subject length limit.
+	 *
+	 * @return int
+	 */
+	function pixassist_docs_ticket_subject_max_length() {
+		$max_length = (int) apply_filters( 'pixassist_docs_ticket_subject_max_length', 120 );
+
+		return max( 1, $max_length );
+	}
+}
+
+if ( ! function_exists( 'pixassist_docs_strlen' ) ) {
+	/**
+	 * Counts characters in a text string.
+	 *
+	 * @param string $value Text value.
+	 *
+	 * @return int
+	 */
+	function pixassist_docs_strlen( $value ) {
+		$value = (string) $value;
+
+		if ( function_exists( 'mb_strlen' ) ) {
+			return mb_strlen( $value );
+		}
+
+		return strlen( $value );
+	}
+}
+
+if ( ! function_exists( 'pixassist_docs_ticket_subject_is_too_long' ) ) {
+	/**
+	 * Determines whether a support-ticket subject exceeds the configured limit.
+	 *
+	 * @param string $subject Ticket subject.
+	 *
+	 * @return bool
+	 */
+	function pixassist_docs_ticket_subject_is_too_long( $subject ) {
+		return pixassist_docs_strlen( $subject ) > pixassist_docs_ticket_subject_max_length();
 	}
 }
 
@@ -453,6 +503,16 @@ if ( ! function_exists( 'pixassist_submit_docs_ticket' ) ) {
 		$body = pixassist_docs_ticket_body( $request );
 		if ( '' === $body['subject'] || '' === $body['details'] ) {
 			return pixassist_docs_response( 'invalid', esc_html__( 'Please add a subject and details before sending your request.', '__plugin_txtd' ) );
+		}
+
+		if ( pixassist_docs_ticket_subject_is_too_long( $body['subject'] ) ) {
+			return pixassist_docs_response(
+				'invalid',
+				sprintf(
+					esc_html__( 'Keep the subject under %d characters and add extra context in Details.', '__plugin_txtd' ),
+					pixassist_docs_ticket_subject_max_length()
+				)
+			);
 		}
 
 			if ( ! function_exists( 'pixassist_account_oauth_config' )
