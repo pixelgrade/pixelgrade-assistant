@@ -31,6 +31,12 @@ require_once( plugin_dir_path( __FILE__ ) . 'theme-helpers/jetpack_customization
 require_once( plugin_dir_path( __FILE__ ) . 'theme-helpers/theme-dependent.php' );
 
 /*
+ * Register the clean `portfolio` custom post type for themes that declare support for it
+ * (re-homed from Pixelgrade Care; the free Anima LT stack no longer ships it otherwise).
+ */
+require_once( plugin_dir_path( __FILE__ ) . 'theme-helpers/portfolio-cpt.php' );
+
+/*
  * Load our theme support customization helper class
  */
 require_once( plugin_dir_path( __FILE__ ) . 'theme-helpers/theme_support.php' );
