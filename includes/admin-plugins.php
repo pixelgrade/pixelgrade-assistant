@@ -111,7 +111,7 @@ if ( ! function_exists( 'pixassist_get_plugins_copy' ) ) {
 			'content'          => pixassist_plugins_replace_tokens( isset( $recommended['content'] ) ? (string) $recommended['content'] : esc_html__( 'Install and activate the plugins recommended for your Pixelgrade site.', '__plugin_txtd' ) ),
 			'validatedTitle'   => pixassist_plugins_replace_tokens( isset( $recommended['validatedTitle'] ) ? (string) $recommended['validatedTitle'] : esc_html__( 'Plugins ready', '__plugin_txtd' ) ),
 			'validatedContent' => pixassist_plugins_replace_tokens( isset( $recommended['validatedContent'] ) ? (string) $recommended['validatedContent'] : esc_html__( 'The recommended plugins are active.', '__plugin_txtd' ) ),
-			'empty'            => isset( $manager_l10n['noPlugins'] ) ? (string) $manager_l10n['noPlugins'] : esc_html__( 'No recommended plugins are currently configured.', '__plugin_txtd' ),
+			'empty'            => isset( $manager_l10n['noPlugins'] ) ? (string) $manager_l10n['noPlugins'] : esc_html__( 'You are all set. There are no recommended plugins for this theme right now.', '__plugin_txtd' ),
 			'groups'           => array(
 				'required'    => isset( $groups['required'] ) ? (string) $groups['required'] : esc_html__( 'Required', '__plugin_txtd' ),
 				'recommended' => isset( $groups['recommended'] ) ? (string) $groups['recommended'] : esc_html__( 'Recommended', '__plugin_txtd' ),

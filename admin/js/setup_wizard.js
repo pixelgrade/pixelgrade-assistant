@@ -19671,7 +19671,15 @@
 	          __html: plugin.description
 	        }
 	      })), cta));
-	    }) : /*#__PURE__*/React$1.createElement("p", null, Helpers.decodeHtml(get_1(pixassist, 'themeConfig.pluginManager.l10n.noPlugins', ''))));
+	    }) : /*#__PURE__*/React$1.createElement("div", {
+	      className: "plugin-manager__empty box box--neutral"
+	    }, /*#__PURE__*/React$1.createElement("div", {
+	      className: "box__body"
+	    }, /*#__PURE__*/React$1.createElement("h5", {
+	      className: "box__title"
+	    }, Helpers.decodeHtml(get_1(pixassist, 'themeConfig.pluginManager.l10n.noPluginsTitle', 'You are all set'))), /*#__PURE__*/React$1.createElement("p", {
+	      className: "box__text"
+	    }, Helpers.decodeHtml(get_1(pixassist, 'themeConfig.pluginManager.l10n.noPlugins', 'There are no recommended plugins for this theme right now.'))))));
 	  }
 	  componentDidMount() {
 	    let component = this;

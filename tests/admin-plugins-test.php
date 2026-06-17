@@ -213,4 +213,13 @@ assert_same( 1, count( $payload['plugins'] ), 'When TGMPA has not localized data
 assert_same( 'fallback-blocks', $payload['plugins'][0]['slug'], 'Fallback plugin data must come from requiredPlugins.plugins.' );
 assert_same( 'missing', $payload['plugins'][0]['status'], 'Fallback plugin data defaults to missing status.' );
 
+$GLOBALS['paf_plugin_config'] = array();
+$payload                      = pixassist_get_plugins_data();
+assert_same( 0, count( $payload['plugins'] ), 'Plugins payload must allow a deliberate empty recommended-plugin state.' );
+assert_same( 'You are all set. There are no recommended plugins for this theme right now.', $payload['copy']['empty'], 'Empty plugin copy must read like a deliberate state, not a broken list.' );
+
+$wizard_source = file_get_contents( __DIR__ . '/../admin/src/components/plugin_manager.js' );
+assert_true( false !== strpos( $wizard_source, 'plugin-manager__empty' ), 'Setup wizard plugin manager must render a styled empty state.' );
+assert_true( false !== strpos( $wizard_source, 'noPluginsTitle' ), 'Setup wizard plugin manager must support a title for the empty state.' );
+
 echo "Admin Plugins tab OK\n";

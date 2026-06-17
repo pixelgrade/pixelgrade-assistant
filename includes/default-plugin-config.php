@@ -437,7 +437,8 @@ function pixassist_get_default_config( $original_theme_slug ) {
 				'required'    => esc_html__( 'Core plugins needed for your website (required).', '__plugin_txtd' ),
 				'recommended' => esc_html__( 'Recommended plugins to enhance your website.', '__plugin_txtd' ),
 			),
-			'noPlugins'                 => esc_html__( 'No plugins needed at this time.', '__plugin_txtd' ),
+			'noPluginsTitle'            => esc_html__( 'You are all set', '__plugin_txtd' ),
+			'noPlugins'                 => esc_html__( 'There are no recommended plugins for this theme right now.', '__plugin_txtd' ),
 		),
 	);
 

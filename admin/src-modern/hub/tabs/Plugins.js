@@ -13,7 +13,7 @@ const DEFAULT_PLUGINS = {
 	copy: {
 		title: __( 'Manage plugins', 'pixelgrade_assistant' ),
 		content: '',
-		empty: __( 'No recommended plugins are currently configured.', 'pixelgrade_assistant' ),
+		empty: __( 'You are all set. There are no recommended plugins for this theme right now.', 'pixelgrade_assistant' ),
 		groups: {
 			required: __( 'Required', 'pixelgrade_assistant' ),
 			recommended: __( 'Recommended', 'pixelgrade_assistant' ),

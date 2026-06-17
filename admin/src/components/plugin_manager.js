@@ -301,7 +301,12 @@ class PluginManagerContainer extends React.Component {
 					)
 					})
 					:
-					<p>{Helpers.decodeHtml(_.get(pixassist, 'themeConfig.pluginManager.l10n.noPlugins', ''))}</p>
+					<div className="plugin-manager__empty box box--neutral">
+						<div className="box__body">
+							<h5 className="box__title">{Helpers.decodeHtml(_.get(pixassist, 'themeConfig.pluginManager.l10n.noPluginsTitle', 'You are all set'))}</h5>
+							<p className="box__text">{Helpers.decodeHtml(_.get(pixassist, 'themeConfig.pluginManager.l10n.noPlugins', 'There are no recommended plugins for this theme right now.'))}</p>
+						</div>
+					</div>
 				}
 			</div>
 	}
