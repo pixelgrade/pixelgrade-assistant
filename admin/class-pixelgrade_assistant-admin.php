@@ -1038,6 +1038,13 @@ class PixelgradeAssistant_Admin {
             return false;
         }
 
+	    // Skip the doomed remote round-trip for free themes that are not (yet) registered as
+	    // pixelgrade.com products — their placeholder hash returns invalid_hash_id, so we fall
+	    // straight through to the local default config (same outcome, no wasted call). See #59.
+	    if ( self::is_unregistered_product_hash( $theme_id ) ) {
+		    return false;
+	    }
+
 	    $config = false;
 
         // We will cache this config for a little while, just enough to avoid getting hammered by a broken theme mod entry
@@ -1118,6 +1125,23 @@ class PixelgradeAssistant_Admin {
 
 	    return delete_transient( self::_get_remote_config_cache_key( $theme_id ) );
     }
+
+	/**
+	 * Whether a theme hash is a known placeholder for a theme that is NOT (yet) registered as a
+	 * pixelgrade.com product, so remote get_config / KB lookups would fail (invalid_hash_id /
+	 * missing_sku). Currently only Anima's placeholder `QBAXY` (anima / anima-lt) — Anima was never
+	 * sold. Replaced with the real hash once Anima is registered, at which point this guard
+	 * auto-disables. See issue #59.
+	 *
+	 * @param string $hash Theme hash id.
+	 *
+	 * @return bool
+	 */
+	public static function is_unregistered_product_hash( $hash ) {
+		$placeholders = array( 'QBAXY' );
+
+		return in_array( (string) $hash, $placeholders, true );
+	}
 
 	/**
      * Gets the default, hardcoded config.

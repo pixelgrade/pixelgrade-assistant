@@ -118,6 +118,15 @@ class PixelgradeAssistant_Help {
 			}
 		}
 
+		// Free themes not yet registered as pixelgrade.com products have no remote KB (missing_sku);
+		// skip the doomed round-trip and cache an empty result so the panel falls back to the online
+		// docs link cleanly. Auto-disables once the theme gets a real product hash. See #59.
+		if ( PixelgradeAssistant_Admin::is_unregistered_product_hash( PixelgradeAssistant_Admin::get_theme_hash_id() ) ) {
+			set_transient( $key, array(), self::CACHE_TTL );
+
+			return array();
+		}
+
 		$endpoint = self::get_categories_endpoint();
 
 		$response = wp_remote_get(

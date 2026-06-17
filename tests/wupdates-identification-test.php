@@ -109,6 +109,12 @@ $from_scalar_entry = PixelgradeAssistant_Admin::maybe_fill_up_wupdates_identific
 assert_true( is_array( $from_scalar_entry['hive-lite'] ), 'Scalar WUpdates theme entries must be normalized to arrays.' );
 assert_same( 'PMAGv', $from_scalar_entry['hive-lite']['id'], 'Known Lite theme hash id must survive scalar entry normalization.' );
 
+// The unregistered-product-hash guard recognizes Anima's placeholder hash (never sold; see #59)
+// while leaving real, registered product hashes (e.g. Hive Lite's PMAGv) to round-trip normally.
+assert_same( true, PixelgradeAssistant_Admin::is_unregistered_product_hash( 'QBAXY' ), 'Anima placeholder hash must be treated as unregistered.' );
+assert_same( false, PixelgradeAssistant_Admin::is_unregistered_product_hash( 'PMAGv' ), 'A real registered product hash must NOT be treated as unregistered.' );
+assert_same( false, PixelgradeAssistant_Admin::is_unregistered_product_hash( '' ), 'An empty hash must not be treated as a known placeholder.' );
+
 restore_error_handler();
 
 echo "WUpdates identification fallback OK\n";
