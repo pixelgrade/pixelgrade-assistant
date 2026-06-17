@@ -122,3 +122,13 @@ No structural UI work — the guards already swap states once configured. Audit 
 - The Plus status contract (`pixassist_get_plus_status()` / `pixelgrade_assistant_plus_status`).
 - `pixassist_get_account()` and the host-extension-surface read accessors (they return per-*user* tokens, not the consumer secret) — no lockstep change with Plus required.
 - No broker infrastructure.
+
+## Verified end-to-end (2026-06-17)
+
+Live on `pixelgrade-integrated-check`: the shipped `pkDQYLDpG7ji` secret signs successfully against production — full OAuth round-trip (request → authorize → access, `user_ID=1` resolved; logged-in path 3/3) and a support ticket created (**#3358867368**). `composer test` 15/15 green. Account tab + docs escalation render the free-for-everyone copy and work.
+
+## Follow-ups
+
+- **[#59](https://github.com/pixelgrade/pixelgrade-assistant/issues/59)** — Anima is not a registered pixelgrade.com product, so `get_config`/KB return `invalid_hash_id`/`missing_sku` (no in-dashboard KB articles; dashboard uses local config defaults). In-repo guard added (`PixelgradeAssistant_Admin::is_unregistered_product_hash()`, commit `e99bd8f`) to skip the doomed round-trips and degrade cleanly. The complete fix (register Anima + real hash + `docs_article_groups` mapping) is server-side, tracked in #59; then swap placeholder `QBAXY` → real hash at `admin/class-pixelgrade_assistant-admin.php`.
+- **OAuth error logging (recommended, not yet implemented)** — the OAuth HTTP layer (`includes/account.php:627-632`) swallows `is_wp_error`/HTTP ≥400 silently. One fresh-login `connect_failed` (likely transient; logged-in retries 3/3 succeeded) was undiagnosable because of this. Add logging of the failing leg + status/error so future `connect_failed` is debuggable.
+- **Cosmetic** — the authorize screen reads "Pixelgrade Care would like to connect" because `pkDQYLDpG7ji` is registered under the "Care" app name on pixelgrade.com. Consider renaming the consumer app to "Assistant" server-side.
