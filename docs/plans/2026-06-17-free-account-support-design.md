@@ -94,6 +94,8 @@ No structural UI work — the guards already swap states once configured. Audit 
 
 Someone with pixelgrade.com server access must **register/finish the `pkDQYLDpG7ji` OAuth consumer** and return its secret. All plugin-side work can land before this; it stays dormant (current behavior) until the secret is present. This is the only item not completable inside this repo.
 
+**Tracked in:** [#58 — Register dedicated Assistant OAuth consumer on pixelgrade.com](https://github.com/pixelgrade/pixelgrade-assistant/issues/58).
+
 ## Rollout sequence
 
 1. Land code (pair-resolution refactor, eligibility gate + `hash_id`, copy audit), secret read from `PIXELGRADE_ASSISTANT_ACCOUNT_CONSUMER_SECRET`. Safe to merge dormant.
