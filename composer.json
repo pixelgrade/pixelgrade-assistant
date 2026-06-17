@@ -10,6 +10,7 @@
             "php tests/host-extension-surface-test.php",
             "php tests/admin-hub-test.php",
             "php tests/admin-overview-test.php",
+            "php tests/admin-plugins-test.php",
             "php tests/admin-help-test.php",
             "php tests/admin-docs-test.php"
         ]

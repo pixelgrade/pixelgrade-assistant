@@ -1,0 +1,328 @@
+<?php
+/**
+ * The free Plugins tab: recommended plugin management inside the Appearance -> Pixelgrade hub.
+ *
+ * This tab is the modern hub counterpart of the legacy dashboard/setup-wizard plugin manager. It
+ * does not invent a second source of truth: plugin definitions still flow through the existing
+ * `pixassist_recommended_plugins` config seam, are registered with TGMPA, and are localized through
+ * PixelgradeAssistant_Admin::localize_tgmpa_data(). Pixelgrade Plus can add its own entries through
+ * the same recommended-plugins filter without a new contract.
+ *
+ * @package    PixelgradeAssistant
+ * @subpackage PixelgradeAssistant/includes
+ */
+
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
+if ( ! function_exists( 'pixassist_register_plugins_tab' ) ) {
+	/**
+	 * Register the free Plugins tab on the Appearance -> Pixelgrade hub registry.
+	 *
+	 * @param array $tabs Tab descriptors collected so far.
+	 *
+	 * @return array Tab descriptors with the Plugins tab appended.
+	 */
+	function pixassist_register_plugins_tab( $tabs ) {
+		if ( ! is_array( $tabs ) ) {
+			$tabs = array();
+		}
+
+		$tabs[] = array(
+			'id'         => 'plugins',
+			'label'      => esc_html__( 'Plugins', '__plugin_txtd' ),
+			'capability' => 'edit_theme_options',
+			'component'  => 'plugins',
+			'gate'       => '',
+			'order'      => 20,
+		);
+
+		return $tabs;
+	}
+}
+
+if ( ! function_exists( 'pixassist_get_plugins_data' ) ) {
+	/**
+	 * Build the bootstrap payload the Plugins tab renders.
+	 *
+	 * @return array {
+	 *     @type array[] $plugins Normalized recommended plugins.
+	 *     @type array   $copy    Labels and helper copy derived from the existing config.
+	 * }
+	 */
+	function pixassist_get_plugins_data() {
+		$config  = pixassist_get_plugins_config();
+		$plugins = array();
+
+		if ( class_exists( 'PixelgradeAssistant_Admin' ) && method_exists( 'PixelgradeAssistant_Admin', 'localize_tgmpa_data' ) ) {
+			$plugins = PixelgradeAssistant_Admin::localize_tgmpa_data();
+		}
+
+		if ( empty( $plugins ) && ! empty( $config['requiredPlugins']['plugins'] ) && is_array( $config['requiredPlugins']['plugins'] ) ) {
+			$plugins = $config['requiredPlugins']['plugins'];
+		}
+
+		return array(
+			'plugins' => pixassist_normalize_plugins_payload( $plugins ),
+			'copy'    => pixassist_get_plugins_copy( $config ),
+		);
+	}
+}
+
+if ( ! function_exists( 'pixassist_get_plugins_config' ) ) {
+	/**
+	 * Read Assistant's existing merged config when the admin class is available.
+	 *
+	 * @return array
+	 */
+	function pixassist_get_plugins_config() {
+		if ( class_exists( 'PixelgradeAssistant_Admin' ) && method_exists( 'PixelgradeAssistant_Admin', 'get_config' ) ) {
+			$config = PixelgradeAssistant_Admin::get_config();
+
+			return is_array( $config ) ? $config : array();
+		}
+
+		return array();
+	}
+}
+
+if ( ! function_exists( 'pixassist_get_plugins_copy' ) ) {
+	/**
+	 * Extract the tab copy from the legacy plugin-manager config, with safe defaults.
+	 *
+	 * @param array $config Existing Assistant config.
+	 *
+	 * @return array
+	 */
+	function pixassist_get_plugins_copy( $config ) {
+		$recommended = isset( $config['recommendedPlugins'] ) && is_array( $config['recommendedPlugins'] )
+			? $config['recommendedPlugins']
+			: array();
+		$manager_l10n = isset( $config['pluginManager']['l10n'] ) && is_array( $config['pluginManager']['l10n'] )
+			? $config['pluginManager']['l10n']
+			: array();
+		$groups       = isset( $manager_l10n['groupByRequiredLabels'] ) && is_array( $manager_l10n['groupByRequiredLabels'] )
+			? $manager_l10n['groupByRequiredLabels']
+			: array();
+
+		return array(
+			'title'            => pixassist_plugins_replace_tokens( isset( $recommended['title'] ) ? (string) $recommended['title'] : esc_html__( 'Manage plugins', '__plugin_txtd' ) ),
+			'content'          => pixassist_plugins_replace_tokens( isset( $recommended['content'] ) ? (string) $recommended['content'] : esc_html__( 'Install and activate the plugins recommended for your Pixelgrade site.', '__plugin_txtd' ) ),
+			'validatedTitle'   => pixassist_plugins_replace_tokens( isset( $recommended['validatedTitle'] ) ? (string) $recommended['validatedTitle'] : esc_html__( 'Plugins ready', '__plugin_txtd' ) ),
+			'validatedContent' => pixassist_plugins_replace_tokens( isset( $recommended['validatedContent'] ) ? (string) $recommended['validatedContent'] : esc_html__( 'The recommended plugins are active.', '__plugin_txtd' ) ),
+			'empty'            => isset( $manager_l10n['noPlugins'] ) ? (string) $manager_l10n['noPlugins'] : esc_html__( 'No recommended plugins are currently configured.', '__plugin_txtd' ),
+			'groups'           => array(
+				'required'    => isset( $groups['required'] ) ? (string) $groups['required'] : esc_html__( 'Required', '__plugin_txtd' ),
+				'recommended' => isset( $groups['recommended'] ) ? (string) $groups['recommended'] : esc_html__( 'Recommended', '__plugin_txtd' ),
+			),
+			'actions'          => array(
+				'install'      => isset( $config['l10n']['pluginInstallLabel'] ) ? (string) $config['l10n']['pluginInstallLabel'] : esc_html__( 'Install', '__plugin_txtd' ),
+				'activate'     => isset( $config['l10n']['pluginActivateLabel'] ) ? (string) $config['l10n']['pluginActivateLabel'] : esc_html__( 'Activate', '__plugin_txtd' ),
+				'update'       => isset( $config['l10n']['pluginUpdateLabel'] ) ? (string) $config['l10n']['pluginUpdateLabel'] : esc_html__( 'Update', '__plugin_txtd' ),
+				'active'       => esc_html__( 'Active', '__plugin_txtd' ),
+				'inactive'     => esc_html__( 'Installed', '__plugin_txtd' ),
+				'missing'      => esc_html__( 'Not installed', '__plugin_txtd' ),
+				'outdated'     => esc_html__( 'Update available', '__plugin_txtd' ),
+				'working'      => esc_html__( 'Working...', '__plugin_txtd' ),
+				'failed'       => esc_html__( 'Action failed. Please try again from Plugins > Installed Plugins.', '__plugin_txtd' ),
+				'refresh'      => esc_html__( 'Refresh the page to confirm the latest plugin status.', '__plugin_txtd' ),
+			),
+		);
+	}
+}
+
+if ( ! function_exists( 'pixassist_plugins_replace_tokens' ) ) {
+	/**
+	 * Replace the legacy config's simple copy tokens for the hub tab.
+	 *
+	 * @param string $text Raw copy.
+	 *
+	 * @return string
+	 */
+	function pixassist_plugins_replace_tokens( $text ) {
+		$theme_name = 'Pixelgrade';
+
+		if ( class_exists( 'PixelgradeAssistant_Admin' ) && method_exists( 'PixelgradeAssistant_Admin', 'get_theme_support' ) ) {
+			$support = PixelgradeAssistant_Admin::get_theme_support();
+			if ( ! empty( $support['theme_title'] ) ) {
+				$theme_name = (string) $support['theme_title'];
+			} elseif ( ! empty( $support['theme_name'] ) ) {
+				$theme_name = (string) $support['theme_name'];
+			}
+		}
+
+		$shop_domain = defined( 'PIXELGRADE_ASSISTANT__SHOP_BASE_DOMAIN' ) ? PIXELGRADE_ASSISTANT__SHOP_BASE_DOMAIN : 'pixelgrade.com';
+
+		return str_replace(
+			array( '{{theme_name}}', '{{shopdomain}}' ),
+			array( $theme_name, $shop_domain ),
+			(string) $text
+		);
+	}
+}
+
+if ( ! function_exists( 'pixassist_normalize_plugins_payload' ) ) {
+	/**
+	 * Normalize TGMPA/config plugin data into a stable, sorted list for the React tab.
+	 *
+	 * @param array $plugins TGMPA plugins keyed by slug, or config plugin rows.
+	 *
+	 * @return array[]
+	 */
+	function pixassist_normalize_plugins_payload( $plugins ) {
+		if ( empty( $plugins ) || ! is_array( $plugins ) ) {
+			return array();
+		}
+
+		$normalized = array();
+		foreach ( $plugins as $key => $plugin ) {
+			if ( ! is_array( $plugin ) ) {
+				continue;
+			}
+
+			$item = pixassist_normalize_plugin_payload( $plugin, $key );
+			if ( empty( $item['slug'] ) ) {
+				continue;
+			}
+
+			$normalized[] = $item;
+		}
+
+		usort(
+			$normalized,
+			function ( $a, $b ) {
+				if ( $a['required'] !== $b['required'] ) {
+					return $a['required'] ? -1 : 1;
+				}
+
+				if ( $a['order'] === $b['order'] ) {
+					return strcmp( $a['name'], $b['name'] );
+				}
+
+				return ( $a['order'] < $b['order'] ) ? -1 : 1;
+			}
+		);
+
+		return $normalized;
+	}
+}
+
+if ( ! function_exists( 'pixassist_normalize_plugin_payload' ) ) {
+	/**
+	 * Normalize one plugin row.
+	 *
+	 * @param array      $plugin Raw plugin data.
+	 * @param int|string $key    Original array key; TGMPA uses the slug as the key.
+	 *
+	 * @return array
+	 */
+	function pixassist_normalize_plugin_payload( $plugin, $key ) {
+		$slug = ! empty( $plugin['slug'] ) ? (string) $plugin['slug'] : ( is_string( $key ) ? (string) $key : '' );
+		$name = ! empty( $plugin['name'] ) ? (string) $plugin['name'] : $slug;
+
+		$is_installed = pixassist_plugins_bool( isset( $plugin['is_installed'] ) ? $plugin['is_installed'] : false );
+		$is_active    = pixassist_plugins_bool( isset( $plugin['is_active'] ) ? $plugin['is_active'] : false );
+		$is_up_to_date = ! array_key_exists( 'is_up_to_date', $plugin )
+			? true
+			: pixassist_plugins_bool( $plugin['is_up_to_date'] );
+
+		return array(
+			'slug'             => sanitize_key( $slug ),
+			'name'             => pixassist_plugins_strip_tags( $name ),
+			'description'      => isset( $plugin['description'] ) ? (string) $plugin['description'] : '',
+			'author'           => isset( $plugin['author'] ) ? pixassist_plugins_strip_tags( $plugin['author'] ) : '',
+			'filePath'         => isset( $plugin['file_path'] ) ? (string) $plugin['file_path'] : '',
+			'required'         => pixassist_plugins_bool( isset( $plugin['required'] ) ? $plugin['required'] : false ),
+			'selected'         => pixassist_plugins_bool( isset( $plugin['selected'] ) ? $plugin['selected'] : true ),
+			'order'            => isset( $plugin['order'] ) ? (int) $plugin['order'] : 10,
+			'isInstalled'      => $is_installed,
+			'isActive'         => $is_active,
+			'isUpToDate'       => $is_up_to_date,
+			'isUpdateRequired' => pixassist_plugins_bool( isset( $plugin['is_update_required'] ) ? $plugin['is_update_required'] : false ),
+			'status'           => pixassist_get_plugin_payload_status( $is_installed, $is_active, $is_up_to_date ),
+			'installUrl'       => isset( $plugin['install_url'] ) ? (string) $plugin['install_url'] : '',
+			'activateUrl'      => isset( $plugin['activate_url'] ) ? (string) $plugin['activate_url'] : '',
+			'source'           => isset( $plugin['source'] ) ? (string) $plugin['source'] : '',
+			'sourceType'       => isset( $plugin['source_type'] ) ? sanitize_key( $plugin['source_type'] ) : 'repo',
+		);
+	}
+}
+
+if ( ! function_exists( 'pixassist_get_plugin_payload_status' ) ) {
+	/**
+	 * Derive the UI status from TGMPA's booleans.
+	 *
+	 * @param bool $is_installed Whether the plugin is installed.
+	 * @param bool $is_active    Whether the plugin is active.
+	 * @param bool $is_up_to_date Whether the plugin is up to date.
+	 *
+	 * @return string active|outdated|inactive|missing
+	 */
+	function pixassist_get_plugin_payload_status( $is_installed, $is_active, $is_up_to_date ) {
+		if ( $is_active && ! $is_up_to_date ) {
+			return 'outdated';
+		}
+
+		if ( $is_active ) {
+			return 'active';
+		}
+
+		if ( $is_installed ) {
+			return 'inactive';
+		}
+
+		return 'missing';
+	}
+}
+
+if ( ! function_exists( 'pixassist_plugins_bool' ) ) {
+	/**
+	 * Coerce config/TGMPA booleans that may arrive as strings.
+	 *
+	 * @param mixed $value Value to coerce.
+	 *
+	 * @return bool
+	 */
+	function pixassist_plugins_bool( $value ) {
+		if ( is_bool( $value ) ) {
+			return $value;
+		}
+
+		if ( is_string( $value ) ) {
+			$value = strtolower( trim( $value ) );
+
+			if ( in_array( $value, array( '1', 'true', 'yes', 'on' ), true ) ) {
+				return true;
+			}
+
+			if ( in_array( $value, array( '0', 'false', 'no', 'off', '' ), true ) ) {
+				return false;
+			}
+		}
+
+		return ! empty( $value );
+	}
+}
+
+if ( ! function_exists( 'pixassist_plugins_strip_tags' ) ) {
+	/**
+	 * Strip markup from plain-text fields while loading standalone in tests.
+	 *
+	 * @param string $value Raw string.
+	 *
+	 * @return string
+	 */
+	function pixassist_plugins_strip_tags( $value ) {
+		if ( function_exists( 'wp_strip_all_tags' ) ) {
+			return wp_strip_all_tags( (string) $value );
+		}
+
+		return trim( strip_tags( (string) $value ) );
+	}
+}
+
+// Register the free Plugins tab on the hub registry.
+if ( function_exists( 'add_filter' ) ) {
+	add_filter( 'pixelgrade/admin_hub/tabs', 'pixassist_register_plugins_tab' );
+}

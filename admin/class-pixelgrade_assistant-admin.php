@@ -302,11 +302,16 @@ class PixelgradeAssistant_Admin {
             // Modern host shell (admin/src-modern/hub) built via @wordpress/scripts (#41).
             // Dependencies + cache-busting version come from the build manifest; the visible tab list
             // is collected/capability-gated/sorted server-side from the #42 registry.
-            $handle = pixassist_enqueue_built_script( 'pixelgrade-admin-hub', 'index' );
+            wp_enqueue_script( 'plugin-install' );
+            wp_enqueue_script( 'updates' );
+            $handle = pixassist_enqueue_built_script( 'pixelgrade-admin-hub', 'index', array( 'plugin-install', 'updates' ) );
             wp_localize_script( $handle, 'pixelgradeAdminHub', pixassist_get_admin_hub_data() );
             // The free Overview tab (#44) reads its own bootstrap payload (theme status, quick links,
             // Plus discovery card). Tab-specific data channel, kept out of the generic hub bootstrap.
             wp_localize_script( $handle, 'pixelgradeOverview', pixassist_get_overview_data() );
+            // The free Plugins tab (#48) reuses the existing TGMPA/recommended-plugins source and
+            // exposes only normalized UI data to the modern tab.
+            wp_localize_script( $handle, 'pixelgradePlugins', pixassist_get_plugins_data() );
             // The free Account tab (#45) reads identity + action URLs only. OAuth credentials stay
             // PHP-only via pixassist_get_account_credentials() and are never localized.
             wp_localize_script( $handle, 'pixelgradeAccount', pixassist_get_account_data() );

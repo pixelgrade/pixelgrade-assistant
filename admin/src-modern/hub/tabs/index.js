@@ -10,6 +10,7 @@
 import { addFilter } from '@wordpress/hooks';
 import { Overview } from './Overview';
 import { Account } from './Account';
+import { Plugins } from './Plugins';
 import { HelpTab } from './Help';
 
 addFilter( 'pixelgrade.adminHub.tabs', 'pixelgrade-assistant/overview', ( map ) => {
@@ -20,6 +21,12 @@ addFilter( 'pixelgrade.adminHub.tabs', 'pixelgrade-assistant/overview', ( map ) 
 
 addFilter( 'pixelgrade.adminHub.tabs', 'pixelgrade-assistant/account', ( map ) => {
 	map.account = { component: Account };
+
+	return map;
+} );
+
+addFilter( 'pixelgrade.adminHub.tabs', 'pixelgrade-assistant/plugins', ( map ) => {
+	map.plugins = { component: Plugins };
 
 	return map;
 } );
