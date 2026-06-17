@@ -1,8 +1,9 @@
 # Free account connection + support for all users — design
 
 - **Date:** 2026-06-17
-- **Status:** Design approved; implementation not started
+- **Status:** Plugin-side implementation landed (dormant); waiting on the consumer secret (#58) to go live
 - **Branch (design):** `feat/portfolio-cpt` (doc only)
+- **Branch (implementation):** `feat/free-account-support` — pair-resolution refactor, eligibility gate + `hash_id`, Anima WUpdates back-fill, copy audit, pinning tests
 - **Origin:** Onboarding-testing insight #3 — "Fix the account state honestly: either ship an Assistant OAuth secret so free users can connect + get support, or hide the Account/ticket UI when unconfigured. Today it's visible-but-dead."
 
 ## Decision summary
@@ -98,7 +99,7 @@ Someone with pixelgrade.com server access must **register/finish the `pkDQYLDpG7
 
 ## Rollout sequence
 
-1. Land code (pair-resolution refactor, eligibility gate + `hash_id`, copy audit), secret read from `PIXELGRADE_ASSISTANT_ACCOUNT_CONSUMER_SECRET`. Safe to merge dormant.
+1. ✅ Land code (pair-resolution refactor, eligibility gate + `hash_id`, Anima WUpdates back-fill, copy audit), secret read from `PIXELGRADE_ASSISTANT_ACCOUNT_CONSUMER_SECRET`. Safe to merge dormant. Done on `feat/free-account-support`.
 2. Register the consumer on pixelgrade.com.
 3. Drop the secret in as the shipped default ⇒ cut a release.
 4. End-to-end verify.
