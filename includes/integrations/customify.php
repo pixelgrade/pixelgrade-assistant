@@ -56,6 +56,10 @@ function pixassist_add_site_data_to_customify_cloud_request_data( $site_data ) {
 	return $site_data;
 }
 add_filter( 'customify_style_manager_get_site_data', 'pixassist_add_site_data_to_customify_cloud_request_data', 10, 1 );
+// Standalone Style Manager fires the modern `style_manager/get_site_data` with no legacy alias,
+// so register on it too (mirroring the dual registration for customer data above). Without this,
+// the `wp.language`/`wp.rtl` enrichment never reaches Style Manager's cloud requests.
+add_filter( 'style_manager/get_site_data', 'pixassist_add_site_data_to_customify_cloud_request_data', 10, 1 );
 
 function pixassist_add_cloud_stats_endpoint( $config ) {
 	// Guard the constant: it is defined by Style Manager / Care, which may not be present.
@@ -71,20 +75,16 @@ function pixassist_add_cloud_stats_endpoint( $config ) {
 add_filter( 'customify_style_manager_external_api_endpoints', 'pixassist_add_cloud_stats_endpoint', 10, 1 );
 
 /**
- * Send Color Palettes data when updating if a custom color palette is in use (on Customizer settings save - Publish).
+ * Palette-publish cloud stats relay — intentionally retired.
  *
- * @param bool $custom_palette
+ * Care relayed color-palette stats to the cloud on Customizer publish, hooking
+ * `customify_style_manager_updated_custom_palette_in_use` and sending via
+ * `Customify_Cloud_Api`. Standalone Style Manager fires
+ * `style_manager/updated_custom_font_palette_in_use` instead and ships no
+ * `Customify_Cloud_Api`, so this callback had been dead since the
+ * Customify -> Style Manager migration. It is retired rather than re-homed:
+ * it was opt-in-only telemetry, re-homing would require a new cloud transport
+ * (Style Manager's cloud client is dependency-injected, not statically
+ * accessible), and that runs against Assistant's community-first, opt-in data
+ * stance. See .ai/gap-audit (finding A5).
  */
-function pixassist_send_cloud_stats( $custom_palette ) {
-	// External/cloud telemetry is opt-in: only send when the user has enabled data collection.
-	if ( ! class_exists( 'PixelgradeAssistant_DataCollector' ) || ! PixelgradeAssistant_DataCollector::allow_data_collector() ) {
-		return;
-	}
-
-	if ( class_exists( 'Customify_Cloud_Api' ) && ! empty( Customify_Cloud_Api::$externalApiEndpoints['cloud']['stats'] ) ) {
-		$cloud_api = new Customify_Cloud_Api();
-		$cloud_api->send_stats();
-		return;
-	}
-}
-add_action( 'customify_style_manager_updated_custom_palette_in_use', 'pixassist_send_cloud_stats', 10, 1 );
