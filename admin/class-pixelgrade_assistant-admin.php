@@ -387,8 +387,8 @@ class PixelgradeAssistant_Admin {
 	public function add_pixelgrade_assistant_menu() {
         add_submenu_page(
             'themes.php',
-            esc_html__( 'Pixelgrade', '__plugin_txtd' ),
-            esc_html__( 'Pixelgrade', '__plugin_txtd' ),
+            esc_html__( 'Pixelgrade Design', '__plugin_txtd' ),
+            esc_html__( 'Pixelgrade Design', '__plugin_txtd' ),
             'edit_theme_options',
             'pixelgrade',
             array( $this, 'render_admin_hub_page' )

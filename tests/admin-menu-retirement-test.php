@@ -97,6 +97,8 @@ assert_same( 1, count( $GLOBALS['paf_submenu_pages'] ), 'Pixelgrade Assistant mu
 assert_same( 'themes.php', $GLOBALS['paf_submenu_pages'][0]['parent_slug'], 'Pixelgrade Assistant must live under Appearance.' );
 assert_same( 'pixelgrade', $GLOBALS['paf_submenu_pages'][0]['menu_slug'], 'Pixelgrade Assistant hub slug must remain pixelgrade.' );
 assert_same( 'edit_theme_options', $GLOBALS['paf_submenu_pages'][0]['capability'], 'Pixelgrade Assistant hub capability must match Appearance access.' );
+assert_same( 'Pixelgrade Design', $GLOBALS['paf_submenu_pages'][0]['menu_title'], 'Appearance submenu must read "Pixelgrade Design" (functional label, not a bare brand word).' );
+assert_same( 'Pixelgrade Design', $GLOBALS['paf_submenu_pages'][0]['page_title'], 'Hub page title must read "Pixelgrade Design".' );
 
 $GLOBALS['paf_menu_pages']    = array();
 $GLOBALS['paf_submenu_pages'] = array();

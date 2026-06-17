@@ -13,7 +13,7 @@ export function Placeholder( { tab } ) {
 		createElement(
 			CardBody,
 			null,
-			createElement( 'h2', null, ( tab && ( tab.label || tab.id ) ) || __( 'Pixelgrade', 'pixelgrade_assistant' ) ),
+			createElement( 'h2', null, ( tab && ( tab.label || tab.id ) ) || __( 'Pixelgrade Design', 'pixelgrade_assistant' ) ),
 			createElement( 'p', null, __( 'This section is not available yet.', 'pixelgrade_assistant' ) )
 		)
 	);

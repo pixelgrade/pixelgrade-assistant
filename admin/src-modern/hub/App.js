@@ -20,7 +20,7 @@ export function App( { bootstrap } ) {
 	const [ activeId, navigate ] = useTabRouting( ids, fallback );
 
 	if ( ! tabs.length ) {
-		return createElement( Placeholder, { tab: { id: 'pixelgrade', label: __( 'Pixelgrade', 'pixelgrade_assistant' ) } } );
+		return createElement( Placeholder, { tab: { id: 'pixelgrade', label: __( 'Pixelgrade Design', 'pixelgrade_assistant' ) } } );
 	}
 
 	const onSelect = ( id ) => {
@@ -54,7 +54,7 @@ export function App( { bootstrap } ) {
 		createElement(
 			'h1',
 			{ className: 'screen-reader-text' },
-			__( 'Pixelgrade', 'pixelgrade_assistant' )
+			__( 'Pixelgrade Design', 'pixelgrade_assistant' )
 		),
 		createElement( TabBar, { tabs, activeId: activeTab.id, onSelect } ),
 		createElement( 'div', { className: 'pixelgrade-admin-hub__content' }, content )
