@@ -12,6 +12,8 @@
             "php tests/admin-overview-test.php",
             "php tests/admin-plugins-test.php",
             "php tests/admin-starter-sites-test.php",
+            "php tests/admin-system-status-test.php",
+            "php tests/admin-tools-test.php",
             "php tests/admin-help-test.php",
             "php tests/admin-docs-test.php"
         ]

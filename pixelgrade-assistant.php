@@ -59,6 +59,12 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/admin-plugins.php';
 // Free Starter Sites tab: existing free demos plus Plus-injected premium starters.
 require_once plugin_dir_path( __FILE__ ) . 'includes/admin-starter-sites.php';
 
+// Secondary System Status tab: diagnostics data and controls.
+require_once plugin_dir_path( __FILE__ ) . 'includes/admin-system-status.php';
+
+// Secondary Tools tab: reset/maintenance utilities.
+require_once plugin_dir_path( __FILE__ ) . 'includes/admin-tools.php';
+
 // Contextual editor docs panel: bootstrap data + safe server-side docs actions.
 require_once plugin_dir_path( __FILE__ ) . 'includes/admin-docs.php';
 

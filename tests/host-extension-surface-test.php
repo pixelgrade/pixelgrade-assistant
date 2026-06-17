@@ -4,7 +4,7 @@
  *
  * This is the PROVIDER side of the now-bidirectional Plus <-> Assistant contract (0.9.0):
  *   - pixassist_get_admin_hub_tabs(): collects + normalizes hub tab descriptors registered
- *     through the `pixelgrade/admin_hub/tabs` PHP filter (dedupe by id, capability-gate, sort,
+ *     through the `pixelgrade/admin_hub/tabs` PHP filter (dedupe by id, capability-gate, group/sort,
  *     link-vs-component), tolerant of malformed input.
  *   - pixassist_get_account() / pixassist_is_account_connected(): host-owned account READ
  *     accessors returning EXACTLY the documented identity keys — never tokens/secrets, even if a
@@ -97,8 +97,8 @@ add_filter(
 assert_same( array(), pixassist_get_admin_hub_tabs(), 'A non-array filter return must yield an empty list.' );
 
 /*
- * Normalization: dedupe by id, drop malformed/id-less entries, capability-gate, sort by order then
- * label, and treat a non-empty url as a link tab (component cleared).
+ * Normalization: dedupe by id, drop malformed/id-less entries, capability-gate, normalize group,
+ * sort by group then order then label, and treat a non-empty url as a link tab (component cleared).
  */
 paf_reset();
 $GLOBALS['paf_denied_caps']['manage_network'] = true;
@@ -109,6 +109,8 @@ add_filter(
 			array( 'id' => 'starter', 'label' => 'Starter Sites', 'component' => 'starterSites', 'gate' => 'plus_licensed', 'order' => 30 ),
 			array( 'id' => 'overview', 'label' => 'Overview', 'component' => 'overview', 'order' => 10 ),
 			array( 'id' => 'help', 'label' => 'Help', 'component' => 'ignored', 'url' => 'https://example.test/help', 'order' => 20 ),
+			array( 'id' => 'tools', 'label' => 'Tools', 'component' => 'tools', 'group' => 'secondary', 'order' => 1 ),
+			array( 'id' => 'bad-group', 'label' => 'Bad Group', 'component' => 'badGroup', 'group' => 'tertiary', 'order' => 25 ),
 			array( 'id' => 'overview', 'label' => 'Duplicate', 'component' => 'dupe', 'order' => 99 ), // dup id -> dropped
 			array( 'label' => 'No id here', 'component' => 'x' ), // no id -> dropped
 			'not-an-array', // -> dropped
@@ -125,9 +127,9 @@ $ids  = array_map(
 	$tabs
 );
 
-assert_same( array( 'overview', 'help', 'starter' ), $ids, 'Tabs must be deduped, capability-gated, and sorted by order.' );
+assert_same( array( 'overview', 'help', 'bad-group', 'starter', 'tools' ), $ids, 'Tabs must be deduped, capability-gated, and sorted by group then order.' );
 
-$expected_keys = array( 'capability', 'component', 'gate', 'icon', 'id', 'label', 'order', 'url' );
+$expected_keys = array( 'capability', 'component', 'gate', 'group', 'icon', 'id', 'label', 'order', 'url' );
 foreach ( $tabs as $tab ) {
 	$keys = array_keys( $tab );
 	sort( $keys );
@@ -140,11 +142,14 @@ foreach ( $tabs as $tab ) {
 }
 
 assert_same( 'manage_options', $by_id['overview']['capability'], 'Missing capability must default to manage_options.' );
+assert_same( 'primary', $by_id['overview']['group'], 'Missing group must default to primary.' );
 assert_same( '', $by_id['overview']['url'], 'A component tab must have an empty url.' );
 assert_same( 'overview', $by_id['overview']['component'], 'A component tab must keep its component key.' );
 assert_same( 'https://example.test/help', $by_id['help']['url'], 'A link tab must keep its url.' );
 assert_same( '', $by_id['help']['component'], 'A link tab (non-empty url) must clear its component.' );
 assert_same( 'plus_licensed', $by_id['starter']['gate'], 'A tab gate must pass through (sanitized).' );
+assert_same( 'primary', $by_id['bad-group']['group'], 'An unsupported group must fall back to primary.' );
+assert_same( 'secondary', $by_id['tools']['group'], 'A secondary tab group must pass through.' );
 
 /* ============================ Host account accessors ============================ */
 

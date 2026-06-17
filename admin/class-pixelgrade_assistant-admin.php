@@ -315,6 +315,10 @@ class PixelgradeAssistant_Admin {
             // The mixed Starter Sites tab (#49) reuses the existing free starter-content config and
             // lets Plus inject premium starters through the documented PHP filter.
             wp_localize_script( $handle, 'pixelgradeStarterSites', pixassist_get_starter_sites_data() );
+            // Secondary diagnostics/maintenance tabs (#50), sourced from existing Assistant REST
+            // endpoints and data collectors.
+            wp_localize_script( $handle, 'pixelgradeSystemStatus', pixassist_get_system_status_data() );
+            wp_localize_script( $handle, 'pixelgradeTools', pixassist_get_tools_data() );
             // The free Account tab (#45) reads identity + action URLs only. OAuth credentials stay
             // PHP-only via pixassist_get_account_credentials() and are never localized.
             wp_localize_script( $handle, 'pixelgradeAccount', pixassist_get_account_data() );

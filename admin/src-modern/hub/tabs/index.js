@@ -12,6 +12,8 @@ import { Overview } from './Overview';
 import { Account } from './Account';
 import { Plugins } from './Plugins';
 import { StarterSites } from './StarterSites';
+import { SystemStatus } from './SystemStatus';
+import { Tools } from './Tools';
 import { HelpTab } from './Help';
 
 addFilter( 'pixelgrade.adminHub.tabs', 'pixelgrade-assistant/overview', ( map ) => {
@@ -37,6 +39,18 @@ addFilter( 'pixelgrade.adminHub.tabs', 'pixelgrade-assistant/starter-sites', ( m
 
 	return map;
 }, 100 );
+
+addFilter( 'pixelgrade.adminHub.tabs', 'pixelgrade-assistant/system-status', ( map ) => {
+	map.systemStatus = { component: SystemStatus };
+
+	return map;
+} );
+
+addFilter( 'pixelgrade.adminHub.tabs', 'pixelgrade-assistant/tools', ( map ) => {
+	map.tools = { component: Tools };
+
+	return map;
+} );
 
 addFilter( 'pixelgrade.adminHub.tabs', 'pixelgrade-assistant/help', ( map ) => {
 	map.help = { component: HelpTab };

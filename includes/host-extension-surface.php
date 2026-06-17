@@ -50,9 +50,10 @@ if ( ! function_exists( 'pixassist_get_admin_hub_tabs' ) ) {
 	 *   - component (string): JS component key the hub registry resolves to a React component.
 	 *   - url (string): if non-empty, the tab is a plain link-out and `component` is cleared.
 	 *   - icon (string): optional dashicon/url for the tab.
+	 *   - group (string): `primary` or `secondary`. Default `primary`; secondary tabs sort after primary.
 	 *   - order (int): sort weight (ascending). Default 10. Ties broken by label.
 	 *
-	 * @return array[] List of normalized tab descriptors, sorted by order then label.
+	 * @return array[] List of normalized tab descriptors, sorted by group, order, then label.
 	 */
 	function pixassist_get_admin_hub_tabs() {
 		/**
@@ -85,6 +86,10 @@ if ( ! function_exists( 'pixassist_get_admin_hub_tabs' ) ) {
 
 			$url       = isset( $tab['url'] ) ? (string) $tab['url'] : '';
 			$component = ( '' === $url && isset( $tab['component'] ) ) ? (string) $tab['component'] : '';
+			$group     = isset( $tab['group'] ) ? sanitize_key( $tab['group'] ) : 'primary';
+			if ( ! in_array( $group, array( 'primary', 'secondary' ), true ) ) {
+				$group = 'primary';
+			}
 
 			$normalized[ $id ] = array(
 				'id'         => $id,
@@ -94,6 +99,7 @@ if ( ! function_exists( 'pixassist_get_admin_hub_tabs' ) ) {
 				'component'  => $component,
 				'url'        => $url,
 				'icon'       => isset( $tab['icon'] ) ? (string) $tab['icon'] : '',
+				'group'      => $group,
 				'order'      => isset( $tab['order'] ) ? (int) $tab['order'] : 10,
 			);
 		}
@@ -101,6 +107,17 @@ if ( ! function_exists( 'pixassist_get_admin_hub_tabs' ) ) {
 		uasort(
 			$normalized,
 			function ( $a, $b ) {
+				$group_rank = array(
+					'primary'   => 0,
+					'secondary' => 1,
+				);
+				$a_group    = isset( $group_rank[ $a['group'] ] ) ? $group_rank[ $a['group'] ] : 0;
+				$b_group    = isset( $group_rank[ $b['group'] ] ) ? $group_rank[ $b['group'] ] : 0;
+
+				if ( $a_group !== $b_group ) {
+					return ( $a_group < $b_group ) ? -1 : 1;
+				}
+
 				if ( $a['order'] === $b['order'] ) {
 					return strcmp( $a['label'], $b['label'] );
 				}
