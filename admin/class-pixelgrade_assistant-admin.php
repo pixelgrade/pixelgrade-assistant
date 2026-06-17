@@ -1001,9 +1001,16 @@ class PixelgradeAssistant_Admin {
 		if ( ! empty( $final_config['starterContent']['demos'] ) ) {
 			foreach ( $final_config['starterContent']['demos'] as $key => $demo_config ) {
 
-				// By default all demos are applicable to our premium theme types.
+				// A demo with no explicit applicableTypes applies to every theme variant it is served
+				// for — including free wp.org themes (theme_wporg / theme_modular_wporg). Defaulting to
+				// premium-only types here wrongly hid free starter sites for Anima LT. See #59.
 				if ( empty( $demo_config['applicableTypes'] ) ) {
-					$final_config['starterContent']['demos'][ $key ]['applicableTypes'] = $demo_config['applicableTypes'] = array('theme', 'theme_modular');
+					$default_types = array( 'theme', 'theme_modular', 'theme_wporg', 'theme_modular_wporg' );
+					$current_type  = self::get_theme_type();
+					if ( ! empty( $current_type ) && ! in_array( $current_type, $default_types, true ) ) {
+						$default_types[] = $current_type;
+					}
+					$final_config['starterContent']['demos'][ $key ]['applicableTypes'] = $demo_config['applicableTypes'] = $default_types;
 				}
 
 				if ( ! self::isApplicableToCurrentThemeType( $demo_config ) ) {
@@ -1038,12 +1045,10 @@ class PixelgradeAssistant_Admin {
             return false;
         }
 
-	    // Skip the doomed remote round-trip for free themes that are not (yet) registered as
-	    // pixelgrade.com products — their placeholder hash returns invalid_hash_id, so we fall
-	    // straight through to the local default config (same outcome, no wasted call). See #59.
-	    if ( self::is_unregistered_product_hash( $theme_id ) ) {
-		    return false;
-	    }
+	    // Anima (placeholder hash QBAXY) is now resolvable for get_config via its registered
+	    // pixelgrade.com product, disambiguated by the theme SKU sent in the request body below — so we
+	    // no longer skip the round-trip here. KB (get_htkb_categories) still guards on
+	    // is_unregistered_product_hash() until Anima KB content exists. See #59.
 
 	    $config = false;
 
@@ -1069,6 +1074,10 @@ class PixelgradeAssistant_Admin {
                 'blocking'  => true,
                 'body' => array(
                     'hash_id' => $theme_id,
+                    // The theme SKU (e.g. anima-lt) disambiguates products that share a hash. Anima's
+                    // hash (QBAXY) is shared by every premium LT product, so without the SKU the
+                    // Manager cannot resolve which product config to return. See #59.
+                    'sku'     => self::get_original_theme_slug(),
                     // This is the Pixelgrade Assistant Manager configuration version, not the API version
                     // @todo this parameter naming is quite confusing
                     'version' => self::$pixelgrade_assistant_manager_api_version,
