@@ -60,8 +60,7 @@ if ( ! function_exists( 'pixassist_get_overview_data' ) ) {
 	 *     @type array $theme   Active theme status: name, version, isBlockTheme (bool), screenshot.
 	 *     @type array $links   Ordered quick links ({ id, label, url, primary }). The first is the
 	 *                          canvas link (Site Editor for block themes, else the Customizer);
-	 *                          Starter Sites / Help follow when those hub tabs are registered, with
-	 *                          Help falling back to the classic dashboard.
+	 *                          Starter Sites / Help resolve to hub deep links.
 	 *     @type array $plus    Pixelgrade Plus discovery card derived from the 4-key status read:
 	 *                          state (discover|setup|manage), label, description, url, productLabel,
 	 *                          isActive (bool), isLicensed (bool).
@@ -73,12 +72,11 @@ if ( ! function_exists( 'pixassist_get_overview_data' ) ) {
 		$hub        = pixassist_get_admin_hub_data();
 		$tabs       = isset( $hub['tabs'] ) ? $hub['tabs'] : array();
 		$base_url   = isset( $hub['baseUrl'] ) ? $hub['baseUrl'] : '';
-		$classic    = isset( $hub['classicUrl'] ) ? $hub['classicUrl'] : '';
 		$is_block   = function_exists( 'wp_is_block_theme' ) ? (bool) wp_is_block_theme() : false;
 
 		return array(
 			'theme'   => pixassist_get_overview_theme( $is_block ),
-			'links'   => pixassist_get_overview_links( $tabs, $base_url, $classic, $is_block ),
+			'links'   => pixassist_get_overview_links( $tabs, $base_url, $is_block ),
 			'plus'    => pixassist_get_overview_plus_card(),
 			'account' => function_exists( 'pixassist_get_account' ) ? pixassist_get_account() : array( 'is_connected' => false ),
 		);
@@ -135,17 +133,15 @@ if ( ! function_exists( 'pixassist_get_overview_links' ) ) {
 	 *
 	 * The first link is the canvas entry point — where design actually happens (the Site Editor for
 	 * block themes, the Customizer for classic ones). Then the sibling Starter Sites / Help hub tabs
-	 * resolve to in-hub `?tab=` deep links when registered; Help falls back to the classic dashboard
-	 * until the dedicated Help hub tab (#47) lands.
+	 * resolve to in-hub `?tab=` deep links.
 	 *
 	 * @param array  $tabs     Normalized hub tabs (from pixassist_get_admin_hub_data()).
 	 * @param string $base_url Hub page URL (carries `?page=pixelgrade`), for `&tab=` deep links.
-	 * @param string $classic  Classic dashboard URL (Help fallback).
 	 * @param bool   $is_block Whether the active theme is a block (FSE) theme.
 	 *
 	 * @return array[] Ordered quick links: { id, label, url, primary }.
 	 */
-	function pixassist_get_overview_links( $tabs, $base_url, $classic, $is_block ) {
+	function pixassist_get_overview_links( $tabs, $base_url, $is_block ) {
 		$links = array();
 
 		// 1. Canvas link — the primary CTA, always present.
@@ -176,7 +172,7 @@ if ( ! function_exists( 'pixassist_get_overview_links' ) ) {
 			);
 		}
 
-		// 3. Help — the Help hub tab when present, else the classic dashboard.
+		// 3. Help — the Help hub tab when present, else a stable hub deep link.
 		$help = pixassist_find_overview_tab( $tabs, array( 'help' ) );
 		if ( $help ) {
 			$links[] = array(
@@ -189,7 +185,7 @@ if ( ! function_exists( 'pixassist_get_overview_links' ) ) {
 			$links[] = array(
 				'id'      => 'help',
 				'label'   => esc_html__( 'Get help', '__plugin_txtd' ),
-				'url'     => $classic,
+				'url'     => $base_url . '&tab=help',
 				'primary' => false,
 			);
 		}

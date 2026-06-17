@@ -8,6 +8,7 @@
             "php tests/built-asset-test.php",
             "php tests/account-test.php",
             "php tests/host-extension-surface-test.php",
+            "php tests/admin-menu-retirement-test.php",
             "php tests/admin-hub-test.php",
             "php tests/admin-overview-test.php",
             "php tests/admin-plugins-test.php",

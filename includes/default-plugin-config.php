@@ -139,7 +139,7 @@ function pixassist_get_default_config( $original_theme_slug ) {
 							'type'  => 'button',
 							'class' => 'btn btn--large',
 							'label' => esc_html__( 'View and Customize', '__plugin_txtd' ),
-							'url'   => '{{customizer_url}}?return=' . urlencode( admin_url( 'admin.php?page=pixelgrade_assistant' ) ),
+							'url'   => '{{customizer_url}}?return=' . urlencode( admin_url( 'themes.php?page=pixelgrade' ) ),
 						),
 					),
 				),

@@ -26,8 +26,6 @@ if ( ! function_exists( 'pixassist_get_admin_hub_data' ) ) {
 	 *     @type array[] $tabs       Normalized visible tabs (see pixassist_get_admin_hub_tabs()).
 	 *     @type string  $defaultTab Id of the first visible tab (lowest order), or '' when none.
 	 *     @type string  $baseUrl    Admin URL of the hub page (for `?tab=` deep links).
-	 *     @type string  $classicUrl Admin URL of the classic dashboard (transition bridge while the
-	 *                               legacy SPA stays reachable).
 	 * }
 	 */
 	function pixassist_get_admin_hub_data() {
@@ -38,7 +36,6 @@ if ( ! function_exists( 'pixassist_get_admin_hub_data' ) ) {
 			'tabs'       => $tabs,
 			'defaultTab' => $default_tab,
 			'baseUrl'    => admin_url( 'themes.php?page=pixelgrade' ),
-			'classicUrl' => admin_url( 'admin.php?page=pixelgrade_assistant' ),
 		);
 	}
 }

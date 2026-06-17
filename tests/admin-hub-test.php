@@ -4,8 +4,7 @@
  *
  * `pixassist_get_admin_hub_data()` builds the payload the React hub shell is bootstrapped with:
  * the normalized visible tabs (from the #42 `pixelgrade/admin_hub/tabs` registry), the default tab
- * (first visible tab by order), and the hub + classic-dashboard URLs (the classic URL is the
- * transition bridge while the legacy SPA stays reachable).
+ * (first visible tab by order), and the hub URL.
  *
  * Standalone: run with `php tests/admin-hub-test.php` (no WordPress needed).
  *
@@ -64,18 +63,17 @@ require __DIR__ . '/../includes/admin-hub.php';
 
 /*
  * No tabs registered yet (the shell ships before #44/#56): empty tab list, empty default, but the
- * URLs are always present so the shell can still render its empty-state + classic-dashboard bridge.
+ * hub URL is always present so the shell can still render an empty-state.
  */
 $GLOBALS['paf_filters'] = array();
 $data = pixassist_get_admin_hub_data();
 
 $keys = array_keys( $data );
 sort( $keys );
-assert_same( array( 'baseUrl', 'classicUrl', 'defaultTab', 'tabs' ), $keys, 'Hub data must expose exactly tabs/defaultTab/baseUrl/classicUrl.' );
+assert_same( array( 'baseUrl', 'defaultTab', 'tabs' ), $keys, 'Hub data must expose exactly tabs/defaultTab/baseUrl.' );
 assert_same( array(), $data['tabs'], 'With no registered tabs, tabs must be an empty array.' );
 assert_same( '', $data['defaultTab'], 'With no registered tabs, defaultTab must be empty.' );
 assert_same( 'https://example.test/wp-admin/themes.php?page=pixelgrade', $data['baseUrl'], 'baseUrl must point at the Appearance hub page.' );
-assert_same( 'https://example.test/wp-admin/admin.php?page=pixelgrade_assistant', $data['classicUrl'], 'classicUrl must point at the classic dashboard (transition bridge).' );
 
 /*
  * With registered tabs, the hub data carries the normalized + sorted registry and defaults to the

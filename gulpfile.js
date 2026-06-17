@@ -121,39 +121,6 @@ const rollupOutputOptions = {
 	sourcemap: true
 }
 
-function compileScriptsRollupDashboard (watch) {
-	const rollupInputOptions = {
-		input: './admin/src/dashboard.js',
-		plugins: rollupPluginsConfig,
-		external: ['jQuery', 'elasticsearch', 'AWS']
-	}
-
-	if (watch) {
-		const watcher = rollup.watch({
-			...rollupInputOptions,
-			output: rollupOutputOptions,
-			watch: {}
-		})
-
-		// This will make sure that bundles are properly closed after each run
-		watcher.on('event', ({result}) => {
-			if (result) {
-				result.close()
-			}
-		})
-
-		return watcher
-	}
-
-	return rollup
-		.rollup(rollupInputOptions)
-		.then(bundle => {
-			return bundle.write(rollupOutputOptions)
-		})
-}
-
-gulp.task('compile_scripts_rollup_dashboard', function () { return compileScriptsRollupDashboard(false) })
-
 function compileScriptsRollupWizard (watch) {
 	const rollupInputOptions = {
 		input: './admin/src/setup_wizard.js',
@@ -188,13 +155,13 @@ function compileScriptsRollupWizard (watch) {
 gulp.task('compile_scripts_rollup_wizard', function () { return compileScriptsRollupWizard(false) })
 
 function scriptCompileRollupProductionSequence (cb) {
-	gulp.series('apply-prod-environment', 'compile_scripts_rollup_dashboard', 'compile_scripts_rollup_wizard')(cb)
+	gulp.series('apply-prod-environment', 'compile_scripts_rollup_wizard')(cb)
 }
 
 gulp.task('compile_production_rollup', scriptCompileRollupProductionSequence)
 
 function scriptCompileRollupDevelopmentSequence (cb) {
-	gulp.series('compile_scripts_rollup_dashboard', 'compile_scripts_rollup_wizard')(cb)
+	gulp.series('compile_scripts_rollup_wizard')(cb)
 }
 
 gulp.task('compile_dev_rollup', scriptCompileRollupDevelopmentSequence)
@@ -204,10 +171,6 @@ function copyOtherScripts() {
 		.pipe(gulp.dest('./admin/js'));
 }
 gulp.task('copy_other_scripts', function() { return copyOtherScripts(); });
-
-function watch_dashboard () {
-	return compileScriptsRollupDashboard(true)
-}
 
 function watch_setup_wizard () {
 	return compileScriptsRollupWizard(true)
@@ -273,12 +236,11 @@ gulp.task('compile:distribution', scriptCompileMinifiedSequence)
 /**
  * Watch Tasks
  */
-gulp.task('watch:dashboard', function () { return watch_dashboard(true) })
 gulp.task('watch:wizard', function () { return watch_setup_wizard(true) })
 
 // Watch SCSS files and JS files
 function watchAllSequence (cb) {
-	return gulp.parallel('watch:dashboard', 'watch:wizard', 'watch:styles')(cb)
+	return gulp.parallel('watch:wizard', 'watch:styles')(cb)
 }
 
 watchAllSequence.description = 'Start all the watchers.'

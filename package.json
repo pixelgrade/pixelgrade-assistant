@@ -2,7 +2,7 @@
 	"name": "pixelgrade_assistant",
 	"version": "2.1.0",
 	"description": "Caring is the coolest thing",
-	"main": "admin/js/dashboard.js",
+	"main": "admin/js/setup_wizard.js",
 	"repository": "git+https://github.com/pixelgrade/pixelgrade-assistant.git",
 	"author": "Pixelgrade",
 	"license": "GPL-3.0",

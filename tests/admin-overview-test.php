@@ -8,8 +8,7 @@
  *   - pixassist_get_overview_data(): assembles the bootstrap payload the tab renders —
  *       * theme status (name / version / block-theme),
  *       * quick links (the canvas link is the Site Editor for block themes, the Customizer for
- *         classic ones; sibling Starter Sites / Help tabs resolve to `?tab=` deep links when
- *         registered, with Help falling back to the classic dashboard),
+ *         classic ones; sibling Starter Sites / Help links resolve to `?tab=` deep links),
  *       * the Pixelgrade Plus discovery card across the three 4-key states
  *         (discover / set up / manage), and
  *       * the host account identity (read-only, graceful when disconnected).
@@ -154,7 +153,7 @@ assert_same( 'overview', $data['defaultTab'], 'Overview must be the default (fir
 
 /*
  * 3. Classic theme + Plus inactive: canvas link is the Customizer, Plus card is in `discover`,
- *    Help falls back to the classic dashboard, no Starter link, account reads disconnected.
+ *    Help links to the hub Help tab, no Starter link, account reads disconnected.
  */
 paf_reset();
 add_filter( 'pixelgrade/admin_hub/tabs', 'pixassist_register_overview_tab' );
@@ -182,7 +181,7 @@ assert_same( null, paf_find_link( $overview['links'], 'starter-sites' ), 'No Sta
 
 $help = paf_find_link( $overview['links'], 'help' );
 assert_true( null !== $help, 'A Help link is always present.' );
-assert_same( 'https://example.test/wp-admin/admin.php?page=pixelgrade_assistant', $help['url'], 'Help falls back to the classic dashboard when no Help tab exists.' );
+assert_same( 'https://example.test/wp-admin/themes.php?page=pixelgrade&tab=help', $help['url'], 'Help falls back to the hub Help tab when no Help tab descriptor exists.' );
 
 assert_same( 'discover', $overview['plus']['state'], 'Inactive Plus must be in the discover state.' );
 assert_same( false, $overview['plus']['isActive'], 'Inactive Plus must report isActive=false.' );

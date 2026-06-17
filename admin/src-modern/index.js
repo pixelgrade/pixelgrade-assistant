@@ -17,7 +17,7 @@ import './hub/tabs';
 
 const MOUNT_ID = 'pixelgrade-admin-hub';
 
-const DEFAULT_BOOTSTRAP = { tabs: [], defaultTab: '', baseUrl: '', classicUrl: '' };
+const DEFAULT_BOOTSTRAP = { tabs: [], defaultTab: '', baseUrl: '' };
 
 function mount() {
 	const node = document.getElementById( MOUNT_ID );

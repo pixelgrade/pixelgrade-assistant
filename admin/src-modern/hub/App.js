@@ -3,8 +3,7 @@
  *
  * Renders the tab bar + the active tab's component. Tabs come from the server (visible, gated,
  * sorted); their React components come from the `pixelgrade.adminHub.tabs` JS filter. Routing is via
- * `?tab=`. A server-visible tab with no registered component renders a Placeholder; with no tabs at
- * all, an EmptyState that bridges to the classic dashboard.
+ * `?tab=`. A server-visible tab with no registered component renders a Placeholder.
  */
 import { createElement, Fragment } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
@@ -12,7 +11,6 @@ import { getComponentMap } from './registry';
 import { useTabRouting } from './useTabRouting';
 import { TabBar } from './TabBar';
 import { Placeholder } from './Placeholder';
-import { EmptyState } from './EmptyState';
 
 export function App( { bootstrap } ) {
 	const tabs = Array.isArray( bootstrap.tabs ) ? bootstrap.tabs : [];
@@ -22,7 +20,7 @@ export function App( { bootstrap } ) {
 	const [ activeId, navigate ] = useTabRouting( ids, fallback );
 
 	if ( ! tabs.length ) {
-		return createElement( EmptyState, { classicUrl: bootstrap.classicUrl } );
+		return createElement( Placeholder, { tab: { id: 'pixelgrade', label: __( 'Pixelgrade', 'pixelgrade_assistant' ) } } );
 	}
 
 	const onSelect = ( id ) => {
