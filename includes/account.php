@@ -582,6 +582,32 @@ if ( ! function_exists( 'pixassist_account_oauth_parse_body' ) ) {
 	}
 }
 
+if ( ! function_exists( 'pixassist_account_log_oauth_failure' ) ) {
+	/**
+	 * Logs an account-connection (OAuth) failure so a `connect_failed` outcome is diagnosable.
+	 *
+	 * Fires only on genuine failures (rare, user-initiated connects). OAuth token material is
+	 * redacted before logging.
+	 *
+	 * @param string $context Where/why it failed.
+	 * @param string $detail  Optional extra detail (error message / response body).
+	 *
+	 * @return void
+	 */
+	function pixassist_account_log_oauth_failure( $context, $detail = '' ) {
+		if ( ! function_exists( 'error_log' ) ) {
+			return;
+		}
+
+		$detail = is_string( $detail ) ? $detail : '';
+		// Never log token material, even though these tokens are short-lived.
+		$detail = preg_replace( '/(oauth_token(?:_secret)?=)[^&\s]+/i', '$1<redacted>', $detail );
+		$detail = '' !== $detail ? ' — ' . substr( $detail, 0, 300 ) : '';
+
+		error_log( '[pixassist] account connection failed: ' . (string) $context . $detail );
+	}
+}
+
 if ( ! function_exists( 'pixassist_account_oauth_request' ) ) {
 	/**
 	 * Performs a signed OAuth request.
@@ -625,10 +651,15 @@ if ( ! function_exists( 'pixassist_account_oauth_request' ) ) {
 		);
 
 		if ( function_exists( 'is_wp_error' ) && is_wp_error( $response ) ) {
+			pixassist_account_log_oauth_failure( $leg . ' leg request error', $response->get_error_message() );
 			return null;
 		}
 
 		if ( function_exists( 'wp_remote_retrieve_response_code' ) && 400 <= wp_remote_retrieve_response_code( $response ) ) {
+			pixassist_account_log_oauth_failure(
+				$leg . ' leg HTTP ' . wp_remote_retrieve_response_code( $response ),
+				function_exists( 'wp_remote_retrieve_body' ) ? (string) wp_remote_retrieve_body( $response ) : ''
+			);
 			return null;
 		}
 
@@ -971,6 +1002,7 @@ if ( ! function_exists( 'pixassist_account_handle_callback' ) ) {
 		$secret      = '' !== $oauth_token ? pixassist_account_get_request_token_secret( $oauth_token ) : null;
 
 		if ( null === $secret ) {
+			pixassist_account_log_oauth_failure( 'request-token secret missing at callback (expired or lost between legs)', '' !== $oauth_token ? 'oauth_token present' : 'oauth_token missing' );
 			return pixassist_account_result( 'connect_failed', esc_html__( 'We could not connect your Pixelgrade account. Please try again.', '__plugin_txtd' ) );
 		}
 
@@ -978,6 +1010,7 @@ if ( ! function_exists( 'pixassist_account_handle_callback' ) ) {
 		pixassist_account_delete_request_token_secret( $oauth_token );
 
 		if ( empty( $access ) || 0 >= (int) ( isset( $access['pixelgrade_user_id'] ) ? $access['pixelgrade_user_id'] : 0 ) ) {
+			pixassist_account_log_oauth_failure( 'access leg returned no usable identity', empty( $access ) ? 'empty access response' : 'no pixelgrade_user_id in response' );
 			return pixassist_account_result( 'connect_failed', esc_html__( 'We could not connect your Pixelgrade account. Please try again.', '__plugin_txtd' ) );
 		}
 
