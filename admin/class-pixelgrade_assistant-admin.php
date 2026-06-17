@@ -312,6 +312,9 @@ class PixelgradeAssistant_Admin {
             // The free Plugins tab (#48) reuses the existing TGMPA/recommended-plugins source and
             // exposes only normalized UI data to the modern tab.
             wp_localize_script( $handle, 'pixelgradePlugins', pixassist_get_plugins_data() );
+            // The mixed Starter Sites tab (#49) reuses the existing free starter-content config and
+            // lets Plus inject premium starters through the documented PHP filter.
+            wp_localize_script( $handle, 'pixelgradeStarterSites', pixassist_get_starter_sites_data() );
             // The free Account tab (#45) reads identity + action URLs only. OAuth credentials stay
             // PHP-only via pixassist_get_account_credentials() and are never localized.
             wp_localize_script( $handle, 'pixelgradeAccount', pixassist_get_account_data() );

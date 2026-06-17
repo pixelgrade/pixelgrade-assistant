@@ -11,6 +11,7 @@ import { addFilter } from '@wordpress/hooks';
 import { Overview } from './Overview';
 import { Account } from './Account';
 import { Plugins } from './Plugins';
+import { StarterSites } from './StarterSites';
 import { HelpTab } from './Help';
 
 addFilter( 'pixelgrade.adminHub.tabs', 'pixelgrade-assistant/overview', ( map ) => {
@@ -30,6 +31,12 @@ addFilter( 'pixelgrade.adminHub.tabs', 'pixelgrade-assistant/plugins', ( map ) =
 
 	return map;
 } );
+
+addFilter( 'pixelgrade.adminHub.tabs', 'pixelgrade-assistant/starter-sites', ( map ) => {
+	map.starterSites = { component: StarterSites };
+
+	return map;
+}, 100 );
 
 addFilter( 'pixelgrade.adminHub.tabs', 'pixelgrade-assistant/help', ( map ) => {
 	map.help = { component: HelpTab };

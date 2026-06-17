@@ -135,8 +135,8 @@ if ( ! function_exists( 'pixassist_get_overview_links' ) ) {
 	 *
 	 * The first link is the canvas entry point — where design actually happens (the Site Editor for
 	 * block themes, the Customizer for classic ones). Then the sibling Starter Sites / Help hub tabs
-	 * resolve to in-hub `?tab=` deep links when registered (by Plus); Help falls back to the classic
-	 * dashboard until the dedicated Help hub tab (#47) lands.
+	 * resolve to in-hub `?tab=` deep links when registered; Help falls back to the classic dashboard
+	 * until the dedicated Help hub tab (#47) lands.
 	 *
 	 * @param array  $tabs     Normalized hub tabs (from pixassist_get_admin_hub_data()).
 	 * @param string $base_url Hub page URL (carries `?page=pixelgrade`), for `&tab=` deep links.
@@ -165,7 +165,7 @@ if ( ! function_exists( 'pixassist_get_overview_links' ) ) {
 			);
 		}
 
-		// 2. Starter Sites — only when a sibling tab is registered (Plus owns it).
+		// 2. Starter Sites — only when the sibling tab is registered.
 		$starter = pixassist_find_overview_tab( $tabs, array( 'starter-sites', 'starter', 'starters' ) );
 		if ( $starter ) {
 			$links[] = array(

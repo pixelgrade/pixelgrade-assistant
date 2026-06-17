@@ -56,6 +56,9 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/admin-overview.php';
 // Free Plugins tab: recommended plugin management inside the hub.
 require_once plugin_dir_path( __FILE__ ) . 'includes/admin-plugins.php';
 
+// Free Starter Sites tab: existing free demos plus Plus-injected premium starters.
+require_once plugin_dir_path( __FILE__ ) . 'includes/admin-starter-sites.php';
+
 // Contextual editor docs panel: bootstrap data + safe server-side docs actions.
 require_once plugin_dir_path( __FILE__ ) . 'includes/admin-docs.php';
 
