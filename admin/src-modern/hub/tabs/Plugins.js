@@ -242,11 +242,9 @@ function renderAction( plugin, updatePlugin, copy, setNotice ) {
 	}
 
 	if ( 'active' === plugin.status ) {
-		return createElement(
-			Button,
-			{ variant: 'secondary', disabled: true },
-			actions.active || __( 'Active', 'pixelgrade_assistant' )
-		);
+		// Terminal state with no action — the status badge already says "Active", so a disabled
+		// "Active" button would just duplicate it.
+		return null;
 	}
 
 	if ( 'outdated' === plugin.status ) {

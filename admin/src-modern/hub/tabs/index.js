@@ -28,11 +28,15 @@ addFilter( 'pixelgrade.adminHub.tabs', 'pixelgrade-assistant/account', ( map ) =
 	return map;
 } );
 
+// Priority 100 so Assistant's recommended-plugins tab (Style Manager, Nova Blocks, …) wins the
+// shared `plugins` component slot over a companion that loads later and also binds `map.plugins`
+// (Pixelgrade Plus). Same pattern as starterSites below — the free tab owns the slot; companions
+// contribute entries through the `pixassist_recommended_plugins` PHP filter, not a rival component.
 addFilter( 'pixelgrade.adminHub.tabs', 'pixelgrade-assistant/plugins', ( map ) => {
 	map.plugins = { component: Plugins };
 
 	return map;
-} );
+}, 100 );
 
 addFilter( 'pixelgrade.adminHub.tabs', 'pixelgrade-assistant/starter-sites', ( map ) => {
 	map.starterSites = { component: StarterSites };
