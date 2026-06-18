@@ -607,9 +607,17 @@ class PixelgradeAssistant_Admin {
 
     /**
      * Add Contextual help tabs.
+     *
+     * Only on the Appearance -> Pixelgrade hub screen. This is hooked to `current_screen` (which
+     * fires on every admin page), so without this guard the "Pixelgrade Assistant" help tab leaked
+     * into WordPress's Help dropdown on every wp-admin screen. (Interim: the onboarding link still
+     * lives here on the hub until the hub-native onboarding lands; see the migration plan.)
      */
     public function add_tabs() {
         $screen = get_current_screen();
+        if ( ! $screen || 'appearance_page_pixelgrade' !== $screen->id ) {
+            return;
+        }
         $screen->add_help_tab( array(
             'id'      => 'pixelgrade_assistant_setup_wizard_tab',
             'title'   => esc_html__( 'Pixelgrade Assistant', '__plugin_txtd' ),
