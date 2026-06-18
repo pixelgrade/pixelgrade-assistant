@@ -489,8 +489,10 @@ function pixassist_get_default_config( $original_theme_slug ) {
 	);
 
 	// Local recommended companions for the free LT stack — installed from WordPress.org by slug.
-	// Filterable so the team / a commercial build can adjust the list (e.g. add Style Manager once
-	// it is re-published on wp.org, or add account-gated companions via Pixelgrade Plus).
+	// Both power the free Anima starters (Nova Blocks supplies the page blocks, Style Manager the
+	// palette + fonts), so the starter-import dependency gate expects both to be active.
+	// Filterable so the team / a commercial build can adjust the list (e.g. add account-gated
+	// companions via Pixelgrade Plus).
 	$config['requiredPlugins'] = array(
 		'plugins' => apply_filters( 'pixassist_recommended_plugins', array(
 			array(
@@ -500,6 +502,14 @@ function pixassist_get_default_config( $original_theme_slug ) {
 				'order'       => 10,
 				'selected'    => true,
 				'description' => esc_html__( 'Beautiful, flexible content blocks that power the Pixelgrade LT design experience.', '__plugin_txtd' ),
+			),
+			array(
+				'name'        => 'Style Manager',
+				'slug'        => 'style-manager',
+				'required'    => false,
+				'order'       => 20,
+				'selected'    => true,
+				'description' => esc_html__( 'Smart color palettes and font pairings that keep your whole site looking consistent and on-brand.', '__plugin_txtd' ),
 			),
 		) ),
 	);

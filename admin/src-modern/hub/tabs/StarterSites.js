@@ -32,7 +32,18 @@ const DEFAULT_STARTER_SITES = {
 			setupPlus: __( 'Set up Pixelgrade Plus', 'pixelgrade_assistant' ),
 			managePlus: __( 'Manage Pixelgrade Plus', 'pixelgrade_assistant' ),
 			working: __( 'Importing...', 'pixelgrade_assistant' ),
+			managePlugins: __( 'Install required plugins', 'pixelgrade_assistant' ),
 		},
+		requirements: {
+			heading: __( 'This starter needs a couple of plugins first', 'pixelgrade_assistant' ),
+			message: __(
+				'To import this starter exactly as designed, install and activate %s. Without them the imported pages would render broken (missing blocks, colors and fonts).',
+				'pixelgrade_assistant'
+			),
+			separator: __( ', ', 'pixelgrade_assistant' ),
+			and: __( ' and ', 'pixelgrade_assistant' ),
+		},
+		pluginsTabUrl: '',
 	},
 	endpoints: {},
 	imported: {},
@@ -64,6 +75,11 @@ function mergeCopy( copy ) {
 			...DEFAULT_STARTER_SITES.copy.actions,
 			...( copy && copy.actions ? copy.actions : {} ),
 		},
+		requirements: {
+			...DEFAULT_STARTER_SITES.copy.requirements,
+			...( copy && copy.requirements ? copy.requirements : {} ),
+		},
+		pluginsTabUrl: ( copy && copy.pluginsTabUrl ) || DEFAULT_STARTER_SITES.copy.pluginsTabUrl,
 	};
 }
 
@@ -171,6 +187,44 @@ async function restRequest( data, key, payload ) {
 
 function isStarterImported( imported, starterId ) {
 	return Boolean( imported && imported[ starterId ] && Object.keys( imported[ starterId ] ).length );
+}
+
+/**
+ * The starter's required companion plugins that are not active yet.
+ *
+ * Data-driven: each starter declares its `requiredPlugins` (default Nova Blocks + Style Manager for
+ * the free Anima starters) with live install/active status stamped server-side. The gate only blocks
+ * on plugins that are required AND not active.
+ *
+ * @param {Object} starter Normalized starter descriptor.
+ * @return {Array} Missing required plugins (each: slug, name, isInstalled, isActive).
+ */
+function getMissingRequiredPlugins( starter ) {
+	const required = Array.isArray( starter.requiredPlugins ) ? starter.requiredPlugins : [];
+
+	return required.filter( ( plugin ) => plugin && plugin.slug && ! plugin.isActive );
+}
+
+/**
+ * Join plugin names into a friendly list: "A", "A and B", "A, B and C".
+ *
+ * @param {Array}  names Plugin display names.
+ * @param {Object} copy  Requirements copy (separator + and).
+ * @return {string}
+ */
+function formatPluginNames( names, copy ) {
+	if ( ! names.length ) {
+		return '';
+	}
+
+	if ( 1 === names.length ) {
+		return names[ 0 ];
+	}
+
+	const separator = ( copy && copy.separator ) || ', ';
+	const lastSeparator = ( copy && copy.and ) || ' and ';
+
+	return names.slice( 0, -1 ).join( separator ) + lastSeparator + names[ names.length - 1 ];
 }
 
 function isStarterLocked( starter, plus ) {
@@ -305,7 +359,7 @@ async function importStarter( starter, data, copy, setProgress ) {
 	}
 }
 
-function renderStatusNotice( state ) {
+function renderStatusNotice( state, copy ) {
 	if ( ! state || ! state.status || 'idle' === state.status ) {
 		return null;
 	}
@@ -315,18 +369,26 @@ function renderStatusNotice( state ) {
 			? { background: '#fcf0f1', border: '#f0b8bd', color: '#8a2424' }
 			: 'success' === state.status
 			? { background: '#edfaef', border: '#b8e6c2', color: '#0a7a28' }
+			: 'requirements' === state.status
+			? { background: '#fff8e5', border: '#f0d58a', color: '#7a4d00' }
 			: { background: '#eef5ff', border: '#b8d4fb', color: '#1e5aa8' };
+
+	const isRequirements = 'requirements' === state.status;
+	const requirementsCopy = ( copy && copy.requirements ) || {};
+	const pluginsTabUrl = copy && copy.pluginsTabUrl;
+	const manageLabel = ( copy && copy.actions && copy.actions.managePlugins ) || __( 'Install required plugins', 'pixelgrade_assistant' );
 
 	return createElement(
 		'div',
 		{
 			role: 'status',
 			style: {
-				alignItems: 'center',
+				alignItems: isRequirements ? 'flex-start' : 'center',
 				background: tone.background,
 				border: '1px solid ' + tone.border,
 				color: tone.color,
 				display: 'flex',
+				flexDirection: isRequirements ? 'column' : 'row',
 				fontSize: '13px',
 				gap: '8px',
 				lineHeight: 1.4,
@@ -335,7 +397,17 @@ function renderStatusNotice( state ) {
 			},
 		},
 		'working' === state.status ? createElement( Spinner, { style: { margin: 0 } } ) : null,
-		state.message
+		isRequirements && requirementsCopy.heading
+			? createElement( 'strong', { style: { display: 'block' } }, requirementsCopy.heading )
+			: null,
+		createElement( 'span', null, state.message ),
+		isRequirements && pluginsTabUrl
+			? createElement(
+					Button,
+					{ href: pluginsTabUrl, variant: 'primary' },
+					manageLabel
+			  )
+			: null
 	);
 }
 
@@ -453,7 +525,7 @@ function renderStarterCard( starter, context ) {
 					  )
 					: null
 			),
-			renderStatusNotice( state )
+			renderStatusNotice( state, copy )
 		)
 	);
 }
@@ -476,6 +548,25 @@ export function StarterSites() {
 	};
 
 	const startImport = async ( starter ) => {
+		// Dependency gate: never import a starter the site cannot render. If the starter's required
+		// companion plugins are not active, nudge the user to install + activate them first instead of
+		// silently importing broken content. When all requirements are met this is a no-op.
+		const missing = getMissingRequiredPlugins( starter );
+		if ( missing.length ) {
+			const names = missing.map( ( plugin ) => plugin.name || plugin.slug );
+			const message = ( copy.requirements.message || '%s' ).replace(
+				'%s',
+				formatPluginNames( names, copy.requirements )
+			);
+
+			setStarterState( starter.id, {
+				status: 'requirements',
+				message,
+				missing,
+			} );
+			return;
+		}
+
 		if ( isStarterImported( imported, starter.id ) && typeof window !== 'undefined' && window.confirm ) {
 			const sure = window.confirm( copy.confirm );
 			if ( ! sure ) {

@@ -287,6 +287,27 @@ class PixelgradeAssistant_StarterContent {
 			) );
 		}
 
+		// Dependency gate: a starter declares the companion plugins it needs (data-driven, defaulting to
+		// Nova Blocks + Style Manager for the free Anima starters). Refuse to import any step while a
+		// required plugin is not active, so content the site cannot render is never written. Enforced on
+		// every step server-side so the UI gate cannot be bypassed.
+		$missing_plugins = $this->get_missing_required_plugins( $demo_key );
+		if ( ! empty( $missing_plugins ) ) {
+			$names = wp_list_pluck( $missing_plugins, 'name' );
+
+			return rest_ensure_response( array(
+				'code'    => 'missing_required_plugins',
+				'message' => sprintf(
+					/* translators: %s: comma-separated list of plugin names. */
+					esc_html__( 'This starter needs these plugins installed and active first: %s. Please install and activate them, then import again.', '__plugin_txtd' ),
+					implode( ', ', $names )
+				),
+				'data'    => array(
+					'requiredPlugins' => array_values( $missing_plugins ),
+				),
+			) );
+		}
+
 		// Remember the demo base URL so end_import() can rewrite demo links reliably,
 		// even if its own request body carries no `url` (e.g. a JSON request leaves $_POST empty).
 		set_transient( 'pixassist_sce_demo_url', $base_url, HOUR_IN_SECONDS );
@@ -496,6 +517,67 @@ class PixelgradeAssistant_StarterContent {
 		 * @param array $hosts
 		 */
 		return apply_filters( 'pixassist_sce_allowed_demo_hosts', $hosts );
+	}
+
+	/**
+	 * Resolve the companion plugins a starter requires that are NOT currently active.
+	 *
+	 * The required-plugins set is declared per starter (data-driven) and resolved through the same
+	 * Starter Sites pipeline the UI uses, so the server and the UI agree on the dependency contract.
+	 * A starter we cannot match (unknown demo_key, or the Starter Sites module unavailable) returns no
+	 * missing plugins — the gate must never block a legitimate import for a starter without a declared
+	 * dependency.
+	 *
+	 * @param string $demo_key The starter/demo key being imported.
+	 *
+	 * @return array[] Missing required plugins (each: slug, name, isInstalled, isActive). Empty when met.
+	 */
+	private function get_missing_required_plugins( $demo_key ) {
+		$demo_key = sanitize_key( $demo_key );
+		if ( '' === $demo_key || ! function_exists( 'pixassist_get_admin_hub_starters' ) ) {
+			return array();
+		}
+
+		$required = array();
+
+		// Find the starter descriptor (it carries the resolved, status-stamped requiredPlugins).
+		foreach ( pixassist_get_admin_hub_starters() as $starter ) {
+			if ( empty( $starter['id'] ) || $starter['id'] !== $demo_key ) {
+				continue;
+			}
+
+			if ( ! empty( $starter['requiredPlugins'] ) && is_array( $starter['requiredPlugins'] ) ) {
+				$required = $starter['requiredPlugins'];
+			}
+			break;
+		}
+
+		if ( empty( $required ) ) {
+			return array();
+		}
+
+		// Re-check status server-side at request time (do not trust a stale localized snapshot).
+		$missing = array();
+		foreach ( $required as $plugin ) {
+			if ( empty( $plugin['slug'] ) ) {
+				continue;
+			}
+
+			$status = function_exists( 'pixassist_get_starter_plugin_status' )
+				? pixassist_get_starter_plugin_status( $plugin['slug'] )
+				: array( 'isInstalled' => false, 'isActive' => false );
+
+			if ( empty( $status['isActive'] ) ) {
+				$missing[] = array(
+					'slug'        => sanitize_key( $plugin['slug'] ),
+					'name'        => isset( $plugin['name'] ) ? wp_strip_all_tags( $plugin['name'] ) : sanitize_key( $plugin['slug'] ),
+					'isInstalled' => ! empty( $status['isInstalled'] ),
+					'isActive'    => ! empty( $status['isActive'] ),
+				);
+			}
+		}
+
+		return $missing;
 	}
 
 	/**

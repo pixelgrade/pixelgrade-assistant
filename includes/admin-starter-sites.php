@@ -183,6 +183,11 @@ if ( ! function_exists( 'pixassist_normalize_admin_hub_starter' ) ) {
 	 * - gate (string): '' for free, plus|plus_licensed for premium upsells.
 	 * - image, previewUrl, badge, source (string): optional display metadata.
 	 * - order (int): sort weight.
+	 * - requiredPlugins (array[]): companion plugins that must be installed AND active before this
+	 *   starter can be imported (e.g. Nova Blocks + Style Manager for the free Anima starters). Each
+	 *   entry: slug, name, isInstalled, isActive. Data-driven (see
+	 *   pixassist_get_starter_required_plugins()), so the dependency gate is not hardcoded in the
+	 *   import loop.
 	 *
 	 * @param array      $starter Raw starter descriptor.
 	 * @param int|string $key     Original array key.
@@ -220,21 +225,213 @@ if ( ! function_exists( 'pixassist_normalize_admin_hub_starter' ) ) {
 			? pixassist_starter_sites_trailingslash( pixassist_starter_sites_esc_url_raw( $starter['baseRestUrl'] ) )
 			: pixassist_starter_sites_trailingslash( $url . pixassist_get_starter_sites_default_rest_path( $config ) );
 
+		$gate   = isset( $starter['gate'] ) ? sanitize_key( $starter['gate'] ) : '';
+		$source = isset( $starter['source'] ) ? sanitize_key( $starter['source'] ) : 'assistant';
+
 		return array(
-			'id'          => $id,
-			'title'       => ! empty( $starter['title'] ) ? (string) $starter['title'] : pixassist_get_starter_sites_default_title(),
-			'description' => isset( $starter['description'] ) && '' !== (string) $starter['description']
+			'id'              => $id,
+			'title'           => ! empty( $starter['title'] ) ? (string) $starter['title'] : pixassist_get_starter_sites_default_title(),
+			'description'     => isset( $starter['description'] ) && '' !== (string) $starter['description']
 				? (string) $starter['description']
 				: pixassist_get_starter_sites_default_description( $config ),
-			'url'         => $url,
-			'baseRestUrl' => $base_rest_url,
-			'gate'        => isset( $starter['gate'] ) ? sanitize_key( $starter['gate'] ) : '',
-			'image'       => isset( $starter['image'] ) ? pixassist_starter_sites_esc_url_raw( $starter['image'] ) : '',
-			'previewUrl'  => isset( $starter['previewUrl'] ) ? pixassist_starter_sites_esc_url_raw( $starter['previewUrl'] ) : '',
-			'badge'       => isset( $starter['badge'] ) ? (string) $starter['badge'] : '',
-			'source'      => isset( $starter['source'] ) ? sanitize_key( $starter['source'] ) : 'assistant',
-			'order'       => isset( $starter['order'] ) ? (int) $starter['order'] : 10,
+			'url'             => $url,
+			'baseRestUrl'     => $base_rest_url,
+			'gate'            => $gate,
+			'image'           => isset( $starter['image'] ) ? pixassist_starter_sites_esc_url_raw( $starter['image'] ) : '',
+			'previewUrl'      => isset( $starter['previewUrl'] ) ? pixassist_starter_sites_esc_url_raw( $starter['previewUrl'] ) : '',
+			'badge'           => isset( $starter['badge'] ) ? (string) $starter['badge'] : '',
+			'source'          => $source,
+			'order'           => isset( $starter['order'] ) ? (int) $starter['order'] : 10,
+			'requiredPlugins' => pixassist_get_starter_required_plugins(
+				array(
+					'id'     => $id,
+					'gate'   => $gate,
+					'source' => $source,
+				),
+				$starter,
+				$config
+			),
 		);
+	}
+}
+
+if ( ! function_exists( 'pixassist_get_starter_required_plugins' ) ) {
+	/**
+	 * Resolve the companion plugins a starter needs before it can be imported.
+	 *
+	 * Data-driven, so the dependency gate is declared per starter rather than hardcoded in the import
+	 * loop. Order of precedence:
+	 *   1. A `requiredPlugins` array on the starter descriptor (remote config or an injected starter).
+	 *   2. A `starterContent.requiredPlugins` default in the merged config.
+	 *   3. Built-in default for the free Anima starters (Nova Blocks + Style Manager) — the free
+	 *      starters' pages use Nova Blocks blocks and write Style Manager (`sm_*`) design options, so
+	 *      without both active the imported content renders broken.
+	 *
+	 * Each entry is normalized to { slug, name, isInstalled, isActive } so both the UI nudge and the
+	 * server-side gate can reason about it.
+	 *
+	 * @param array $normalized Partial normalized starter context: id, gate, source.
+	 * @param array $raw        Raw starter descriptor.
+	 * @param array $config     Existing Assistant config.
+	 *
+	 * @return array[] Normalized required-plugin descriptors.
+	 */
+	function pixassist_get_starter_required_plugins( $normalized, $raw = array(), $config = array() ) {
+		$required = array();
+
+		if ( ! empty( $raw['requiredPlugins'] ) && is_array( $raw['requiredPlugins'] ) ) {
+			$required = $raw['requiredPlugins'];
+		} elseif ( ! empty( $config['starterContent']['requiredPlugins'] ) && is_array( $config['starterContent']['requiredPlugins'] ) ) {
+			$required = $config['starterContent']['requiredPlugins'];
+		} elseif ( empty( $normalized['gate'] ) ) {
+			// Free, non-gated starters (the free Anima starters) are built on the free LT stack.
+			$required = array(
+				array(
+					'slug' => 'nova-blocks',
+					'name' => 'Nova Blocks',
+				),
+				array(
+					'slug' => 'style-manager',
+					'name' => 'Style Manager',
+				),
+			);
+		}
+
+		/**
+		 * Filter the companion plugins a starter requires before import.
+		 *
+		 * Lets the remote config / a companion plugin adjust the dependency set per starter (e.g. a
+		 * premium starter that needs additional companions). Each entry should provide at least a
+		 * `slug`; `name` is optional (defaults to a humanized slug).
+		 *
+		 * @param array[] $required   Raw required-plugin descriptors.
+		 * @param array   $normalized Partial normalized starter context: id, gate, source.
+		 * @param array   $config     Existing Assistant config.
+		 */
+		$required = apply_filters( 'pixassist_starter_required_plugins', $required, $normalized, $config );
+
+		return pixassist_normalize_starter_required_plugins( $required );
+	}
+}
+
+if ( ! function_exists( 'pixassist_normalize_starter_required_plugins' ) ) {
+	/**
+	 * Normalize and status-stamp a list of required-plugin descriptors.
+	 *
+	 * @param array $required Raw required-plugin descriptors (each at least a slug).
+	 *
+	 * @return array[] Each: slug, name, isInstalled, isActive.
+	 */
+	function pixassist_normalize_starter_required_plugins( $required ) {
+		if ( ! is_array( $required ) ) {
+			return array();
+		}
+
+		$normalized = array();
+		$seen       = array();
+
+		foreach ( $required as $key => $entry ) {
+			// Allow a bare slug string, or a descriptor array.
+			if ( is_string( $entry ) ) {
+				$entry = array( 'slug' => $entry );
+			}
+
+			if ( ! is_array( $entry ) ) {
+				continue;
+			}
+
+			$slug = '';
+			if ( ! empty( $entry['slug'] ) ) {
+				$slug = sanitize_key( $entry['slug'] );
+			} elseif ( is_string( $key ) && '' !== $key ) {
+				$slug = sanitize_key( $key );
+			}
+
+			if ( '' === $slug || isset( $seen[ $slug ] ) ) {
+				continue;
+			}
+			$seen[ $slug ] = true;
+
+			$name = ! empty( $entry['name'] )
+				? pixassist_plugins_strip_tags_safe( $entry['name'] )
+				: ucwords( str_replace( array( '-', '_' ), ' ', $slug ) );
+
+			$status = pixassist_get_starter_plugin_status( $slug );
+
+			$normalized[] = array(
+				'slug'        => $slug,
+				'name'        => $name,
+				'isInstalled' => $status['isInstalled'],
+				'isActive'    => $status['isActive'],
+			);
+		}
+
+		return $normalized;
+	}
+}
+
+if ( ! function_exists( 'pixassist_plugins_strip_tags_safe' ) ) {
+	/**
+	 * Strip markup from a plain-text value, tolerant of a missing WordPress.
+	 *
+	 * @param string $value Raw string.
+	 *
+	 * @return string
+	 */
+	function pixassist_plugins_strip_tags_safe( $value ) {
+		if ( function_exists( 'wp_strip_all_tags' ) ) {
+			return wp_strip_all_tags( (string) $value );
+		}
+
+		return trim( strip_tags( (string) $value ) );
+	}
+}
+
+if ( ! function_exists( 'pixassist_get_starter_plugin_status' ) ) {
+	/**
+	 * Resolve whether a plugin (identified by its wp.org slug / folder) is installed and active.
+	 *
+	 * Slug-based on purpose: the descriptor only knows the wp.org slug (folder), not the exact main
+	 * file. We match the slug against the folder of every installed/active plugin entry, so a slug
+	 * like `nova-blocks` resolves `nova-blocks/nova-blocks.php` without hardcoding the file name.
+	 *
+	 * @param string $slug Plugin slug / folder (e.g. `nova-blocks`).
+	 *
+	 * @return array { isInstalled: bool, isActive: bool }
+	 */
+	function pixassist_get_starter_plugin_status( $slug ) {
+		$slug = function_exists( 'sanitize_key' ) ? sanitize_key( $slug ) : strtolower( (string) $slug );
+
+		$result = array(
+			'isInstalled' => false,
+			'isActive'    => false,
+		);
+
+		if ( '' === $slug || ! function_exists( 'get_plugins' ) ) {
+			// Without the plugins API (e.g. standalone tests) we cannot inspect status; treat as unmet.
+			return $result;
+		}
+
+		if ( ! function_exists( 'is_plugin_active' ) && defined( 'ABSPATH' ) && @file_exists( ABSPATH . 'wp-admin/includes/plugin.php' ) ) {
+			require_once ABSPATH . 'wp-admin/includes/plugin.php';
+		}
+
+		$all_plugins = get_plugins();
+		foreach ( array_keys( $all_plugins ) as $plugin_file ) {
+			// $plugin_file looks like `nova-blocks/nova-blocks.php`; match on its folder.
+			$folder = strtok( $plugin_file, '/' );
+			if ( $folder !== $slug ) {
+				continue;
+			}
+
+			$result['isInstalled'] = true;
+
+			if ( function_exists( 'is_plugin_active' ) && is_plugin_active( $plugin_file ) ) {
+				$result['isActive'] = true;
+			}
+		}
+
+		return $result;
 	}
 }
 
@@ -267,14 +464,41 @@ if ( ! function_exists( 'pixassist_get_starter_sites_copy' ) ) {
 				'locked'  => esc_html__( 'Requires Pixelgrade Plus', '__plugin_txtd' ),
 			),
 			'actions'     => array(
-				'import'     => isset( $l10n['import'] ) ? (string) $l10n['import'] : esc_html__( 'Import', '__plugin_txtd' ),
-				'imported'   => isset( $l10n['imported'] ) ? (string) $l10n['imported'] : esc_html__( 'Imported', '__plugin_txtd' ),
-				'preview'    => esc_html__( 'Preview', '__plugin_txtd' ),
-				'setupPlus'  => esc_html__( 'Set up Pixelgrade Plus', '__plugin_txtd' ),
-				'managePlus' => esc_html__( 'Manage Pixelgrade Plus', '__plugin_txtd' ),
-				'working'    => esc_html__( 'Importing...', '__plugin_txtd' ),
+				'import'         => isset( $l10n['import'] ) ? (string) $l10n['import'] : esc_html__( 'Import', '__plugin_txtd' ),
+				'imported'       => isset( $l10n['imported'] ) ? (string) $l10n['imported'] : esc_html__( 'Imported', '__plugin_txtd' ),
+				'preview'        => esc_html__( 'Preview', '__plugin_txtd' ),
+				'setupPlus'      => esc_html__( 'Set up Pixelgrade Plus', '__plugin_txtd' ),
+				'managePlus'     => esc_html__( 'Manage Pixelgrade Plus', '__plugin_txtd' ),
+				'working'        => esc_html__( 'Importing...', '__plugin_txtd' ),
+				'managePlugins'  => esc_html__( 'Install required plugins', '__plugin_txtd' ),
 			),
+			// Dependency-gate copy: shown when a starter needs companion plugins that are not active yet.
+			'requirements' => array(
+				/* translators: %s: comma-separated list of plugin names. */
+				'heading'   => esc_html__( 'This starter needs a couple of plugins first', '__plugin_txtd' ),
+				/* translators: %s: comma-separated list of plugin names. */
+				'message'   => esc_html__( 'To import this starter exactly as designed, install and activate %s. Without them the imported pages would render broken (missing blocks, colors and fonts).', '__plugin_txtd' ),
+				'separator' => esc_html_x( ', ', 'separator between required plugin names', '__plugin_txtd' ),
+				'and'       => esc_html_x( ' and ', 'last separator between required plugin names', '__plugin_txtd' ),
+			),
+			// Deep link to the Plugins tab so the user can install + activate the missing companions.
+			'pluginsTabUrl' => pixassist_get_starter_sites_plugins_tab_url(),
 		);
+	}
+}
+
+if ( ! function_exists( 'pixassist_get_starter_sites_plugins_tab_url' ) ) {
+	/**
+	 * Build the Appearance -> Pixelgrade hub URL deep-linked to the Plugins tab.
+	 *
+	 * @return string
+	 */
+	function pixassist_get_starter_sites_plugins_tab_url() {
+		if ( function_exists( 'admin_url' ) ) {
+			return admin_url( 'themes.php?page=pixelgrade&tab=plugins' );
+		}
+
+		return 'themes.php?page=pixelgrade&tab=plugins';
 	}
 }
 

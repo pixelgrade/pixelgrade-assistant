@@ -337,7 +337,13 @@ export function Plugins() {
 				? createElement(
 						CardBody,
 						null,
-						createElement( 'p', { style: { margin: 0, maxWidth: '760px' } }, copy.content )
+						// The copy embeds the active theme title, which legitimately carries a small
+						// "Free"/"Pro" badge span (see pixassist_modify_theme_supports_by_features()).
+						// Render it as HTML so the badge shows instead of leaking a literal `<span>`.
+						createElement( 'p', {
+							style: { margin: 0, maxWidth: '760px' },
+							dangerouslySetInnerHTML: { __html: copy.content },
+						} )
 				  )
 				: null
 		),

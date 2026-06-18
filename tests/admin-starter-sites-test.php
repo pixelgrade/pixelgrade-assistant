@@ -57,6 +57,10 @@ function esc_html__( $text, $domain = 'default' ) {
 	return $text;
 }
 
+function esc_html_x( $text, $context, $domain = 'default' ) {
+	return $text;
+}
+
 function esc_url_raw( $url ) {
 	return (string) $url;
 }
@@ -67,6 +71,29 @@ function trailingslashit( $value ) {
 
 function rest_url( $path = '' ) {
 	return 'https://example.test/wp-json/' . ltrim( (string) $path, '/' );
+}
+
+function admin_url( $path = '' ) {
+	return 'https://example.test/wp-admin/' . ltrim( (string) $path, '/' );
+}
+
+function wp_strip_all_tags( $value ) {
+	return trim( strip_tags( (string) $value ) );
+}
+
+// Simulate the installed/active plugin set the dependency gate inspects. The test toggles entries in
+// $GLOBALS['paf_installed_plugins'] (file_path => is_active) to drive the gate.
+function get_plugins() {
+	$plugins = array();
+	foreach ( (array) ( $GLOBALS['paf_installed_plugins'] ?? array() ) as $file => $active ) {
+		$plugins[ $file ] = array( 'Name' => $file );
+	}
+
+	return $plugins;
+}
+
+function is_plugin_active( $plugin_file ) {
+	return ! empty( $GLOBALS['paf_installed_plugins'][ $plugin_file ] );
 }
 
 function assert_same( $expected, $actual, $message ) {
@@ -227,7 +254,7 @@ add_filter(
 $starters = pixassist_get_admin_hub_starters();
 assert_same( array( 'premium-pack', 'secondary', 'main' ), array_column( $starters, 'id' ), 'Starters must include free + injected premium entries, drop malformed entries, dedupe ids, and sort by order.' );
 
-$expected_starter_keys = array( 'badge', 'baseRestUrl', 'description', 'gate', 'id', 'image', 'order', 'previewUrl', 'source', 'title', 'url' );
+$expected_starter_keys = array( 'badge', 'baseRestUrl', 'description', 'gate', 'id', 'image', 'order', 'previewUrl', 'requiredPlugins', 'source', 'title', 'url' );
 foreach ( $starters as $starter ) {
 	$keys = array_keys( $starter );
 	sort( $keys );
@@ -260,5 +287,83 @@ assert_same( 'Anima LT demo content', $payload['copy']['importTitle'], 'Payload 
 assert_same( 'https://example.test/wp-json/pixassist/v1/import', $payload['endpoints']['import']['url'], 'Payload must expose the existing import REST endpoint.' );
 assert_same( true, $payload['imported']['main']['pre_settings'], 'Payload must include existing starter import state.' );
 assert_same( false, $payload['plus']['is_plus_licensed'], 'Payload must include the existing four-key Plus status for gated cards.' );
+
+/*
+ * Dependency gate (data-driven required plugins).
+ */
+
+// Free, non-gated starters default to Nova Blocks + Style Manager.
+$free_required = $main['requiredPlugins'];
+assert_same( array( 'nova-blocks', 'style-manager' ), array_column( $free_required, 'slug' ), 'Free starters must default to requiring Nova Blocks + Style Manager.' );
+$required_keys = array_keys( $free_required[0] );
+sort( $required_keys );
+assert_same( array( 'isActive', 'isInstalled', 'name', 'slug' ), $required_keys, 'Each required-plugin entry must expose slug, name, isInstalled, isActive.' );
+assert_same( 'Nova Blocks', $free_required[0]['name'], 'Required-plugin name must be preserved/humanized.' );
+
+// With no plugins installed, both required plugins report inactive (the gate would block).
+assert_same( false, $free_required[0]['isActive'], 'With no plugins installed, a required plugin must report inactive.' );
+assert_same( false, $free_required[0]['isInstalled'], 'With no plugins installed, a required plugin must report not installed.' );
+
+// Gated (premium) starters do NOT inherit the free default dependency set.
+assert_same( array(), $premium['requiredPlugins'], 'Gated/premium starters must not inherit the free default required plugins.' );
+
+// Status reflects the installed/active plugin set (slug -> folder match, regardless of main file name).
+$GLOBALS['paf_installed_plugins'] = array(
+	'nova-blocks/nova-blocks.php' => true,   // active
+	'style-manager/style-manager.php' => false, // installed, inactive
+);
+$starters_after = pixassist_get_admin_hub_starters();
+$main_after     = null;
+foreach ( $starters_after as $s ) {
+	if ( 'main' === $s['id'] ) {
+		$main_after = $s;
+	}
+}
+assert_true( null !== $main_after, 'The main starter must still resolve after toggling plugin status.' );
+$by_slug = array();
+foreach ( $main_after['requiredPlugins'] as $rp ) {
+	$by_slug[ $rp['slug'] ] = $rp;
+}
+assert_same( true, $by_slug['nova-blocks']['isActive'], 'An active required plugin must report isActive=true (matched by folder slug).' );
+assert_same( true, $by_slug['nova-blocks']['isInstalled'], 'An active required plugin must report isInstalled=true.' );
+assert_same( false, $by_slug['style-manager']['isActive'], 'An installed-but-inactive required plugin must report isActive=false.' );
+assert_same( true, $by_slug['style-manager']['isInstalled'], 'An installed-but-inactive required plugin must report isInstalled=true.' );
+
+// A descriptor-declared requiredPlugins set overrides the default, and accepts bare slug strings.
+$GLOBALS['paf_filters'] = array();
+$GLOBALS['paf_installed_plugins'] = array();
+add_filter(
+	'pixelgrade/admin_hub/starters',
+	function ( $starters ) {
+		$starters['declares-deps'] = array(
+			'title'           => 'Declares deps',
+			'url'             => 'https://demos.pixelgrade.test/declares/',
+			'requiredPlugins' => array(
+				array( 'slug' => 'woocommerce', 'name' => 'WooCommerce' ),
+				'jetpack', // bare slug string
+			),
+		);
+
+		return $starters;
+	},
+	10,
+	2
+);
+$declared = null;
+foreach ( pixassist_get_admin_hub_starters() as $s ) {
+	if ( 'declares-deps' === $s['id'] ) {
+		$declared = $s;
+	}
+}
+assert_true( null !== $declared, 'A starter that declares requiredPlugins must resolve.' );
+assert_same( array( 'woocommerce', 'jetpack' ), array_column( $declared['requiredPlugins'], 'slug' ), 'A starter-declared requiredPlugins set must override the default and accept bare slug strings.' );
+assert_same( 'Jetpack', $declared['requiredPlugins'][1]['name'], 'A bare-slug required plugin must humanize its name.' );
+
+// The Starter Sites copy exposes the dependency-gate strings and the Plugins-tab deep link.
+$gate_copy = $payload['copy'];
+assert_true( isset( $gate_copy['requirements']['message'] ), 'Starter Sites copy must include the requirements message.' );
+assert_true( false !== strpos( $gate_copy['requirements']['message'], '%s' ), 'The requirements message must carry a %s placeholder for the plugin names.' );
+assert_same( 'https://example.test/wp-admin/themes.php?page=pixelgrade&tab=plugins', $gate_copy['pluginsTabUrl'], 'Starter Sites copy must deep-link to the Plugins tab.' );
+assert_true( isset( $gate_copy['actions']['managePlugins'] ), 'Starter Sites copy must include the managePlugins action label.' );
 
 echo "Admin Starter Sites tab OK\n";
