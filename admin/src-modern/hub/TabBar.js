@@ -39,10 +39,13 @@ export function TabBar( { tabs, activeId, onSelect } ) {
 					'aria-selected': isActive,
 					icon: tab.icon || undefined,
 					variant: isActive ? 'primary' : 'tertiary',
+					// NB: do not name this modifier `is-secondary` — that collides with
+					// @wordpress/components' Button `.is-secondary` variant class and paints an
+					// inset 1px border, making these tertiary tabs look like outlined buttons.
 					className:
 						'pixelgrade-admin-hub__tab' +
 						( isActive ? ' is-active' : '' ) +
-						( isSecondary ? ' is-secondary' : '' ),
+						( isSecondary ? ' is-secondary-group' : '' ),
 					style: {
 						borderLeft: isFirstSecondary ? '1px solid #dcdcde' : undefined,
 						marginLeft: isFirstSecondary ? 'auto' : undefined,

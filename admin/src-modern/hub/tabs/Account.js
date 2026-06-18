@@ -9,6 +9,7 @@
 import { createElement, Fragment } from '@wordpress/element';
 import { __, sprintf } from '@wordpress/i18n';
 import { Card, CardHeader, CardBody, Button, Notice, Flex, FlexItem } from '@wordpress/components';
+import { renderAvatar } from '../avatar';
 
 const DEFAULT_ACCOUNT = {
 	account: { is_connected: false },
@@ -39,20 +40,6 @@ function renderNotice( notice ) {
 		},
 		notice.message
 	);
-}
-
-function renderAvatar( account ) {
-	if ( ! account.avatar_url ) {
-		return null;
-	}
-
-	return createElement( 'img', {
-		src: account.avatar_url,
-		alt: '',
-		width: 48,
-		height: 48,
-		style: { borderRadius: '50%', display: 'block' },
-	} );
 }
 
 function renderAccountMeta( account ) {
@@ -126,7 +113,7 @@ function renderConnected( data ) {
 	const account = data.account || {};
 	const copy = data.copy || {};
 	const actions = data.actions || {};
-	const avatar = renderAvatar( account );
+	const avatar = renderAvatar( account, 48 );
 
 	return createElement(
 		Card,

@@ -20,6 +20,9 @@ const DEFAULT_SYSTEM_STATUS = {
 		disable: __( 'Disable', 'pixelgrade_assistant' ),
 		refresh: __( 'Refresh data', 'pixelgrade_assistant' ),
 		siteHealth: __( 'Open Site Health', 'pixelgrade_assistant' ),
+		copyReport: __( 'Copy report', 'pixelgrade_assistant' ),
+		copied: __( 'System report copied to clipboard.', 'pixelgrade_assistant' ),
+		copyFailed: __( 'Could not copy automatically. Select the details and copy manually.', 'pixelgrade_assistant' ),
 		empty: __( 'No diagnostic rows are available yet.', 'pixelgrade_assistant' ),
 		unavailable: __( 'Enable diagnostic data collection to show installation and system details.', 'pixelgrade_assistant' ),
 		sections: {
@@ -156,6 +159,68 @@ function formatValue( value ) {
 	return String( value );
 }
 
+function humanBytes( bytes ) {
+	const units = [ 'bytes', 'KB', 'MB', 'GB', 'TB' ];
+	let value = Number( bytes );
+	let unit = 0;
+
+	while ( value >= 1024 && unit < units.length - 1 ) {
+		value /= 1024;
+		unit++;
+	}
+
+	// Drop the decimal for whole numbers (1 GB, not 1.00 GB); keep one for the rest.
+	const rounded = value % 1 === 0 ? value : Math.round( value * 10 ) / 10;
+
+	return rounded + ' ' + units[ unit ];
+}
+
+/**
+ * Format a diagnostic row's value for display, making raw machine values human-readable.
+ *
+ * Byte counts (memory limit, post max size) arrive as raw integers; show them as KB/MB/GB while
+ * keeping the exact number alongside. A `0` execution-time limit means "unlimited", not "0 seconds".
+ */
+function formatRowValue( row ) {
+	const raw = row.value || row.version || row.plugin || '';
+	const label = String( row.label || row.name || row.key || '' );
+	const text = formatValue( raw );
+
+	if ( /memory|max.?size|max.?upload|size limit/i.test( label ) && /^\d{4,}$/.test( String( raw ).trim() ) ) {
+		return humanBytes( raw ) + ' (' + text + ')';
+	}
+
+	if ( /execution time/i.test( label ) && /^0(\s*s)?$/i.test( text.trim() ) ) {
+		return __( 'Unlimited', 'pixelgrade_assistant' );
+	}
+
+	return text;
+}
+
+function buildReportText( copy, status ) {
+	const sectionFor = ( title, rows, onlyViewable ) => {
+		const normalized = getRows( rows, onlyViewable );
+		if ( ! normalized.length ) {
+			return '';
+		}
+
+		const lines = normalized.map(
+			( row ) => '  ' + ( row.label || row.name || row.key ) + ': ' + formatRowValue( row )
+		);
+
+		return '## ' + title + '\n' + lines.join( '\n' ) + '\n';
+	};
+
+	return [
+		sectionFor( copy.sections.installation, status.installation, true ),
+		sectionFor( copy.sections.system, status.system, false ),
+		sectionFor( copy.sections.activePlugins, status.activePlugins, false ),
+	]
+		.filter( Boolean )
+		.join( '\n' )
+		.trim();
+}
+
 function getRows( rows, onlyViewable = false ) {
 	if ( ! rows || 'object' !== typeof rows ) {
 		return [];
@@ -188,7 +253,7 @@ function renderTable( title, rows, emptyCopy, onlyViewable = false ) {
 									'tr',
 									{ key: row.key },
 									createElement( 'th', { scope: 'row', style: { width: '35%' } }, row.label || row.name || row.key ),
-									createElement( 'td', null, formatValue( row.value || row.version || row.plugin || '' ) )
+									createElement( 'td', null, formatRowValue( row ) )
 								)
 							)
 						)
@@ -243,6 +308,21 @@ export function SystemStatus() {
 			setMessage( { type: 'error', text: error.message || __( 'Could not refresh diagnostics.', 'pixelgrade_assistant' ) } );
 		} finally {
 			setBusy( false );
+		}
+	};
+
+	const copyReport = async () => {
+		const report = buildReportText( copy, status );
+
+		try {
+			if ( typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.writeText ) {
+				await navigator.clipboard.writeText( report );
+			} else {
+				throw new Error( 'clipboard_unavailable' );
+			}
+			setMessage( { type: 'success', text: copy.copied } );
+		} catch ( error ) {
+			setMessage( { type: 'error', text: copy.copyFailed } );
 		}
 	};
 
@@ -307,6 +387,17 @@ export function SystemStatus() {
 							copy.refresh
 						)
 					),
+					allowed
+						? createElement(
+								FlexItem,
+								null,
+								createElement(
+									Button,
+									{ variant: 'secondary', onClick: copyReport, disabled: busy },
+									copy.copyReport
+								)
+						  )
+						: null,
 					data.siteHealthUrl
 						? createElement(
 								FlexItem,

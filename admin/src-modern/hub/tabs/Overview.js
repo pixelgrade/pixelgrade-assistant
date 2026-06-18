@@ -18,6 +18,7 @@
 import { createElement, Fragment } from '@wordpress/element';
 import { __, sprintf } from '@wordpress/i18n';
 import { Card, CardHeader, CardBody, Button, Flex, FlexItem } from '@wordpress/components';
+import { renderAvatar } from '../avatar';
 
 const DEFAULT_OVERVIEW = { theme: {}, links: [], plus: {}, account: { is_connected: false } };
 
@@ -139,18 +140,7 @@ function renderAccountChip( account ) {
 	const name = account.display_name || account.user_login || account.email || '';
 	const children = [];
 
-	if ( account.avatar_url ) {
-		children.push(
-			createElement( 'img', {
-				key: 'avatar',
-				src: account.avatar_url,
-				alt: '',
-				width: 24,
-				height: 24,
-				style: { borderRadius: '50%', display: 'block' },
-			} )
-		);
-	}
+	children.push( createElement( 'span', { key: 'avatar' }, renderAvatar( account, 24 ) ) );
 
 	children.push(
 		createElement(

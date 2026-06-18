@@ -28,6 +28,7 @@ const DEFAULT_STARTER_SITES = {
 		actions: {
 			import: __( 'Import', 'pixelgrade_assistant' ),
 			imported: __( 'Imported', 'pixelgrade_assistant' ),
+			reimport: __( 'Re-import', 'pixelgrade_assistant' ),
 			preview: __( 'Preview', 'pixelgrade_assistant' ),
 			setupPlus: __( 'Set up Pixelgrade Plus', 'pixelgrade_assistant' ),
 			managePlus: __( 'Manage Pixelgrade Plus', 'pixelgrade_assistant' ),
@@ -469,8 +470,29 @@ function renderStarterCard( starter, context ) {
 					disabled: isWorking,
 					onClick: () => onImport( starter ),
 				},
-				isWorking ? actions.working : alreadyImported ? actions.imported : actions.import
+				isWorking ? actions.working : alreadyImported ? actions.reimport : actions.import
 		  );
+
+	// Keep a passive "Imported" status next to the action so the state is still legible once the
+	// button reads "Re-import" (the button is an action, not a status).
+	const importedStatus =
+		! locked && alreadyImported && ! isWorking
+			? createElement(
+					'span',
+					{
+						style: {
+							alignItems: 'center',
+							color: '#0a7a28',
+							display: 'inline-flex',
+							fontSize: '12px',
+							fontWeight: 600,
+							gap: '4px',
+							whiteSpace: 'nowrap',
+						},
+					},
+					'✓ ' + actions.imported
+			  )
+			: null;
 
 	return createElement(
 		Card,
@@ -523,7 +545,8 @@ function renderStarterCard( starter, context ) {
 								actions.preview
 							)
 					  )
-					: null
+					: null,
+				importedStatus ? createElement( FlexItem, null, importedStatus ) : null
 			),
 			renderStatusNotice( state, copy )
 		)

@@ -23,7 +23,9 @@ const DEFAULT_TOOLS = {
 		working: __( 'Resetting...', 'pixelgrade_assistant' ),
 		success: __( 'Pixelgrade Assistant was reset. Refresh the page to load the clean state.', 'pixelgrade_assistant' ),
 		failure: __( 'Reset failed. Please try again.', 'pixelgrade_assistant' ),
-		localStorageLabel: __( 'Clear browser cache for this admin app', 'pixelgrade_assistant' ),
+		localStorageHeading: __( 'Browser cache', 'pixelgrade_assistant' ),
+		localStorageDescription: __( 'Clear this admin app\'s cached state stored in your browser. Your site content and settings are not affected.', 'pixelgrade_assistant' ),
+		localStorageLabel: __( 'Clear browser cache', 'pixelgrade_assistant' ),
 		localStorageSuccess: __( 'Browser cache cleared for this admin app.', 'pixelgrade_assistant' ),
 	},
 	endpoints: {},
@@ -252,12 +254,18 @@ export function Tools() {
 					)
 				),
 				createElement(
-					'div',
+					Card,
 					{ style: { marginTop: '16px' } },
-					createElement( Button, { variant: 'tertiary', onClick: () => {
-						clearPixassistLocalStorage();
-						setMessage( { type: 'success', text: copy.localStorageSuccess } );
-					} }, copy.localStorageLabel )
+					createElement( CardHeader, null, createElement( 'h3', { style: { margin: 0 } }, copy.localStorageHeading ) ),
+					createElement(
+						CardBody,
+						null,
+						createElement( 'p', { style: { marginTop: 0 } }, copy.localStorageDescription ),
+						createElement( Button, { variant: 'secondary', onClick: () => {
+							clearPixassistLocalStorage();
+							setMessage( { type: 'success', text: copy.localStorageSuccess } );
+						} }, copy.localStorageLabel )
+					)
 				)
 			)
 		)
