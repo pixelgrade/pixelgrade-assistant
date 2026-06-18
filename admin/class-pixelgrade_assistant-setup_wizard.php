@@ -60,7 +60,21 @@ class PixelgradeAssistant_SetupWizard {
 	}
 
 	public function add_admin_menu() {
-		add_submenu_page( 'themes.php', '', '', 'manage_options', 'pixelgrade_assistant-setup-wizard', null );
+		// Register the setup wizard as a hidden page: it needs a valid menu slug so the URL resolves
+		// and the capability is enforced, but it must not show up as a blank submenu entry under
+		// Appearance. Empty titles still rendered an empty link, so register with real titles and
+		// then remove the item from the visible menu (the page stays registered + accessible).
+		add_submenu_page(
+			'themes.php',
+			esc_html__( 'Setup Wizard', '__plugin_txtd' ),
+			esc_html__( 'Setup Wizard', '__plugin_txtd' ),
+			'manage_options',
+			'pixelgrade_assistant-setup-wizard',
+			null
+		);
+		if ( function_exists( 'remove_submenu_page' ) ) {
+			remove_submenu_page( 'themes.php', 'pixelgrade_assistant-setup-wizard' );
+		}
 	}
 
 	public function setup_wizard() {
