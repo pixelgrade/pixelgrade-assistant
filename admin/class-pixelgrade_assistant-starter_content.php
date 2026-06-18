@@ -1301,7 +1301,35 @@ class PixelgradeAssistant_StarterContent {
 		do_action( 'style_manager/invalidate_all_caches' );
 		do_action( 'customify_invalidate_all_caches' );
 
+		// Apply the imported font palette to the theme's connected font fields. A headless option write
+		// (as the importer does) doesn't trigger the Customizer's font-connection JS, so without this the
+		// theme's font fields keep their System defaults and the design's fonts never render.
+		$this->apply_style_manager_font_palette();
+
 		wp_cache_flush();
+	}
+
+	/**
+	 * Mirror the Customizer's "select font palette" propagation for a headless import.
+	 *
+	 * Selecting a Style Manager font palette in the Customizer copies the palette's fonts into the
+	 * theme's connected font fields (e.g. `body_font` ← `sm_font_body`) via JS. Our import only writes
+	 * the `sm_*` palette options, so we ask Style Manager to do that propagation server-side. Guarded so
+	 * an absent or older Style Manager (without the server-side apply path) never breaks the import.
+	 */
+	private function apply_style_manager_font_palette() {
+		if ( ! function_exists( '\Pixelgrade\StyleManager\plugin' ) ) {
+			return;
+		}
+
+		try {
+			$font_palettes = \Pixelgrade\StyleManager\plugin()->get_container()->get( 'customize.font_palettes' );
+			if ( is_object( $font_palettes ) && method_exists( $font_palettes, 'apply_current_font_palette_to_connected_fields' ) ) {
+				$font_palettes->apply_current_font_palette_to_connected_fields();
+			}
+		} catch ( \Throwable $e ) {
+			// Style Manager is inactive or predates the server-side apply path; nothing to do.
+		}
 	}
 
 	/**
