@@ -168,7 +168,7 @@ $overview = pixassist_get_overview_data();
 
 $keys = array_keys( $overview );
 sort( $keys );
-assert_same( array( 'account', 'links', 'plus', 'theme' ), $keys, 'Overview payload must expose exactly theme/links/plus/account.' );
+assert_same( array( 'account', 'links', 'onboarding', 'plus', 'theme' ), $keys, 'Overview payload must expose theme/links/plus/account/onboarding.' );
 
 assert_same( false, $overview['theme']['isBlockTheme'], 'Classic theme must read isBlockTheme=false.' );
 
@@ -252,5 +252,80 @@ paf_set_plus_status( array(
 $overview = pixassist_get_overview_data();
 assert_same( 'manage', $overview['plus']['state'], 'Licensed Plus must be in the manage state.' );
 assert_same( true, $overview['plus']['isLicensed'], 'Licensed Plus must report isLicensed=true.' );
+
+/*
+ * 6. Onboarding "Get started" state model.
+ *
+ * Pure logic is driven by injected "facts" so it stays WP-free and testable; the full payload
+ * (pixassist_get_onboarding_data) gathers those facts behind function_exists guards and so degrades
+ * to safe defaults in this harness.
+ */
+
+// 6a. Step builder: account is always present + optional; the starter step appears only when demos
+//     exist; plugins is always present + required.
+$steps_with_demos = pixassist_get_onboarding_steps( array(
+	'base_url'          => 'https://example.test/wp-admin/themes.php?page=pixelgrade',
+	'account_connected' => true,
+	'demos_exist'       => true,
+	'starter_imported'  => false,
+	'plugins_ready'     => false,
+) );
+$step_ids = array_map( function ( $s ) { return $s['id']; }, $steps_with_demos );
+assert_same( array( 'account', 'starter', 'plugins' ), $step_ids, 'With demos, the steps are account, starter, plugins (in order).' );
+
+$account_step = $steps_with_demos[0];
+assert_same( true, $account_step['done'], 'Connected account marks the account step done.' );
+assert_same( true, $account_step['optional'], 'The account step is optional (never blocks completion).' );
+assert_same( 'https://example.test/wp-admin/themes.php?page=pixelgrade&tab=account', $account_step['url'], 'Account step links to the Account tab.' );
+assert_same( 'https://example.test/wp-admin/themes.php?page=pixelgrade&tab=starter-sites', $steps_with_demos[1]['url'], 'Starter step links to the Starter Sites tab.' );
+assert_same( 'https://example.test/wp-admin/themes.php?page=pixelgrade&tab=plugins', $steps_with_demos[2]['url'], 'Plugins step links to the Plugins tab.' );
+assert_same( false, $steps_with_demos[2]['optional'], 'The plugins step is required.' );
+
+// 6b. No demos → the starter step is omitted (mirrors the wizard hiding it).
+$steps_no_demos = pixassist_get_onboarding_steps( array(
+	'base_url'          => 'https://example.test/wp-admin/themes.php?page=pixelgrade',
+	'account_connected' => false,
+	'demos_exist'       => false,
+	'starter_imported'  => false,
+	'plugins_ready'     => true,
+) );
+$step_ids_nd = array_map( function ( $s ) { return $s['id']; }, $steps_no_demos );
+assert_same( array( 'account', 'plugins' ), $step_ids_nd, 'Without demos, the starter step is omitted.' );
+
+// 6c. Completion = all REQUIRED steps done; the optional account step never blocks completion.
+assert_same( true, pixassist_onboarding_is_complete( $steps_no_demos ), 'Required (plugins) done + optional account undone => complete.' );
+assert_same( false, pixassist_onboarding_is_complete( $steps_with_demos ), 'A required step undone => not complete.' );
+
+// 6d. Off-switch: a dedicated filter, defaulting from the legacy wizard-allow filter for back-compat.
+paf_reset();
+assert_same( true, pixassist_onboarding_enabled(), 'Onboarding is enabled by default.' );
+
+paf_reset();
+add_filter( 'pixassist_show_onboarding', function () { return false; } );
+assert_same( false, pixassist_onboarding_enabled(), 'pixassist_show_onboarding=false disables onboarding.' );
+
+paf_reset();
+add_filter( 'pixassist_allow_setup_wizard_module', function () { return false; } );
+assert_same( false, pixassist_onboarding_enabled(), 'A theme that disabled the legacy wizard also disables onboarding (back-compat).' );
+
+// 6e. should_show: visible only when enabled, not dismissed, and incomplete.
+paf_reset();
+assert_same( true, pixassist_onboarding_should_show( $steps_with_demos, true, array( 'dismissed' => false ) ), 'Shown when enabled + not dismissed + incomplete.' );
+assert_same( false, pixassist_onboarding_should_show( $steps_with_demos, true, array( 'dismissed' => true ) ), 'Hidden when dismissed.' );
+assert_same( false, pixassist_onboarding_should_show( $steps_no_demos, true, array( 'dismissed' => false ) ), 'Hidden when complete.' );
+assert_same( false, pixassist_onboarding_should_show( $steps_with_demos, false, array( 'dismissed' => false ) ), 'Hidden when disabled.' );
+
+// 6f. Full payload: safe defaults in this harness (no account/demos/plugins data available) — the
+//     plugins step is incomplete, so the card shows.
+paf_reset();
+add_filter( 'pixelgrade/admin_hub/tabs', 'pixassist_register_overview_tab' );
+$onboarding = pixassist_get_overview_data()['onboarding'];
+$ob_keys = array_keys( $onboarding );
+sort( $ob_keys );
+assert_same( array( 'completed', 'dismissed', 'enabled', 'show', 'steps' ), $ob_keys, 'Onboarding payload exposes show/enabled/dismissed/completed/steps.' );
+assert_same( true, $onboarding['enabled'], 'Onboarding enabled by default in the payload.' );
+assert_same( false, $onboarding['dismissed'], 'Not dismissed without a persisted marker.' );
+assert_same( false, $onboarding['completed'], 'Not complete when the plugins step is unmet.' );
+assert_same( true, $onboarding['show'], 'Card shows for a fresh, enabled, incomplete onboarding.' );
 
 echo "Admin overview data OK\n";
