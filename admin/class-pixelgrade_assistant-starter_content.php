@@ -1212,6 +1212,31 @@ class PixelgradeAssistant_StarterContent {
 		$menu_item_object    = wp_slash( $menu_item_object[0] );
 		$menu_item_object_id = maybe_unserialize( $post['meta']['_menu_item_object_id'] );
 		$menu_item_object_id = wp_slash( $menu_item_object_id[0] );
+		$imported_post_id    = isset( $imported_ids[ $post['ID'] ] ) ? absint( $imported_ids[ $post['ID'] ] ) : 0;
+
+		if ( $imported_post_id && ! empty( $post['taxonomies']['nav_menu'] ) ) {
+			$menu_term_ids = array();
+
+			foreach ( (array) $post['taxonomies']['nav_menu'] as $menu_term ) {
+				if ( is_numeric( $menu_term ) && isset( $starter_content[ $demo_key ]['taxonomies']['nav_menu'][ $menu_term ] ) ) {
+					$menu_term_ids[] = absint( $starter_content[ $demo_key ]['taxonomies']['nav_menu'][ $menu_term ] );
+					continue;
+				}
+
+				$term = get_term_by( 'name', $menu_term, 'nav_menu' );
+				if ( ! $term ) {
+					$term = get_term_by( 'slug', sanitize_title( $menu_term ), 'nav_menu' );
+				}
+
+				if ( $term && ! is_wp_error( $term ) ) {
+					$menu_term_ids[] = absint( $term->term_id );
+				}
+			}
+
+			if ( ! empty( $menu_term_ids ) ) {
+				wp_set_object_terms( $imported_post_id, array_values( array_unique( $menu_term_ids ) ), 'nav_menu', false );
+			}
+		}
 
 		// Try to remap custom objects in nav items
 		switch ( $menu_item_type ) {
@@ -1459,7 +1484,122 @@ class PixelgradeAssistant_StarterContent {
 			return $starter_content[ $demo_key ]['media']['placeholders'][ $attach_id ];
 		}
 
+		// The image-import pass only covers media the exporter advertised (the `ignored` / `placeholders`
+		// lists). A logo control can reference an attachment that was left out of that set — e.g. a
+		// transparent-header logo that is not attached to any post — so its theme mod would otherwise keep
+		// the stale demo ID and render nothing. As a fallback, sideload that one attachment directly from
+		// the demo and remap to the local copy. Guarded + fail-safe: returns the original ID on any miss.
+		$local_id = $this->sideload_demo_attachment( $attach_id, $demo_key );
+		if ( ! empty( $local_id ) ) {
+			return $local_id;
+		}
+
 		return $attach_id;
+	}
+
+	/**
+	 * Sideload a single demo attachment by its (remote) ID and map it to a local copy.
+	 *
+	 * Fallback for logo theme mods whose image was not part of the exporter's media set. We resolve the
+	 * attachment's public source URL from the demo's standard REST media endpoint, download it, and store
+	 * the demo ID => local ID mapping in the same `media.ignored` table the regular image import uses (so
+	 * a later import / reset cleans it up consistently). Fully guarded: any failure returns false and the
+	 * caller keeps the original (stale) ID, exactly as before.
+	 *
+	 * @param int    $attach_id Remote (demo) attachment ID.
+	 * @param string $demo_key
+	 *
+	 * @return int|false The local attachment ID, or false if it could not be sideloaded.
+	 */
+	private function sideload_demo_attachment( $attach_id, $demo_key ) {
+		$attach_id = absint( $attach_id );
+		if ( empty( $attach_id ) ) {
+			return false;
+		}
+
+		// The demo base URL captured during the import steps (the SCE REST base).
+		$demo_url = esc_url_raw( (string) get_transient( 'pixassist_sce_demo_url' ) );
+		if ( empty( $demo_url ) ) {
+			return false;
+		}
+
+		// Derive the demo site root from the SCE REST base (…/wp-json/sce/v2/ -> …/).
+		$demo_site = preg_replace( '#wp-json/.*$#', '', $demo_url );
+		if ( empty( $demo_site ) ) {
+			return false;
+		}
+
+		// Never fetch from a host we do not serve demos from (SSRF guard).
+		if ( ! $this->is_allowed_demo_url( $demo_site ) ) {
+			return false;
+		}
+
+		// Resolve the attachment's public source URL from the demo's standard REST media endpoint.
+		$endpoint = trailingslashit( $demo_site ) . 'wp-json/wp/v2/media/' . $attach_id;
+		$response = wp_remote_get( $endpoint, array( 'timeout' => 15 ) );
+		if ( is_wp_error( $response ) || 200 !== (int) wp_remote_retrieve_response_code( $response ) ) {
+			return false;
+		}
+
+		$media = json_decode( wp_remote_retrieve_body( $response ), true );
+		if ( empty( $media['source_url'] ) ) {
+			return false;
+		}
+
+		// The image must also live on an allowed demo host (it normally shares the demo's host).
+		$source_url = esc_url_raw( $media['source_url'] );
+		if ( empty( $source_url ) || ! $this->is_allowed_demo_url( $source_url ) ) {
+			return false;
+		}
+
+		// Sideload the file into the media library.
+		require_once ABSPATH . 'wp-admin/includes/file.php';
+		require_once ABSPATH . 'wp-admin/includes/media.php';
+		require_once ABSPATH . 'wp-admin/includes/image.php';
+
+		$tmp = download_url( $source_url, 15 );
+		if ( is_wp_error( $tmp ) ) {
+			return false;
+		}
+
+		$file_array = array(
+			'name'     => wp_basename( wp_parse_url( $source_url, PHP_URL_PATH ) ),
+			'tmp_name' => $tmp,
+		);
+
+		$local_id = media_handle_sideload( $file_array, 0 );
+		if ( is_wp_error( $local_id ) ) {
+			wp_delete_file( $tmp );
+			return false;
+		}
+
+		// Tag it like the rest of the imported media so a reset / re-import treats it the same way.
+		$metadata = wp_get_attachment_metadata( $local_id );
+		if ( ! is_array( $metadata ) ) {
+			$metadata = array();
+		}
+		$metadata['imported_with_pixassist'] = true;
+		wp_update_attachment_metadata( $local_id, $metadata );
+
+		// Remember the demo => local mapping in the same table the image import uses.
+		$starter_content = PixelgradeAssistant_Admin::get_option( 'imported_starter_content' );
+		if ( null === $starter_content || ! is_array( $starter_content ) ) {
+			$starter_content = array();
+		}
+		if ( empty( $starter_content[ $demo_key ] ) ) {
+			$starter_content[ $demo_key ] = array();
+		}
+		if ( empty( $starter_content[ $demo_key ]['media'] ) ) {
+			$starter_content[ $demo_key ]['media'] = array();
+		}
+		if ( empty( $starter_content[ $demo_key ]['media']['ignored'] ) ) {
+			$starter_content[ $demo_key ]['media']['ignored'] = array();
+		}
+		$starter_content[ $demo_key ]['media']['ignored'][ $attach_id ] = $local_id;
+		PixelgradeAssistant_Admin::set_option( 'imported_starter_content', $starter_content );
+		PixelgradeAssistant_Admin::save_options();
+
+		return $local_id;
 	}
 
 	/**
