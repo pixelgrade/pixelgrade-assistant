@@ -62,6 +62,9 @@ class PixelgradeAssistant_StarterContent {
 			 */
 			add_filter( 'pixassist_sce_import_post_theme_mod_osteria_transparent_logo', array( $this, 'filter_post_theme_mod_custom_logo' ), 10, 2 );
 			add_filter( 'pixassist_sce_import_post_theme_mod_pixelgrade_transparent_logo', array( $this, 'filter_post_theme_mod_custom_logo' ), 10, 2 );
+			// Anima exposes its transparent-header logo as `anima_transparent_logo` (the "Logo while on
+			// Transparent Header" control), so its attachment ID needs remapping on import too.
+			add_filter( 'pixassist_sce_import_post_theme_mod_anima_transparent_logo', array( $this, 'filter_post_theme_mod_custom_logo' ), 10, 2 );
 
 			// prevent Jetpack from disabling the theme's style on import
 			add_filter( 'pixassist_sce_import_post_theme_mod_jetpack_custom_css', array( $this, 'uncheck_jetpack_custom_css_style_replacement' ) );
