@@ -70,6 +70,10 @@ class PixelgradeAssistant_StarterContent {
 
 			// content links
 			add_action( 'pixassist_sce_after_insert_post', array( $this, 'prepare_menus_links' ), 10, 3 );
+
+			// Re-bind imported block templates to the active theme (see the method for the why).
+			add_action( 'pixassist_sce_after_insert_post', array( $this, 'reassign_imported_template_theme' ), 10, 3 );
+
 			add_action( 'pixassist_sce_import_end', array( $this, 'end_import' ) );
 		}
 	}
@@ -1238,6 +1242,63 @@ class PixelgradeAssistant_StarterContent {
 
 	public function end_import() {
 		$this->replace_demo_urls_in_content();
+		$this->regenerate_style_manager_after_import();
+	}
+
+	/**
+	 * Re-associate imported block templates with the ACTIVE theme.
+	 *
+	 * Block templates (`wp_template` / `wp_template_part`) are exported tied to the demo
+	 * site's theme (e.g. `anima`), but the importing site's active theme may differ
+	 * (e.g. the wp.org `anima-lt`). A template's override only applies when its `wp_theme`
+	 * term matches the active theme, so without re-association a starter's `front-page`
+	 * template would never take effect and the theme's own `front-page.html` (which can be
+	 * a static showcase that ignores the assigned page) would stay in charge.
+	 *
+	 * @param array  $post         The source post data.
+	 * @param array  $imported_ids Map of source post ID => imported post ID.
+	 * @param string $demo_key
+	 */
+	public function reassign_imported_template_theme( $post, $imported_ids, $demo_key ) {
+		if ( empty( $post['post_type'] ) || ! in_array( $post['post_type'], array( 'wp_template', 'wp_template_part' ), true ) ) {
+			return;
+		}
+
+		if ( empty( $imported_ids[ $post['ID'] ] ) ) {
+			return;
+		}
+
+		wp_set_object_terms( $imported_ids[ $post['ID'] ], get_stylesheet(), 'wp_theme' );
+	}
+
+	/**
+	 * Force Style Manager to rebuild its generated CSS after an import.
+	 *
+	 * The importer writes the `sm_*` design options directly (via `update_option`), which
+	 * bypasses Style Manager's own save hooks. As a result the freshly imported palette and
+	 * fonts are not reflected on the front end until its cached output is invalidated. We
+	 * clear the known SM caches (NOT the imported design options themselves) so the correct
+	 * design is regenerated on the next request.
+	 */
+	private function regenerate_style_manager_after_import() {
+		global $wpdb;
+
+		// Only cache/output rows match these patterns; the design options (`sm_advanced_palette_*`,
+		// `sm_font_*`, etc.) do not, so they are preserved.
+		$wpdb->query(
+			"DELETE FROM {$wpdb->options}
+			 WHERE option_name LIKE 'pixelgrade_style_manager%'
+			    OR option_name LIKE '_transient_%style_manager%'
+			    OR option_name LIKE '_transient_timeout_%style_manager%'
+			    OR option_name LIKE '%customify_style%'
+			    OR option_name LIKE 'sm_dynamic%'"
+		);
+
+		// Let Style Manager / the theme flush their own caches if they expose hooks for it.
+		do_action( 'style_manager/invalidate_all_caches' );
+		do_action( 'customify_invalidate_all_caches' );
+
+		wp_cache_flush();
 	}
 
 	/**
@@ -1264,6 +1325,17 @@ class PixelgradeAssistant_StarterContent {
 
 		// remap absolute demo links inside post content
 		$wpdb->query( $wpdb->prepare( "UPDATE {$wpdb->posts} SET post_content = REPLACE(post_content, %s, %s)", $search, $replace ) );
+
+		// The captured demo URL is the SCE REST base (…/wp-json/sce/v2/). In-content links such as a
+		// "View the Menu" button or an attachment permalink use the demo SITE root instead, so they
+		// survive the replace above. Derive the site root and remap those too, keeping the import
+		// self-contained (no links pointing back at the demo site).
+		$demo_site = preg_replace( '#wp-json/.*$#', '', $demo_url );
+		if ( ! empty( $demo_site ) && $demo_site !== $demo_url ) {
+			$search_site  = trailingslashit( $demo_site );
+			$replace_site = trailingslashit( site_url() );
+			$wpdb->query( $wpdb->prepare( "UPDATE {$wpdb->posts} SET post_content = REPLACE(post_content, %s, %s)", $search_site, $replace_site ) );
+		}
 
 		// remap enclosure urls
 		$wpdb->query( $wpdb->prepare( "UPDATE {$wpdb->postmeta} SET meta_value = REPLACE(meta_value, %s, %s) WHERE meta_key='enclosure'", $search, $replace ) );
