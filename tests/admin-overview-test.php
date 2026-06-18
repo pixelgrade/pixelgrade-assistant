@@ -322,10 +322,20 @@ add_filter( 'pixelgrade/admin_hub/tabs', 'pixassist_register_overview_tab' );
 $onboarding = pixassist_get_overview_data()['onboarding'];
 $ob_keys = array_keys( $onboarding );
 sort( $ob_keys );
-assert_same( array( 'completed', 'dismissed', 'enabled', 'show', 'steps' ), $ob_keys, 'Onboarding payload exposes show/enabled/dismissed/completed/steps.' );
+assert_same( array( 'completed', 'demosCount', 'dismissEndpoint', 'dismissed', 'enabled', 'show', 'steps' ), $ob_keys, 'Onboarding payload exposes show/enabled/dismissed/completed/steps/demosCount/dismissEndpoint.' );
 assert_same( true, $onboarding['enabled'], 'Onboarding enabled by default in the payload.' );
 assert_same( false, $onboarding['dismissed'], 'Not dismissed without a persisted marker.' );
 assert_same( false, $onboarding['completed'], 'Not complete when the plugins step is unmet.' );
 assert_same( true, $onboarding['show'], 'Card shows for a fresh, enabled, incomplete onboarding.' );
+
+// 6g. The dismiss endpoint descriptor is always present ({ method, url }); the url degrades to ''
+//     outside WordPress (no rest_url() in this harness). The card POSTs here to persist dismissal.
+assert_true( is_array( $onboarding['dismissEndpoint'] ), 'The dismiss endpoint descriptor is an array.' );
+assert_same( 'POST', $onboarding['dismissEndpoint']['method'], 'The dismiss endpoint is a POST.' );
+assert_same( '', $onboarding['dismissEndpoint']['url'], 'The dismiss endpoint url degrades to empty without rest_url().' );
+
+// 6h. demosCount degrades to 0 when the Starter Sites module is absent (this harness). It drives the
+//     "Set up my site" action: 1 ⇒ import inline, >1 ⇒ route to the Starter Sites tab to choose.
+assert_same( 0, $onboarding['demosCount'], 'demosCount degrades to 0 without the Starter Sites module.' );
 
 echo "Admin overview data OK\n";

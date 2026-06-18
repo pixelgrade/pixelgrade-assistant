@@ -33,7 +33,7 @@ const DEFAULT_PLUGINS = {
 	},
 };
 
-function getPluginsData() {
+export function getPluginsData() {
 	if ( typeof window !== 'undefined' && window.pixelgradePlugins ) {
 		return window.pixelgradePlugins;
 	}
@@ -140,7 +140,7 @@ function renderPluginMeta( plugin, copy ) {
 	);
 }
 
-function hasUpdatesApi() {
+export function hasUpdatesApi() {
 	return Boolean(
 		typeof window !== 'undefined' &&
 			window.wp &&
@@ -228,6 +228,77 @@ function activatePlugin( plugin, url, updatePlugin, copy, setNotice ) {
 			updatePlugin( plugin.slug, { status: 'failed' } );
 			setNotice( { type: 'error', message: actions.failed } );
 		} );
+}
+
+/**
+ * Promise wrapper around the same install + activate flow the tab buttons use, for the Overview
+ * "Set up my site" orchestration (the Get-started card). Reuses `wp.updates.installPlugin` and the
+ * activation fetch so the card and the tab share one install path; resolves when the plugin is
+ * active (or already was), rejects on failure.
+ *
+ * @param {Object} plugin Plugin descriptor (slug, status, activateUrl, installUrl, sourceType).
+ * @return {Promise<void>}
+ */
+export function ensurePluginActive( plugin ) {
+	return new Promise( ( resolve, reject ) => {
+		if ( ! plugin || ! plugin.slug ) {
+			resolve();
+			return;
+		}
+
+		if ( 'active' === plugin.status || plugin.isActive ) {
+			resolve();
+			return;
+		}
+
+		const activate = ( url ) => {
+			const activateUrl = normalizeActionUrl( url || plugin.activateUrl );
+
+			if ( ! activateUrl || typeof window === 'undefined' || typeof window.fetch !== 'function' ) {
+				reject( new Error( 'activate_failed' ) );
+				return;
+			}
+
+			window
+				.fetch( activateUrl, { credentials: 'same-origin' } )
+				.then( ( response ) => {
+					if ( ! response.ok ) {
+						throw new Error( 'activate_failed' );
+					}
+					resolve();
+				} )
+				.catch( () => reject( new Error( 'activate_failed' ) ) );
+		};
+
+		// Installed but inactive — just activate.
+		if ( 'inactive' === plugin.status || ( plugin.isInstalled && ! plugin.isActive ) ) {
+			activate( plugin.activateUrl );
+			return;
+		}
+
+		// Needs installing first. Without the wp.updates API we cannot do this silently.
+		if ( ! hasUpdatesApi() ) {
+			reject( new Error( 'install_unavailable' ) );
+			return;
+		}
+
+		window.wp.updates.installPlugin( {
+			slug: plugin.slug,
+			pixassist_plugin_install: true,
+			plugin_source_type: plugin.sourceType || 'repo',
+			force_tgmpa: 'load',
+			success: ( response ) => {
+				const activateUrl = response && response.activateUrl ? response.activateUrl : plugin.activateUrl;
+				if ( activateUrl ) {
+					activate( activateUrl );
+					return;
+				}
+				// Installed but no activate URL handed back — treat as success; a reload reflects it.
+				resolve();
+			},
+			error: () => reject( new Error( 'install_failed' ) ),
+		} );
+	} );
 }
 
 function renderAction( plugin, updatePlugin, copy, setNotice ) {

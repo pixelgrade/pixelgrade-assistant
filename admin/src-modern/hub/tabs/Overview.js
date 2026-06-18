@@ -19,6 +19,7 @@ import { createElement, Fragment } from '@wordpress/element';
 import { __, sprintf } from '@wordpress/i18n';
 import { Card, CardHeader, CardBody, Button, Flex, FlexItem } from '@wordpress/components';
 import { renderAvatar } from '../avatar';
+import { GetStartedCard } from './GetStartedCard';
 
 const DEFAULT_OVERVIEW = { theme: {}, links: [], plus: {}, account: { is_connected: false } };
 
@@ -239,6 +240,9 @@ export function Overview() {
 	return createElement(
 		Fragment,
 		null,
+		// The hub-native onboarding checklist sits above the hero. It self-hides when the server says
+		// onboarding is complete / dismissed / disabled (window.pixelgradeOverview.onboarding.show).
+		createElement( GetStartedCard, null ),
 		renderOrientation(),
 		renderValueAreas( links ),
 		renderThemeCard( theme, account ),

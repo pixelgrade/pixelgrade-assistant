@@ -443,6 +443,27 @@ if ( ! function_exists( 'pixassist_onboarding_demos_exist' ) ) {
 	}
 }
 
+if ( ! function_exists( 'pixassist_onboarding_demos_count' ) ) {
+	/**
+	 * How many starter demos the theme exposes. Guarded (Starter Sites module may be absent).
+	 *
+	 * Drives the "Set up my site" action: 1 starter ⇒ import inline; >1 ⇒ route to the Starter Sites
+	 * tab to choose (never auto-pick among multiple starters).
+	 *
+	 * @return int
+	 */
+	function pixassist_onboarding_demos_count() {
+		if ( ! function_exists( 'pixassist_get_starter_sites_data' ) ) {
+			return 0;
+		}
+
+		$data     = pixassist_get_starter_sites_data();
+		$starters = isset( $data['starters'] ) && is_array( $data['starters'] ) ? $data['starters'] : array();
+
+		return count( $starters );
+	}
+}
+
 if ( ! function_exists( 'pixassist_onboarding_starter_imported' ) ) {
 	/**
 	 * Whether any starter content has been imported. Guarded.
@@ -510,13 +531,31 @@ if ( ! function_exists( 'pixassist_get_onboarding_facts' ) ) {
 	}
 }
 
+if ( ! function_exists( 'pixassist_get_onboarding_dismiss_endpoint' ) ) {
+	/**
+	 * The REST descriptor the card uses to persist its dismissal (the Phase 2 WRITE path).
+	 *
+	 * Mirrors the starter-sites endpoint shape ({ method, url }) so the JS card hits it the same way
+	 * the Starter Sites tab hits its import endpoints — with the `pixassist_nonce` from
+	 * `window.pixassist.wpRest`. Guarded so it degrades to an empty URL outside WordPress (tests).
+	 *
+	 * @return array { method, url }
+	 */
+	function pixassist_get_onboarding_dismiss_endpoint() {
+		return array(
+			'method' => 'POST',
+			'url'    => function_exists( 'rest_url' ) ? esc_url_raw( rest_url( 'pixassist/v1/onboarding_dismiss' ) ) : '',
+		);
+	}
+}
+
 if ( ! function_exists( 'pixassist_get_onboarding_data' ) ) {
 	/**
 	 * Assemble the onboarding payload the Overview tab renders.
 	 *
 	 * @param string $base_url Hub page URL (carries `?page=pixelgrade`), for step `&tab=` links.
 	 *
-	 * @return array { show, enabled, dismissed, completed, steps }
+	 * @return array { show, enabled, dismissed, completed, steps, demosCount, dismissEndpoint }
 	 */
 	function pixassist_get_onboarding_data( $base_url ) {
 		$facts   = pixassist_get_onboarding_facts( $base_url );
@@ -525,11 +564,16 @@ if ( ! function_exists( 'pixassist_get_onboarding_data' ) ) {
 		$state   = pixassist_get_onboarding_state();
 
 		return array(
-			'show'      => pixassist_onboarding_should_show( $steps, $enabled, $state ),
-			'enabled'   => $enabled,
-			'dismissed' => ! empty( $state['dismissed'] ),
-			'completed' => pixassist_onboarding_is_complete( $steps ),
-			'steps'     => $steps,
+			'show'            => pixassist_onboarding_should_show( $steps, $enabled, $state ),
+			'enabled'         => $enabled,
+			'dismissed'       => ! empty( $state['dismissed'] ),
+			'completed'       => pixassist_onboarding_is_complete( $steps ),
+			'steps'           => $steps,
+			// How many starter demos exist drives the "Set up my site" action: with exactly one the
+			// card imports it inline; with several it routes to the Starter Sites tab to choose (the
+			// card never silently auto-picks among multiple starters — a wizard use-case).
+			'demosCount'      => pixassist_onboarding_demos_count(),
+			'dismissEndpoint' => pixassist_get_onboarding_dismiss_endpoint(),
 		);
 	}
 }

@@ -81,6 +81,53 @@ class PixelgradeAssistant_AdminRestInterface {
 			'permission_callback' => array( $this, 'permission_docs_callback' ),
 			'show_in_index'       => false, // We don't need others to know about this (API discovery)
 		) );
+
+		// Hub-native onboarding: persist the "Get started" card dismissal so it stays hidden.
+		register_rest_route( $namespace, '/onboarding_dismiss', array(
+			'methods'             => WP_REST_Server::CREATABLE,
+			'callback'            => array( $this, 'dismiss_onboarding' ),
+			'permission_callback' => array( $this, 'permission_nonce_callback' ),
+			'show_in_index'       => false, // We don't need others to know about this (API discovery)
+		) );
+	}
+
+	/**
+	 * Persist the onboarding "Get started" card dismissal.
+	 *
+	 * Writes only into `pixassist_options['onboarding']` (the Phase 1 marker) — it never touches any
+	 * other option or meta key. The card hides client-side optimistically; this makes it stick.
+	 *
+	 * @param WP_REST_Request $request Request object.
+	 *
+	 * @return WP_REST_Response
+	 */
+	public function dismiss_onboarding( $request ) {
+
+		$onboarding = PixelgradeAssistant_Admin::get_option( 'onboarding' );
+		if ( ! is_array( $onboarding ) ) {
+			$onboarding = array();
+		}
+
+		$onboarding['dismissed']    = true;
+		$onboarding['dismissed_at'] = time();
+
+		PixelgradeAssistant_Admin::set_option( 'onboarding', $onboarding );
+
+		if ( false === PixelgradeAssistant_Admin::save_options() ) {
+			return rest_ensure_response( array(
+				'code'    => 'error_saving',
+				'message' => esc_html__( 'Something went wrong. Could not dismiss the guide.', '__plugin_txtd' ),
+				'data'    => array(),
+			) );
+		}
+
+		return rest_ensure_response( array(
+			'code'    => 'success',
+			'message' => esc_html__( 'Guide dismissed.', '__plugin_txtd' ),
+			'data'    => array(
+				'dismissed' => true,
+			),
+		) );
 	}
 
 	/**

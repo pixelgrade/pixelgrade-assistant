@@ -56,7 +56,7 @@ const DEFAULT_STARTER_SITES = {
 	},
 };
 
-function getStarterSitesData() {
+export function getStarterSitesData() {
 	if ( typeof window !== 'undefined' && window.pixelgradeStarterSites ) {
 		return window.pixelgradeStarterSites;
 	}
@@ -64,7 +64,7 @@ function getStarterSitesData() {
 	return DEFAULT_STARTER_SITES;
 }
 
-function mergeCopy( copy ) {
+export function mergeCopy( copy ) {
 	return {
 		...DEFAULT_STARTER_SITES.copy,
 		...( copy || {} ),
@@ -186,7 +186,7 @@ async function restRequest( data, key, payload ) {
 	return response;
 }
 
-function isStarterImported( imported, starterId ) {
+export function isStarterImported( imported, starterId ) {
 	return Boolean( imported && imported[ starterId ] && Object.keys( imported[ starterId ] ).length );
 }
 
@@ -200,7 +200,7 @@ function isStarterImported( imported, starterId ) {
  * @param {Object} starter Normalized starter descriptor.
  * @return {Array} Missing required plugins (each: slug, name, isInstalled, isActive).
  */
-function getMissingRequiredPlugins( starter ) {
+export function getMissingRequiredPlugins( starter ) {
 	const required = Array.isArray( starter.requiredPlugins ) ? starter.requiredPlugins : [];
 
 	return required.filter( ( plugin ) => plugin && plugin.slug && ! plugin.isActive );
@@ -345,7 +345,7 @@ function buildImportTasks( starter, config, data, setProgress ) {
 	return tasks;
 }
 
-async function importStarter( starter, data, copy, setProgress ) {
+export async function importStarter( starter, data, copy, setProgress ) {
 	setProgress( copy.importing );
 	const config = await fetchJson( trailingslash( starter.baseRestUrl ) + 'data', { method: 'GET' } );
 
