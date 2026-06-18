@@ -760,6 +760,20 @@ class PixelgradeAssistant_StarterContent {
 				$imported_ids[ $post['ID'] ] = $post_id;
 			} else {
 				$imported_ids[ $post['ID'] ] = $post_id;
+
+				// wp_insert_post()'s tax_input is silently dropped for any taxonomy the current user lacks
+				// the `assign_terms` cap for (the case for custom taxonomies like `portfolio_type` when the
+				// import runs without a privileged user). Re-apply the already-mapped terms directly with
+				// wp_set_object_terms(), which bypasses that capability check, so CPT taxonomies attach
+				// regardless of the caller's auth context.
+				if ( ! empty( $post_args['tax_input'] ) && is_array( $post_args['tax_input'] ) ) {
+					foreach ( $post_args['tax_input'] as $taxonomy => $term_ids ) {
+						if ( empty( $term_ids ) || ! taxonomy_exists( $taxonomy ) ) {
+							continue;
+						}
+						wp_set_object_terms( $post_id, $term_ids, $taxonomy, false );
+					}
+				}
 			}
 		}
 
