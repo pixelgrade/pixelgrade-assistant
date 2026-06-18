@@ -57,25 +57,33 @@ function renderArticleList( articles, onOpen ) {
 	);
 }
 
+function DocsFallback( { message } ) {
+	const data = getDocsData();
+
+	return createElement(
+		'div',
+		{ className: 'pixelgrade-docs__fallback' },
+		createElement(
+			'p',
+			null,
+			message || getCopy( 'fallback', __( 'Browse the full documentation for step-by-step guides and answers.', 'pixelgrade_assistant' ) )
+		),
+		createElement(
+			Button,
+			{
+				href: data.product && data.product.docsUrl ? data.product.docsUrl : 'https://pixelgrade.com/docs',
+				target: '_blank',
+				rel: 'noreferrer noopener',
+				variant: 'secondary',
+			},
+			getCopy( 'browseDocs', __( 'Browse docs', 'pixelgrade_assistant' ) )
+		)
+	);
+}
+
 function CategoryList( { categories, onOpen } ) {
 	if ( ! categories.length ) {
-		const data = getDocsData();
-
-		return createElement(
-			'div',
-			{ className: 'pixelgrade-docs__fallback' },
-			createElement( 'p', null, getCopy( 'fallback', __( 'Browse the full documentation for step-by-step guides and answers.', 'pixelgrade_assistant' ) ) ),
-			createElement(
-				Button,
-				{
-					href: data.product && data.product.docsUrl ? data.product.docsUrl : 'https://pixelgrade.com/docs',
-					target: '_blank',
-					rel: 'noreferrer noopener',
-					variant: 'secondary',
-				},
-				getCopy( 'browseDocs', __( 'Browse docs', 'pixelgrade_assistant' ) )
-			)
-		);
+		return createElement( DocsFallback, null );
 	}
 
 	return createElement(
@@ -362,7 +370,14 @@ export function KbPanel( { context, EscalationSlot, showEscalation = true } ) {
 			onVote,
 		} );
 	} else if ( search.trim() ) {
-		body = renderArticleList( searchResults, onOpenArticle );
+		body = searchResults.length
+			? renderArticleList( searchResults, onOpenArticle )
+			: createElement(
+					Fragment,
+					null,
+					renderArticleList( searchResults, onOpenArticle ),
+					createElement( DocsFallback, null )
+			  );
 	} else if ( activeCategory ) {
 		body = createElement(
 			'div',
