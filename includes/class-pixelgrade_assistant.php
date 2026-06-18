@@ -237,6 +237,13 @@ class PixelgradeAssistant {
 		require_once plugin_dir_path( $this->file ) . 'includes/theme-helpers.php';
 
 		/**
+		 * Hub-native onboarding first-run discoverability: the one-time activation redirect to the
+		 * Appearance -> Pixelgrade hub (WooCommerce-modeled). Self-contained; registers its own
+		 * activation hook + admin_init guard so the main plugin file stays untouched.
+		 */
+		require_once plugin_dir_path( $this->file ) . 'includes/onboarding-redirect.php';
+
+		/**
 		 * Fires once Pixelgrade Assistant has loaded all of its core modules.
 		 *
 		 * This is the extension point for companion plugins (e.g. Pixelgrade Plus): hook in here to
