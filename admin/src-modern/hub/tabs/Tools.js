@@ -1,11 +1,11 @@
 /**
  * The secondary Tools tab (#50).
  *
- * Reuses Assistant's existing cleanup endpoint with the same math-confirmation guard as the legacy
- * dashboard, plus the existing localStorage cache clear behavior.
+ * Keeps starter-content reset separate from Assistant cleanup, plus the existing localStorage cache
+ * clear behavior.
  */
 import { createElement, Fragment, useState } from '@wordpress/element';
-import { __ } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
 import { Button, Card, CardBody, CardHeader, Flex, FlexItem, Spinner, TextControl } from '@wordpress/components';
 
 const DEFAULT_TOOLS = {
@@ -23,6 +23,16 @@ const DEFAULT_TOOLS = {
 		working: __( 'Resetting...', 'pixelgrade_assistant' ),
 		success: __( 'Pixelgrade Assistant was reset. Refresh the page to load the clean state.', 'pixelgrade_assistant' ),
 		failure: __( 'Reset failed. Please try again.', 'pixelgrade_assistant' ),
+		starterResetLabel: __( 'Reset starter content', 'pixelgrade_assistant' ),
+		starterResetHeading: __( 'Start from scratch', 'pixelgrade_assistant' ),
+		starterResetDescription: __( 'Remove content imported by Starter Sites and restore the site settings captured before import. Account and license data are not changed.', 'pixelgrade_assistant' ),
+		starterResetConfirmationMessage: __( 'Confirm that you want to reset imported starter content.', 'pixelgrade_assistant' ),
+		starterResetConfirmLabel: __( 'Reset starter content', 'pixelgrade_assistant' ),
+		starterResetWorking: __( 'Resetting starter content...', 'pixelgrade_assistant' ),
+		starterResetSuccess: __( 'Starter content was reset.', 'pixelgrade_assistant' ),
+		starterResetNoContent: __( 'No imported starter content was found. Nothing changed.', 'pixelgrade_assistant' ),
+		starterResetFailure: __( 'Starter content reset failed. Please try again.', 'pixelgrade_assistant' ),
+		starterResetSummary: __( 'Deleted %1$d posts, %2$d terms, and %3$d media items. Restored %4$d options and %5$d theme settings.', 'pixelgrade_assistant' ),
 		localStorageHeading: __( 'Browser cache', 'pixelgrade_assistant' ),
 		localStorageDescription: __( 'Clear this admin app\'s cached state stored in your browser. Your site content and settings are not affected.', 'pixelgrade_assistant' ),
 		localStorageLabel: __( 'Clear browser cache', 'pixelgrade_assistant' ),
@@ -67,13 +77,13 @@ function getRestHeaders() {
 	return headers;
 }
 
-function getEndpoint( data ) {
-	if ( data.endpoints && data.endpoints.cleanup ) {
-		return data.endpoints.cleanup;
+function getEndpoint( data, key ) {
+	if ( data.endpoints && data.endpoints[ key ] ) {
+		return data.endpoints[ key ];
 	}
 
 	const rest = getPixassistRest();
-	return rest.endpoint && rest.endpoint.cleanup ? rest.endpoint.cleanup : {};
+	return rest.endpoint && rest.endpoint[ key ] ? rest.endpoint[ key ] : {};
 }
 
 async function fetchJson( url, options = {} ) {
@@ -102,6 +112,29 @@ function clearPixassistLocalStorage() {
 	window.localStorage.removeItem( 'pixassist_last_updated' );
 }
 
+function toCount( value ) {
+	const number = Number( value );
+
+	return Number.isFinite( number ) ? number : 0;
+}
+
+function formatStarterResetMessage( response, copy ) {
+	const summary = response && response.data ? response.data : {};
+
+	if ( toCount( summary.journals ) < 1 ) {
+		return copy.starterResetNoContent;
+	}
+
+	return copy.starterResetSuccess + ' ' + sprintf(
+		copy.starterResetSummary,
+		toCount( summary.posts_deleted ),
+		toCount( summary.terms_deleted ),
+		toCount( summary.media_deleted ),
+		toCount( summary.options_restored ),
+		toCount( summary.theme_mods_restored )
+	);
+}
+
 function renderMessage( message ) {
 	if ( ! message ) {
 		return null;
@@ -128,9 +161,21 @@ function renderMessage( message ) {
 	);
 }
 
-export function Tools() {
-	const data = getToolsData();
-	const copy = mergeCopy( data.copy );
+function ResetActionCard( {
+	title,
+	description,
+	buttonLabel,
+	confirmationMessage,
+	confirmLabel,
+	workingLabel,
+	successMessage,
+	failureMessage,
+	endpointKey,
+	formatSuccess,
+	onSuccess,
+	copy,
+	data,
+} ) {
 	const [ challenge, setChallenge ] = useState( makeChallenge );
 	const [ answer, setAnswer ] = useState( '' );
 	const [ confirming, setConfirming ] = useState( false );
@@ -152,10 +197,10 @@ export function Tools() {
 			return;
 		}
 
-		const endpoint = getEndpoint( data );
+		const endpoint = getEndpoint( data, endpointKey );
 		const rest = getPixassistRest();
 		if ( ! endpoint.url ) {
-			setMessage( { type: 'error', text: copy.failure } );
+			setMessage( { type: 'error', text: failureMessage } );
 			return;
 		}
 
@@ -178,16 +223,79 @@ export function Tools() {
 				throw new Error( response.message || response.code );
 			}
 
-			clearPixassistLocalStorage();
+			if ( onSuccess ) {
+				onSuccess( response );
+			}
+
 			setConfirming( false );
-			setMessage( { type: 'success', text: copy.success } );
+			setMessage( { type: 'success', text: formatSuccess ? formatSuccess( response ) : successMessage } );
 		} catch ( error ) {
-			setMessage( { type: 'error', text: error.message || copy.failure } );
+			setMessage( { type: 'error', text: error.message || failureMessage } );
 		} finally {
 			setBusy( false );
 			resetChallenge( false );
 		}
 	};
+
+	return createElement(
+		Card,
+		{ style: { marginTop: '16px' } },
+		createElement( CardHeader, null, createElement( 'h3', { style: { margin: 0 } }, title ) ),
+		createElement(
+			CardBody,
+			null,
+			renderMessage( message ),
+			createElement( 'p', { style: { marginTop: 0 } }, description ),
+			confirming
+				? createElement(
+						'div',
+						null,
+						createElement( 'p', { style: { marginTop: 0, color: '#50575e' } }, confirmationMessage ),
+						createElement(
+							'p',
+							{ style: { fontWeight: 600 } },
+							copy.challengePrefix + ' ' + challenge.test1 + ' + ' + challenge.test2
+						),
+						createElement( TextControl, {
+							label: copy.challengeLabel,
+							value: answer,
+							onChange: setAnswer,
+							type: 'number',
+							disabled: busy,
+							__next40pxDefaultSize: true,
+						} ),
+						createElement(
+							Flex,
+							{ gap: 2, justify: 'flex-start' },
+							createElement(
+								FlexItem,
+								null,
+								createElement(
+									Button,
+									{ variant: 'primary', isDestructive: true, disabled: busy, onClick: submitReset },
+									busy ? createElement( Spinner, { style: { margin: '0 6px 0 0' } } ) : null,
+									busy ? workingLabel : confirmLabel
+								)
+							),
+							createElement(
+								FlexItem,
+								null,
+								createElement( Button, { variant: 'tertiary', disabled: busy, onClick: () => {
+									setConfirming( false );
+									resetChallenge();
+								} }, copy.cancelLabel )
+							)
+						)
+				  )
+				: createElement( Button, { variant: 'secondary', isDestructive: true, onClick: () => setConfirming( true ) }, buttonLabel )
+		)
+	);
+}
+
+export function Tools() {
+	const data = getToolsData();
+	const copy = mergeCopy( data.copy );
+	const [ cacheMessage, setCacheMessage ] = useState( null );
 
 	return createElement(
 		Fragment,
@@ -200,73 +308,49 @@ export function Tools() {
 				CardBody,
 				null,
 				copy.description ? createElement( 'p', { style: { marginTop: 0, color: '#50575e' } }, copy.description ) : null,
-				renderMessage( message ),
-				createElement(
-					Card,
-					{ style: { marginTop: '16px' } },
-					createElement( CardHeader, null, createElement( 'h3', { style: { margin: 0 } }, copy.resetLabel ) ),
-					createElement(
-						CardBody,
-						null,
-						createElement( 'p', { style: { marginTop: 0 } }, copy.resetDescription ),
-						confirming
-							? createElement(
-									'div',
-									null,
-									createElement( 'p', { style: { marginTop: 0, color: '#50575e' } }, copy.confirmationMessage ),
-									createElement(
-										'p',
-										{ style: { fontWeight: 600 } },
-										copy.challengePrefix + ' ' + challenge.test1 + ' + ' + challenge.test2
-									),
-									createElement( TextControl, {
-										label: copy.challengeLabel,
-										value: answer,
-										onChange: setAnswer,
-										type: 'number',
-										disabled: busy,
-										__next40pxDefaultSize: true,
-									} ),
-									createElement(
-										Flex,
-										{ gap: 2, justify: 'flex-start' },
-										createElement(
-											FlexItem,
-											null,
-											createElement(
-												Button,
-												{ variant: 'primary', isDestructive: true, disabled: busy, onClick: submitReset },
-												busy ? createElement( Spinner, { style: { margin: '0 6px 0 0' } } ) : null,
-												busy ? copy.working : copy.confirmLabel
-											)
-										),
-										createElement(
-											FlexItem,
-											null,
-											createElement( Button, { variant: 'tertiary', disabled: busy, onClick: () => {
-												setConfirming( false );
-												resetChallenge();
-											} }, copy.cancelLabel )
-										)
-									)
-							  )
-							: createElement( Button, { variant: 'secondary', isDestructive: true, onClick: () => setConfirming( true ) }, copy.resetLabel )
-					)
-				),
-				createElement(
-					Card,
-					{ style: { marginTop: '16px' } },
-					createElement( CardHeader, null, createElement( 'h3', { style: { margin: 0 } }, copy.localStorageHeading ) ),
-					createElement(
-						CardBody,
-						null,
-						createElement( 'p', { style: { marginTop: 0 } }, copy.localStorageDescription ),
-						createElement( Button, { variant: 'secondary', onClick: () => {
-							clearPixassistLocalStorage();
-							setMessage( { type: 'success', text: copy.localStorageSuccess } );
-						} }, copy.localStorageLabel )
-					)
-				)
+			)
+		),
+		createElement( ResetActionCard, {
+			title: copy.starterResetHeading,
+			description: copy.starterResetDescription,
+			buttonLabel: copy.starterResetLabel,
+			confirmationMessage: copy.starterResetConfirmationMessage,
+			confirmLabel: copy.starterResetConfirmLabel,
+			workingLabel: copy.starterResetWorking,
+			successMessage: copy.starterResetSuccess,
+			failureMessage: copy.starterResetFailure,
+			endpointKey: 'resetStarterContent',
+			formatSuccess: ( response ) => formatStarterResetMessage( response, copy ),
+			copy,
+			data,
+		} ),
+		createElement( ResetActionCard, {
+			title: copy.resetLabel,
+			description: copy.resetDescription,
+			buttonLabel: copy.resetLabel,
+			confirmationMessage: copy.confirmationMessage,
+			confirmLabel: copy.confirmLabel,
+			workingLabel: copy.working,
+			successMessage: copy.success,
+			failureMessage: copy.failure,
+			endpointKey: 'cleanup',
+			onSuccess: clearPixassistLocalStorage,
+			copy,
+			data,
+		} ),
+		createElement(
+			Card,
+			{ style: { marginTop: '16px' } },
+			createElement( CardHeader, null, createElement( 'h3', { style: { margin: 0 } }, copy.localStorageHeading ) ),
+			createElement(
+				CardBody,
+				null,
+				renderMessage( cacheMessage ),
+				createElement( 'p', { style: { marginTop: 0 } }, copy.localStorageDescription ),
+				createElement( Button, { variant: 'secondary', onClick: () => {
+					clearPixassistLocalStorage();
+					setCacheMessage( { type: 'success', text: copy.localStorageSuccess } );
+				} }, copy.localStorageLabel )
 			)
 		)
 	);

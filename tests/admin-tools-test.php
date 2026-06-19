@@ -69,6 +69,10 @@ class PixelgradeAssistant_Admin {
 			'method' => 'POST',
 			'url'    => 'https://example.test/wp-json/pixassist/v1/cleanup',
 		),
+		'resetStarterContent' => array(
+			'method' => 'POST',
+			'url'    => 'https://example.test/wp-json/pixassist/v1/reset_starter_content',
+		),
 	);
 
 	public static function get_config() {
@@ -123,5 +127,7 @@ assert_same( 'Reset Assistant', $payload['copy']['resetLabel'], 'Tools reset lab
 assert_same( 'Reset stored plugin state.', $payload['copy']['resetDescription'], 'Tools reset description comes from the existing systemStatus l10n config.' );
 assert_same( 'Confirm the reset answer.', $payload['copy']['confirmationMessage'], 'Tools reset confirmation copy comes from the existing systemStatus l10n config.' );
 assert_same( PixelgradeAssistant_Admin::$internalApiEndpoints['cleanup'], $payload['endpoints']['cleanup'], 'Tools must reuse the existing cleanup endpoint.' );
+assert_same( 'Reset starter content', $payload['copy']['starterResetLabel'], 'Tools must expose dedicated starter-content reset copy.' );
+assert_same( PixelgradeAssistant_Admin::$internalApiEndpoints['resetStarterContent'], $payload['endpoints']['resetStarterContent'], 'Tools must expose the dedicated starter-content reset endpoint.' );
 
 echo "Admin Tools tab OK\n";

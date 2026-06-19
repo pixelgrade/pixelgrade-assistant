@@ -159,6 +159,10 @@ class PixelgradeAssistant_Admin {
 			    'method' => 'POST',
 			    'url'    => esc_url_raw( rest_url() . 'pixassist/v1/cleanup' ),
 		    ),
+		    'resetStarterContent' => array(
+			    'method' => 'POST',
+			    'url'    => esc_url_raw( rest_url() . 'pixassist/v1/reset_starter_content' ),
+		    ),
 
 			    // Pixelgrade Docs documentation categories (fetched lazily when the editor sidebar opens).
 		    'kbCategories'       => array(

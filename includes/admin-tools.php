@@ -2,9 +2,8 @@
 /**
  * The secondary Tools tab: maintenance utilities inside the Appearance -> Pixelgrade hub.
  *
- * This tab is the modern hub counterpart of the legacy reset helper. It reuses Assistant's existing
- * cleanup REST endpoint and copy from the systemStatus l10n block; no new reset storage or action
- * surface is introduced.
+ * This tab is the modern hub counterpart of the legacy reset helper. It keeps Assistant cleanup
+ * separate from the starter-content reset action.
  *
  * @package    PixelgradeAssistant
  * @subpackage PixelgradeAssistant/includes
@@ -102,6 +101,16 @@ if ( ! function_exists( 'pixassist_get_tools_copy' ) ) {
 			'working'             => esc_html__( 'Resetting...', '__plugin_txtd' ),
 			'success'             => esc_html__( 'Pixelgrade Assistant was reset. Refresh the page to load the clean state.', '__plugin_txtd' ),
 			'failure'             => esc_html__( 'Reset failed. Please try again.', '__plugin_txtd' ),
+			'starterResetLabel'   => esc_html__( 'Reset starter content', '__plugin_txtd' ),
+			'starterResetHeading' => esc_html__( 'Start from scratch', '__plugin_txtd' ),
+			'starterResetDescription' => esc_html__( 'Remove content imported by Starter Sites and restore the site settings captured before import. Account and license data are not changed.', '__plugin_txtd' ),
+			'starterResetConfirmationMessage' => esc_html__( 'Confirm that you want to reset imported starter content.', '__plugin_txtd' ),
+			'starterResetConfirmLabel' => esc_html__( 'Reset starter content', '__plugin_txtd' ),
+			'starterResetWorking' => esc_html__( 'Resetting starter content...', '__plugin_txtd' ),
+			'starterResetSuccess' => esc_html__( 'Starter content was reset.', '__plugin_txtd' ),
+			'starterResetNoContent' => esc_html__( 'No imported starter content was found. Nothing changed.', '__plugin_txtd' ),
+			'starterResetFailure' => esc_html__( 'Starter content reset failed. Please try again.', '__plugin_txtd' ),
+			'starterResetSummary' => esc_html__( 'Deleted %1$d posts, %2$d terms, and %3$d media items. Restored %4$d options and %5$d theme settings.', '__plugin_txtd' ),
 			'localStorageLabel'   => esc_html__( 'Clear browser cache for this admin app', '__plugin_txtd' ),
 			'localStorageSuccess' => esc_html__( 'Browser cache cleared for this admin app.', '__plugin_txtd' ),
 		);
@@ -122,6 +131,9 @@ if ( ! function_exists( 'pixassist_get_tools_endpoints' ) ) {
 		return array(
 			'cleanup' => isset( $endpoints['cleanup'] ) && is_array( $endpoints['cleanup'] )
 				? $endpoints['cleanup']
+				: array(),
+			'resetStarterContent' => isset( $endpoints['resetStarterContent'] ) && is_array( $endpoints['resetStarterContent'] )
+				? $endpoints['resetStarterContent']
 				: array(),
 		);
 	}

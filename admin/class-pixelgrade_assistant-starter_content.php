@@ -129,6 +129,28 @@ class PixelgradeAssistant_StarterContent {
 				'pixassist_nonce' => array( 'required' => true ),
 			),
 		) );
+
+		register_rest_route( 'pixassist/v1', '/reset_starter_content', array(
+			'methods'             => WP_REST_Server::CREATABLE,
+			'callback'            => array( $this, 'rest_reset_starter_content' ),
+			'permission_callback' => array( $this, 'permission_nonce_callback' ),
+			'show_in_index'       => false,
+		) );
+	}
+
+	/**
+	 * Handle the request to reset imported starter content.
+	 *
+	 * @param WP_REST_Request $request Request object.
+	 *
+	 * @return WP_REST_Response
+	 */
+	public function rest_reset_starter_content( $request ) {
+		return rest_ensure_response( array(
+			'code'    => 'success',
+			'message' => esc_html__( 'Starter content was reset.', '__plugin_txtd' ),
+			'data'    => $this->reset_starter_content(),
+		) );
 	}
 
 	/**
@@ -1367,6 +1389,231 @@ class PixelgradeAssistant_StarterContent {
 	public function end_import() {
 		$this->replace_demo_urls_in_content();
 		$this->regenerate_style_manager_after_import();
+	}
+
+	/**
+	 * Reset all imported starter content using the stored importer journal.
+	 *
+	 * @return array Reset counts summary.
+	 */
+	public function reset_starter_content() {
+		$summary = array(
+			'journals'             => 0,
+			'posts_deleted'        => 0,
+			'posts_missing'        => 0,
+			'terms_deleted'        => 0,
+			'terms_skipped'        => 0,
+			'media_deleted'        => 0,
+			'media_skipped'        => 0,
+			'options_restored'     => 0,
+			'theme_mods_restored'  => 0,
+		);
+
+		$starter_content = PixelgradeAssistant_Admin::get_option( 'imported_starter_content' );
+		if ( empty( $starter_content ) || ! is_array( $starter_content ) ) {
+			return $summary;
+		}
+
+		$journals          = array();
+		$restored_options = array();
+		$restored_mods    = array();
+
+		foreach ( $starter_content as $journal ) {
+			if ( empty( $journal ) || ! is_array( $journal ) ) {
+				continue;
+			}
+
+			$summary['journals']++;
+			$journals[] = $journal;
+			$this->reset_starter_content_posts( $journal, $summary );
+			$this->reset_starter_content_terms( $journal, $summary );
+			$this->reset_starter_content_media( $journal, $summary );
+		}
+
+		for ( $i = count( $journals ) - 1; $i >= 0; $i-- ) {
+			$this->reset_starter_content_settings( $journals[ $i ], $restored_options, $restored_mods );
+		}
+
+		$summary['options_restored']    = count( $restored_options );
+		$summary['theme_mods_restored'] = count( $restored_mods );
+
+		if ( 0 < $summary['journals'] ) {
+			$this->regenerate_style_manager_after_import();
+
+			PixelgradeAssistant_Admin::set_option( 'imported_starter_content', array() );
+			PixelgradeAssistant_Admin::save_options();
+		}
+
+		return $summary;
+	}
+
+	/**
+	 * Delete journaled posts.
+	 *
+	 * @param array $journal Starter-content journal.
+	 * @param array $summary Reset summary, by reference.
+	 */
+	private function reset_starter_content_posts( $journal, &$summary ) {
+		if ( empty( $journal['post_types'] ) || ! is_array( $journal['post_types'] ) ) {
+			return;
+		}
+
+		foreach ( $journal['post_types'] as $post_type_map ) {
+			if ( empty( $post_type_map ) || ! is_array( $post_type_map ) ) {
+				continue;
+			}
+
+			foreach ( $post_type_map as $post_id ) {
+				$post_id = absint( $post_id );
+				if ( empty( $post_id ) ) {
+					continue;
+				}
+
+				$deleted = wp_delete_post( $post_id, true );
+				if ( false === $deleted || null === $deleted ) {
+					$summary['posts_missing']++;
+				} else {
+					$summary['posts_deleted']++;
+				}
+			}
+		}
+	}
+
+	/**
+	 * Delete journaled terms, while preserving built-in defaults and unknown taxonomies.
+	 *
+	 * @param array $journal Starter-content journal.
+	 * @param array $summary Reset summary, by reference.
+	 */
+	private function reset_starter_content_terms( $journal, &$summary ) {
+		if ( empty( $journal['taxonomies'] ) || ! is_array( $journal['taxonomies'] ) ) {
+			return;
+		}
+
+		foreach ( $journal['taxonomies'] as $taxonomy => $term_map ) {
+			if ( empty( $term_map ) || ! is_array( $term_map ) ) {
+				continue;
+			}
+
+			$taxonomy = sanitize_key( $taxonomy );
+
+			foreach ( $term_map as $term_id ) {
+				$term_id = absint( $term_id );
+				if ( empty( $term_id ) || $this->should_skip_reset_term( $taxonomy, $term_id ) ) {
+					$summary['terms_skipped']++;
+					continue;
+				}
+
+				$deleted = wp_delete_term( $term_id, $taxonomy );
+				if ( false === $deleted || null === $deleted || is_wp_error( $deleted ) ) {
+					$summary['terms_skipped']++;
+				} else {
+					$summary['terms_deleted']++;
+				}
+			}
+		}
+	}
+
+	/**
+	 * Delete journaled media only when the importer safety tag is present.
+	 *
+	 * @param array $journal Starter-content journal.
+	 * @param array $summary Reset summary, by reference.
+	 */
+	private function reset_starter_content_media( $journal, &$summary ) {
+		if ( empty( $journal['media'] ) || ! is_array( $journal['media'] ) ) {
+			return;
+		}
+
+		foreach ( $journal['media'] as $media_map ) {
+			if ( empty( $media_map ) || ! is_array( $media_map ) ) {
+				continue;
+			}
+
+			foreach ( $media_map as $attachment_id ) {
+				$attachment_id = absint( $attachment_id );
+				if ( empty( $attachment_id ) ) {
+					continue;
+				}
+
+				$metadata = wp_get_attachment_metadata( $attachment_id );
+				if ( empty( $metadata['imported_with_pixassist'] ) ) {
+					$summary['media_skipped']++;
+					continue;
+				}
+
+				$deleted = wp_delete_attachment( $attachment_id, true );
+				if ( false === $deleted || null === $deleted ) {
+					$summary['media_skipped']++;
+				} else {
+					$summary['media_deleted']++;
+				}
+			}
+		}
+	}
+
+	/**
+	 * Restore option and theme-mod values stashed before import overwrites.
+	 *
+	 * @param array $journal          Starter-content journal.
+	 * @param array $restored_options Unique restored option keys, by reference.
+	 * @param array $restored_mods    Unique restored theme mod keys, by reference.
+	 */
+	private function reset_starter_content_settings( $journal, &$restored_options, &$restored_mods ) {
+		foreach ( array( 'post_settings', 'pre_settings' ) as $settings_key ) {
+			if ( empty( $journal[ $settings_key ] ) || ! is_array( $journal[ $settings_key ] ) ) {
+				continue;
+			}
+
+			if ( ! empty( $journal[ $settings_key ]['options'] ) && is_array( $journal[ $settings_key ]['options'] ) ) {
+				foreach ( $journal[ $settings_key ]['options'] as $option => $value ) {
+					$option = (string) $option;
+					update_option( $option, $value );
+					$restored_options[ $option ] = true;
+				}
+			}
+
+			if ( ! empty( $journal[ $settings_key ]['mods'] ) && is_array( $journal[ $settings_key ]['mods'] ) ) {
+				foreach ( $journal[ $settings_key ]['mods'] as $mod => $value ) {
+					$mod = (string) $mod;
+					if ( false === $value || null === $value ) {
+						remove_theme_mod( $mod );
+					} else {
+						set_theme_mod( $mod, $value );
+					}
+
+					$restored_mods[ $mod ] = true;
+				}
+			}
+		}
+	}
+
+	/**
+	 * Whether a journaled term must be preserved during reset.
+	 *
+	 * @param string $taxonomy Taxonomy key.
+	 * @param int    $term_id  Term ID.
+	 *
+	 * @return bool
+	 */
+	private function should_skip_reset_term( $taxonomy, $term_id ) {
+		if ( ! taxonomy_exists( $taxonomy ) ) {
+			return true;
+		}
+
+		if ( ! term_exists( $term_id, $taxonomy ) ) {
+			return true;
+		}
+
+		if ( 'category' === $taxonomy && $term_id === absint( get_option( 'default_category' ) ) ) {
+			return true;
+		}
+
+		if ( 'post_format' === $taxonomy ) {
+			return true;
+		}
+
+		return false;
 	}
 
 	/**
