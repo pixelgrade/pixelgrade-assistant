@@ -46,6 +46,14 @@ function apply_filters( $hook, $value ) {
 		return $GLOBALS['pcpt']['filter_overrides'][ $hook ];
 	}
 
+	if ( empty( $GLOBALS['pcpt']['filters'][ $hook ] ) ) {
+		return $value;
+	}
+
+	foreach ( $GLOBALS['pcpt']['filters'][ $hook ] as $callback ) {
+		$value = call_user_func( $callback, $value );
+	}
+
 	return $value;
 }
 
@@ -96,6 +104,10 @@ function esc_html__( $text, $domain = null ) {
 	return $text;
 }
 
+function sanitize_key( $key ) {
+	return preg_replace( '/[^a-z0-9_\-]/', '', strtolower( (string) $key ) );
+}
+
 // --- Assertion helpers ---------------------------------------------------------
 
 function assert_same( $expected, $actual, $message ) {
@@ -121,6 +133,12 @@ function pcpt_reset_registry() {
 	$GLOBALS['pcpt']['filter_overrides'] = array();
 	$GLOBALS['pcpt']['options']          = array();
 	$GLOBALS['pcpt']['flushed']          = 0;
+}
+
+class PixelgradeAssistant_Admin {
+	public static function get_option( $key, $default = null ) {
+		return array_key_exists( $key, $GLOBALS['pcpt']['options'] ) ? $GLOBALS['pcpt']['options'][ $key ] : $default;
+	}
 }
 
 // --- Load the subject under test -----------------------------------------------
@@ -170,6 +188,11 @@ assert_same( false, pixassist_portfolio_cpt_is_enabled(), 'pixassist_register_po
 pcpt_reset_registry();
 $GLOBALS['pcpt']['filter_overrides']['pixassist_register_portfolio_cpt'] = true;
 assert_same( true, pixassist_portfolio_cpt_is_enabled(), 'pixassist_register_portfolio_cpt filter can force-enable' );
+
+// Assistant-enabled feature state can force-enable without theme support.
+pcpt_reset_registry();
+$GLOBALS['pcpt']['options']['enabled_features'] = array( 'portfolio' );
+assert_same( true, pixassist_portfolio_cpt_is_enabled(), 'enabled when Portfolio is present in Assistant enabled_features state' );
 
 // === 3) maybe_register honors the gate ========================================
 pcpt_reset_registry();

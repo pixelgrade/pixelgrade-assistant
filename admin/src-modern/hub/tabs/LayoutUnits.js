@@ -6,7 +6,7 @@
  */
 import { createElement, Fragment, useMemo, useState } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
-import { Button, Card, CardBody, CardHeader, Flex, FlexItem, Notice, Spinner } from '@wordpress/components';
+import { Button, Card, CardBody, CardHeader, CheckboxControl, Flex, FlexItem, Notice, Spinner } from '@wordpress/components';
 
 const DEFAULT_LAYOUT_UNITS = {
 	copy: {
@@ -33,6 +33,9 @@ const DEFAULT_LAYOUT_UNITS = {
 		headers: __( 'Headers', 'pixelgrade_assistant' ),
 		footers: __( 'Footers', 'pixelgrade_assistant' ),
 		templatesType: __( 'Templates', 'pixelgrade_assistant' ),
+		features: __( 'Features', 'pixelgrade_assistant' ),
+		featureLabel: __( 'Feature', 'pixelgrade_assistant' ),
+		sampleLabel: __( 'Include sample projects', 'pixelgrade_assistant' ),
 		sourceHeading: __( 'Source', 'pixelgrade_assistant' ),
 		premiumLabel: __( 'Premium', 'pixelgrade_assistant' ),
 		freeLabel: __( 'Free', 'pixelgrade_assistant' ),
@@ -152,10 +155,18 @@ function getSlotTypeLabel( unit, copy ) {
 		return copy.templatesType;
 	}
 
+	if ( 'feature' === unit.type ) {
+		return copy.featureLabel;
+	}
+
 	return __( 'Template part', 'pixelgrade_assistant' );
 }
 
 function getGroupKey( unit ) {
+	if ( 'feature' === unit.type ) {
+		return 'features';
+	}
+
 	if ( 'wp_template_part' === unit.type && 'header' === unit.slug ) {
 		return 'headers';
 	}
@@ -189,6 +200,7 @@ function groupUnits( units ) {
 			footers: [],
 			templates: [],
 			templateParts: [],
+			features: [],
 		}
 	);
 }
@@ -289,7 +301,7 @@ function AppliedLayouts( { applied, busyKey, copy, onUndo } ) {
 	);
 }
 
-function UnitList( { title, units, applied, busyKey, copy, onImport } ) {
+function UnitList( { title, units, applied, busyKey, copy, featureSamples, onFeatureSampleChange, onImport } ) {
 	if ( ! units.length ) {
 		return null;
 	}
@@ -311,6 +323,13 @@ function UnitList( { title, units, applied, busyKey, copy, onImport } ) {
 					const isBusy = busyKey === 'import:' + slot + ':' + unit.source.id;
 					const preview = getPreviewUrl( unit );
 					const source = unit.source || {};
+					const sampleKey = slot + ':' + source.id;
+					const isFeature = 'feature' === unit.type;
+					const includeSample = isFeature
+						? Object.prototype.hasOwnProperty.call( featureSamples, sampleKey )
+							? Boolean( featureSamples[ sampleKey ] )
+							: Boolean( unit.sampleDefault )
+						: false;
 
 					return createElement(
 						'li',
@@ -357,6 +376,15 @@ function UnitList( { title, units, applied, busyKey, copy, onImport } ) {
 									{ style: { color: '#646970', marginTop: '2px' } },
 									copy.sourceHeading + ': ' + source.title
 								),
+								isFeature
+									? createElement( CheckboxControl, {
+											checked: includeSample,
+											disabled: Boolean( busyKey ) || isCurrent,
+											label: copy.sampleLabel,
+											onChange: ( nextValue ) => onFeatureSampleChange( sampleKey, nextValue ),
+											style: { marginTop: '8px' },
+									  } )
+									: null,
 								createElement(
 									'div',
 									{ style: { alignItems: 'center', display: 'flex', gap: '8px', marginTop: '6px' } },
@@ -377,7 +405,7 @@ function UnitList( { title, units, applied, busyKey, copy, onImport } ) {
 								variant: isCurrent ? 'secondary' : 'primary',
 								isBusy,
 								disabled: Boolean( busyKey ) || isCurrent,
-								onClick: () => onImport( unit ),
+								onClick: () => onImport( unit, { includeSample } ),
 							},
 							isBusy ? copy.importing : isCurrent ? copy.appliedButton : appliedUnit ? copy.replaceLabel : copy.importLabel
 						)
@@ -398,6 +426,7 @@ export function LayoutUnits() {
 	const [ busyKey, setBusyKey ] = useState( '' );
 	const [ message, setMessage ] = useState( null );
 	const [ applied, setApplied ] = useState( normalizeApplied( data.applied ) );
+	const [ featureSamples, setFeatureSamples ] = useState( {} );
 
 	const grouped = useMemo( () => groupUnits( units ), [ units ] );
 
@@ -450,7 +479,7 @@ export function LayoutUnits() {
 		}
 	};
 
-	const importUnit = async ( unit ) => {
+	const importUnit = async ( unit, options = {} ) => {
 		if ( ! unit || ! unit.source ) {
 			return;
 		}
@@ -465,6 +494,7 @@ export function LayoutUnits() {
 				url: unit.source.baseRestUrl,
 				unit_type: unit.type,
 				unit: unit.slug || unit.id,
+				...( 'feature' === unit.type ? { include_sample: Boolean( options.includeSample ) } : {} ),
 			} );
 
 			if ( response && response.data && response.data.appliedUnits ) {
@@ -477,6 +507,13 @@ export function LayoutUnits() {
 		} finally {
 			setBusyKey( '' );
 		}
+	};
+
+	const setFeatureSample = ( sampleKey, nextValue ) => {
+		setFeatureSamples( ( current ) => ( {
+			...current,
+			[ sampleKey ]: Boolean( nextValue ),
+		} ) );
 	};
 
 	const undoUnit = async ( unit, slot ) => {
@@ -561,6 +598,8 @@ export function LayoutUnits() {
 				applied,
 				busyKey,
 				copy,
+				featureSamples,
+				onFeatureSampleChange: setFeatureSample,
 				onImport: importUnit,
 			} ),
 			createElement( UnitList, {
@@ -569,6 +608,8 @@ export function LayoutUnits() {
 				applied,
 				busyKey,
 				copy,
+				featureSamples,
+				onFeatureSampleChange: setFeatureSample,
 				onImport: importUnit,
 			} ),
 			createElement( UnitList, {
@@ -577,6 +618,18 @@ export function LayoutUnits() {
 				applied,
 				busyKey,
 				copy,
+				featureSamples,
+				onFeatureSampleChange: setFeatureSample,
+				onImport: importUnit,
+			} ),
+			createElement( UnitList, {
+				title: copy.features,
+				units: grouped.features,
+				applied,
+				busyKey,
+				copy,
+				featureSamples,
+				onFeatureSampleChange: setFeatureSample,
 				onImport: importUnit,
 			} ),
 			createElement( UnitList, {
@@ -585,6 +638,8 @@ export function LayoutUnits() {
 				applied,
 				busyKey,
 				copy,
+				featureSamples,
+				onFeatureSampleChange: setFeatureSample,
 				onImport: importUnit,
 			} )
 		)

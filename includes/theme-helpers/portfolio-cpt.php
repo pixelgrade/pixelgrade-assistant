@@ -179,6 +179,28 @@ if ( ! function_exists( 'pixassist_register_portfolio_post_type' ) ) {
 	}
 }
 
+if ( ! function_exists( 'pixassist_portfolio_cpt_enabled_by_feature_unit' ) ) {
+	/**
+	 * Enables the portfolio CPT when the composable feature-unit journal says Portfolio is active.
+	 *
+	 * @param bool $enabled Whether the CPT is enabled by theme support or another integration.
+	 *
+	 * @return bool
+	 */
+	function pixassist_portfolio_cpt_enabled_by_feature_unit( $enabled ) {
+		if ( $enabled || ! class_exists( 'PixelgradeAssistant_Admin' ) ) {
+			return (bool) $enabled;
+		}
+
+		$features = PixelgradeAssistant_Admin::get_option( 'enabled_features', array() );
+		if ( ! is_array( $features ) ) {
+			return false;
+		}
+
+		return in_array( 'portfolio', array_map( 'sanitize_key', $features ), true );
+	}
+}
+
 if ( ! function_exists( 'pixassist_maybe_register_portfolio_cpt' ) ) {
 	/**
 	 * Register the portfolio CPT when enabled, flushing rewrite rules once so that single and
@@ -241,4 +263,5 @@ if ( function_exists( 'add_action' ) ) {
 	add_action( 'after_switch_theme', 'pixassist_portfolio_reset_rewrite_flag' );
 
 	add_filter( 'rest_api_allowed_post_types', 'pixassist_portfolio_allow_in_rest_api' );
+	add_filter( 'pixassist_register_portfolio_cpt', 'pixassist_portfolio_cpt_enabled_by_feature_unit' );
 }

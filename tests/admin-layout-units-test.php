@@ -157,6 +157,8 @@ assert_same( 'layouts', $tabs[0]['id'], 'The normalized Layouts tab must retain 
 
 $data = pixassist_get_layout_units_data();
 assert_same( 'Layouts', $data['copy']['title'], 'Layouts payload must carry tab copy.' );
+assert_same( 'Features', $data['copy']['features'], 'Layouts payload must carry the Features group label.' );
+assert_same( 'Include sample projects', $data['copy']['sampleLabel'], 'Layouts payload must carry the feature sample-toggle label.' );
 assert_same( 2, count( $data['sources'] ), 'Layouts payload must expose starter sources.' );
 assert_same( 'anima-restaurant', $data['sources'][0]['id'], 'Layouts sources must preserve starter IDs.' );
 assert_same( 'Olive & Ash', $data['sources'][0]['title'], 'Layouts sources must preserve starter titles.' );

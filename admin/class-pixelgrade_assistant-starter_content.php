@@ -270,11 +270,14 @@ class PixelgradeAssistant_StarterContent {
 		}
 
 		$units = array();
+		$posts_by_type = array();
 		foreach ( array( 'wp_template_part', 'wp_template' ) as $post_type ) {
 			$posts = $this->fetch_layout_source_posts( $base_url, $post_type );
 			if ( is_wp_error( $posts ) ) {
 				return $this->layout_unit_error_response( $posts );
 			}
+
+			$posts_by_type[ $post_type ] = $posts;
 
 			foreach ( $posts as $post ) {
 				if ( empty( $post['ID'] ) || empty( $post['post_name'] ) ) {
@@ -290,6 +293,11 @@ class PixelgradeAssistant_StarterContent {
 			}
 		}
 
+		$source_data = $this->fetch_layout_source_data( $base_url );
+		if ( ! is_wp_error( $source_data ) ) {
+			$units = array_merge( $units, $this->list_layout_feature_units( $source_data, $posts_by_type ) );
+		}
+
 		return array(
 			'code'    => 'success',
 			'message' => '',
@@ -297,6 +305,226 @@ class PixelgradeAssistant_StarterContent {
 				'units' => $units,
 			),
 		);
+	}
+
+	/**
+	 * List feature units a source can provide.
+	 *
+	 * @param array $source_data   Source `/data` payload.
+	 * @param array $posts_by_type Source posts keyed by post type.
+	 *
+	 * @return array
+	 */
+	private function list_layout_feature_units( $source_data, $posts_by_type ) {
+		$units = array();
+
+		foreach ( $this->get_layout_feature_definitions() as $feature_slug => $feature ) {
+			$post_type = isset( $feature['post_type'] ) ? sanitize_key( $feature['post_type'] ) : '';
+			if ( empty( $post_type ) || empty( $source_data['post_types'][ $post_type ]['ids'] ) ) {
+				continue;
+			}
+
+			$template_slugs = $this->get_source_post_slugs( isset( $posts_by_type['wp_template'] ) ? $posts_by_type['wp_template'] : array() );
+			$required_template = isset( $feature['required_template'] ) ? sanitize_key( $feature['required_template'] ) : '';
+			if ( empty( $required_template ) || ! in_array( $required_template, $template_slugs, true ) ) {
+				continue;
+			}
+
+			$units[] = array(
+				'id'            => $feature_slug,
+				'type'          => 'feature',
+				'slug'          => $feature_slug,
+				'title'         => isset( $feature['title'] ) ? wp_strip_all_tags( $feature['title'] ) : $feature_slug,
+				'sampleDefault' => ! empty( $feature['sample_default'] ),
+				'sampleCount'   => min( absint( isset( $feature['sample_count'] ) ? $feature['sample_count'] : 0 ), count( (array) $source_data['post_types'][ $post_type ]['ids'] ) ),
+			);
+		}
+
+		return $units;
+	}
+
+	/**
+	 * Return configured feature units.
+	 *
+	 * @return array
+	 */
+	private function get_layout_feature_definitions() {
+		$features = array(
+			'portfolio' => array(
+				'title'             => esc_html__( 'Portfolio', '__plugin_txtd' ),
+				'post_type'         => 'portfolio',
+				'required_template' => 'archive-portfolio',
+				'template_slugs'    => array( 'archive-portfolio', 'single-portfolio', 'taxonomy-portfolio_type' ),
+				'taxonomies'        => array( 'portfolio_type' ),
+				'sample_default'    => true,
+				'sample_count'      => 3,
+			),
+		);
+
+		return apply_filters( 'pixassist_layout_feature_units', $features );
+	}
+
+	/**
+	 * Extract sanitized source post slugs.
+	 *
+	 * @param array $posts Source posts.
+	 *
+	 * @return array
+	 */
+	private function get_source_post_slugs( $posts ) {
+		$slugs = array();
+
+		foreach ( (array) $posts as $post ) {
+			if ( empty( $post['post_name'] ) ) {
+				continue;
+			}
+
+			$slugs[] = sanitize_key( $post['post_name'] );
+		}
+
+		return array_values( array_unique( $slugs ) );
+	}
+
+	/**
+	 * Sanitize a loose boolean request value.
+	 *
+	 * @param mixed $value Value to sanitize.
+	 *
+	 * @return bool
+	 */
+	private function sanitize_bool( $value ) {
+		if ( is_bool( $value ) ) {
+			return $value;
+		}
+
+		return in_array( strtolower( (string) $value ), array( '1', 'true', 'yes', 'on' ), true );
+	}
+
+	/**
+	 * Resolve source template IDs required by a feature.
+	 *
+	 * @param array $feature         Feature definition.
+	 * @param array $source_templates Source template posts.
+	 *
+	 * @return array
+	 */
+	private function get_feature_template_source_ids( $feature, $source_templates ) {
+		$wanted = isset( $feature['template_slugs'] ) && is_array( $feature['template_slugs'] )
+			? array_map( 'sanitize_key', $feature['template_slugs'] )
+			: array();
+		$required = isset( $feature['required_template'] ) ? sanitize_key( $feature['required_template'] ) : '';
+		$ids      = array();
+		$found    = array();
+
+		foreach ( (array) $source_templates as $post ) {
+			if ( empty( $post['ID'] ) || empty( $post['post_name'] ) ) {
+				continue;
+			}
+
+			$slug = sanitize_key( $post['post_name'] );
+			if ( ! in_array( $slug, $wanted, true ) ) {
+				continue;
+			}
+
+			$ids[]   = absint( $post['ID'] );
+			$found[] = $slug;
+		}
+
+		if ( empty( $required ) || ! in_array( $required, $found, true ) ) {
+			return array();
+		}
+
+		return array_values( array_unique( array_filter( $ids ) ) );
+	}
+
+	/**
+	 * Resolve source taxonomy IDs a feature sample needs.
+	 *
+	 * @param array $feature     Feature definition.
+	 * @param array $source_data Source `/data` payload.
+	 *
+	 * @return array
+	 */
+	private function get_feature_source_taxonomy_ids( $feature, $source_data ) {
+		$taxonomies = isset( $feature['taxonomies'] ) && is_array( $feature['taxonomies'] )
+			? array_map( 'sanitize_key', $feature['taxonomies'] )
+			: array();
+		$ids = array();
+
+		foreach ( $taxonomies as $taxonomy ) {
+			if ( empty( $source_data['taxonomies'][ $taxonomy ]['ids'] ) || ! is_array( $source_data['taxonomies'][ $taxonomy ]['ids'] ) ) {
+				continue;
+			}
+
+			$ids[ $taxonomy ] = array_values( array_filter( array_map( 'absint', $source_data['taxonomies'][ $taxonomy ]['ids'] ) ) );
+		}
+
+		return $ids;
+	}
+
+	/**
+	 * Import featured images referenced by sample posts before post import remaps `_thumbnail_id`.
+	 *
+	 * @param string $demo_key     Starter/demo key.
+	 * @param array  $sample_posts Source sample posts.
+	 *
+	 * @return int Imported media count.
+	 */
+	private function import_feature_sample_media_dependencies( $demo_key, $sample_posts ) {
+		$media_ids = array();
+
+		foreach ( (array) $sample_posts as $post ) {
+			if ( empty( $post['meta']['_thumbnail_id'] ) ) {
+				continue;
+			}
+
+			$thumbnail_id = $post['meta']['_thumbnail_id'];
+			if ( is_array( $thumbnail_id ) ) {
+				$thumbnail_id = reset( $thumbnail_id );
+			}
+
+			$thumbnail_id = absint( $thumbnail_id );
+			if ( $thumbnail_id ) {
+				$media_ids[] = $thumbnail_id;
+			}
+		}
+
+		$imported = 0;
+		foreach ( array_values( array_unique( $media_ids ) ) as $media_id ) {
+			if ( $this->layout_media_id_is_imported( $demo_key, $media_id ) ) {
+				continue;
+			}
+
+			if ( $this->sideload_demo_attachment( $media_id, $demo_key ) ) {
+				$imported++;
+			}
+		}
+
+		return $imported;
+	}
+
+	/**
+	 * Resolve a remote media ID to its imported local ID.
+	 *
+	 * @param string $demo_key Starter/demo key.
+	 * @param mixed  $media_id Remote media ID.
+	 *
+	 * @return int
+	 */
+	private function get_imported_media_id( $demo_key, $media_id ) {
+		$media_id = absint( $media_id );
+		if ( empty( $media_id ) ) {
+			return 0;
+		}
+
+		$starter_content = PixelgradeAssistant_Admin::get_option( 'imported_starter_content' );
+		foreach ( array( 'ignored', 'placeholders' ) as $group ) {
+			if ( ! empty( $starter_content[ $demo_key ]['media'][ $group ][ $media_id ] ) ) {
+				return absint( $starter_content[ $demo_key ]['media'][ $group ][ $media_id ] );
+			}
+		}
+
+		return 0;
 	}
 
 	/**
@@ -321,7 +549,10 @@ class PixelgradeAssistant_StarterContent {
 			sanitize_key( $params['demo_key'] ),
 			esc_url_raw( $params['url'] ),
 			sanitize_key( $params['unit_type'] ),
-			sanitize_text_field( $params['unit'] )
+			sanitize_text_field( $params['unit'] ),
+			array(
+				'include_sample' => isset( $params['include_sample'] ) ? $this->sanitize_bool( $params['include_sample'] ) : null,
+			)
 		) );
 	}
 
@@ -356,14 +587,19 @@ class PixelgradeAssistant_StarterContent {
 	 * @param string     $base_url  Source SCE REST base URL.
 	 * @param string     $unit_type Unit post type: wp_template_part or wp_template.
 	 * @param int|string $unit      Source post ID or slug.
+	 * @param array      $options   Import options.
 	 *
 	 * @return array Response payload.
 	 */
-	public function import_layout_unit( $demo_key, $base_url, $unit_type, $unit ) {
+	public function import_layout_unit( $demo_key, $base_url, $unit_type, $unit, $options = array() ) {
 		$demo_key  = sanitize_key( $demo_key );
 		$base_url  = trailingslashit( esc_url_raw( $base_url ) );
 		$unit_type = sanitize_key( $unit_type );
 		$unit      = sanitize_text_field( $unit );
+
+		if ( 'feature' === $unit_type ) {
+			return $this->import_feature_unit( $demo_key, $base_url, $unit, is_array( $options ) ? $options : array() );
+		}
 
 		if ( empty( $demo_key ) || empty( $base_url ) || empty( $unit ) || ! in_array( $unit_type, array( 'wp_template_part', 'wp_template' ), true ) ) {
 			return array(
@@ -549,6 +785,260 @@ class PixelgradeAssistant_StarterContent {
 	}
 
 	/**
+	 * Import a CPT-backed feature unit.
+	 *
+	 * @param string $demo_key     Starter/demo key.
+	 * @param string $base_url     Source SCE REST base URL.
+	 * @param string $feature_slug Feature slug.
+	 * @param array  $options      Import options.
+	 *
+	 * @return array Response payload.
+	 */
+	private function import_feature_unit( $demo_key, $base_url, $feature_slug, $options = array() ) {
+		$demo_key     = sanitize_key( $demo_key );
+		$base_url     = trailingslashit( esc_url_raw( $base_url ) );
+		$feature_slug = sanitize_key( $feature_slug );
+		$features     = $this->get_layout_feature_definitions();
+
+		if ( empty( $demo_key ) || empty( $base_url ) || empty( $feature_slug ) || empty( $features[ $feature_slug ] ) || ! is_array( $features[ $feature_slug ] ) ) {
+			return array(
+				'code'    => 'invalid_params',
+				'message' => esc_html__( 'The layout unit request is invalid.', '__plugin_txtd' ),
+				'data'    => array(),
+			);
+		}
+
+		if ( ! $this->is_allowed_demo_url( $base_url ) ) {
+			return array(
+				'code'    => 'invalid_source',
+				'message' => esc_html__( 'The starter content source is not allowed.', '__plugin_txtd' ),
+				'data'    => array(),
+			);
+		}
+
+		$missing_plugins = $this->get_missing_required_plugins( $demo_key );
+		if ( ! empty( $missing_plugins ) ) {
+			$names = wp_list_pluck( $missing_plugins, 'name' );
+
+			return array(
+				'code'    => 'missing_required_plugins',
+				'message' => sprintf(
+					/* translators: %s: comma-separated list of plugin names. */
+					esc_html__( 'This starter needs these plugins installed and active first: %s. Please install and activate them, then import again.', '__plugin_txtd' ),
+					implode( ', ', $names )
+				),
+				'data'    => array(
+					'requiredPlugins' => array_values( $missing_plugins ),
+				),
+			);
+		}
+
+		$feature      = $features[ $feature_slug ];
+		$post_type    = isset( $feature['post_type'] ) ? sanitize_key( $feature['post_type'] ) : '';
+		$include_sample = array_key_exists( 'include_sample', $options ) && null !== $options['include_sample']
+			? (bool) $options['include_sample']
+			: ! empty( $feature['sample_default'] );
+
+		$source_data = $this->fetch_layout_source_data( $base_url );
+		if ( is_wp_error( $source_data ) ) {
+			return $this->layout_unit_error_response( $source_data );
+		}
+
+		$source_templates = $this->fetch_layout_source_posts( $base_url, 'wp_template' );
+		if ( is_wp_error( $source_templates ) ) {
+			return $this->layout_unit_error_response( $source_templates );
+		}
+
+		$template_ids = $this->get_feature_template_source_ids( $feature, $source_templates );
+		if ( empty( $post_type ) || empty( $source_data['post_types'][ $post_type ]['ids'] ) || empty( $template_ids ) ) {
+			return array(
+				'code'    => 'feature_not_found',
+				'message' => esc_html__( 'The requested feature unit could not be found.', '__plugin_txtd' ),
+				'data'    => array(),
+			);
+		}
+
+		if ( $this->get_applied_layout_unit_entry( 'feature', $feature_slug ) ) {
+			$undo = $this->undo_layout_unit( 'feature', $feature_slug );
+			if ( empty( $undo['code'] ) || 'success' !== $undo['code'] ) {
+				return $undo;
+			}
+		}
+
+		$starter_content_before = PixelgradeAssistant_Admin::get_option( 'imported_starter_content', array() );
+		if ( ! is_array( $starter_content_before ) ) {
+			$starter_content_before = array();
+		}
+		$enabled_features_before = $this->get_enabled_layout_features();
+
+		set_transient( 'pixassist_sce_demo_url', $base_url, HOUR_IN_SECONDS );
+
+		wp_defer_term_counting( true );
+		wp_defer_comment_counting( true );
+		wp_suspend_cache_invalidation( true );
+
+		$dependencies = array(
+			'templates' => 0,
+			'terms'     => 0,
+			'samples'   => 0,
+			'media'     => 0,
+		);
+
+		$this->enable_layout_feature( $feature_slug );
+		$this->maybe_register_layout_feature( $feature_slug );
+
+		$overwrite_filter = function ( $should_overwrite, $existing_post_id, $post ) use ( $template_ids ) {
+			if ( ! empty( $post['ID'] ) && in_array( (int) $post['ID'], array_map( 'intval', $template_ids ), true ) ) {
+				return true;
+			}
+
+			return $should_overwrite;
+		};
+		add_filter( 'pixassist_sce_should_overwrite_existing_post', $overwrite_filter, 10, 3 );
+
+		try {
+			$template_import = $this->import_post_type(
+				$demo_key,
+				$base_url,
+				array(
+					'post_type' => 'wp_template',
+					'ids'       => array_values( array_map( 'absint', $template_ids ) ),
+				)
+			);
+		} finally {
+			remove_filter( 'pixassist_sce_should_overwrite_existing_post', $overwrite_filter, 10 );
+		}
+
+		if ( is_wp_error( $template_import ) ) {
+			$this->restore_import_counting();
+
+			return $this->layout_unit_error_response( $template_import );
+		}
+		if ( $template_import instanceof WP_REST_Response ) {
+			$this->restore_import_counting();
+
+			return $template_import;
+		}
+		if ( empty( $template_import ) || ! is_array( $template_import ) ) {
+			$this->restore_import_counting();
+
+			return array(
+				'code'    => 'feature_import_failed',
+				'message' => esc_html__( 'The feature templates could not be imported.', '__plugin_txtd' ),
+				'data'    => array(),
+			);
+		}
+
+		$dependencies['templates'] = count( $template_import );
+
+		if ( $include_sample ) {
+			$term_ids = $this->get_feature_source_taxonomy_ids( $feature, $source_data );
+			foreach ( $term_ids as $taxonomy => $ids ) {
+				$term_import = $this->import_taxonomy(
+					$demo_key,
+					$base_url,
+					array(
+						'tax' => $taxonomy,
+						'ids' => $ids,
+					)
+				);
+				if ( is_wp_error( $term_import ) ) {
+					$this->restore_import_counting();
+
+					return $this->layout_unit_error_response( $term_import );
+				}
+				if ( $term_import instanceof WP_REST_Response ) {
+					$this->restore_import_counting();
+
+					return $term_import;
+				}
+				if ( is_array( $term_import ) ) {
+					$dependencies['terms'] += count( $term_import );
+				}
+			}
+
+			$sample_ids = array_slice(
+				array_values( array_map( 'absint', (array) $source_data['post_types'][ $post_type ]['ids'] ) ),
+				0,
+				absint( isset( $feature['sample_count'] ) ? $feature['sample_count'] : 3 )
+			);
+
+			$sample_posts = $this->fetch_layout_source_posts( $base_url, $post_type, $sample_ids );
+			if ( is_wp_error( $sample_posts ) ) {
+				$this->restore_import_counting();
+
+				return $this->layout_unit_error_response( $sample_posts );
+			}
+
+			$dependencies['media'] = $this->import_feature_sample_media_dependencies( $demo_key, $sample_posts );
+
+			$thumbnail_filter = function ( $meta, $key, $filter_demo_key ) use ( $demo_key ) {
+				if ( '_thumbnail_id' !== $key || $filter_demo_key !== $demo_key ) {
+					return $meta;
+				}
+
+				$local_id = $this->get_imported_media_id( $demo_key, $meta );
+				return $local_id ? $local_id : $meta;
+			};
+			add_filter( 'sce_pre_postmeta', $thumbnail_filter, 10, 3 );
+
+			try {
+				$sample_import = $this->import_post_type(
+					$demo_key,
+					$base_url,
+					array(
+						'post_type' => $post_type,
+						'ids'       => $sample_ids,
+					)
+				);
+			} finally {
+				remove_filter( 'sce_pre_postmeta', $thumbnail_filter, 10 );
+			}
+
+			if ( is_wp_error( $sample_import ) ) {
+				$this->restore_import_counting();
+
+				return $this->layout_unit_error_response( $sample_import );
+			}
+			if ( $sample_import instanceof WP_REST_Response ) {
+				$this->restore_import_counting();
+
+				return $sample_import;
+			}
+			if ( is_array( $sample_import ) ) {
+				$dependencies['samples'] = count( $sample_import );
+			}
+		}
+
+		$this->restore_import_counting();
+		do_action( 'pixassist_sce_import_end' );
+
+		$this->record_applied_feature_unit(
+			$demo_key,
+			$base_url,
+			$feature_slug,
+			$feature,
+			$starter_content_before,
+			$enabled_features_before,
+			$dependencies,
+			$include_sample
+		);
+
+		return array(
+			'code'    => 'success',
+			'message' => esc_html__( 'Feature imported.', '__plugin_txtd' ),
+			'data'    => array(
+				'unit'         => array(
+					'type' => 'feature',
+					'slug' => $feature_slug,
+				),
+				'dependencies' => $dependencies,
+				'appliedUnits' => $this->get_applied_layout_units(),
+			),
+		);
+	}
+
+	/**
 	 * Undo one applied layout unit while keeping other applied units intact.
 	 *
 	 * @param string $unit_type Unit post type.
@@ -600,6 +1090,7 @@ class PixelgradeAssistant_StarterContent {
 			'terms_skipped'        => 0,
 			'media_deleted'        => 0,
 			'media_skipped'        => 0,
+			'features_disabled'    => 0,
 			'options_restored'     => 0,
 			'theme_mods_restored'  => 0,
 		);
@@ -609,6 +1100,7 @@ class PixelgradeAssistant_StarterContent {
 		$this->reset_starter_content_posts( $delete_journal, $summary );
 		$this->reset_starter_content_terms( $delete_journal, $summary );
 		$this->reset_starter_content_media( $delete_journal, $summary );
+		$this->reset_starter_content_features( $delete_journal, $summary );
 		$this->reset_layout_unit_settings( $unit_journal, $unit_meta, $restored_options, $restored_mods );
 
 		$summary['options_restored']    = count( $restored_options );
@@ -1781,6 +2273,131 @@ class PixelgradeAssistant_StarterContent {
 	}
 
 	/**
+	 * Record an applied feature unit.
+	 *
+	 * @param string $demo_key                Starter/demo key.
+	 * @param string $base_url                Source SCE REST base URL.
+	 * @param string $feature_slug            Feature slug.
+	 * @param array  $feature                 Feature definition.
+	 * @param array  $starter_content_before  Journal snapshot before import.
+	 * @param array  $enabled_features_before Enabled feature list before import.
+	 * @param array  $dependencies            Import dependency counts.
+	 * @param bool   $include_sample          Whether sample content was imported.
+	 */
+	private function record_applied_feature_unit( $demo_key, $base_url, $feature_slug, $feature, $starter_content_before, $enabled_features_before, $dependencies, $include_sample ) {
+		$demo_key     = sanitize_key( $demo_key );
+		$feature_slug = sanitize_key( $feature_slug );
+		$slot         = $this->get_layout_unit_slot_key( 'feature', $feature_slug );
+
+		if ( empty( $slot ) ) {
+			return;
+		}
+
+		$starter_content = PixelgradeAssistant_Admin::get_option( 'imported_starter_content', array() );
+		if ( ! is_array( $starter_content ) ) {
+			$starter_content = array();
+		}
+		if ( empty( $starter_content[ $demo_key ] ) || ! is_array( $starter_content[ $demo_key ] ) ) {
+			$starter_content[ $demo_key ] = array();
+		}
+
+		$before_journal = isset( $starter_content_before[ $demo_key ] ) && is_array( $starter_content_before[ $demo_key ] )
+			? $starter_content_before[ $demo_key ]
+			: array();
+		$unit_journal = $this->get_layout_unit_journal_delta( $before_journal, $starter_content[ $demo_key ] );
+
+		if ( ! in_array( $feature_slug, $enabled_features_before, true ) && in_array( $feature_slug, $this->get_enabled_layout_features(), true ) ) {
+			$unit_journal['enabled_features'][ $feature_slug ] = true;
+			$starter_content[ $demo_key ]['enabled_features'][ $feature_slug ] = true;
+		}
+
+		if ( empty( $starter_content[ $demo_key ]['layout_units'] ) || ! is_array( $starter_content[ $demo_key ]['layout_units'] ) ) {
+			$starter_content[ $demo_key ]['layout_units'] = array();
+		}
+
+		$starter_content[ $demo_key ]['layout_units'][ $slot ] = array(
+			'type'          => 'feature',
+			'slug'          => $feature_slug,
+			'title'         => isset( $feature['title'] ) ? wp_strip_all_tags( $feature['title'] ) : $feature_slug,
+			'demoKey'       => $demo_key,
+			'sourceTitle'   => $this->get_layout_unit_source_title( $demo_key ),
+			'baseRestUrl'   => esc_url_raw( $base_url ),
+			'sampleEnabled' => (bool) $include_sample,
+			'dependencies'  => $dependencies,
+			'appliedAt'     => time(),
+			'journal'       => $unit_journal,
+		);
+
+		$this->preserve_layout_unit_aggregate_settings( $starter_content[ $demo_key ], $before_journal, $unit_journal );
+
+		PixelgradeAssistant_Admin::set_option( 'imported_starter_content', $starter_content );
+		PixelgradeAssistant_Admin::save_options();
+	}
+
+	/**
+	 * Return enabled feature-unit slugs.
+	 *
+	 * @return array
+	 */
+	private function get_enabled_layout_features() {
+		$features = PixelgradeAssistant_Admin::get_option( 'enabled_features', array() );
+		if ( ! is_array( $features ) ) {
+			return array();
+		}
+
+		return array_values( array_unique( array_filter( array_map( 'sanitize_key', $features ) ) ) );
+	}
+
+	/**
+	 * Enable a feature-unit flag.
+	 *
+	 * @param string $feature_slug Feature slug.
+	 */
+	private function enable_layout_feature( $feature_slug ) {
+		$feature_slug = sanitize_key( $feature_slug );
+		if ( empty( $feature_slug ) ) {
+			return;
+		}
+
+		$features = $this->get_enabled_layout_features();
+		if ( ! in_array( $feature_slug, $features, true ) ) {
+			$features[] = $feature_slug;
+		}
+
+		PixelgradeAssistant_Admin::set_option( 'enabled_features', array_values( array_unique( $features ) ) );
+	}
+
+	/**
+	 * Disable a feature-unit flag.
+	 *
+	 * @param string $feature_slug Feature slug.
+	 */
+	private function disable_layout_feature( $feature_slug ) {
+		$feature_slug = sanitize_key( $feature_slug );
+		$features     = array_values(
+			array_filter(
+				$this->get_enabled_layout_features(),
+				function ( $enabled_feature ) use ( $feature_slug ) {
+					return $enabled_feature !== $feature_slug;
+				}
+			)
+		);
+
+		PixelgradeAssistant_Admin::set_option( 'enabled_features', $features );
+	}
+
+	/**
+	 * Register the backing CPT when the feature exposes a sanctioned registrar.
+	 *
+	 * @param string $feature_slug Feature slug.
+	 */
+	private function maybe_register_layout_feature( $feature_slug ) {
+		if ( 'portfolio' === sanitize_key( $feature_slug ) && function_exists( 'pixassist_maybe_register_portfolio_cpt' ) ) {
+			pixassist_maybe_register_portfolio_cpt();
+		}
+	}
+
+	/**
 	 * Build a slot key for a layout unit.
 	 *
 	 * @param string $unit_type Unit post type.
@@ -1792,7 +2409,7 @@ class PixelgradeAssistant_StarterContent {
 		$unit_type = sanitize_key( $unit_type );
 		$slug      = sanitize_key( $slug );
 
-		if ( empty( $slug ) || ! in_array( $unit_type, array( 'wp_template_part', 'wp_template' ), true ) ) {
+		if ( empty( $slug ) || ! in_array( $unit_type, array( 'wp_template_part', 'wp_template', 'feature' ), true ) ) {
 			return '';
 		}
 
@@ -2100,6 +2717,16 @@ class PixelgradeAssistant_StarterContent {
 						unset( $starter_content[ $demo_key ][ $settings_key ][ $group ][ $key ] );
 					}
 				}
+			}
+		}
+
+		if ( ! empty( $unit_journal['enabled_features'] ) && is_array( $unit_journal['enabled_features'] ) ) {
+			foreach ( $unit_journal['enabled_features'] as $feature_slug => $enabled ) {
+				if ( ! $enabled || empty( $starter_content[ $demo_key ]['enabled_features'][ $feature_slug ] ) ) {
+					continue;
+				}
+
+				unset( $starter_content[ $demo_key ]['enabled_features'][ $feature_slug ] );
 			}
 		}
 
@@ -3162,6 +3789,7 @@ class PixelgradeAssistant_StarterContent {
 			'terms_skipped'        => 0,
 			'media_deleted'        => 0,
 			'media_skipped'        => 0,
+			'features_disabled'    => 0,
 			'options_restored'     => 0,
 			'theme_mods_restored'  => 0,
 		);
@@ -3185,6 +3813,7 @@ class PixelgradeAssistant_StarterContent {
 			$this->reset_starter_content_posts( $journal, $summary );
 			$this->reset_starter_content_terms( $journal, $summary );
 			$this->reset_starter_content_media( $journal, $summary );
+			$this->reset_starter_content_features( $journal, $summary );
 		}
 
 		for ( $i = count( $journals ) - 1; $i >= 0; $i-- ) {
@@ -3306,6 +3935,27 @@ class PixelgradeAssistant_StarterContent {
 					$summary['media_deleted']++;
 				}
 			}
+		}
+	}
+
+	/**
+	 * Disable journaled feature-unit flags.
+	 *
+	 * @param array $journal Starter-content journal.
+	 * @param array $summary Reset summary, by reference.
+	 */
+	private function reset_starter_content_features( $journal, &$summary ) {
+		if ( empty( $journal['enabled_features'] ) || ! is_array( $journal['enabled_features'] ) ) {
+			return;
+		}
+
+		foreach ( $journal['enabled_features'] as $feature_slug => $enabled ) {
+			if ( ! $enabled ) {
+				continue;
+			}
+
+			$this->disable_layout_feature( $feature_slug );
+			$summary['features_disabled']++;
 		}
 	}
 

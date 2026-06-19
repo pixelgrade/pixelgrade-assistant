@@ -20,10 +20,13 @@ $GLOBALS['paf_transients']            = array();
 $GLOBALS['paf_remote_requests']       = array();
 $GLOBALS['paf_inserted_posts']        = array();
 $GLOBALS['paf_updated_posts']         = array();
+$GLOBALS['paf_deleted_posts']         = array();
 $GLOBALS['paf_object_terms']          = array();
 $GLOBALS['paf_inserted_terms']        = array();
+$GLOBALS['paf_deleted_terms']         = array();
 $GLOBALS['paf_term_meta']             = array();
 $GLOBALS['paf_attachment_metadata']   = array();
+$GLOBALS['paf_deleted_attachments']   = array();
 $GLOBALS['paf_downloads']             = array();
 $GLOBALS['paf_sideloads']             = array();
 $GLOBALS['paf_next_post_id']          = 1000;
@@ -246,22 +249,48 @@ function wp_remote_request( $url, $args = array() ) {
 	}
 
 	if ( false !== strpos( $url, '/terms' ) ) {
+		$taxonomy = isset( $args['body']['taxonomy'] ) ? $args['body']['taxonomy'] : 'nav_menu';
+		$terms    = array(
+			array(
+				'term_id'     => 18,
+				'name'        => 'Primary',
+				'slug'        => 'primary',
+				'taxonomy'    => 'nav_menu',
+				'description' => '',
+				'parent'      => 0,
+				'meta'        => array(),
+			),
+		);
+
+		if ( 'portfolio_type' === $taxonomy ) {
+			$terms = array(
+				array(
+					'term_id'     => 31,
+					'name'        => 'Architecture',
+					'slug'        => 'architecture',
+					'taxonomy'    => 'portfolio_type',
+					'description' => '',
+					'parent'      => 0,
+					'meta'        => array(),
+				),
+				array(
+					'term_id'     => 32,
+					'name'        => 'Interiors',
+					'slug'        => 'interiors',
+					'taxonomy'    => 'portfolio_type',
+					'description' => '',
+					'parent'      => 0,
+					'meta'        => array(),
+				),
+			);
+		}
+
 		return paf_remote_response(
 			array(
 				'code'    => 'success',
 				'message' => '',
 				'data'    => array(
-					'terms' => array(
-						array(
-							'term_id'     => 18,
-							'name'        => 'Primary',
-							'slug'        => 'primary',
-							'taxonomy'    => 'nav_menu',
-							'description' => '',
-							'parent'      => 0,
-							'meta'        => array(),
-						),
-					),
+					'terms' => $terms,
 				),
 			)
 		);
@@ -278,7 +307,7 @@ function wp_remote_get( $url, $args = array() ) {
 			return paf_remote_response( array( 'code' => 'server_error' ), 500 );
 		}
 
-		return paf_remote_response( paf_remote_data() );
+		return paf_remote_response( paf_remote_data( $url ) );
 	}
 
 	if ( false !== strpos( $url, '/wp-json/wp/v2/pages/50' ) ) {
@@ -311,6 +340,15 @@ function wp_remote_get( $url, $args = array() ) {
 		);
 	}
 
+	if ( preg_match( '#/wp-json/wp/v2/media/(70[1-3])#', $url, $matches ) ) {
+		return paf_remote_response(
+			array(
+				'id'         => (int) $matches[1],
+				'source_url' => 'https://portfolio-source.test/project-' . $matches[1] . '.jpg',
+			)
+		);
+	}
+
 	return paf_remote_response( array(), 404 );
 }
 
@@ -331,7 +369,32 @@ function paf_remote_response( $body, $status = 200 ) {
 	);
 }
 
-function paf_remote_data() {
+function paf_remote_data( $url = '' ) {
+	if ( false !== strpos( $url, 'portfolio-source.test' ) ) {
+		return array(
+			'code'    => 'success',
+			'message' => '',
+			'data'    => array(
+				'taxonomies' => array(
+					'portfolio_type' => array(
+						'name' => 'portfolio_type',
+						'ids'  => array( 31, 32 ),
+					),
+				),
+				'post_types' => array(
+					'wp_template' => array(
+						'name' => 'wp_template',
+						'ids'  => array( 501, 502, 503 ),
+					),
+					'portfolio'   => array(
+						'name' => 'portfolio',
+						'ids'  => array( 601, 602, 603, 604 ),
+					),
+				),
+			),
+		);
+	}
+
 	return array(
 		'code'    => 'success',
 		'message' => '',
@@ -366,6 +429,106 @@ function paf_remote_data() {
 }
 
 function paf_remote_posts( $post_type, $url = '' ) {
+	if ( 'wp_template' === $post_type && false !== strpos( $url, 'portfolio-source.test' ) ) {
+		return array(
+			array(
+				'ID'                    => 501,
+				'post_title'            => 'Portfolio Archive',
+				'post_content'          => '<!-- wp:query /-->',
+				'post_content_filtered' => '',
+				'post_excerpt'          => '',
+				'post_status'           => 'publish',
+				'post_name'             => 'archive-portfolio',
+				'post_type'             => 'wp_template',
+				'post_date'             => '2026-01-01 00:00:00',
+				'post_date_gmt'         => '2026-01-01 00:00:00',
+				'post_modified'         => '2026-01-01 00:00:00',
+				'post_modified_gmt'     => '2026-01-01 00:00:00',
+				'post_parent'           => 0,
+				'menu_order'            => 0,
+				'guid'                  => 'https://portfolio-source.test/?post_type=wp_template&p=501',
+				'meta'                  => array(),
+				'taxonomies'            => array(
+					'wp_theme' => array( 'anima' ),
+				),
+			),
+			array(
+				'ID'                    => 502,
+				'post_title'            => 'Portfolio Single',
+				'post_content'          => '<!-- wp:post-content /-->',
+				'post_content_filtered' => '',
+				'post_excerpt'          => '',
+				'post_status'           => 'publish',
+				'post_name'             => 'single-portfolio',
+				'post_type'             => 'wp_template',
+				'post_date'             => '2026-01-01 00:00:00',
+				'post_date_gmt'         => '2026-01-01 00:00:00',
+				'post_modified'         => '2026-01-01 00:00:00',
+				'post_modified_gmt'     => '2026-01-01 00:00:00',
+				'post_parent'           => 0,
+				'menu_order'            => 0,
+				'guid'                  => 'https://portfolio-source.test/?post_type=wp_template&p=502',
+				'meta'                  => array(),
+				'taxonomies'            => array(
+					'wp_theme' => array( 'anima' ),
+				),
+			),
+			array(
+				'ID'                    => 503,
+				'post_title'            => 'Project Type',
+				'post_content'          => '<!-- wp:query /-->',
+				'post_content_filtered' => '',
+				'post_excerpt'          => '',
+				'post_status'           => 'publish',
+				'post_name'             => 'taxonomy-portfolio_type',
+				'post_type'             => 'wp_template',
+				'post_date'             => '2026-01-01 00:00:00',
+				'post_date_gmt'         => '2026-01-01 00:00:00',
+				'post_modified'         => '2026-01-01 00:00:00',
+				'post_modified_gmt'     => '2026-01-01 00:00:00',
+				'post_parent'           => 0,
+				'menu_order'            => 0,
+				'guid'                  => 'https://portfolio-source.test/?post_type=wp_template&p=503',
+				'meta'                  => array(),
+				'taxonomies'            => array(
+					'wp_theme' => array( 'anima' ),
+				),
+			),
+		);
+	}
+
+	if ( 'portfolio' === $post_type && false !== strpos( $url, 'portfolio-source.test' ) ) {
+		$posts = array();
+
+		foreach ( array( 601, 602, 603, 604 ) as $index => $post_id ) {
+			$posts[] = array(
+				'ID'                    => $post_id,
+				'post_title'            => 'Project ' . ( $index + 1 ),
+				'post_content'          => '<!-- wp:paragraph --><p>Sample project.</p><!-- /wp:paragraph -->',
+				'post_content_filtered' => '',
+				'post_excerpt'          => 'Sample project excerpt.',
+				'post_status'           => 'publish',
+				'post_name'             => 'project-' . ( $index + 1 ),
+				'post_type'             => 'portfolio',
+				'post_date'             => '2026-01-01 00:00:00',
+				'post_date_gmt'         => '2026-01-01 00:00:00',
+				'post_modified'         => '2026-01-01 00:00:00',
+				'post_modified_gmt'     => '2026-01-01 00:00:00',
+				'post_parent'           => 0,
+				'menu_order'            => 0,
+				'guid'                  => 'https://portfolio-source.test/?post_type=portfolio&p=' . $post_id,
+				'meta'                  => array(
+					'_thumbnail_id' => array( (string) ( 701 + $index ) ),
+				),
+				'taxonomies'            => array(
+					'portfolio_type' => array( 31 ),
+				),
+			);
+		}
+
+		return $posts;
+	}
+
 	if ( 'wp_template' === $post_type && false !== strpos( $url, 'broken-data.test' ) ) {
 		return array(
 			array(
@@ -508,7 +671,17 @@ function paf_remote_posts( $post_type, $url = '' ) {
 }
 
 function taxonomy_exists( $taxonomy ) {
-	return in_array( $taxonomy, array( 'nav_menu', 'wp_theme' ), true );
+	return in_array( $taxonomy, array( 'nav_menu', 'wp_theme', 'portfolio_type', 'portfolio_tag' ), true );
+}
+
+function term_exists( $term_id, $taxonomy = '' ) {
+	return ! empty( $GLOBALS['paf_terms_by_name'][ $taxonomy ] ) || in_array( $taxonomy, array( 'nav_menu', 'portfolio_type' ), true );
+}
+
+function wp_delete_term( $term_id, $taxonomy ) {
+	$GLOBALS['paf_deleted_terms'][] = array( (int) $term_id, $taxonomy );
+
+	return true;
 }
 
 function wp_insert_term( $name, $taxonomy, $args = array() ) {
@@ -558,6 +731,12 @@ function wp_insert_post( $args ) {
 	$GLOBALS['paf_inserted_posts'][ $post_id ] = $args;
 
 	return $post_id;
+}
+
+function wp_delete_post( $post_id, $force_delete = false ) {
+	$GLOBALS['paf_deleted_posts'][] = array( (int) $post_id, (bool) $force_delete );
+
+	return true;
 }
 
 function wp_update_post( $args ) {
@@ -629,6 +808,12 @@ function wp_get_attachment_metadata( $attachment_id ) {
 
 function wp_update_attachment_metadata( $attachment_id, $metadata ) {
 	$GLOBALS['paf_attachment_metadata'][ $attachment_id ] = $metadata;
+
+	return true;
+}
+
+function wp_delete_attachment( $attachment_id, $force_delete = false ) {
+	$GLOBALS['paf_deleted_attachments'][] = array( (int) $attachment_id, (bool) $force_delete );
 
 	return true;
 }
@@ -769,6 +954,11 @@ class PixelgradeAssistant_Admin {
 						'url'         => 'https://broken-data.test/',
 						'baseRestUrl' => 'https://broken-data.test/wp-json/sce/v2/',
 					),
+					array(
+						'id'          => 'anima-portfolio',
+						'url'         => 'https://portfolio-source.test/',
+						'baseRestUrl' => 'https://portfolio-source.test/wp-json/sce/v2/',
+					),
 				),
 			),
 		);
@@ -893,6 +1083,93 @@ assert_same(
 	$units_response['data']['units'],
 	'Layout-unit listing must expose only importable layout units in source order.'
 );
+
+$feature_units_response = $starter_content->list_layout_units(
+	'anima-portfolio',
+	'https://portfolio-source.test/wp-json/sce/v2/'
+);
+
+$portfolio_feature = null;
+foreach ( $feature_units_response['data']['units'] as $unit ) {
+	if ( 'feature' === $unit['type'] && 'portfolio' === $unit['slug'] ) {
+		$portfolio_feature = $unit;
+		break;
+	}
+}
+
+assert_same( 'success', $feature_units_response['code'], 'Feature-unit listing must return a success code.' );
+assert_true( is_array( $portfolio_feature ), 'A source with portfolio posts and archive-portfolio must expose the Portfolio feature unit.' );
+assert_same( 'Portfolio', $portfolio_feature['title'], 'The Portfolio feature unit must have a readable title.' );
+assert_same( true, $portfolio_feature['sampleDefault'], 'Portfolio sample content must be offered on by default.' );
+
+$feature_summary = $starter_content->import_layout_unit(
+	'anima-portfolio',
+	'https://portfolio-source.test/wp-json/sce/v2/',
+	'feature',
+	'portfolio'
+);
+
+assert_same( 'success', $feature_summary['code'], 'Portfolio feature import must return a success code.' );
+assert_same( 'feature', $feature_summary['data']['unit']['type'], 'The imported feature summary must report type `feature`.' );
+assert_same( 'portfolio', $feature_summary['data']['unit']['slug'], 'The imported feature summary must report slug `portfolio`.' );
+assert_same( 3, $feature_summary['data']['dependencies']['templates'], 'Portfolio feature import must import the feature templates.' );
+assert_same( 2, $feature_summary['data']['dependencies']['terms'], 'Portfolio feature import must import portfolio_type terms.' );
+assert_same( 3, $feature_summary['data']['dependencies']['samples'], 'Portfolio feature import must import the minimal sample by default.' );
+assert_same( 3, $feature_summary['data']['dependencies']['media'], 'Portfolio feature import must sideload featured images for the sample.' );
+assert_same( array( 'portfolio' ), $GLOBALS['paf_pixassist_options']['enabled_features'], 'Portfolio feature import must persist the enabled feature flag.' );
+
+$feature_journal = $GLOBALS['paf_pixassist_options']['imported_starter_content']['anima-portfolio'];
+assert_same( array( 501, 502, 503 ), array_map( 'intval', array_keys( $feature_journal['post_types']['wp_template'] ) ), 'Portfolio feature import must journal its templates.' );
+assert_same( array( 601, 602, 603 ), array_map( 'intval', array_keys( $feature_journal['post_types']['portfolio'] ) ), 'Portfolio feature import must journal only the minimal sample projects.' );
+assert_same( array( 31, 32 ), array_map( 'intval', array_keys( $feature_journal['taxonomies']['portfolio_type'] ) ), 'Portfolio feature import must journal portfolio_type terms.' );
+assert_true( empty( $feature_journal['post_types']['page'] ), 'Portfolio feature import must not import pages.' );
+assert_true( empty( $feature_journal['post_types']['post'] ), 'Portfolio feature import must not import blog posts.' );
+assert_same( true, $feature_journal['enabled_features']['portfolio'], 'Portfolio feature import must journal the enabled feature flag for undo/reset.' );
+assert_true( isset( $feature_journal['layout_units']['feature:portfolio'] ), 'Portfolio feature import must record one applied feature unit.' );
+assert_same( 'Portfolio', $feature_journal['layout_units']['feature:portfolio']['title'], 'Applied feature state must carry a readable title.' );
+
+$first_sample_id = $feature_journal['post_types']['portfolio'][601];
+assert_true( ! empty( $GLOBALS['paf_inserted_posts'][ $first_sample_id ]['meta_input']['_thumbnail_id'] ), 'Sample portfolio items must receive local featured images.' );
+
+$undo_feature = $starter_content->undo_layout_unit( 'feature', 'portfolio' );
+assert_same( 'success', $undo_feature['code'], 'Undoing the Portfolio feature unit must succeed.' );
+assert_same( array(), $GLOBALS['paf_pixassist_options']['enabled_features'], 'Undoing the Portfolio feature must remove the enabled feature flag.' );
+assert_true( empty( $GLOBALS['paf_pixassist_options']['imported_starter_content']['anima-portfolio'] ), 'Undoing the Portfolio feature must remove its empty source journal.' );
+
+$feature_only_summary = $starter_content->import_layout_unit(
+	'anima-portfolio',
+	'https://portfolio-source.test/wp-json/sce/v2/',
+	'feature',
+	'portfolio',
+	array( 'include_sample' => false )
+);
+
+assert_same( 'success', $feature_only_summary['code'], 'Portfolio feature-only import must return a success code.' );
+assert_same( 3, $feature_only_summary['data']['dependencies']['templates'], 'Feature-only import must still import the feature templates.' );
+assert_same( 0, $feature_only_summary['data']['dependencies']['samples'], 'Feature-only import must skip sample projects.' );
+assert_same( 0, $feature_only_summary['data']['dependencies']['terms'], 'Feature-only import must skip sample terms.' );
+assert_same( 0, $feature_only_summary['data']['dependencies']['media'], 'Feature-only import must skip sample media.' );
+$feature_only_journal = $GLOBALS['paf_pixassist_options']['imported_starter_content']['anima-portfolio'];
+assert_true( empty( $feature_only_journal['post_types']['portfolio'] ), 'Feature-only import must not journal portfolio sample posts.' );
+assert_true( empty( $feature_only_journal['taxonomies']['portfolio_type'] ), 'Feature-only import must not journal portfolio sample terms.' );
+
+$undo_feature_only = $starter_content->undo_layout_unit( 'feature', 'portfolio' );
+assert_same( 'success', $undo_feature_only['code'], 'Undoing the feature-only Portfolio import must succeed.' );
+
+$feature_summary = $starter_content->import_layout_unit(
+	'anima-portfolio',
+	'https://portfolio-source.test/wp-json/sce/v2/',
+	'feature',
+	'portfolio'
+);
+assert_same( 'success', $feature_summary['code'], 'Portfolio feature import must be repeatable after undo.' );
+
+$reset_summary = $starter_content->reset_starter_content();
+assert_same( array(), $GLOBALS['paf_pixassist_options']['enabled_features'], 'Full Reset must remove enabled feature flags.' );
+assert_same( array(), $GLOBALS['paf_pixassist_options']['imported_starter_content'], 'Full Reset must clear the feature journal.' );
+assert_true( 0 < $reset_summary['posts_deleted'], 'Full Reset must delete feature templates and sample posts.' );
+assert_true( 0 < $reset_summary['terms_deleted'], 'Full Reset must delete feature sample terms.' );
+assert_true( 0 < $reset_summary['media_deleted'], 'Full Reset must delete feature sample media.' );
 
 $template_summary = $starter_content->import_layout_unit(
 	'anima-blog',
