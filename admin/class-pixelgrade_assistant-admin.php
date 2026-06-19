@@ -187,6 +187,10 @@ class PixelgradeAssistant_Admin {
 			    'method' => 'POST',
 			    'url'    => esc_url_raw( rest_url() . 'pixassist/v1/import_unit' ),
 		    ),
+		    'undoUnit'           => array(
+			    'method' => 'POST',
+			    'url'    => esc_url_raw( rest_url() . 'pixassist/v1/undo_unit' ),
+		    ),
 
 		    'dataCollect'        => array(
 			    'get' => array(

@@ -1,33 +1,45 @@
 /**
  * The granular Layouts tab.
  *
- * Lets an admin apply one template part or template from a starter source without running the
+ * Lets an admin mix headers, footers, and templates from multiple starter sources without running the
  * full starter-content import.
  */
 import { createElement, Fragment, useMemo, useState } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
-import { Button, Card, CardBody, CardHeader, Flex, FlexItem, Notice, SelectControl, Spinner } from '@wordpress/components';
+import { Button, Card, CardBody, CardHeader, Flex, FlexItem, Notice, Spinner } from '@wordpress/components';
 
 const DEFAULT_LAYOUT_UNITS = {
 	copy: {
 		title: __( 'Layouts', 'pixelgrade_assistant' ),
-		description: __( 'Apply one header, footer, or template from a starter without importing its pages, posts, or projects.', 'pixelgrade_assistant' ),
-		sourceLabel: __( 'Source', 'pixelgrade_assistant' ),
+		description: __( 'Apply headers, footers, and templates from different starters without importing their pages, posts, or projects.', 'pixelgrade_assistant' ),
 		loadLabel: __( 'Load layouts', 'pixelgrade_assistant' ),
 		loading: __( 'Loading layouts...', 'pixelgrade_assistant' ),
-		empty: __( 'No layouts are available from this source.', 'pixelgrade_assistant' ),
+		empty: __( 'No layouts are available from these sources.', 'pixelgrade_assistant' ),
 		failure: __( 'Layouts could not be loaded. Please try again.', 'pixelgrade_assistant' ),
+		partialFailure: __( 'Some layout sources could not be loaded.', 'pixelgrade_assistant' ),
 		importLabel: __( 'Apply', 'pixelgrade_assistant' ),
+		replaceLabel: __( 'Replace', 'pixelgrade_assistant' ),
 		importing: __( 'Applying layout...', 'pixelgrade_assistant' ),
-		importSuccess: __( 'Layout applied. Reset starter content from Tools to undo it.', 'pixelgrade_assistant' ),
+		importSuccess: __( 'Layout applied.', 'pixelgrade_assistant' ),
 		importFailure: __( 'Layout could not be applied. Please try again.', 'pixelgrade_assistant' ),
-		templateParts: __( 'Template parts', 'pixelgrade_assistant' ),
-		templates: __( 'Templates', 'pixelgrade_assistant' ),
+		undoLabel: __( 'Remove', 'pixelgrade_assistant' ),
+		undoing: __( 'Removing layout...', 'pixelgrade_assistant' ),
+		undoSuccess: __( 'Layout removed.', 'pixelgrade_assistant' ),
+		undoFailure: __( 'Layout could not be removed. Please try again.', 'pixelgrade_assistant' ),
+		appliedTitle: __( 'Applied layouts', 'pixelgrade_assistant' ),
+		appliedEmpty: __( 'No layouts are applied yet.', 'pixelgrade_assistant' ),
+		appliedLabel: __( 'Applied', 'pixelgrade_assistant' ),
+		appliedButton: __( 'Applied', 'pixelgrade_assistant' ),
+		headers: __( 'Headers', 'pixelgrade_assistant' ),
+		footers: __( 'Footers', 'pixelgrade_assistant' ),
+		templatesType: __( 'Templates', 'pixelgrade_assistant' ),
+		sourceHeading: __( 'Source', 'pixelgrade_assistant' ),
 		premiumLabel: __( 'Premium', 'pixelgrade_assistant' ),
 		freeLabel: __( 'Free', 'pixelgrade_assistant' ),
 	},
 	sources: [],
 	endpoints: {},
+	applied: {},
 };
 
 function getLayoutUnitsData() {
@@ -110,17 +122,79 @@ async function restRequest( data, key, payload ) {
 	return response;
 }
 
-function getSourceLabel( source, copy ) {
-	const badge = source.gate ? copy.premiumLabel : copy.freeLabel;
+function normalizeApplied( applied ) {
+	if ( ! applied || 'object' !== typeof applied || Array.isArray( applied ) ) {
+		return {};
+	}
 
-	return source.title + ' - ' + badge;
+	return applied;
+}
+
+function getSlotKey( unit ) {
+	const type = unit && unit.type ? unit.type : '';
+	const slug = unit && unit.slug ? unit.slug : '';
+
+	return type && slug ? type + ':' + slug : '';
+}
+
+function getSlotTypeLabel( unit, copy ) {
+	const slug = unit && unit.slug ? unit.slug : '';
+
+	if ( 'wp_template_part' === unit.type && 'header' === slug ) {
+		return __( 'Header', 'pixelgrade_assistant' );
+	}
+
+	if ( 'wp_template_part' === unit.type && 'footer' === slug ) {
+		return __( 'Footer', 'pixelgrade_assistant' );
+	}
+
+	if ( 'wp_template' === unit.type ) {
+		return copy.templatesType;
+	}
+
+	return __( 'Template part', 'pixelgrade_assistant' );
+}
+
+function getGroupKey( unit ) {
+	if ( 'wp_template_part' === unit.type && 'header' === unit.slug ) {
+		return 'headers';
+	}
+
+	if ( 'wp_template_part' === unit.type && 'footer' === unit.slug ) {
+		return 'footers';
+	}
+
+	if ( 'wp_template' === unit.type ) {
+		return 'templates';
+	}
+
+	return 'templateParts';
 }
 
 function groupUnits( units ) {
-	return {
-		wp_template_part: units.filter( ( unit ) => 'wp_template_part' === unit.type ),
-		wp_template: units.filter( ( unit ) => 'wp_template' === unit.type ),
-	};
+	return units.reduce(
+		( groups, unit ) => {
+			const key = getGroupKey( unit );
+
+			if ( ! groups[ key ] ) {
+				groups[ key ] = [];
+			}
+
+			groups[ key ].push( unit );
+
+			return groups;
+		},
+		{
+			headers: [],
+			footers: [],
+			templates: [],
+			templateParts: [],
+		}
+	);
+}
+
+function getPreviewUrl( unit ) {
+	return unit.thumbnail || unit.image || unit.previewImage || unit.previewUrl || '';
 }
 
 function renderMessage( message ) {
@@ -138,7 +212,84 @@ function renderMessage( message ) {
 	);
 }
 
-function UnitList( { title, units, busyKey, copy, onImport } ) {
+function renderSourceBadge( source, copy ) {
+	return createElement(
+		'span',
+		{
+			style: {
+				border: '1px solid #dcdcde',
+				borderRadius: '2px',
+				color: '#50575e',
+				display: 'inline-block',
+				fontSize: '11px',
+				lineHeight: '16px',
+				padding: '0 6px',
+			},
+		},
+		source.gate ? copy.premiumLabel : copy.freeLabel
+	);
+}
+
+function AppliedLayouts( { applied, busyKey, copy, onUndo } ) {
+	const slots = Object.keys( applied );
+
+	return createElement(
+		Card,
+		{ style: { marginTop: '16px' } },
+		createElement( CardHeader, null, createElement( 'h2', { style: { margin: 0 } }, copy.appliedTitle ) ),
+		createElement(
+			CardBody,
+			null,
+			slots.length
+				? createElement(
+						'ul',
+						{ style: { margin: 0 } },
+						slots.map( ( slot ) => {
+							const unit = applied[ slot ] || {};
+							const isBusy = busyKey === 'undo:' + slot;
+							const label = getSlotTypeLabel( unit, copy );
+							const source = unit.sourceTitle || unit.demoKey || '';
+
+							return createElement(
+								'li',
+								{
+									key: slot,
+									style: {
+										alignItems: 'center',
+										borderTop: '1px solid #ddd',
+										display: 'flex',
+										gap: '12px',
+										justifyContent: 'space-between',
+										margin: 0,
+										padding: '10px 0',
+									},
+								},
+								createElement(
+									'div',
+									null,
+									createElement( 'strong', null, label + ': ' + ( unit.title || unit.slug || slot ) ),
+									source ? createElement( 'div', { style: { color: '#646970' } }, copy.sourceHeading + ': ' + source ) : null
+								),
+								createElement(
+									Button,
+									{
+										variant: 'secondary',
+										isDestructive: true,
+										isBusy,
+										disabled: Boolean( busyKey ),
+										onClick: () => onUndo( unit, slot ),
+									},
+									isBusy ? copy.undoing : copy.undoLabel
+								)
+							);
+						} )
+				  )
+				: createElement( 'p', { style: { margin: 0 } }, copy.appliedEmpty )
+		)
+	);
+}
+
+function UnitList( { title, units, applied, busyKey, copy, onImport } ) {
 	if ( ! units.length ) {
 		return null;
 	}
@@ -146,7 +297,7 @@ function UnitList( { title, units, busyKey, copy, onImport } ) {
 	return createElement(
 		Card,
 		{ style: { marginTop: '16px' } },
-		createElement( CardHeader, null, createElement( 'h2', null, title ) ),
+		createElement( CardHeader, null, createElement( 'h2', { style: { margin: 0 } }, title ) ),
 		createElement(
 			CardBody,
 			null,
@@ -154,13 +305,17 @@ function UnitList( { title, units, busyKey, copy, onImport } ) {
 				'ul',
 				{ style: { margin: 0 } },
 				units.map( ( unit ) => {
-					const key = unit.type + ':' + unit.id;
-					const isBusy = busyKey === key;
+					const slot = getSlotKey( unit );
+					const appliedUnit = applied[ slot ];
+					const isCurrent = Boolean( appliedUnit && appliedUnit.demoKey === unit.source.id && appliedUnit.slug === unit.slug );
+					const isBusy = busyKey === 'import:' + slot + ':' + unit.source.id;
+					const preview = getPreviewUrl( unit );
+					const source = unit.source || {};
 
 					return createElement(
 						'li',
 						{
-							key,
+							key: slot + ':' + source.id,
 							style: {
 								alignItems: 'center',
 								borderTop: '1px solid #ddd',
@@ -168,24 +323,63 @@ function UnitList( { title, units, busyKey, copy, onImport } ) {
 								gap: '12px',
 								justifyContent: 'space-between',
 								margin: 0,
-								padding: '10px 0',
+								padding: '12px 0',
 							},
 						},
 						createElement(
 							'div',
-							null,
-							createElement( 'strong', null, unit.title || unit.slug ),
-							createElement( 'div', { style: { color: '#646970' } }, unit.slug )
+							{
+								style: {
+									alignItems: 'center',
+									display: 'flex',
+									gap: '12px',
+									minWidth: 0,
+								},
+							},
+							preview
+								? createElement( 'img', {
+										alt: '',
+										src: preview,
+										style: {
+											aspectRatio: '4 / 3',
+											background: '#f0f0f1',
+											objectFit: 'cover',
+											width: '96px',
+										},
+								  } )
+								: null,
+							createElement(
+								'div',
+								null,
+								createElement( 'strong', null, unit.title || unit.slug ),
+								createElement(
+									'div',
+									{ style: { color: '#646970', marginTop: '2px' } },
+									copy.sourceHeading + ': ' + source.title
+								),
+								createElement(
+									'div',
+									{ style: { alignItems: 'center', display: 'flex', gap: '8px', marginTop: '6px' } },
+									renderSourceBadge( source, copy ),
+									appliedUnit
+										? createElement(
+												'span',
+												{ style: { color: '#646970', fontSize: '12px' } },
+												copy.appliedLabel + ': ' + ( appliedUnit.sourceTitle || appliedUnit.demoKey || '' )
+										  )
+										: null
+								)
+							)
 						),
 						createElement(
 							Button,
 							{
-								variant: 'primary',
+								variant: isCurrent ? 'secondary' : 'primary',
 								isBusy,
-								disabled: Boolean( busyKey ),
+								disabled: Boolean( busyKey ) || isCurrent,
 								onClick: () => onImport( unit ),
 							},
-							isBusy ? copy.importing : copy.importLabel
+							isBusy ? copy.importing : isCurrent ? copy.appliedButton : appliedUnit ? copy.replaceLabel : copy.importLabel
 						)
 					);
 				} )
@@ -198,61 +392,114 @@ export function LayoutUnits() {
 	const data = getLayoutUnitsData();
 	const copy = mergeCopy( data.copy );
 	const sources = Array.isArray( data.sources ) ? data.sources : [];
-	const [ sourceId, setSourceId ] = useState( sources[ 0 ] ? sources[ 0 ].id : '' );
 	const [ units, setUnits ] = useState( [] );
-	const [ loadedSourceId, setLoadedSourceId ] = useState( '' );
+	const [ loaded, setLoaded ] = useState( false );
 	const [ loading, setLoading ] = useState( false );
 	const [ busyKey, setBusyKey ] = useState( '' );
 	const [ message, setMessage ] = useState( null );
+	const [ applied, setApplied ] = useState( normalizeApplied( data.applied ) );
 
-	const source = useMemo(
-		() => sources.find( ( item ) => item.id === sourceId ) || sources[ 0 ] || null,
-		[ sources, sourceId ]
-	);
 	const grouped = useMemo( () => groupUnits( units ), [ units ] );
 
 	const loadUnits = async () => {
-		if ( ! source ) {
+		if ( ! sources.length ) {
 			return;
 		}
 
 		setLoading( true );
+		setLoaded( false );
 		setMessage( null );
 		setUnits( [] );
 
 		try {
-			const response = await restRequest( data, 'layoutUnits', {
-				demo_key: source.id,
-				url: source.baseRestUrl,
-			} );
-			setUnits( response && response.data && Array.isArray( response.data.units ) ? response.data.units : [] );
-			setLoadedSourceId( source.id );
-		} catch ( error ) {
-			setMessage( { type: 'error', text: error && error.message ? error.message : copy.failure } );
+			const results = await Promise.all(
+				sources.map( async ( source ) => {
+					try {
+						const response = await restRequest( data, 'layoutUnits', {
+							demo_key: source.id,
+							url: source.baseRestUrl,
+						} );
+						const sourceUnits = response && response.data && Array.isArray( response.data.units ) ? response.data.units : [];
+
+						return {
+							source,
+							units: sourceUnits.map( ( unit ) => ( {
+								...unit,
+								source,
+							} ) ),
+						};
+					} catch ( error ) {
+						return { source, error };
+					}
+				} )
+			);
+
+			const successful = results.filter( ( result ) => ! result.error );
+			const failed = results.filter( ( result ) => result.error );
+
+			setUnits( successful.reduce( ( list, result ) => list.concat( result.units ), [] ) );
+			setLoaded( true );
+
+			if ( failed.length && successful.length ) {
+				setMessage( { type: 'warning', text: copy.partialFailure } );
+			} else if ( failed.length ) {
+				setMessage( { type: 'error', text: copy.failure } );
+			}
 		} finally {
 			setLoading( false );
 		}
 	};
 
 	const importUnit = async ( unit ) => {
-		if ( ! source || ! unit ) {
+		if ( ! unit || ! unit.source ) {
 			return;
 		}
 
-		const key = unit.type + ':' + unit.id;
-		setBusyKey( key );
+		const slot = getSlotKey( unit );
+		setBusyKey( 'import:' + slot + ':' + unit.source.id );
 		setMessage( null );
 
 		try {
-			await restRequest( data, 'importUnit', {
-				demo_key: source.id,
-				url: source.baseRestUrl,
+			const response = await restRequest( data, 'importUnit', {
+				demo_key: unit.source.id,
+				url: unit.source.baseRestUrl,
 				unit_type: unit.type,
 				unit: unit.slug || unit.id,
 			} );
+
+			if ( response && response.data && response.data.appliedUnits ) {
+				setApplied( normalizeApplied( response.data.appliedUnits ) );
+			}
+
 			setMessage( { type: 'success', text: copy.importSuccess } );
 		} catch ( error ) {
 			setMessage( { type: 'error', text: error && error.message ? error.message : copy.importFailure } );
+		} finally {
+			setBusyKey( '' );
+		}
+	};
+
+	const undoUnit = async ( unit, slot ) => {
+		if ( ! unit || ! unit.type || ! unit.slug ) {
+			return;
+		}
+
+		setBusyKey( 'undo:' + slot );
+		setMessage( null );
+
+		try {
+			const response = await restRequest( data, 'undoUnit', {
+				unit_type: unit.type,
+				unit: unit.slug,
+			} );
+
+			if ( response && response.data && response.data.appliedUnits ) {
+				setApplied( normalizeApplied( response.data.appliedUnits ) );
+			}
+
+			setMessage( { type: 'success', text: copy.undoSuccess } );
+		} catch ( error ) {
+			setMessage( { type: 'error', text: error && error.message ? error.message : copy.undoFailure } );
 		} finally {
 			setBusyKey( '' );
 		}
@@ -274,64 +521,68 @@ export function LayoutUnits() {
 		createElement( 'p', null, copy.description ),
 		renderMessage( message ),
 		createElement(
-			Card,
-			null,
+			Flex,
+			{ align: 'center', gap: 4, style: { marginTop: '16px' } },
 			createElement(
-				CardBody,
+				FlexItem,
 				null,
 				createElement(
-					Flex,
-					{ align: 'end', gap: 4 },
-					createElement(
-						FlexItem,
-						{ style: { flex: '1 1 320px' } },
-						createElement( SelectControl, {
-							label: copy.sourceLabel,
-							value: source ? source.id : '',
-							options: sources.map( ( item ) => ( {
-								label: getSourceLabel( item, copy ),
-								value: item.id,
-							} ) ),
-							onChange: ( next ) => {
-								setSourceId( next );
-								setUnits( [] );
-								setLoadedSourceId( '' );
-								setMessage( null );
-							},
-						} )
-					),
-					createElement(
+					Button,
+					{
+						variant: 'secondary',
+						isBusy: loading,
+						disabled: loading || Boolean( busyKey ),
+						onClick: loadUnits,
+					},
+					loading ? copy.loading : copy.loadLabel
+				)
+			),
+			loading
+				? createElement(
 						FlexItem,
 						null,
-						createElement(
-							Button,
-							{
-								variant: 'secondary',
-								isBusy: loading,
-								disabled: loading || ! source,
-								onClick: loadUnits,
-							},
-							loading ? copy.loading : copy.loadLabel
-						)
-					)
-				)
-			)
+						createElement( 'span', { style: { alignItems: 'center', display: 'inline-flex', gap: '8px' } }, createElement( Spinner, null ), copy.loading )
+				  )
+				: null
 		),
-		loading ? createElement( 'p', { style: { alignItems: 'center', display: 'flex', gap: '8px' } }, createElement( Spinner, null ), copy.loading ) : null,
-		! loading && loadedSourceId && ! units.length ? createElement( 'p', null, copy.empty ) : null,
+		createElement( AppliedLayouts, {
+			applied,
+			busyKey,
+			copy,
+			onUndo: undoUnit,
+		} ),
+		loaded && ! units.length ? createElement( 'p', null, copy.empty ) : null,
 		createElement(
 			Fragment,
 			null,
 			createElement( UnitList, {
-				title: copy.templateParts,
-				units: grouped.wp_template_part,
+				title: copy.headers,
+				units: grouped.headers,
+				applied,
 				busyKey,
 				copy,
 				onImport: importUnit,
 			} ),
 			createElement( UnitList, {
-				title: copy.templates,
-				units: grouped.wp_template,
+				title: copy.footers,
+				units: grouped.footers,
+				applied,
+				busyKey,
+				copy,
+				onImport: importUnit,
+			} ),
+			createElement( UnitList, {
+				title: copy.templatesType,
+				units: grouped.templates,
+				applied,
+				busyKey,
+				copy,
+				onImport: importUnit,
+			} ),
+			createElement( UnitList, {
+				title: __( 'Template parts', 'pixelgrade_assistant' ),
+				units: grouped.templateParts,
+				applied,
 				busyKey,
 				copy,
 				onImport: importUnit,

@@ -54,6 +54,7 @@ if ( ! function_exists( 'pixassist_get_layout_units_data' ) ) {
 			'copy'      => pixassist_get_layout_units_copy(),
 			'sources'   => pixassist_get_layout_units_sources(),
 			'endpoints' => pixassist_get_layout_units_endpoints(),
+			'applied'   => pixassist_get_layout_units_applied(),
 		);
 	}
 }
@@ -75,10 +76,20 @@ if ( ! function_exists( 'pixassist_get_layout_units_copy' ) ) {
 			'failure'       => esc_html__( 'Layouts could not be loaded. Please try again.', '__plugin_txtd' ),
 			'importLabel'   => esc_html__( 'Apply', '__plugin_txtd' ),
 			'importing'     => esc_html__( 'Applying layout...', '__plugin_txtd' ),
-			'importSuccess' => esc_html__( 'Layout applied. Reset starter content from Tools to undo it.', '__plugin_txtd' ),
+			'importSuccess' => esc_html__( 'Layout applied.', '__plugin_txtd' ),
 			'importFailure' => esc_html__( 'Layout could not be applied. Please try again.', '__plugin_txtd' ),
+			'undoLabel'     => esc_html__( 'Remove', '__plugin_txtd' ),
+			'undoing'       => esc_html__( 'Removing layout...', '__plugin_txtd' ),
+			'undoSuccess'   => esc_html__( 'Layout removed.', '__plugin_txtd' ),
+			'undoFailure'   => esc_html__( 'Layout could not be removed. Please try again.', '__plugin_txtd' ),
+			'appliedTitle'  => esc_html__( 'Applied layouts', '__plugin_txtd' ),
+			'appliedEmpty'  => esc_html__( 'No layouts are applied yet.', '__plugin_txtd' ),
 			'templateParts' => esc_html__( 'Template parts', '__plugin_txtd' ),
 			'templates'     => esc_html__( 'Templates', '__plugin_txtd' ),
+			'headers'       => esc_html__( 'Headers', '__plugin_txtd' ),
+			'footers'       => esc_html__( 'Footers', '__plugin_txtd' ),
+			'templatesType' => esc_html__( 'Templates', '__plugin_txtd' ),
+			'sourceHeading' => esc_html__( 'Source', '__plugin_txtd' ),
 			'premiumLabel'  => esc_html__( 'Premium', '__plugin_txtd' ),
 			'freeLabel'     => esc_html__( 'Free', '__plugin_txtd' ),
 		);
@@ -131,12 +142,16 @@ if ( ! function_exists( 'pixassist_get_layout_units_endpoints' ) ) {
 				'method' => 'POST',
 				'url'    => function_exists( 'rest_url' ) ? esc_url_raw( rest_url( 'pixassist/v1/import_unit' ) ) : '',
 			),
+			'undoUnit'    => array(
+				'method' => 'POST',
+				'url'    => function_exists( 'rest_url' ) ? esc_url_raw( rest_url( 'pixassist/v1/undo_unit' ) ) : '',
+			),
 		);
 
 		if ( class_exists( 'PixelgradeAssistant_Admin' )
 			&& isset( PixelgradeAssistant_Admin::$internalApiEndpoints )
 			&& is_array( PixelgradeAssistant_Admin::$internalApiEndpoints ) ) {
-			foreach ( array( 'layoutUnits', 'importUnit' ) as $key ) {
+			foreach ( array( 'layoutUnits', 'importUnit', 'undoUnit' ) as $key ) {
 				if ( ! empty( PixelgradeAssistant_Admin::$internalApiEndpoints[ $key ] ) && is_array( PixelgradeAssistant_Admin::$internalApiEndpoints[ $key ] ) ) {
 					$endpoints[ $key ] = PixelgradeAssistant_Admin::$internalApiEndpoints[ $key ];
 				}
@@ -144,6 +159,24 @@ if ( ! function_exists( 'pixassist_get_layout_units_endpoints' ) ) {
 		}
 
 		return $endpoints;
+	}
+}
+
+if ( ! function_exists( 'pixassist_get_layout_units_applied' ) ) {
+	/**
+	 * Return the currently applied granular layouts.
+	 *
+	 * @return array
+	 */
+	function pixassist_get_layout_units_applied() {
+		if ( function_exists( 'PixelgradeAssistant' ) ) {
+			$plugin = PixelgradeAssistant();
+			if ( ! empty( $plugin->starter_content ) && method_exists( $plugin->starter_content, 'get_applied_layout_units' ) ) {
+				return $plugin->starter_content->get_applied_layout_units();
+			}
+		}
+
+		return array();
 	}
 }
 

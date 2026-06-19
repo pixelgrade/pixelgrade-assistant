@@ -151,6 +151,18 @@ class PixelgradeAssistant_StarterContent {
 			),
 		) );
 
+		register_rest_route( 'pixassist/v1', '/undo_unit', array(
+			'methods'             => WP_REST_Server::CREATABLE,
+			'callback'            => array( $this, 'rest_undo_unit' ),
+			'permission_callback' => array( $this, 'permission_nonce_callback' ),
+			'show_in_index'       => false,
+			'args'                => array(
+				'unit_type'       => array( 'required' => true ),
+				'unit'            => array( 'required' => true ),
+				'pixassist_nonce' => array( 'required' => true ),
+			),
+		) );
+
 		register_rest_route( 'pixassist/v1', '/layout_units', array(
 			'methods'             => WP_REST_Server::CREATABLE,
 			'callback'            => array( $this, 'rest_list_layout_units' ),
@@ -162,6 +174,47 @@ class PixelgradeAssistant_StarterContent {
 				'pixassist_nonce' => array( 'required' => true ),
 			),
 		) );
+	}
+
+	/**
+	 * Return the layout units currently applied through the granular importer.
+	 *
+	 * @return array Applied layout units keyed by slot (`post_type:slug`).
+	 */
+	public function get_applied_layout_units() {
+		$starter_content = PixelgradeAssistant_Admin::get_option( 'imported_starter_content', array() );
+		if ( empty( $starter_content ) || ! is_array( $starter_content ) ) {
+			return array();
+		}
+
+		$applied = array();
+		foreach ( $starter_content as $demo_key => $journal ) {
+			if ( empty( $journal['layout_units'] ) || ! is_array( $journal['layout_units'] ) ) {
+				continue;
+			}
+
+			foreach ( $journal['layout_units'] as $slot => $unit ) {
+				if ( empty( $unit ) || ! is_array( $unit ) ) {
+					continue;
+				}
+
+				$slot = $this->get_layout_unit_slot_key(
+					isset( $unit['type'] ) ? $unit['type'] : '',
+					isset( $unit['slug'] ) ? $unit['slug'] : ''
+				);
+				if ( empty( $slot ) ) {
+					continue;
+				}
+
+				$unit['slot']    = $slot;
+				$unit['demoKey'] = isset( $unit['demoKey'] ) ? sanitize_key( $unit['demoKey'] ) : sanitize_key( $demo_key );
+
+				unset( $unit['journal'] );
+				$applied[ $slot ] = $unit;
+			}
+		}
+
+		return $applied;
 	}
 
 	/**
@@ -273,6 +326,30 @@ class PixelgradeAssistant_StarterContent {
 	}
 
 	/**
+	 * Handle the request to undo one applied layout unit.
+	 *
+	 * @param WP_REST_Request $request Request object.
+	 *
+	 * @return WP_REST_Response
+	 */
+	public function rest_undo_unit( $request ) {
+		$params = $request->get_params();
+
+		if ( empty( $params['unit_type'] ) || empty( $params['unit'] ) ) {
+			return rest_ensure_response( array(
+				'code'    => 'missing_params',
+				'message' => esc_html__( 'You need to provide all the needed parameters.', '__plugin_txtd' ),
+				'data'    => array(),
+			) );
+		}
+
+		return rest_ensure_response( $this->undo_layout_unit(
+			sanitize_key( $params['unit_type'] ),
+			sanitize_text_field( $params['unit'] )
+		) );
+	}
+
+	/**
 	 * Import one layout unit and its layout-only dependencies.
 	 *
 	 * @param string     $demo_key  Starter/demo key.
@@ -343,6 +420,21 @@ class PixelgradeAssistant_StarterContent {
 				'message' => esc_html__( 'The requested layout unit could not be found.', '__plugin_txtd' ),
 				'data'    => array(),
 			);
+		}
+
+		$unit_slug = isset( $unit_post['post_name'] ) ? sanitize_key( $unit_post['post_name'] ) : '';
+		if ( $this->get_applied_layout_unit_entry( $unit_type, $unit_slug ) ) {
+			$undo = $this->undo_layout_unit( $unit_type, $unit_slug );
+			if ( empty( $undo['code'] ) || 'success' !== $undo['code'] ) {
+				$this->restore_import_counting();
+
+				return $undo;
+			}
+		}
+
+		$starter_content_before = PixelgradeAssistant_Admin::get_option( 'imported_starter_content', array() );
+		if ( ! is_array( $starter_content_before ) ) {
+			$starter_content_before = array();
 		}
 
 		$source_data = $this->fetch_layout_source_data( $base_url );
@@ -430,6 +522,16 @@ class PixelgradeAssistant_StarterContent {
 
 		do_action( 'pixassist_sce_import_end' );
 
+		$this->record_applied_layout_unit(
+			$demo_key,
+			$base_url,
+			$unit_type,
+			$unit_post,
+			(int) $unit_import[ $unit_post['ID'] ],
+			$starter_content_before,
+			isset( $settings_import['locationSlugs'] ) ? $settings_import['locationSlugs'] : array()
+		);
+
 		return array(
 			'code'    => 'success',
 			'message' => esc_html__( 'Layout imported.', '__plugin_txtd' ),
@@ -441,6 +543,89 @@ class PixelgradeAssistant_StarterContent {
 					'localId'  => (int) $unit_import[ $unit_post['ID'] ],
 				),
 				'dependencies' => $dependencies,
+				'appliedUnits' => $this->get_applied_layout_units(),
+			),
+		);
+	}
+
+	/**
+	 * Undo one applied layout unit while keeping other applied units intact.
+	 *
+	 * @param string $unit_type Unit post type.
+	 * @param string $unit      Unit slug.
+	 *
+	 * @return array Response payload.
+	 */
+	public function undo_layout_unit( $unit_type, $unit ) {
+		$unit_type = sanitize_key( $unit_type );
+		$unit      = sanitize_key( $unit );
+		$slot      = $this->get_layout_unit_slot_key( $unit_type, $unit );
+
+		if ( empty( $slot ) ) {
+			return array(
+				'code'    => 'invalid_params',
+				'message' => esc_html__( 'The layout unit request is invalid.', '__plugin_txtd' ),
+				'data'    => array(),
+			);
+		}
+
+		$entry = $this->get_applied_layout_unit_entry( $unit_type, $unit );
+		if ( empty( $entry ) ) {
+			return array(
+				'code'    => 'unit_not_found',
+				'message' => esc_html__( 'The requested layout unit is not applied.', '__plugin_txtd' ),
+				'data'    => array(),
+			);
+		}
+
+		$starter_content = PixelgradeAssistant_Admin::get_option( 'imported_starter_content', array() );
+		if ( empty( $starter_content ) || ! is_array( $starter_content ) ) {
+			return array(
+				'code'    => 'unit_not_found',
+				'message' => esc_html__( 'The requested layout unit is not applied.', '__plugin_txtd' ),
+				'data'    => array(),
+			);
+		}
+
+		$demo_key     = $entry['demo_key'];
+		$unit_meta    = $entry['unit'];
+		$unit_journal = ! empty( $unit_meta['journal'] ) && is_array( $unit_meta['journal'] ) ? $unit_meta['journal'] : array();
+		$delete_journal = $this->get_layout_unit_exclusive_journal( $unit_journal, $slot, $starter_content );
+
+		$summary = array(
+			'units'                => 1,
+			'posts_deleted'        => 0,
+			'posts_missing'        => 0,
+			'terms_deleted'        => 0,
+			'terms_skipped'        => 0,
+			'media_deleted'        => 0,
+			'media_skipped'        => 0,
+			'options_restored'     => 0,
+			'theme_mods_restored'  => 0,
+		);
+		$restored_options = array();
+		$restored_mods    = array();
+
+		$this->reset_starter_content_posts( $delete_journal, $summary );
+		$this->reset_starter_content_terms( $delete_journal, $summary );
+		$this->reset_starter_content_media( $delete_journal, $summary );
+		$this->reset_layout_unit_settings( $unit_journal, $unit_meta, $restored_options, $restored_mods );
+
+		$summary['options_restored']    = count( $restored_options );
+		$summary['theme_mods_restored'] = count( $restored_mods );
+
+		$this->remove_layout_unit_from_starter_content( $starter_content, $demo_key, $slot, $delete_journal, $unit_journal );
+		$this->regenerate_style_manager_after_import();
+
+		PixelgradeAssistant_Admin::set_option( 'imported_starter_content', $starter_content );
+		PixelgradeAssistant_Admin::save_options();
+
+		return array(
+			'code'    => 'success',
+			'message' => esc_html__( 'Layout reverted.', '__plugin_txtd' ),
+			'data'    => array(
+				'summary'      => $summary,
+				'appliedUnits' => $this->get_applied_layout_units(),
 			),
 		);
 	}
@@ -1098,7 +1283,11 @@ class PixelgradeAssistant_StarterContent {
 		$mods = array();
 
 		if ( ! empty( $location_slugs ) && ! empty( $source_mods['nav_menu_locations'] ) && is_array( $source_mods['nav_menu_locations'] ) ) {
-			$mods['nav_menu_locations'] = array();
+			$mods['nav_menu_locations'] = get_theme_mod( 'nav_menu_locations', array() );
+			if ( ! is_array( $mods['nav_menu_locations'] ) ) {
+				$mods['nav_menu_locations'] = array();
+			}
+
 			foreach ( $location_slugs as $slug ) {
 				if ( isset( $source_mods['nav_menu_locations'][ $slug ] ) ) {
 					$mods['nav_menu_locations'][ $slug ] = $source_mods['nav_menu_locations'][ $slug ];
@@ -1140,7 +1329,10 @@ class PixelgradeAssistant_StarterContent {
 			return new WP_Error( 'layout_settings_import_failed', esc_html__( 'The layout settings could not be imported.', '__plugin_txtd' ) );
 		}
 
-		return array( 'logos' => $logo_count );
+		return array(
+			'logos'         => $logo_count,
+			'locationSlugs' => array_values( array_unique( array_map( 'sanitize_key', (array) $location_slugs ) ) ),
+		);
 	}
 
 	/**
@@ -1518,6 +1710,487 @@ class PixelgradeAssistant_StarterContent {
 			'message' => $error->get_error_message(),
 			'data'    => method_exists( $error, 'get_error_data' ) ? (array) $error->get_error_data() : array(),
 		);
+	}
+
+	/**
+	 * Persist the applied-unit index for a successful granular import.
+	 *
+	 * @param string $demo_key               Starter/demo key.
+	 * @param string $base_url               Source SCE REST base URL.
+	 * @param string $unit_type              Unit post type.
+	 * @param array  $unit_post              Source unit post.
+	 * @param int    $local_id               Local imported post ID.
+	 * @param array  $starter_content_before Journal snapshot before this unit import.
+	 * @param array  $location_slugs         Nav location slugs touched by this unit.
+	 */
+	private function record_applied_layout_unit( $demo_key, $base_url, $unit_type, $unit_post, $local_id, $starter_content_before, $location_slugs ) {
+		$demo_key  = sanitize_key( $demo_key );
+		$unit_type = sanitize_key( $unit_type );
+		$slug      = isset( $unit_post['post_name'] ) ? sanitize_key( $unit_post['post_name'] ) : '';
+		$slot      = $this->get_layout_unit_slot_key( $unit_type, $slug );
+
+		if ( empty( $slot ) || empty( $local_id ) ) {
+			return;
+		}
+
+		$starter_content = PixelgradeAssistant_Admin::get_option( 'imported_starter_content', array() );
+		if ( ! is_array( $starter_content ) ) {
+			$starter_content = array();
+		}
+		if ( empty( $starter_content[ $demo_key ] ) || ! is_array( $starter_content[ $demo_key ] ) ) {
+			$starter_content[ $demo_key ] = array();
+		}
+
+		$before_journal = isset( $starter_content_before[ $demo_key ] ) && is_array( $starter_content_before[ $demo_key ] )
+			? $starter_content_before[ $demo_key ]
+			: array();
+		$unit_journal = $this->get_layout_unit_journal_delta( $before_journal, $starter_content[ $demo_key ] );
+
+		if ( empty( $unit_journal['post_types'][ $unit_type ][ $unit_post['ID'] ] ) ) {
+			if ( empty( $unit_journal['post_types'] ) ) {
+				$unit_journal['post_types'] = array();
+			}
+			if ( empty( $unit_journal['post_types'][ $unit_type ] ) ) {
+				$unit_journal['post_types'][ $unit_type ] = array();
+			}
+			$unit_journal['post_types'][ $unit_type ][ $unit_post['ID'] ] = $local_id;
+		}
+
+		if ( empty( $starter_content[ $demo_key ]['layout_units'] ) || ! is_array( $starter_content[ $demo_key ]['layout_units'] ) ) {
+			$starter_content[ $demo_key ]['layout_units'] = array();
+		}
+
+		$starter_content[ $demo_key ]['layout_units'][ $slot ] = array(
+			'type'          => $unit_type,
+			'slug'          => $slug,
+			'title'         => ! empty( $unit_post['post_title'] ) ? wp_strip_all_tags( $unit_post['post_title'] ) : $slug,
+			'sourceId'      => isset( $unit_post['ID'] ) ? absint( $unit_post['ID'] ) : 0,
+			'localId'       => absint( $local_id ),
+			'demoKey'       => $demo_key,
+			'sourceTitle'   => $this->get_layout_unit_source_title( $demo_key ),
+			'baseRestUrl'   => esc_url_raw( $base_url ),
+			'locationSlugs' => array_values( array_unique( array_filter( array_map( 'sanitize_key', (array) $location_slugs ) ) ) ),
+			'appliedAt'     => time(),
+			'journal'       => $unit_journal,
+		);
+
+		$this->preserve_layout_unit_aggregate_settings( $starter_content[ $demo_key ], $before_journal, $unit_journal );
+
+		PixelgradeAssistant_Admin::set_option( 'imported_starter_content', $starter_content );
+		PixelgradeAssistant_Admin::save_options();
+	}
+
+	/**
+	 * Build a slot key for a layout unit.
+	 *
+	 * @param string $unit_type Unit post type.
+	 * @param string $slug      Unit slug.
+	 *
+	 * @return string
+	 */
+	private function get_layout_unit_slot_key( $unit_type, $slug ) {
+		$unit_type = sanitize_key( $unit_type );
+		$slug      = sanitize_key( $slug );
+
+		if ( empty( $slug ) || ! in_array( $unit_type, array( 'wp_template_part', 'wp_template' ), true ) ) {
+			return '';
+		}
+
+		return $unit_type . ':' . $slug;
+	}
+
+	/**
+	 * Locate an applied layout unit.
+	 *
+	 * @param string $unit_type Unit post type.
+	 * @param string $slug      Unit slug.
+	 *
+	 * @return array|null
+	 */
+	private function get_applied_layout_unit_entry( $unit_type, $slug ) {
+		$slot = $this->get_layout_unit_slot_key( $unit_type, $slug );
+		if ( empty( $slot ) ) {
+			return null;
+		}
+
+		$starter_content = PixelgradeAssistant_Admin::get_option( 'imported_starter_content', array() );
+		if ( empty( $starter_content ) || ! is_array( $starter_content ) ) {
+			return null;
+		}
+
+		foreach ( $starter_content as $demo_key => $journal ) {
+			if ( empty( $journal['layout_units'][ $slot ] ) || ! is_array( $journal['layout_units'][ $slot ] ) ) {
+				continue;
+			}
+
+			return array(
+				'demo_key' => sanitize_key( $demo_key ),
+				'unit'     => $journal['layout_units'][ $slot ],
+			);
+		}
+
+		return null;
+	}
+
+	/**
+	 * Determine which journal entries were introduced by one unit import.
+	 *
+	 * @param array $before Journal before import.
+	 * @param array $after  Journal after import.
+	 *
+	 * @return array
+	 */
+	private function get_layout_unit_journal_delta( $before, $after ) {
+		$delta = array();
+
+		foreach ( array( 'post_types', 'taxonomies', 'media' ) as $group ) {
+			if ( empty( $after[ $group ] ) || ! is_array( $after[ $group ] ) ) {
+				continue;
+			}
+
+			foreach ( $after[ $group ] as $type => $map ) {
+				if ( empty( $map ) || ! is_array( $map ) ) {
+					continue;
+				}
+
+				foreach ( $map as $source_id => $local_id ) {
+					$before_has = isset( $before[ $group ][ $type ] ) && is_array( $before[ $group ][ $type ] ) && array_key_exists( $source_id, $before[ $group ][ $type ] );
+					if ( $before_has && $before[ $group ][ $type ][ $source_id ] === $local_id ) {
+						continue;
+					}
+
+					if ( empty( $delta[ $group ] ) ) {
+						$delta[ $group ] = array();
+					}
+					if ( empty( $delta[ $group ][ $type ] ) ) {
+						$delta[ $group ][ $type ] = array();
+					}
+					$delta[ $group ][ $type ][ $source_id ] = $local_id;
+				}
+			}
+		}
+
+		foreach ( array( 'pre_settings', 'post_settings' ) as $settings_key ) {
+			if ( empty( $after[ $settings_key ] ) || ! is_array( $after[ $settings_key ] ) ) {
+				continue;
+			}
+
+			foreach ( array( 'options', 'mods' ) as $group ) {
+				if ( empty( $after[ $settings_key ][ $group ] ) || ! is_array( $after[ $settings_key ][ $group ] ) ) {
+					continue;
+				}
+
+				foreach ( $after[ $settings_key ][ $group ] as $key => $value ) {
+					$before_has = isset( $before[ $settings_key ][ $group ] ) && is_array( $before[ $settings_key ][ $group ] ) && array_key_exists( $key, $before[ $settings_key ][ $group ] );
+					if ( $before_has && $before[ $settings_key ][ $group ][ $key ] === $value ) {
+						continue;
+					}
+
+					if ( empty( $delta[ $settings_key ] ) ) {
+						$delta[ $settings_key ] = array();
+					}
+					if ( empty( $delta[ $settings_key ][ $group ] ) ) {
+						$delta[ $settings_key ][ $group ] = array();
+					}
+					$delta[ $settings_key ][ $group ][ $key ] = $value;
+				}
+			}
+		}
+
+		return $delta;
+	}
+
+	/**
+	 * Keep the full-reset journal's earliest setting values after a later unit touches the same setting.
+	 *
+	 * @param array $aggregate     Source aggregate journal, by reference.
+	 * @param array $before        Source journal before this unit import.
+	 * @param array $unit_journal  Unit-specific journal.
+	 */
+	private function preserve_layout_unit_aggregate_settings( &$aggregate, $before, $unit_journal ) {
+		foreach ( array( 'pre_settings', 'post_settings' ) as $settings_key ) {
+			foreach ( array( 'options', 'mods' ) as $group ) {
+				if ( empty( $unit_journal[ $settings_key ][ $group ] ) || ! is_array( $unit_journal[ $settings_key ][ $group ] ) ) {
+					continue;
+				}
+
+				foreach ( $unit_journal[ $settings_key ][ $group ] as $key => $value ) {
+					if ( isset( $before[ $settings_key ][ $group ] ) && is_array( $before[ $settings_key ][ $group ] ) && array_key_exists( $key, $before[ $settings_key ][ $group ] ) ) {
+						$aggregate[ $settings_key ][ $group ][ $key ] = $before[ $settings_key ][ $group ][ $key ];
+					}
+				}
+			}
+		}
+	}
+
+	/**
+	 * Remove journal entries that another applied unit still references.
+	 *
+	 * @param array  $journal         Unit journal.
+	 * @param string $slot            Slot being removed.
+	 * @param array  $starter_content Full starter-content journal.
+	 *
+	 * @return array Journal entries safe to delete.
+	 */
+	private function get_layout_unit_exclusive_journal( $journal, $slot, $starter_content ) {
+		$exclusive = $journal;
+
+		foreach ( array( 'post_types', 'taxonomies', 'media' ) as $group ) {
+			if ( empty( $exclusive[ $group ] ) || ! is_array( $exclusive[ $group ] ) ) {
+				continue;
+			}
+
+			foreach ( $exclusive[ $group ] as $type => $map ) {
+				if ( empty( $map ) || ! is_array( $map ) ) {
+					continue;
+				}
+
+				foreach ( $map as $source_id => $local_id ) {
+					if ( $this->layout_unit_map_entry_used_by_other( $slot, $group, $type, $source_id, $local_id, $starter_content ) ) {
+						unset( $exclusive[ $group ][ $type ][ $source_id ] );
+					}
+				}
+			}
+		}
+
+		$this->prune_empty_layout_journal( $exclusive );
+
+		return $exclusive;
+	}
+
+	/**
+	 * Whether another applied unit references one mapped journal entry.
+	 *
+	 * @param string $slot            Slot being removed.
+	 * @param string $group           Journal group.
+	 * @param string $type            Map type.
+	 * @param mixed  $source_id       Source ID.
+	 * @param mixed  $local_id        Local ID.
+	 * @param array  $starter_content Full starter-content journal.
+	 *
+	 * @return bool
+	 */
+	private function layout_unit_map_entry_used_by_other( $slot, $group, $type, $source_id, $local_id, $starter_content ) {
+		foreach ( (array) $starter_content as $journal ) {
+			if ( empty( $journal['layout_units'] ) || ! is_array( $journal['layout_units'] ) ) {
+				continue;
+			}
+
+			foreach ( $journal['layout_units'] as $other_slot => $unit ) {
+				if ( $other_slot === $slot || empty( $unit['journal'][ $group ][ $type ] ) || ! is_array( $unit['journal'][ $group ][ $type ] ) ) {
+					continue;
+				}
+
+				if ( array_key_exists( $source_id, $unit['journal'][ $group ][ $type ] ) && $unit['journal'][ $group ][ $type ][ $source_id ] === $local_id ) {
+					return true;
+				}
+			}
+		}
+
+		return false;
+	}
+
+	/**
+	 * Restore settings for one layout unit.
+	 *
+	 * @param array $journal          Unit journal.
+	 * @param array $unit_meta        Unit metadata.
+	 * @param array $restored_options Unique restored option keys, by reference.
+	 * @param array $restored_mods    Unique restored theme mod keys, by reference.
+	 */
+	private function reset_layout_unit_settings( $journal, $unit_meta, &$restored_options, &$restored_mods ) {
+		foreach ( array( 'post_settings', 'pre_settings' ) as $settings_key ) {
+			if ( empty( $journal[ $settings_key ] ) || ! is_array( $journal[ $settings_key ] ) ) {
+				continue;
+			}
+
+			if ( ! empty( $journal[ $settings_key ]['options'] ) && is_array( $journal[ $settings_key ]['options'] ) ) {
+				foreach ( $journal[ $settings_key ]['options'] as $option => $value ) {
+					$option = (string) $option;
+					update_option( $option, $value );
+					$restored_options[ $option ] = true;
+				}
+			}
+
+			if ( empty( $journal[ $settings_key ]['mods'] ) || ! is_array( $journal[ $settings_key ]['mods'] ) ) {
+				continue;
+			}
+
+			foreach ( $journal[ $settings_key ]['mods'] as $mod => $value ) {
+				$mod = (string) $mod;
+
+				if ( 'nav_menu_locations' === $mod && is_array( $value ) ) {
+					$current = get_theme_mod( 'nav_menu_locations', array() );
+					if ( ! is_array( $current ) ) {
+						$current = array();
+					}
+
+					$location_slugs = ! empty( $unit_meta['locationSlugs'] ) && is_array( $unit_meta['locationSlugs'] )
+						? array_values( array_unique( array_map( 'sanitize_key', $unit_meta['locationSlugs'] ) ) )
+						: array_keys( $value );
+
+					foreach ( $location_slugs as $location_slug ) {
+						if ( array_key_exists( $location_slug, $value ) && false !== $value[ $location_slug ] && null !== $value[ $location_slug ] ) {
+							$current[ $location_slug ] = $value[ $location_slug ];
+						} else {
+							unset( $current[ $location_slug ] );
+						}
+					}
+
+					set_theme_mod( 'nav_menu_locations', $current );
+					$restored_mods['nav_menu_locations'] = true;
+					continue;
+				}
+
+				if ( false === $value || null === $value ) {
+					remove_theme_mod( $mod );
+				} else {
+					set_theme_mod( $mod, $value );
+				}
+
+				$restored_mods[ $mod ] = true;
+			}
+		}
+	}
+
+	/**
+	 * Remove a unit's entries from the aggregate journal after undoing it.
+	 *
+	 * @param array  $starter_content Full starter-content journal, by reference.
+	 * @param string $demo_key        Source demo key.
+	 * @param string $slot            Slot being removed.
+	 * @param array  $delete_journal  Journal entries that were deleted.
+	 * @param array  $unit_journal    Complete unit journal.
+	 */
+	private function remove_layout_unit_from_starter_content( &$starter_content, $demo_key, $slot, $delete_journal, $unit_journal ) {
+		if ( empty( $starter_content[ $demo_key ] ) || ! is_array( $starter_content[ $demo_key ] ) ) {
+			return;
+		}
+
+		foreach ( array( 'post_types', 'taxonomies', 'media' ) as $group ) {
+			if ( empty( $delete_journal[ $group ] ) || ! is_array( $delete_journal[ $group ] ) ) {
+				continue;
+			}
+
+			foreach ( $delete_journal[ $group ] as $type => $map ) {
+				if ( empty( $map ) || ! is_array( $map ) ) {
+					continue;
+				}
+
+				foreach ( $map as $source_id => $local_id ) {
+					if ( isset( $starter_content[ $demo_key ][ $group ][ $type ] ) && is_array( $starter_content[ $demo_key ][ $group ][ $type ] ) ) {
+						unset( $starter_content[ $demo_key ][ $group ][ $type ][ $source_id ] );
+					}
+				}
+			}
+		}
+
+		foreach ( array( 'pre_settings', 'post_settings' ) as $settings_key ) {
+			foreach ( array( 'options', 'mods' ) as $group ) {
+				if ( empty( $unit_journal[ $settings_key ][ $group ] ) || ! is_array( $unit_journal[ $settings_key ][ $group ] ) ) {
+					continue;
+				}
+
+				foreach ( $unit_journal[ $settings_key ][ $group ] as $key => $value ) {
+					if ( $this->layout_unit_setting_used_by_other( $starter_content, $slot, $settings_key, $group, $key ) ) {
+						continue;
+					}
+
+					if ( isset( $starter_content[ $demo_key ][ $settings_key ][ $group ] ) && is_array( $starter_content[ $demo_key ][ $settings_key ][ $group ] ) ) {
+						unset( $starter_content[ $demo_key ][ $settings_key ][ $group ][ $key ] );
+					}
+				}
+			}
+		}
+
+		unset( $starter_content[ $demo_key ]['layout_units'][ $slot ] );
+		$this->prune_empty_layout_journal( $starter_content[ $demo_key ] );
+
+		if ( empty( $starter_content[ $demo_key ] ) ) {
+			unset( $starter_content[ $demo_key ] );
+		}
+	}
+
+	/**
+	 * Whether another applied unit references a setting key.
+	 *
+	 * @param array  $starter_content Full starter-content journal.
+	 * @param string $slot            Slot being removed.
+	 * @param string $settings_key    Settings group.
+	 * @param string $group           `options` or `mods`.
+	 * @param string $key             Setting key.
+	 *
+	 * @return bool
+	 */
+	private function layout_unit_setting_used_by_other( $starter_content, $slot, $settings_key, $group, $key ) {
+		foreach ( (array) $starter_content as $journal ) {
+			if ( empty( $journal['layout_units'] ) || ! is_array( $journal['layout_units'] ) ) {
+				continue;
+			}
+
+			foreach ( $journal['layout_units'] as $other_slot => $unit ) {
+				if ( $other_slot === $slot ) {
+					continue;
+				}
+
+				if ( isset( $unit['journal'][ $settings_key ][ $group ] ) && is_array( $unit['journal'][ $settings_key ][ $group ] ) && array_key_exists( $key, $unit['journal'][ $settings_key ][ $group ] ) ) {
+					return true;
+				}
+			}
+		}
+
+		return false;
+	}
+
+	/**
+	 * Remove empty maps from a journal recursively.
+	 *
+	 * @param array $journal Journal to prune, by reference.
+	 */
+	private function prune_empty_layout_journal( &$journal ) {
+		if ( ! is_array( $journal ) ) {
+			return;
+		}
+
+		foreach ( $journal as $key => &$value ) {
+			if ( is_array( $value ) ) {
+				$this->prune_empty_layout_journal( $value );
+				if ( empty( $value ) ) {
+					unset( $journal[ $key ] );
+				}
+			}
+		}
+		unset( $value );
+	}
+
+	/**
+	 * Resolve the display name for a source.
+	 *
+	 * @param string $demo_key Starter/demo key.
+	 *
+	 * @return string
+	 */
+	private function get_layout_unit_source_title( $demo_key ) {
+		$demo_key = sanitize_key( $demo_key );
+
+		if ( function_exists( 'pixassist_get_admin_hub_starters' ) ) {
+			foreach ( pixassist_get_admin_hub_starters() as $starter ) {
+				if ( ! empty( $starter['id'] ) && sanitize_key( $starter['id'] ) === $demo_key ) {
+					return ! empty( $starter['title'] ) ? wp_strip_all_tags( $starter['title'] ) : $demo_key;
+				}
+			}
+		}
+
+		$config = PixelgradeAssistant_Admin::get_config();
+		if ( ! empty( $config['starterContent']['demos'] ) && is_array( $config['starterContent']['demos'] ) ) {
+			foreach ( $config['starterContent']['demos'] as $demo ) {
+				if ( ! empty( $demo['id'] ) && sanitize_key( $demo['id'] ) === $demo_key ) {
+					return ! empty( $demo['title'] ) ? wp_strip_all_tags( $demo['title'] ) : $demo_key;
+				}
+			}
+		}
+
+		return $demo_key;
 	}
 
 	/**

@@ -105,6 +105,28 @@ class PixelgradeAssistant_Admin {
 			'method' => 'POST',
 			'url'    => 'https://example.test/wp-json/pixassist/v1/import_unit',
 		),
+		'undoUnit'    => array(
+			'method' => 'POST',
+			'url'    => 'https://example.test/wp-json/pixassist/v1/undo_unit',
+		),
+	);
+}
+
+class PAF_Starter_Content {
+	public function get_applied_layout_units() {
+		return array(
+			'wp_template_part:header' => array(
+				'type'        => 'wp_template_part',
+				'slug'        => 'header',
+				'sourceTitle' => 'Olive & Ash',
+			),
+		);
+	}
+}
+
+function PixelgradeAssistant() {
+	return (object) array(
+		'starter_content' => new PAF_Starter_Content(),
 	);
 }
 
@@ -142,5 +164,7 @@ assert_same( '', $data['sources'][0]['gate'], 'Free source gates must stay empty
 assert_same( 'plus_licensed', $data['sources'][1]['gate'], 'Premium source gates must be preserved for presentation.' );
 assert_same( PixelgradeAssistant_Admin::$internalApiEndpoints['layoutUnits'], $data['endpoints']['layoutUnits'], 'Layouts payload must expose the unit-list endpoint.' );
 assert_same( PixelgradeAssistant_Admin::$internalApiEndpoints['importUnit'], $data['endpoints']['importUnit'], 'Layouts payload must expose the unit-import endpoint.' );
+assert_same( PixelgradeAssistant_Admin::$internalApiEndpoints['undoUnit'], $data['endpoints']['undoUnit'], 'Layouts payload must expose the unit-undo endpoint.' );
+assert_same( 'Olive & Ash', $data['applied']['wp_template_part:header']['sourceTitle'], 'Layouts payload must expose initially applied units.' );
 
 echo "Admin Layouts tab OK\n";
