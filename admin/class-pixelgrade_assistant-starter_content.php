@@ -135,8 +135,9 @@ class PixelgradeAssistant_StarterContent {
 			'permission_callback' => array( $this, 'permission_nonce_callback' ),
 			'show_in_index'       => false,
 			'args'                => array(
-				'demo_key'        => array( 'required' => true ),
-				'url'             => array( 'required' => true ),
+				'demo_key'        => array( 'required' => false ),
+				'url'             => array( 'required' => false ),
+				'sources'         => array( 'required' => false ),
 				'pixassist_nonce' => array( 'required' => true ),
 			),
 		) );
@@ -1338,6 +1339,10 @@ class PixelgradeAssistant_StarterContent {
 	public function rest_list_layout_units( $request ) {
 		$params = $request->get_params();
 
+		if ( ! empty( $params['sources'] ) && is_array( $params['sources'] ) ) {
+			return rest_ensure_response( $this->list_layout_units_for_sources( $params['sources'] ) );
+		}
+
 		if ( empty( $params['demo_key'] ) || empty( $params['url'] ) ) {
 			return rest_ensure_response( array(
 				'code'    => 'missing_params',
@@ -1350,6 +1355,52 @@ class PixelgradeAssistant_StarterContent {
 			sanitize_key( $params['demo_key'] ),
 			esc_url_raw( $params['url'] )
 		) );
+	}
+
+	/**
+	 * List layout units for multiple sources in one local REST request.
+	 *
+	 * @param array $sources Source descriptors.
+	 *
+	 * @return array Response payload.
+	 */
+	public function list_layout_units_for_sources( $sources ) {
+		$results = array();
+
+		foreach ( (array) $sources as $source ) {
+			if ( empty( $source ) || ! is_array( $source ) ) {
+				continue;
+			}
+
+			$demo_key = ! empty( $source['demo_key'] ) ? sanitize_key( $source['demo_key'] ) : ( ! empty( $source['id'] ) ? sanitize_key( $source['id'] ) : '' );
+			$base_url = ! empty( $source['url'] ) ? esc_url_raw( $source['url'] ) : ( ! empty( $source['baseRestUrl'] ) ? esc_url_raw( $source['baseRestUrl'] ) : '' );
+
+			if ( empty( $demo_key ) || empty( $base_url ) ) {
+				$results[] = array(
+					'id'      => $demo_key,
+					'code'    => 'invalid_params',
+					'message' => esc_html__( 'The layout unit request is invalid.', '__plugin_txtd' ),
+					'units'   => array(),
+				);
+				continue;
+			}
+
+			$response = $this->list_layout_units( $demo_key, $base_url );
+			$results[] = array(
+				'id'      => $demo_key,
+				'code'    => isset( $response['code'] ) ? $response['code'] : 'error',
+				'message' => isset( $response['message'] ) ? $response['message'] : '',
+				'units'   => ! empty( $response['data']['units'] ) && is_array( $response['data']['units'] ) ? $response['data']['units'] : array(),
+			);
+		}
+
+		return array(
+			'code'    => 'success',
+			'message' => '',
+			'data'    => array(
+				'sources' => $results,
+			),
+		);
 	}
 
 	/**
@@ -1377,6 +1428,17 @@ class PixelgradeAssistant_StarterContent {
 				'code'    => 'invalid_source',
 				'message' => esc_html__( 'The starter content source is not allowed.', '__plugin_txtd' ),
 				'data'    => array(),
+			);
+		}
+
+		$source_units = $this->fetch_layout_source_unit_list( $base_url );
+		if ( ! is_wp_error( $source_units ) ) {
+			return array(
+				'code'    => 'success',
+				'message' => '',
+				'data'    => array(
+					'units' => $source_units,
+				),
 			);
 		}
 
@@ -3870,6 +3932,91 @@ class PixelgradeAssistant_StarterContent {
 			}
 
 			return $this->set_cached_layout_source( $cache, $data );
+		}
+
+		/**
+		 * Fetch a compact source-provided layout unit list when available.
+		 *
+		 * @param string $base_url Source SCE REST base URL.
+		 *
+		 * @return array|WP_Error Normalized layout unit descriptors on success.
+		 */
+		private function fetch_layout_source_unit_list( $base_url ) {
+			$base_url = trailingslashit( esc_url_raw( $base_url ) );
+			$cache    = array( 'layout_units', $base_url );
+			$cached   = $this->get_cached_layout_source( $cache );
+			if ( false !== $cached ) {
+				return $cached;
+			}
+
+			$response = wp_remote_get(
+				$base_url . 'layout-units',
+				array(
+					'timeout'   => 10,
+					'sslverify' => true,
+				)
+			);
+
+			$data = $this->parse_layout_source_response( $response, 'units' );
+			if ( is_wp_error( $data ) ) {
+				return $data;
+			}
+
+			$units = $this->normalize_layout_source_units( isset( $data['units'] ) ? $data['units'] : array() );
+			if ( empty( $units ) ) {
+				return new WP_Error( 'layout_units_empty', esc_html__( 'The layout source did not return units.', '__plugin_txtd' ) );
+			}
+
+			return $this->set_cached_layout_source( $cache, $units );
+		}
+
+		/**
+		 * Normalize source-provided layout unit descriptors.
+		 *
+		 * @param array $units Source units.
+		 *
+		 * @return array
+		 */
+		private function normalize_layout_source_units( $units ) {
+			$normalized = array();
+			$seen       = array();
+
+			foreach ( (array) $units as $unit ) {
+				if ( empty( $unit ) || ! is_array( $unit ) ) {
+					continue;
+				}
+
+				$type = isset( $unit['type'] ) ? sanitize_key( $unit['type'] ) : '';
+				$slug = isset( $unit['slug'] ) ? sanitize_key( $unit['slug'] ) : '';
+				$id   = isset( $unit['id'] ) ? absint( $unit['id'] ) : 0;
+				if ( empty( $type ) || empty( $slug ) ) {
+					continue;
+				}
+
+				$key = $type . ':' . $slug;
+				if ( isset( $seen[ $key ] ) ) {
+					continue;
+				}
+
+				$entry = array(
+					'id'    => $id ? $id : $slug,
+					'type'  => $type,
+					'slug'  => $slug,
+					'title' => ! empty( $unit['title'] ) ? wp_strip_all_tags( $unit['title'] ) : $slug,
+				);
+
+				if ( isset( $unit['sampleDefault'] ) ) {
+					$entry['sampleDefault'] = (bool) $unit['sampleDefault'];
+				}
+				if ( isset( $unit['sampleCount'] ) ) {
+					$entry['sampleCount'] = absint( $unit['sampleCount'] );
+				}
+
+				$normalized[] = $entry;
+				$seen[ $key ] = true;
+			}
+
+			return $normalized;
 		}
 
 	/**

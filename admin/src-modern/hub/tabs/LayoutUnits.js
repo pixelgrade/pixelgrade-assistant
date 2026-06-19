@@ -474,28 +474,67 @@ export function LayoutUnits() {
 		setUnits( [] );
 
 		try {
-			const results = await Promise.all(
-				sources.map( async ( source ) => {
-					try {
-						const response = await restRequest( data, 'layoutUnits', {
-							demo_key: source.id,
-							url: source.baseRestUrl,
-						} );
-						const sourceUnits = response && response.data && Array.isArray( response.data.units ) ? response.data.units : [];
-						prewarmSourceUnits( data, source, sourceUnits );
+			let results = null;
+			try {
+				const response = await restRequest( data, 'layoutUnits', {
+					sources: sources.map( ( source ) => ( {
+						id: source.id,
+						baseRestUrl: source.baseRestUrl,
+					} ) ),
+				} );
+				const sourceResults = response && response.data && Array.isArray( response.data.sources ) ? response.data.sources : [];
 
-						return {
-							source,
-							units: sourceUnits.map( ( unit ) => ( {
-								...unit,
+				if ( sourceResults.length ) {
+					results = sourceResults.map( ( result ) => {
+						const source = sources.find( ( candidate ) => candidate.id === result.id ) || {};
+						const sourceUnits = result && 'success' === result.code && Array.isArray( result.units ) ? result.units : [];
+
+						if ( sourceUnits.length ) {
+							prewarmSourceUnits( data, source, sourceUnits );
+						}
+
+						return 'success' === result.code
+							? {
+									source,
+									units: sourceUnits.map( ( unit ) => ( {
+										...unit,
+										source,
+									} ) ),
+							  }
+							: {
+									source,
+									error: new Error( result.message || result.code || copy.failure ),
+							  };
+					} );
+				}
+			} catch ( error ) {
+				results = null;
+			}
+
+			if ( ! results ) {
+				results = await Promise.all(
+					sources.map( async ( source ) => {
+						try {
+							const response = await restRequest( data, 'layoutUnits', {
+								demo_key: source.id,
+								url: source.baseRestUrl,
+							} );
+							const sourceUnits = response && response.data && Array.isArray( response.data.units ) ? response.data.units : [];
+							prewarmSourceUnits( data, source, sourceUnits );
+
+							return {
 								source,
-							} ) ),
-						};
-					} catch ( error ) {
-						return { source, error };
-					}
-				} )
-			);
+								units: sourceUnits.map( ( unit ) => ( {
+									...unit,
+									source,
+								} ) ),
+							};
+						} catch ( error ) {
+							return { source, error };
+						}
+					} )
+				);
+			}
 
 			const successful = results.filter( ( result ) => ! result.error );
 			const failed = results.filter( ( result ) => result.error );

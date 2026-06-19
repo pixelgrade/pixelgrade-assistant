@@ -32,6 +32,7 @@ $GLOBALS['paf_uploaded_bits']         = array();
 $GLOBALS['paf_inserted_attachments']  = array();
 $GLOBALS['paf_remote_media_failures'] = array();
 $GLOBALS['paf_bundle_endpoint_status'] = 0;
+$GLOBALS['paf_layout_units_endpoint_status'] = 404;
 $GLOBALS['paf_downloads']             = array();
 $GLOBALS['paf_sideloads']             = array();
 $GLOBALS['paf_next_post_id']          = 1000;
@@ -332,6 +333,14 @@ function delete_transient( $key ) {
 function wp_remote_get( $url, $args = array() ) {
 	$GLOBALS['paf_remote_requests'][] = array( $url, $args );
 
+	if ( false !== strpos( $url, '/wp-json/sce/v2/layout-units' ) ) {
+		if ( ! empty( $GLOBALS['paf_layout_units_endpoint_status'] ) ) {
+			return paf_remote_response( array( 'code' => 'not_found' ), (int) $GLOBALS['paf_layout_units_endpoint_status'] );
+		}
+
+		return paf_remote_response( paf_remote_layout_units( $url, $args ) );
+	}
+
 	if ( false !== strpos( $url, '/wp-json/sce/v2/data' ) ) {
 		if ( false !== strpos( $url, 'broken-data.test' ) ) {
 			return paf_remote_response( array( 'code' => 'server_error' ), 500 );
@@ -555,6 +564,35 @@ function paf_remote_layout_unit_bundles( $url = '', $args = array() ) {
 					'posts' => array(
 						'wp_template_part' => array( paf_find_remote_post( 'wp_template_part', 86 ) ),
 					),
+				),
+			),
+		),
+	);
+}
+
+function paf_remote_layout_units( $url = '', $args = array() ) {
+	return array(
+		'code'    => 'success',
+		'message' => '',
+		'data'    => array(
+			'units' => array(
+				array(
+					'id'    => 98,
+					'type'  => 'wp_template_part',
+					'slug'  => 'header',
+					'title' => 'Header',
+				),
+				array(
+					'id'    => 86,
+					'type'  => 'wp_template_part',
+					'slug'  => 'footer',
+					'title' => 'Footer',
+				),
+				array(
+					'id'    => 1185,
+					'type'  => 'wp_template',
+					'slug'  => 'home',
+					'title' => 'Home',
 				),
 			),
 		),
@@ -1326,6 +1364,38 @@ foreach ( $GLOBALS['paf_remote_requests'] as $request ) {
 }
 	assert_same( 'success', $cached_footer_summary['code'], 'A listed layout unit must still import successfully after source cache warming.' );
 	assert_same( 0, $template_part_fetches, 'A warmed media-free layout source must reuse the listed template-part post without re-fetching it for insertion.' );
+
+	$GLOBALS['paf_layout_units_endpoint_status'] = 0;
+	$GLOBALS['paf_transients']                  = array();
+	$GLOBALS['paf_remote_requests']             = array();
+	$fast_list_starter_content                  = new PixelgradeAssistant_StarterContent( (object) array( 'file' => __FILE__ ) );
+	$fast_units_response                        = $fast_list_starter_content->list_layout_units(
+		'anima-restaurant',
+		'https://starter.test/wp-json/sce/v2/'
+	);
+	$GLOBALS['paf_layout_units_endpoint_status'] = 404;
+
+	assert_same( 'success', $fast_units_response['code'], 'A source layout-units endpoint must be accepted as the fast list path.' );
+	assert_same( $units_response['data']['units'], $fast_units_response['data']['units'], 'The fast list path must preserve the existing layout unit payload shape.' );
+
+	$fast_list_requests = array(
+		'layoutUnits' => 0,
+		'posts'       => 0,
+		'data'        => 0,
+	);
+	foreach ( $GLOBALS['paf_remote_requests'] as $request ) {
+		$request_url = isset( $request[0] ) ? $request[0] : '';
+		if ( false !== strpos( $request_url, '/wp-json/sce/v2/layout-units' ) ) {
+			$fast_list_requests['layoutUnits']++;
+		}
+		if ( false !== strpos( $request_url, '/wp-json/sce/v2/posts' ) ) {
+			$fast_list_requests['posts']++;
+		}
+		if ( false !== strpos( $request_url, '/wp-json/sce/v2/data' ) ) {
+			$fast_list_requests['data']++;
+		}
+	}
+	assert_same( array( 'layoutUnits' => 1, 'posts' => 0, 'data' => 0 ), $fast_list_requests, 'The fast list path must use one source list request and skip legacy posts/data discovery.' );
 
 	assert_true( method_exists( $starter_content, 'prewarm_layout_unit_bundles' ), 'Starter Content must expose prewarm_layout_unit_bundles() for background layout bundle caching.' );
 
