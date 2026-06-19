@@ -12,6 +12,7 @@ import { Overview } from './Overview';
 import { Account } from './Account';
 import { Plugins } from './Plugins';
 import { StarterSites } from './StarterSites';
+import { LayoutUnits } from './LayoutUnits';
 import { SystemStatus } from './SystemStatus';
 import { Tools } from './Tools';
 import { HelpTab } from './Help';
@@ -43,6 +44,12 @@ addFilter( 'pixelgrade.adminHub.tabs', 'pixelgrade-assistant/starter-sites', ( m
 
 	return map;
 }, 100 );
+
+addFilter( 'pixelgrade.adminHub.tabs', 'pixelgrade-assistant/layout-units', ( map ) => {
+	map.layoutUnits = { component: LayoutUnits };
+
+	return map;
+} );
 
 addFilter( 'pixelgrade.adminHub.tabs', 'pixelgrade-assistant/system-status', ( map ) => {
 	map.systemStatus = { component: SystemStatus };

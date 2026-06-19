@@ -179,6 +179,14 @@ class PixelgradeAssistant_Admin {
 			    'method' => 'POST',
 			    'url'    => esc_url_raw( rest_url() . 'pixassist/v1/upload_media' ),
 		    ),
+		    'layoutUnits'        => array(
+			    'method' => 'POST',
+			    'url'    => esc_url_raw( rest_url() . 'pixassist/v1/layout_units' ),
+		    ),
+		    'importUnit'         => array(
+			    'method' => 'POST',
+			    'url'    => esc_url_raw( rest_url() . 'pixassist/v1/import_unit' ),
+		    ),
 
 		    'dataCollect'        => array(
 			    'get' => array(
@@ -298,6 +306,7 @@ class PixelgradeAssistant_Admin {
             // The mixed Starter Sites tab (#49) reuses the existing free starter-content config and
             // lets Plus inject premium starters through the documented PHP filter.
             wp_localize_script( $handle, 'pixelgradeStarterSites', pixassist_get_starter_sites_data() );
+            wp_localize_script( $handle, 'pixelgradeLayoutUnits', pixassist_get_layout_units_data() );
             // Secondary diagnostics/maintenance tabs (#50), sourced from existing Assistant REST
             // endpoints and data collectors.
             wp_localize_script( $handle, 'pixelgradeSystemStatus', pixassist_get_system_status_data() );

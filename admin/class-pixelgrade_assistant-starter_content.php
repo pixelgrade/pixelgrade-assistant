@@ -136,6 +136,313 @@ class PixelgradeAssistant_StarterContent {
 			'permission_callback' => array( $this, 'permission_nonce_callback' ),
 			'show_in_index'       => false,
 		) );
+
+		register_rest_route( 'pixassist/v1', '/import_unit', array(
+			'methods'             => WP_REST_Server::CREATABLE,
+			'callback'            => array( $this, 'rest_import_unit' ),
+			'permission_callback' => array( $this, 'permission_nonce_callback' ),
+			'show_in_index'       => false,
+			'args'                => array(
+				'demo_key'        => array( 'required' => true ),
+				'url'             => array( 'required' => true ),
+				'unit_type'       => array( 'required' => true ),
+				'unit'            => array( 'required' => true ),
+				'pixassist_nonce' => array( 'required' => true ),
+			),
+		) );
+
+		register_rest_route( 'pixassist/v1', '/layout_units', array(
+			'methods'             => WP_REST_Server::CREATABLE,
+			'callback'            => array( $this, 'rest_list_layout_units' ),
+			'permission_callback' => array( $this, 'permission_nonce_callback' ),
+			'show_in_index'       => false,
+			'args'                => array(
+				'demo_key'        => array( 'required' => true ),
+				'url'             => array( 'required' => true ),
+				'pixassist_nonce' => array( 'required' => true ),
+			),
+		) );
+	}
+
+	/**
+	 * Handle the request to list importable layout units for a source.
+	 *
+	 * @param WP_REST_Request $request Request object.
+	 *
+	 * @return WP_REST_Response
+	 */
+	public function rest_list_layout_units( $request ) {
+		$params = $request->get_params();
+
+		if ( empty( $params['demo_key'] ) || empty( $params['url'] ) ) {
+			return rest_ensure_response( array(
+				'code'    => 'missing_params',
+				'message' => esc_html__( 'You need to provide all the needed parameters.', '__plugin_txtd' ),
+				'data'    => array(),
+			) );
+		}
+
+		return rest_ensure_response( $this->list_layout_units(
+			sanitize_key( $params['demo_key'] ),
+			esc_url_raw( $params['url'] )
+		) );
+	}
+
+	/**
+	 * List source layout units supported by the granular importer.
+	 *
+	 * @param string $demo_key Starter/demo key.
+	 * @param string $base_url Source SCE REST base URL.
+	 *
+	 * @return array Response payload.
+	 */
+	public function list_layout_units( $demo_key, $base_url ) {
+		$demo_key = sanitize_key( $demo_key );
+		$base_url = trailingslashit( esc_url_raw( $base_url ) );
+
+		if ( empty( $demo_key ) || empty( $base_url ) ) {
+			return array(
+				'code'    => 'invalid_params',
+				'message' => esc_html__( 'The layout unit request is invalid.', '__plugin_txtd' ),
+				'data'    => array(),
+			);
+		}
+
+		if ( ! $this->is_allowed_demo_url( $base_url ) ) {
+			return array(
+				'code'    => 'invalid_source',
+				'message' => esc_html__( 'The starter content source is not allowed.', '__plugin_txtd' ),
+				'data'    => array(),
+			);
+		}
+
+		$units = array();
+		foreach ( array( 'wp_template_part', 'wp_template' ) as $post_type ) {
+			$posts = $this->fetch_layout_source_posts( $base_url, $post_type );
+			if ( is_wp_error( $posts ) ) {
+				return $this->layout_unit_error_response( $posts );
+			}
+
+			foreach ( $posts as $post ) {
+				if ( empty( $post['ID'] ) || empty( $post['post_name'] ) ) {
+					continue;
+				}
+
+				$units[] = array(
+					'id'    => absint( $post['ID'] ),
+					'type'  => $post_type,
+					'slug'  => sanitize_key( $post['post_name'] ),
+					'title' => ! empty( $post['post_title'] ) ? wp_strip_all_tags( $post['post_title'] ) : sanitize_key( $post['post_name'] ),
+				);
+			}
+		}
+
+		return array(
+			'code'    => 'success',
+			'message' => '',
+			'data'    => array(
+				'units' => $units,
+			),
+		);
+	}
+
+	/**
+	 * Handle the request to import one layout unit.
+	 *
+	 * @param WP_REST_Request $request Request object.
+	 *
+	 * @return WP_REST_Response
+	 */
+	public function rest_import_unit( $request ) {
+		$params = $request->get_params();
+
+		if ( empty( $params['demo_key'] ) || empty( $params['url'] ) || empty( $params['unit_type'] ) || empty( $params['unit'] ) ) {
+			return rest_ensure_response( array(
+				'code'    => 'missing_params',
+				'message' => esc_html__( 'You need to provide all the needed parameters.', '__plugin_txtd' ),
+				'data'    => array(),
+			) );
+		}
+
+		return rest_ensure_response( $this->import_layout_unit(
+			sanitize_key( $params['demo_key'] ),
+			esc_url_raw( $params['url'] ),
+			sanitize_key( $params['unit_type'] ),
+			sanitize_text_field( $params['unit'] )
+		) );
+	}
+
+	/**
+	 * Import one layout unit and its layout-only dependencies.
+	 *
+	 * @param string     $demo_key  Starter/demo key.
+	 * @param string     $base_url  Source SCE REST base URL.
+	 * @param string     $unit_type Unit post type: wp_template_part or wp_template.
+	 * @param int|string $unit      Source post ID or slug.
+	 *
+	 * @return array Response payload.
+	 */
+	public function import_layout_unit( $demo_key, $base_url, $unit_type, $unit ) {
+		$demo_key  = sanitize_key( $demo_key );
+		$base_url  = trailingslashit( esc_url_raw( $base_url ) );
+		$unit_type = sanitize_key( $unit_type );
+		$unit      = sanitize_text_field( $unit );
+
+		if ( empty( $demo_key ) || empty( $base_url ) || empty( $unit ) || ! in_array( $unit_type, array( 'wp_template_part', 'wp_template' ), true ) ) {
+			return array(
+				'code'    => 'invalid_params',
+				'message' => esc_html__( 'The layout unit request is invalid.', '__plugin_txtd' ),
+				'data'    => array(),
+			);
+		}
+
+		if ( ! $this->is_allowed_demo_url( $base_url ) ) {
+			return array(
+				'code'    => 'invalid_source',
+				'message' => esc_html__( 'The starter content source is not allowed.', '__plugin_txtd' ),
+				'data'    => array(),
+			);
+		}
+
+		$missing_plugins = $this->get_missing_required_plugins( $demo_key );
+		if ( ! empty( $missing_plugins ) ) {
+			$names = wp_list_pluck( $missing_plugins, 'name' );
+
+			return array(
+				'code'    => 'missing_required_plugins',
+				'message' => sprintf(
+					/* translators: %s: comma-separated list of plugin names. */
+					esc_html__( 'This starter needs these plugins installed and active first: %s. Please install and activate them, then import again.', '__plugin_txtd' ),
+					implode( ', ', $names )
+				),
+				'data'    => array(
+					'requiredPlugins' => array_values( $missing_plugins ),
+				),
+			);
+		}
+
+		set_transient( 'pixassist_sce_demo_url', $base_url, HOUR_IN_SECONDS );
+
+		wp_defer_term_counting( true );
+		wp_defer_comment_counting( true );
+		wp_suspend_cache_invalidation( true );
+
+		$source_posts = $this->fetch_layout_source_posts( $base_url, $unit_type );
+		if ( is_wp_error( $source_posts ) ) {
+			$this->restore_import_counting();
+
+			return $this->layout_unit_error_response( $source_posts );
+		}
+
+		$unit_post = $this->find_layout_unit_post( $source_posts, $unit );
+		if ( empty( $unit_post ) ) {
+			$this->restore_import_counting();
+
+			return array(
+				'code'    => 'unit_not_found',
+				'message' => esc_html__( 'The requested layout unit could not be found.', '__plugin_txtd' ),
+				'data'    => array(),
+			);
+		}
+
+		$source_data = $this->fetch_layout_source_data( $base_url );
+		if ( is_wp_error( $source_data ) ) {
+			$needs_source_data = ! empty( $this->extract_layout_navigation_slugs( isset( $unit_post['post_content'] ) ? $unit_post['post_content'] : '' ) )
+				|| $this->layout_unit_uses_logo( $unit_post );
+
+			if ( $needs_source_data ) {
+				$this->restore_import_counting();
+
+				return $this->layout_unit_error_response( $source_data );
+			}
+
+			$source_data = array();
+		}
+
+		$dependencies = array(
+			'navMenus'  => 0,
+			'menuItems' => 0,
+			'media'     => 0,
+			'logos'     => 0,
+		);
+
+		$menu_import = $this->import_layout_unit_menu_dependencies( $demo_key, $base_url, $source_data, $unit_post );
+		if ( is_wp_error( $menu_import ) ) {
+			$this->restore_import_counting();
+
+			return $this->layout_unit_error_response( $menu_import );
+		}
+
+		$dependencies['navMenus']  = isset( $menu_import['navMenus'] ) ? (int) $menu_import['navMenus'] : 0;
+		$dependencies['menuItems'] = isset( $menu_import['menuItems'] ) ? (int) $menu_import['menuItems'] : 0;
+
+		$media_import = $this->import_layout_unit_media_dependencies( $demo_key, $unit_post );
+		if ( is_wp_error( $media_import ) ) {
+			$this->restore_import_counting();
+
+			return $this->layout_unit_error_response( $media_import );
+		}
+
+		$dependencies['media'] = isset( $media_import['media'] ) ? (int) $media_import['media'] : 0;
+
+		$settings_import = $this->import_layout_unit_settings( $demo_key, $source_data, $unit_post, isset( $menu_import['locationSlugs'] ) ? $menu_import['locationSlugs'] : array() );
+		if ( is_wp_error( $settings_import ) ) {
+			$this->restore_import_counting();
+
+			return $this->layout_unit_error_response( $settings_import );
+		}
+
+		$dependencies['logos'] = isset( $settings_import['logos'] ) ? (int) $settings_import['logos'] : 0;
+
+		$overwrite_filter = function ( $should_overwrite, $existing_post_id, $post ) use ( $unit_post ) {
+			if ( ! empty( $post['ID'] ) && (int) $post['ID'] === (int) $unit_post['ID'] ) {
+				return true;
+			}
+
+			return $should_overwrite;
+		};
+		add_filter( 'pixassist_sce_should_overwrite_existing_post', $overwrite_filter, 10, 3 );
+
+		try {
+			$unit_import = $this->import_post_type( $demo_key, $base_url, array(
+				'post_type' => $unit_type,
+				'ids'       => array( (int) $unit_post['ID'] ),
+			) );
+		} finally {
+			remove_filter( 'pixassist_sce_should_overwrite_existing_post', $overwrite_filter, 10 );
+		}
+
+		$this->restore_import_counting();
+
+		if ( is_wp_error( $unit_import ) ) {
+			return $this->layout_unit_error_response( $unit_import );
+		}
+		if ( $unit_import instanceof WP_REST_Response ) {
+			return $unit_import;
+		}
+		if ( empty( $unit_import[ $unit_post['ID'] ] ) ) {
+			return array(
+				'code'    => 'unit_import_failed',
+				'message' => esc_html__( 'The layout unit could not be imported.', '__plugin_txtd' ),
+				'data'    => array(),
+			);
+		}
+
+		do_action( 'pixassist_sce_import_end' );
+
+		return array(
+			'code'    => 'success',
+			'message' => esc_html__( 'Layout imported.', '__plugin_txtd' ),
+			'data'    => array(
+				'unit'         => array(
+					'type'     => $unit_type,
+					'slug'     => isset( $unit_post['post_name'] ) ? (string) $unit_post['post_name'] : '',
+					'sourceId' => (int) $unit_post['ID'],
+					'localId'  => (int) $unit_import[ $unit_post['ID'] ],
+				),
+				'dependencies' => $dependencies,
+			),
+		);
 	}
 
 	/**
@@ -465,6 +772,771 @@ class PixelgradeAssistant_StarterContent {
 		}
 
 		return $val;
+	}
+
+	/**
+	 * Fetch source starter metadata from the existing v2 SCE data endpoint.
+	 *
+	 * @param string $base_url Source SCE REST base URL.
+	 *
+	 * @return array|WP_Error Source data on success.
+	 */
+	private function fetch_layout_source_data( $base_url ) {
+		$response = wp_remote_get(
+			trailingslashit( $base_url ) . 'data',
+			array(
+				'timeout'   => 15,
+				'sslverify' => true,
+			)
+		);
+
+		return $this->parse_layout_source_response( $response, 'data' );
+	}
+
+	/**
+	 * Fetch source posts for a post type from the existing v2 SCE posts endpoint.
+	 *
+	 * Passing an empty include value asks the current exporter for all posts of that type.
+	 *
+	 * @param string       $base_url  Source SCE REST base URL.
+	 * @param string       $post_type Source post type.
+	 * @param array|string $include   Optional source post IDs.
+	 *
+	 * @return array|WP_Error Source posts on success.
+	 */
+	private function fetch_layout_source_posts( $base_url, $post_type, $include = '' ) {
+		$response = wp_remote_request(
+			trailingslashit( $base_url ) . 'posts',
+			array(
+				'method'    => 'POST',
+				'timeout'   => 15,
+				'blocking'  => true,
+				'body'      => array(
+					'post_type' => sanitize_key( $post_type ),
+					'include'   => $include,
+				),
+				'sslverify' => true,
+			)
+		);
+
+		$data = $this->parse_layout_source_response( $response, 'posts' );
+		if ( is_wp_error( $data ) ) {
+			return $data;
+		}
+
+		return isset( $data['posts'] ) && is_array( $data['posts'] ) ? $data['posts'] : array();
+	}
+
+	/**
+	 * Fetch source terms from the existing v2 SCE terms endpoint.
+	 *
+	 * @param string $base_url Source SCE REST base URL.
+	 * @param string $taxonomy Source taxonomy.
+	 * @param array  $include  Source term IDs.
+	 *
+	 * @return array|WP_Error Source terms on success.
+	 */
+	private function fetch_layout_source_terms( $base_url, $taxonomy, $include ) {
+		$response = wp_remote_request(
+			trailingslashit( $base_url ) . 'terms',
+			array(
+				'method'    => 'POST',
+				'timeout'   => 15,
+				'blocking'  => true,
+				'body'      => array(
+					'taxonomy' => sanitize_key( $taxonomy ),
+					'include'  => array_values( array_map( 'absint', (array) $include ) ),
+				),
+				'sslverify' => true,
+			)
+		);
+
+		$data = $this->parse_layout_source_response( $response, 'terms' );
+		if ( is_wp_error( $data ) ) {
+			return $data;
+		}
+
+		return isset( $data['terms'] ) && is_array( $data['terms'] ) ? $data['terms'] : array();
+	}
+
+	/**
+	 * Parse a v2 SCE response.
+	 *
+	 * @param array|WP_Error $response HTTP response.
+	 * @param string         $expected Expected data key.
+	 *
+	 * @return array|WP_Error Parsed data on success.
+	 */
+	private function parse_layout_source_response( $response, $expected ) {
+		if ( is_wp_error( $response ) ) {
+			return $response;
+		}
+
+		$status = (int) wp_remote_retrieve_response_code( $response );
+		if ( 200 !== $status ) {
+			return new WP_Error(
+				'layout_source_http_error',
+				esc_html__( 'The layout source could not be reached.', '__plugin_txtd' ),
+				array( 'status' => $status )
+			);
+		}
+
+		$data = json_decode( wp_remote_retrieve_body( $response ), true );
+		if ( null === $data || empty( $data['code'] ) || 'success' !== $data['code'] || ! isset( $data['data'] ) || ! is_array( $data['data'] ) ) {
+			return new WP_Error(
+				'layout_source_invalid_response',
+				esc_html__( 'The layout source returned invalid data.', '__plugin_txtd' )
+			);
+		}
+
+		if ( ! isset( $data['data'][ $expected ] ) && 'data' !== $expected ) {
+			return new WP_Error(
+				'layout_source_missing_data',
+				esc_html__( 'The layout source response is missing required data.', '__plugin_txtd' )
+			);
+		}
+
+		return 'data' === $expected ? $data['data'] : $data['data'];
+	}
+
+	/**
+	 * Find one source layout unit by ID or slug.
+	 *
+	 * @param array      $posts Source posts.
+	 * @param int|string $unit  Source ID or slug.
+	 *
+	 * @return array|null
+	 */
+	private function find_layout_unit_post( $posts, $unit ) {
+		$unit_slug = sanitize_key( $unit );
+		$unit_id   = absint( $unit );
+
+		foreach ( (array) $posts as $post ) {
+			if ( ! is_array( $post ) || empty( $post['ID'] ) ) {
+				continue;
+			}
+
+			if ( $unit_id && (int) $post['ID'] === $unit_id ) {
+				return $post;
+			}
+
+			if ( ! empty( $post['post_name'] ) && sanitize_key( $post['post_name'] ) === $unit_slug ) {
+				return $post;
+			}
+		}
+
+		return null;
+	}
+
+	/**
+	 * Import nav-menu dependencies used by a layout unit.
+	 *
+	 * @param string $demo_key    Starter/demo key.
+	 * @param string $base_url    Source SCE REST base URL.
+	 * @param array  $source_data Source starter data.
+	 * @param array  $unit_post   Source layout unit post.
+	 *
+	 * @return array|WP_Error Dependency summary.
+	 */
+	private function import_layout_unit_menu_dependencies( $demo_key, $base_url, $source_data, $unit_post ) {
+		$slugs = $this->extract_layout_navigation_slugs( isset( $unit_post['post_content'] ) ? $unit_post['post_content'] : '' );
+		if ( empty( $slugs ) ) {
+			return array(
+				'navMenus'      => 0,
+				'menuItems'     => 0,
+				'locationSlugs' => array(),
+			);
+		}
+
+		$locations = isset( $source_data['post_settings']['mods']['nav_menu_locations'] ) && is_array( $source_data['post_settings']['mods']['nav_menu_locations'] )
+			? $source_data['post_settings']['mods']['nav_menu_locations']
+			: array();
+
+		$menu_ids       = array();
+		$location_slugs = array();
+		foreach ( $slugs as $slug ) {
+			if ( isset( $locations[ $slug ] ) ) {
+				$menu_ids[]       = absint( $locations[ $slug ] );
+				$location_slugs[] = $slug;
+			}
+		}
+
+		$menu_ids       = array_values( array_unique( array_filter( $menu_ids ) ) );
+		$location_slugs = array_values( array_unique( array_filter( $location_slugs ) ) );
+		if ( empty( $menu_ids ) ) {
+			return array(
+				'navMenus'      => 0,
+				'menuItems'     => 0,
+				'locationSlugs' => array(),
+			);
+		}
+
+		$source_terms = $this->fetch_layout_source_terms( $base_url, 'nav_menu', $menu_ids );
+		if ( is_wp_error( $source_terms ) ) {
+			return $source_terms;
+		}
+
+		$term_names = array();
+		foreach ( $source_terms as $term ) {
+			if ( ! empty( $term['name'] ) ) {
+				$term_names[] = (string) $term['name'];
+			}
+			if ( ! empty( $term['slug'] ) ) {
+				$term_names[] = (string) $term['slug'];
+			}
+		}
+		$term_names = array_values( array_unique( array_filter( $term_names ) ) );
+
+		$term_import = $this->import_taxonomy( $demo_key, $base_url, array(
+			'tax' => 'nav_menu',
+			'ids' => $menu_ids,
+		) );
+		if ( is_wp_error( $term_import ) ) {
+			return $term_import;
+		}
+		if ( $term_import instanceof WP_REST_Response ) {
+			return new WP_Error( 'layout_menu_import_failed', esc_html__( 'The layout menu could not be imported.', '__plugin_txtd' ) );
+		}
+
+		$source_items = $this->fetch_layout_source_posts( $base_url, 'nav_menu_item' );
+		if ( is_wp_error( $source_items ) ) {
+			return $source_items;
+		}
+
+		$menu_item_ids = array();
+		foreach ( $source_items as $source_item ) {
+			if ( $this->layout_post_belongs_to_nav_terms( $source_item, $menu_ids, $term_names ) ) {
+				$menu_item_ids[] = absint( $source_item['ID'] );
+			}
+		}
+		$menu_item_ids = array_values( array_unique( array_filter( $menu_item_ids ) ) );
+		if ( empty( $menu_item_ids ) ) {
+			return array(
+				'navMenus'      => count( $term_import ),
+				'menuItems'     => 0,
+				'locationSlugs' => $location_slugs,
+			);
+		}
+
+		$menu_filter = function ( $post_args, $post ) use ( $base_url ) {
+			return $this->normalize_layout_menu_item_args( $post_args, $post, $base_url );
+		};
+		$menu_finalizer = function ( $post, $imported_ids ) use ( $base_url ) {
+			$this->finalize_layout_menu_item_custom_link( $post, $imported_ids, $base_url );
+		};
+		add_filter( 'pixassist_sce_insert_post_args', $menu_filter, 10, 2 );
+		add_action( 'pixassist_sce_after_insert_post', $menu_finalizer, 20, 3 );
+
+		try {
+			$items_import = $this->import_post_type( $demo_key, $base_url, array(
+				'post_type' => 'nav_menu_item',
+				'ids'       => $menu_item_ids,
+			) );
+		} finally {
+			remove_filter( 'pixassist_sce_insert_post_args', $menu_filter, 10 );
+			remove_action( 'pixassist_sce_after_insert_post', $menu_finalizer, 20 );
+		}
+
+		if ( is_wp_error( $items_import ) ) {
+			return $items_import;
+		}
+		if ( $items_import instanceof WP_REST_Response ) {
+			return new WP_Error( 'layout_menu_item_import_failed', esc_html__( 'The layout menu items could not be imported.', '__plugin_txtd' ) );
+		}
+
+		return array(
+			'navMenus'      => count( $term_import ),
+			'menuItems'     => count( $items_import ),
+			'locationSlugs' => $location_slugs,
+		);
+	}
+
+	/**
+	 * Import media IDs referenced directly by a layout unit.
+	 *
+	 * @param string $demo_key  Starter/demo key.
+	 * @param array  $unit_post Source layout unit post.
+	 *
+	 * @return array|WP_Error Dependency summary.
+	 */
+	private function import_layout_unit_media_dependencies( $demo_key, $unit_post ) {
+		$media_ids = $this->extract_layout_media_ids( isset( $unit_post['post_content'] ) ? $unit_post['post_content'] : '' );
+		if ( empty( $media_ids ) ) {
+			return array( 'media' => 0 );
+		}
+
+		$imported = 0;
+		foreach ( $media_ids as $media_id ) {
+			if ( $this->layout_media_id_is_imported( $demo_key, $media_id ) ) {
+				continue;
+			}
+
+			$local_id = $this->sideload_demo_attachment( $media_id, $demo_key );
+			if ( ! empty( $local_id ) ) {
+				$imported++;
+			}
+		}
+
+		return array( 'media' => $imported );
+	}
+
+	/**
+	 * Import theme settings required by a layout unit.
+	 *
+	 * @param string $demo_key       Starter/demo key.
+	 * @param array  $source_data    Source starter data.
+	 * @param array  $unit_post      Source layout unit post.
+	 * @param array  $location_slugs Navigation location slugs to import.
+	 *
+	 * @return array|WP_Error Dependency summary.
+	 */
+	private function import_layout_unit_settings( $demo_key, $source_data, $unit_post, $location_slugs ) {
+		$source_mods = isset( $source_data['post_settings']['mods'] ) && is_array( $source_data['post_settings']['mods'] )
+			? $source_data['post_settings']['mods']
+			: array();
+
+		$mods = array();
+
+		if ( ! empty( $location_slugs ) && ! empty( $source_mods['nav_menu_locations'] ) && is_array( $source_mods['nav_menu_locations'] ) ) {
+			$mods['nav_menu_locations'] = array();
+			foreach ( $location_slugs as $slug ) {
+				if ( isset( $source_mods['nav_menu_locations'][ $slug ] ) ) {
+					$mods['nav_menu_locations'][ $slug ] = $source_mods['nav_menu_locations'][ $slug ];
+				}
+			}
+			if ( empty( $mods['nav_menu_locations'] ) ) {
+				unset( $mods['nav_menu_locations'] );
+			}
+		}
+
+		$logo_keys = array( 'custom_logo', 'anima_transparent_logo', 'pixelgrade_transparent_logo', 'osteria_transparent_logo' );
+		$logo_count = 0;
+		if ( $this->layout_unit_uses_logo( $unit_post ) ) {
+			foreach ( $logo_keys as $key ) {
+				if ( ! empty( $source_mods[ $key ] ) ) {
+					$mods[ $key ] = $source_mods[ $key ];
+					$logo_count++;
+				}
+			}
+		}
+
+		if ( empty( $mods ) ) {
+			return array( 'logos' => 0 );
+		}
+
+		$result = $this->import_settings(
+			$demo_key,
+			'post',
+			array(
+				'mods' => $mods,
+			),
+			false
+		);
+
+		if ( is_wp_error( $result ) ) {
+			return $result;
+		}
+		if ( $result instanceof WP_REST_Response ) {
+			return new WP_Error( 'layout_settings_import_failed', esc_html__( 'The layout settings could not be imported.', '__plugin_txtd' ) );
+		}
+
+		return array( 'logos' => $logo_count );
+	}
+
+	/**
+	 * Whether a source nav-menu item belongs to one of the selected menus.
+	 *
+	 * @param array $post       Source menu-item post.
+	 * @param array $menu_ids   Source menu term IDs.
+	 * @param array $term_names Source menu names/slugs.
+	 *
+	 * @return bool
+	 */
+	private function layout_post_belongs_to_nav_terms( $post, $menu_ids, $term_names ) {
+		if ( empty( $post['taxonomies']['nav_menu'] ) || ! is_array( $post['taxonomies']['nav_menu'] ) ) {
+			return false;
+		}
+
+		foreach ( $post['taxonomies']['nav_menu'] as $term ) {
+			if ( is_numeric( $term ) && in_array( absint( $term ), $menu_ids, true ) ) {
+				return true;
+			}
+
+			if ( in_array( (string) $term, $term_names, true ) ) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	/**
+	 * Convert unimported post-object menu items to custom links.
+	 *
+	 * Layout-only imports intentionally avoid importing pages/posts/projects. If a source menu item
+	 * points at one of those objects, preserve its label and URL as a custom link instead of leaving a
+	 * dangling object ID.
+	 *
+	 * @param array  $post_args Prepared wp_insert_post() args.
+	 * @param array  $post      Source menu-item post.
+	 * @param string $base_url  Source SCE REST base URL.
+	 *
+	 * @return array
+	 */
+	private function normalize_layout_menu_item_args( $post_args, $post, $base_url ) {
+		$target = $this->get_layout_menu_item_custom_target( $post, $base_url );
+		if ( is_wp_error( $target ) || empty( $target['title'] ) || empty( $target['url'] ) ) {
+			return $post_args;
+		}
+
+		$post_args['post_title'] = $target['title'];
+
+		if ( empty( $post_args['meta_input'] ) || ! is_array( $post_args['meta_input'] ) ) {
+			$post_args['meta_input'] = array();
+		}
+
+		$post_args['meta_input']['_menu_item_type']      = 'custom';
+		$post_args['meta_input']['_menu_item_object']    = 'custom';
+		$post_args['meta_input']['_menu_item_object_id'] = isset( $post['ID'] ) ? (string) $post['ID'] : '0';
+		$post_args['meta_input']['_menu_item_url']       = $target['url'];
+
+		return $post_args;
+	}
+
+	/**
+	 * Keep layout-only menu items as custom links after the default menu remapper runs.
+	 *
+	 * @param array  $post         Source menu-item post.
+	 * @param array  $imported_ids Source-to-local imported IDs for this import pass.
+	 * @param string $base_url     Source SCE REST base URL.
+	 *
+	 * @return void
+	 */
+	private function finalize_layout_menu_item_custom_link( $post, $imported_ids, $base_url ) {
+		if ( empty( $post['ID'] ) || empty( $imported_ids[ $post['ID'] ] ) ) {
+			return;
+		}
+
+		$target = $this->get_layout_menu_item_custom_target( $post, $base_url );
+		if ( empty( $target ) || is_wp_error( $target ) ) {
+			return;
+		}
+
+		$post_id = absint( $imported_ids[ $post['ID'] ] );
+		update_post_meta( $post_id, '_menu_item_type', 'custom' );
+		update_post_meta( $post_id, '_menu_item_object', 'custom' );
+		update_post_meta( $post_id, '_menu_item_object_id', (string) absint( $post['ID'] ) );
+		update_post_meta( $post_id, '_menu_item_url', esc_url_raw( $target['url'] ) );
+
+		if ( ! empty( $target['title'] ) ) {
+			wp_update_post( array(
+				'ID'         => $post_id,
+				'post_title' => $target['title'],
+			) );
+		}
+	}
+
+	/**
+	 * Resolve an unimported source object referenced by a source menu item.
+	 *
+	 * @param array  $post     Source menu-item post.
+	 * @param string $base_url Source SCE REST base URL.
+	 *
+	 * @return array|WP_Error|null { title, url } on success.
+	 */
+	private function get_layout_menu_item_custom_target( $post, $base_url ) {
+		if ( empty( $post['post_type'] ) || 'nav_menu_item' !== $post['post_type'] ) {
+			return null;
+		}
+
+		$type = $this->layout_post_meta_value( $post, '_menu_item_type' );
+		if ( 'post_type' !== $type ) {
+			return null;
+		}
+
+		$object    = sanitize_key( $this->layout_post_meta_value( $post, '_menu_item_object' ) );
+		$object_id = absint( $this->layout_post_meta_value( $post, '_menu_item_object_id' ) );
+		if ( empty( $object ) || empty( $object_id ) ) {
+			return null;
+		}
+
+		return $this->fetch_layout_source_object( $base_url, $object, $object_id );
+	}
+
+	/**
+	 * Fetch a source object referenced by a menu item.
+	 *
+	 * @param string $base_url    Source SCE REST base URL.
+	 * @param string $object_type Source object type.
+	 * @param int    $object_id   Source object ID.
+	 *
+	 * @return array|WP_Error { title, url } on success.
+	 */
+	private function fetch_layout_source_object( $base_url, $object_type, $object_id ) {
+		$rest_base = array(
+			'page' => 'pages',
+			'post' => 'posts',
+		);
+
+		$endpoint = isset( $rest_base[ $object_type ] ) ? $rest_base[ $object_type ] : $object_type . 's';
+		$site_url = $this->get_layout_source_site_url( $base_url );
+		if ( empty( $site_url ) ) {
+			return new WP_Error( 'layout_source_site_missing', esc_html__( 'The layout source site could not be resolved.', '__plugin_txtd' ) );
+		}
+
+		$response = wp_remote_get(
+			trailingslashit( $site_url ) . 'wp-json/wp/v2/' . sanitize_key( $endpoint ) . '/' . absint( $object_id ),
+			array(
+				'timeout'   => 15,
+				'sslverify' => true,
+			)
+		);
+
+		if ( is_wp_error( $response ) ) {
+			return $response;
+		}
+
+		if ( 200 !== (int) wp_remote_retrieve_response_code( $response ) ) {
+			return new WP_Error( 'layout_source_object_missing', esc_html__( 'The menu item target could not be resolved.', '__plugin_txtd' ) );
+		}
+
+		$data = json_decode( wp_remote_retrieve_body( $response ), true );
+		if ( empty( $data ) || ! is_array( $data ) ) {
+			return new WP_Error( 'layout_source_object_invalid', esc_html__( 'The menu item target response is invalid.', '__plugin_txtd' ) );
+		}
+
+		$title = '';
+		if ( ! empty( $data['title']['rendered'] ) ) {
+			$title = html_entity_decode( wp_strip_all_tags( $data['title']['rendered'] ), ENT_QUOTES, get_bloginfo( 'charset' ) );
+		}
+
+		return array(
+			'title' => $title,
+			'url'   => ! empty( $data['link'] ) ? $this->rebase_layout_source_url( $data['link'], $site_url ) : '',
+		);
+	}
+
+	/**
+	 * Extract Nova/Core navigation slugs from block comments.
+	 *
+	 * @param string $content Block content.
+	 *
+	 * @return string[] Navigation slugs.
+	 */
+	private function extract_layout_navigation_slugs( $content ) {
+		$slugs = array();
+
+		if ( ! is_string( $content ) || '' === $content ) {
+			return $slugs;
+		}
+
+		if ( ! preg_match_all( '/<!--\s+wp:(?:novablocks\/navigation|navigation)\s+({.*?})?\s*(?:\/-->|-->)/', $content, $matches ) ) {
+			return $slugs;
+		}
+
+		foreach ( $matches[1] as $attributes ) {
+			if ( empty( $attributes ) ) {
+				continue;
+			}
+
+			$decoded = json_decode( $attributes, true );
+			if ( ! is_array( $decoded ) || empty( $decoded['slug'] ) ) {
+				continue;
+			}
+
+			$slugs[] = sanitize_key( $decoded['slug'] );
+		}
+
+		return array_values( array_unique( array_filter( $slugs ) ) );
+	}
+
+	/**
+	 * Whether a layout unit uses the site logo.
+	 *
+	 * @param array $unit_post Source layout unit post.
+	 *
+	 * @return bool
+	 */
+	private function layout_unit_uses_logo( $unit_post ) {
+		$content = isset( $unit_post['post_content'] ) ? (string) $unit_post['post_content'] : '';
+
+		return false !== strpos( $content, 'novablocks/logo' ) || false !== strpos( $content, 'site-logo' );
+	}
+
+	/**
+	 * Extract attachment IDs directly referenced by layout block content.
+	 *
+	 * @param string $content Block content.
+	 *
+	 * @return int[] Media IDs.
+	 */
+	private function extract_layout_media_ids( $content ) {
+		$ids = array();
+
+		if ( ! is_string( $content ) || '' === $content ) {
+			return $ids;
+		}
+
+		if ( preg_match_all( '/\bwp-image-(\d+)\b/', $content, $matches ) ) {
+			$ids = array_merge( $ids, array_map( 'absint', $matches[1] ) );
+		}
+
+		if ( preg_match_all( '/<!--\s+wp:([^\s]+)\s+({.*?})\s*(?:\/-->|-->)/', $content, $matches ) ) {
+			foreach ( $matches[2] as $index => $attributes ) {
+				$decoded = json_decode( $attributes, true );
+				if ( is_array( $decoded ) ) {
+					$ids = array_merge( $ids, $this->extract_layout_media_ids_from_attributes( $decoded, isset( $matches[1][ $index ] ) ? $matches[1][ $index ] : '' ) );
+				}
+			}
+		}
+
+		$ids = array_values( array_unique( array_filter( array_map( 'absint', $ids ) ) ) );
+		sort( $ids );
+
+		return $ids;
+	}
+
+	/**
+	 * Recursively extract media-like IDs from block attributes.
+	 *
+	 * @param array  $attributes Block attributes.
+	 * @param string $block_name Block name.
+	 *
+	 * @return int[] Media IDs.
+	 */
+	private function extract_layout_media_ids_from_attributes( $attributes, $block_name = '' ) {
+		$ids                 = array();
+		$specific_media_keys = array( 'mediaId', 'mediaID', 'imageId', 'imageID', 'attachmentId', 'attachmentID', 'backgroundImageId', 'backgroundMediaId', 'logoId', 'logoID' );
+		$generic_id_blocks   = array( 'image', 'cover', 'gallery', 'media-text', 'video', 'audio', 'file' );
+		$block_name          = sanitize_key( $block_name );
+		$can_use_generic_id  = in_array( $block_name, $generic_id_blocks, true ) || false !== strpos( $block_name, 'gallery' ) || false !== strpos( $block_name, 'image' ) || false !== strpos( $block_name, 'media' );
+
+		foreach ( $attributes as $key => $value ) {
+			if ( is_array( $value ) ) {
+				$ids = array_merge( $ids, $this->extract_layout_media_ids_from_attributes( $value, $block_name ) );
+				continue;
+			}
+
+			$is_media_key = in_array( (string) $key, $specific_media_keys, true ) || ( $can_use_generic_id && 'id' === (string) $key );
+			if ( is_scalar( $value ) && $is_media_key && is_numeric( $value ) ) {
+				$ids[] = absint( $value );
+			}
+		}
+
+		return $ids;
+	}
+
+	/**
+	 * Whether a source media ID already has a local journal mapping.
+	 *
+	 * @param string $demo_key Starter/demo key.
+	 * @param int    $media_id Source media ID.
+	 *
+	 * @return bool
+	 */
+	private function layout_media_id_is_imported( $demo_key, $media_id ) {
+		$starter_content = PixelgradeAssistant_Admin::get_option( 'imported_starter_content' );
+		if ( empty( $starter_content[ $demo_key ]['media'] ) || ! is_array( $starter_content[ $demo_key ]['media'] ) ) {
+			return false;
+		}
+
+		foreach ( array( 'ignored', 'placeholders' ) as $group ) {
+			if ( ! empty( $starter_content[ $demo_key ]['media'][ $group ][ $media_id ] ) ) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	/**
+	 * Read a source post meta value from the exporter shape.
+	 *
+	 * @param array  $post Source post.
+	 * @param string $key  Meta key.
+	 *
+	 * @return mixed
+	 */
+	private function layout_post_meta_value( $post, $key ) {
+		if ( empty( $post['meta'][ $key ] ) ) {
+			return '';
+		}
+
+		$value = $post['meta'][ $key ];
+		if ( is_array( $value ) && isset( $value[0] ) ) {
+			$value = $value[0];
+		}
+
+		return maybe_unserialize( $value );
+	}
+
+	/**
+	 * Rebase a source-site URL to the local site root.
+	 *
+	 * @param string $url             Source URL.
+	 * @param string $source_site_url Source site root URL.
+	 *
+	 * @return string Local URL when source-root-relative, original otherwise.
+	 */
+	private function rebase_layout_source_url( $url, $source_site_url ) {
+		$url    = esc_url_raw( $url );
+		$source = trailingslashit( esc_url_raw( $source_site_url ) );
+		if ( empty( $url ) || empty( $source ) ) {
+			return $url;
+		}
+
+		if ( 0 === strpos( $url, $source ) ) {
+			return trailingslashit( site_url() ) . ltrim( substr( $url, strlen( $source ) ), '/' );
+		}
+
+		return $url;
+	}
+
+	/**
+	 * Derive the source site root from an SCE REST base URL.
+	 *
+	 * @param string $base_url Source SCE REST base URL.
+	 *
+	 * @return string
+	 */
+	private function get_layout_source_site_url( $base_url ) {
+		$site = preg_replace( '#wp-json/.*$#', '', trailingslashit( $base_url ) );
+
+		return trailingslashit( esc_url_raw( $site ) );
+	}
+
+	/**
+	 * Convert a WP_Error into the import response shape.
+	 *
+	 * @param WP_Error $error Error object.
+	 *
+	 * @return array
+	 */
+	private function layout_unit_error_response( $error ) {
+		return array(
+			'code'    => method_exists( $error, 'get_error_code' ) ? $error->get_error_code() : 'layout_import_error',
+			'message' => $error->get_error_message(),
+			'data'    => method_exists( $error, 'get_error_data' ) ? (array) $error->get_error_data() : array(),
+		);
+	}
+
+	/**
+	 * Restore term/comment/cache flags after a granular import.
+	 */
+	private function restore_import_counting() {
+		wp_suspend_cache_invalidation( false );
+		wp_cache_flush();
+
+		if ( function_exists( 'get_taxonomies' ) ) {
+			$taxonomies = get_taxonomies();
+			foreach ( $taxonomies as $tax ) {
+				delete_option( "{$tax}_children" );
+				_get_term_hierarchy( $tax );
+			}
+		}
+
+		wp_defer_term_counting( false );
+		wp_defer_comment_counting( false );
 	}
 
 	/**
@@ -988,7 +2060,7 @@ class PixelgradeAssistant_StarterContent {
 		return $imported_ids;
 	}
 
-	private function import_settings( $demo_key, $type, $data ) {
+	private function import_settings( $demo_key, $type, $data, $trigger_import_hooks = true ) {
 		if ( ! is_array( $data ) ) {
 			$data = json_decode( $data, true );
 		}
@@ -1041,13 +2113,25 @@ class PixelgradeAssistant_StarterContent {
 			}
 		}
 
-		if ( 'pre' === $type ) {
+		if ( $trigger_import_hooks && 'pre' === $type ) {
 			do_action( 'pixassist_sce_import_start' );
 		}
 
 
-		if ( 'post' === $type ) {
+		if ( $trigger_import_hooks && 'post' === $type ) {
 			do_action( 'pixassist_sce_import_end' );
+		}
+
+		// Filters above may import additional dependencies and write them to the same journal
+		// (for example a logo sideloaded while remapping `custom_logo`). Preserve those writes
+		// instead of saving the pre-filter snapshot over them.
+		$latest_starter_content = PixelgradeAssistant_Admin::get_option( 'imported_starter_content' );
+		if ( is_array( $latest_starter_content ) ) {
+			if ( empty( $latest_starter_content[ $demo_key ] ) || ! is_array( $latest_starter_content[ $demo_key ] ) ) {
+				$latest_starter_content[ $demo_key ] = array();
+			}
+			$latest_starter_content[ $demo_key ][ $settings_key ] = $starter_content[ $demo_key ][ $settings_key ];
+			$starter_content = $latest_starter_content;
 		}
 
 		// Save the data in the DB

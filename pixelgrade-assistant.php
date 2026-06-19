@@ -59,6 +59,9 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/admin-plugins.php';
 // Free Starter Sites tab: existing free demos plus Plus-injected premium starters.
 require_once plugin_dir_path( __FILE__ ) . 'includes/admin-starter-sites.php';
 
+// Free Layouts tab: granular single-unit layout import.
+require_once plugin_dir_path( __FILE__ ) . 'includes/admin-layout-units.php';
+
 // Secondary System Status tab: diagnostics data and controls.
 require_once plugin_dir_path( __FILE__ ) . 'includes/admin-system-status.php';
 
