@@ -347,6 +347,15 @@ function buildImportTasks( starter, config, data, setProgress ) {
 
 export async function importStarter( starter, data, copy, setProgress ) {
 	setProgress( copy.importing );
+
+	if ( getEndpoint( data, 'importStarter' ).url ) {
+		await restRequest( data, 'importStarter', {
+			demo_key: starter.id,
+			url: trailingslash( starter.baseRestUrl ),
+		} );
+		return;
+	}
+
 	const config = await fetchJson( trailingslash( starter.baseRestUrl ) + 'data', { method: 'GET' } );
 
 	if ( ! config || 'success' !== config.code ) {

@@ -14,6 +14,7 @@ define( 'HOUR_IN_SECONDS', 3600 );
 $GLOBALS['paf_actions']               = array();
 $GLOBALS['paf_filters']               = array();
 $GLOBALS['paf_pixassist_options']     = array();
+$GLOBALS['paf_pixassist_db_options']  = array();
 $GLOBALS['paf_theme_mods']            = array();
 $GLOBALS['paf_wp_options']            = array();
 $GLOBALS['paf_transients']            = array();
@@ -27,6 +28,10 @@ $GLOBALS['paf_deleted_terms']         = array();
 $GLOBALS['paf_term_meta']             = array();
 $GLOBALS['paf_attachment_metadata']   = array();
 $GLOBALS['paf_deleted_attachments']   = array();
+$GLOBALS['paf_uploaded_bits']         = array();
+$GLOBALS['paf_inserted_attachments']  = array();
+$GLOBALS['paf_remote_media_failures'] = array();
+$GLOBALS['paf_bundle_endpoint_status'] = 0;
 $GLOBALS['paf_downloads']             = array();
 $GLOBALS['paf_sideloads']             = array();
 $GLOBALS['paf_next_post_id']          = 1000;
@@ -217,8 +222,21 @@ function delete_transient( $key ) {
 	return true;
 }
 
-function wp_remote_request( $url, $args = array() ) {
+	function wp_remote_request( $url, $args = array() ) {
+		$preempt = apply_filters( 'pre_http_request', false, $args, $url );
+		if ( false !== $preempt ) {
+			return $preempt;
+	}
+
 	$GLOBALS['paf_remote_requests'][] = array( $url, $args );
+
+	if ( false !== strpos( $url, '/layout-unit-bundles' ) ) {
+		if ( ! empty( $GLOBALS['paf_bundle_endpoint_status'] ) ) {
+			return paf_remote_response( array( 'code' => 'not_found' ), (int) $GLOBALS['paf_bundle_endpoint_status'] );
+		}
+
+		return paf_remote_response( paf_remote_layout_unit_bundles( $url, $args ) );
+	}
 
 	if ( false !== strpos( $url, '/posts' ) ) {
 		$post_type = isset( $args['body']['post_type'] ) ? $args['body']['post_type'] : '';
@@ -296,8 +314,20 @@ function wp_remote_request( $url, $args = array() ) {
 		);
 	}
 
-	return paf_remote_response( array( 'code' => 'not_found' ), 404 );
-}
+		return paf_remote_response( array( 'code' => 'not_found' ), 404 );
+	}
+
+	function wp_remote_post( $url, $args = array() ) {
+		return wp_remote_request( $url, $args );
+	}
+
+	function rest_url( $path = '' ) {
+		return 'https://local.test/wp-json/' . ltrim( (string) $path, '/' );
+	}
+
+	function wp_generate_password( $length = 12, $special_chars = true, $extra_special_chars = false ) {
+		return substr( str_repeat( 'pafpass', 4 ), 0, (int) $length );
+	}
 
 function wp_remote_get( $url, $args = array() ) {
 	$GLOBALS['paf_remote_requests'][] = array( $url, $args );
@@ -345,6 +375,28 @@ function wp_remote_get( $url, $args = array() ) {
 			array(
 				'id'         => (int) $matches[1],
 				'source_url' => 'https://portfolio-source.test/project-' . $matches[1] . '.jpg',
+			)
+		);
+	}
+
+	if ( preg_match( '#/wp-json/sce/v2/media\?id=(\d+)#', $url, $matches ) ) {
+		$remote_id = (int) $matches[1];
+		if ( ! empty( $GLOBALS['paf_remote_media_failures'][ $remote_id ] ) ) {
+			$GLOBALS['paf_remote_media_failures'][ $remote_id ]--;
+
+			return new WP_Error( 'http_request_failed', 'cURL error 28: Operation timed out after 30001 milliseconds.' );
+		}
+
+		return paf_remote_response(
+			array(
+				'code' => 'success',
+				'data' => array(
+					'media' => array(
+						'title' => 'Retried media',
+						'ext'   => 'txt',
+						'data'  => 'data:text/plain;base64,' . base64_encode( 'retried media' ),
+					),
+				),
 			)
 		);
 	}
@@ -422,6 +474,87 @@ function paf_remote_data( $url = '' ) {
 					),
 					'custom_logo'           => 38,
 					'anima_transparent_logo' => 0,
+				),
+			),
+		),
+	);
+}
+
+function paf_find_remote_post( $post_type, $post_id, $url = 'https://starter.test/wp-json/sce/v2/posts' ) {
+	foreach ( paf_remote_posts( $post_type, $url ) as $post ) {
+		if ( ! empty( $post['ID'] ) && (int) $post['ID'] === (int) $post_id ) {
+			return $post;
+		}
+	}
+
+	return array();
+}
+
+function paf_remote_layout_unit_bundles( $url = '', $args = array() ) {
+	$source_data = paf_remote_data( $url );
+	$source_data = isset( $source_data['data'] ) ? $source_data['data'] : array();
+
+	$nav_menu_term = array(
+		'term_id'     => 18,
+		'name'        => 'Primary',
+		'slug'        => 'primary',
+		'taxonomy'    => 'nav_menu',
+		'description' => '',
+		'parent'      => 0,
+		'meta'        => array(),
+	);
+
+	return array(
+		'code'    => 'success',
+		'message' => '',
+		'data'    => array(
+			'version' => 'test-v1',
+			'hash'    => 'starter-test-layout-bundles',
+			'bundles' => array(
+				array(
+					'type'    => 'wp_template_part',
+					'slug'    => 'header',
+					'id'      => 98,
+					'hash'    => 'header-bundle-hash',
+					'data'    => $source_data,
+					'posts'   => array(
+						'wp_template_part' => array( paf_find_remote_post( 'wp_template_part', 98 ) ),
+						'nav_menu_item'    => array( paf_find_remote_post( 'nav_menu_item', 60 ) ),
+					),
+					'terms'   => array(
+						'nav_menu' => array( $nav_menu_term ),
+					),
+					'objects' => array(
+						'page' => array(
+							array(
+								'id'    => 50,
+								'link'  => 'https://starter.test/menu/',
+								'title' => array(
+									'rendered' => 'Menu Page',
+								),
+							),
+						),
+					),
+					'media'   => array(
+						array(
+							'id'         => 38,
+							'source_url' => 'https://starter.test/logo.svg',
+						),
+						array(
+							'id'         => 39,
+							'source_url' => 'https://starter.test/header-image.jpg',
+						),
+					),
+				),
+				array(
+					'type'  => 'wp_template_part',
+					'slug'  => 'footer',
+					'id'    => 86,
+					'hash'  => 'footer-bundle-hash',
+					'data'  => $source_data,
+					'posts' => array(
+						'wp_template_part' => array( paf_find_remote_post( 'wp_template_part', 86 ) ),
+					),
 				),
 			),
 		),
@@ -527,6 +660,32 @@ function paf_remote_posts( $post_type, $url = '' ) {
 		}
 
 		return $posts;
+	}
+
+	if ( 'wp_template' === $post_type && false !== strpos( $url, 'starter.test' ) ) {
+		return array(
+			array(
+				'ID'                    => 1185,
+				'post_title'            => 'Home',
+				'post_content'          => '<!-- wp:template-part {"slug":"header","theme":"anima","tagName":"header"} /--><!-- wp:query /--><!-- wp:template-part {"slug":"footer","theme":"anima","tagName":"footer"} /-->',
+				'post_content_filtered' => '',
+				'post_excerpt'          => '',
+				'post_status'           => 'publish',
+				'post_name'             => 'home',
+				'post_type'             => 'wp_template',
+				'post_date'             => '2026-01-01 00:00:00',
+				'post_date_gmt'         => '2026-01-01 00:00:00',
+				'post_modified'         => '2026-01-01 00:00:00',
+				'post_modified_gmt'     => '2026-01-01 00:00:00',
+				'post_parent'           => 0,
+				'menu_order'            => 0,
+				'guid'                  => 'https://starter.test/?post_type=wp_template&p=1185',
+				'meta'                  => array(),
+				'taxonomies'            => array(
+					'wp_theme' => array( 'anima' ),
+				),
+			),
+		);
 	}
 
 	if ( 'wp_template' === $post_type && false !== strpos( $url, 'broken-data.test' ) ) {
@@ -818,6 +977,38 @@ function wp_delete_attachment( $attachment_id, $force_delete = false ) {
 	return true;
 }
 
+function wp_upload_bits( $filename, $deprecated, $bits ) {
+	$GLOBALS['paf_uploaded_bits'][] = array( $filename, $bits );
+
+	return array(
+		'file'  => '/tmp/' . $filename,
+		'url'   => 'https://local.test/uploads/' . $filename,
+		'error' => false,
+	);
+}
+
+function wp_check_filetype( $filename, $mimes = null ) {
+	return array( 'type' => 'text/plain' );
+}
+
+function wp_insert_attachment( $attachment, $file = false, $parent = 0 ) {
+	$attachment_id = ++$GLOBALS['paf_next_attachment_id'];
+
+	$GLOBALS['paf_inserted_attachments'][ $attachment_id ] = array(
+		'attachment' => $attachment,
+		'file'       => $file,
+		'parent'     => $parent,
+	);
+
+	return $attachment_id;
+}
+
+function wp_generate_attachment_metadata( $attachment_id, $file ) {
+	return array(
+		'file' => basename( (string) $file ),
+	);
+}
+
 function download_url( $url, $timeout = 300 ) {
 	$GLOBALS['paf_downloads'][] = array( $url, $timeout );
 
@@ -926,7 +1117,11 @@ $GLOBALS['wpdb'] = new PAF_WPDB();
 class PixelgradeAssistant_Admin {
 	public static $saved = 0;
 
-	public static function get_option( $key, $default = null ) {
+	public static function get_option( $key, $default = null, $force_refresh = false ) {
+		if ( $force_refresh ) {
+			$GLOBALS['paf_pixassist_options'] = $GLOBALS['paf_pixassist_db_options'];
+		}
+
 		return array_key_exists( $key, $GLOBALS['paf_pixassist_options'] ) ? $GLOBALS['paf_pixassist_options'][ $key ] : $default;
 	}
 
@@ -936,6 +1131,7 @@ class PixelgradeAssistant_Admin {
 
 	public static function save_options() {
 		self::$saved++;
+		$GLOBALS['paf_pixassist_db_options'] = $GLOBALS['paf_pixassist_options'];
 
 		return true;
 	}
@@ -996,7 +1192,11 @@ $GLOBALS['paf_theme_mods'] = array(
 	'custom_logo' => 42,
 );
 
-assert_true( method_exists( $starter_content, 'import_layout_unit' ), 'Starter Content must expose import_layout_unit().' );
+	assert_true( method_exists( $starter_content, 'import_layout_unit' ), 'Starter Content must expose import_layout_unit().' );
+	assert_true( method_exists( $starter_content, 'import_starter' ), 'Starter Content must expose import_starter() for server-side bulk imports.' );
+	assert_true( method_exists( $starter_content, 'queue_layout_unit_job' ), 'Starter Content must expose queue_layout_unit_job() for fast-return layout Apply requests.' );
+	assert_true( method_exists( $starter_content, 'process_layout_unit_job' ), 'Starter Content must expose process_layout_unit_job() for background Apply processing.' );
+	assert_true( method_exists( $starter_content, 'get_layout_unit_job_status' ), 'Starter Content must expose get_layout_unit_job_status() for Apply polling.' );
 
 $summary = $starter_content->import_layout_unit(
 	'anima-restaurant',
@@ -1042,6 +1242,24 @@ $active_theme_binding = array_values(
 );
 assert_true( ! empty( $active_theme_binding ), 'Imported template parts must be rebound to the active theme.' );
 
+$template_summary = $starter_content->import_layout_unit(
+	'anima-restaurant',
+	'https://starter.test/wp-json/sce/v2/',
+	'wp_template',
+	'home'
+);
+$local_template_id = $template_summary['data']['unit']['localId'];
+$template_update   = null;
+foreach ( $GLOBALS['paf_updated_posts'] as $updated_post ) {
+	if ( isset( $updated_post['ID'] ) && $local_template_id === (int) $updated_post['ID'] && isset( $updated_post['post_content'] ) ) {
+		$template_update = $updated_post;
+	}
+}
+assert_same( 'success', $template_summary['code'], 'Template layout-unit import must return a success code.' );
+assert_true( is_array( $template_update ), 'Imported templates must be updated after insert when their template-part references need rewriting.' );
+assert_true( false !== strpos( $template_update['post_content'], '"theme":"anima-lt"' ), 'Imported templates must reference template parts from the active theme.' );
+assert_true( false === strpos( $template_update['post_content'], '"theme":"anima"' ), 'Imported templates must not keep source-theme template-part references.' );
+
 $menu_item = $GLOBALS['paf_inserted_posts'][ $local_menu_item_id ];
 assert_same( 'Menu Page', $menu_item['post_title'], 'Layout-only menu imports must preserve the source item label without importing its page.' );
 assert_same( 'custom', $menu_item['meta_input']['_menu_item_type'], 'Unimported post_type menu items must be converted to custom links.' );
@@ -1079,10 +1297,184 @@ assert_same(
 			'slug'  => 'footer',
 			'title' => 'Footer',
 		),
+		array(
+			'id'    => 1185,
+			'type'  => 'wp_template',
+			'slug'  => 'home',
+			'title' => 'Home',
+		),
 	),
 	$units_response['data']['units'],
 	'Layout-unit listing must expose only importable layout units in source order.'
 );
+
+$GLOBALS['paf_remote_requests'] = array();
+$cached_footer_summary          = $starter_content->import_layout_unit(
+	'anima-restaurant',
+	'https://starter.test/wp-json/sce/v2/',
+	'wp_template_part',
+	'footer'
+);
+$template_part_fetches          = 0;
+foreach ( $GLOBALS['paf_remote_requests'] as $request ) {
+	$request_url  = isset( $request[0] ) ? $request[0] : '';
+	$request_args = isset( $request[1] ) ? $request[1] : array();
+	$post_type    = isset( $request_args['body']['post_type'] ) ? $request_args['body']['post_type'] : '';
+	if ( false !== strpos( $request_url, '/posts' ) && 'wp_template_part' === $post_type ) {
+		$template_part_fetches++;
+	}
+}
+	assert_same( 'success', $cached_footer_summary['code'], 'A listed layout unit must still import successfully after source cache warming.' );
+	assert_same( 0, $template_part_fetches, 'A warmed media-free layout source must reuse the listed template-part post without re-fetching it for insertion.' );
+
+	assert_true( method_exists( $starter_content, 'prewarm_layout_unit_bundles' ), 'Starter Content must expose prewarm_layout_unit_bundles() for background layout bundle caching.' );
+
+	$bundle_starter_content                = new PixelgradeAssistant_StarterContent( (object) array( 'file' => __FILE__ ) );
+	$GLOBALS['paf_transients']            = array();
+	$GLOBALS['paf_remote_requests']       = array();
+	$GLOBALS['paf_pixassist_options']     = array();
+	$GLOBALS['paf_pixassist_db_options']  = array();
+	$GLOBALS['paf_inserted_posts']        = array();
+	$GLOBALS['paf_updated_posts']         = array();
+	$GLOBALS['paf_object_terms']          = array();
+	$GLOBALS['paf_inserted_terms']        = array();
+	$GLOBALS['paf_attachment_metadata']   = array();
+	$GLOBALS['paf_sideloads']             = array();
+	$GLOBALS['paf_downloads']             = array();
+	$GLOBALS['paf_next_post_id']          = 1000;
+	$GLOBALS['paf_next_attachment_id']    = 3000;
+	$GLOBALS['paf_theme_mods']            = array(
+		'nav_menu_locations' => array(
+			'primary' => 7,
+		),
+		'custom_logo'        => 42,
+	);
+
+	$prewarm_result = $bundle_starter_content->prewarm_layout_unit_bundles(
+		'anima-restaurant',
+		'https://starter.test/wp-json/sce/v2/',
+		array(
+			array(
+				'type' => 'wp_template_part',
+				'slug' => 'header',
+			),
+			array(
+				'type' => 'wp_template_part',
+				'slug' => 'footer',
+			),
+		)
+	);
+
+	assert_same( 'success', $prewarm_result['code'], 'Prewarming layout bundles from the source endpoint must succeed on a warmable source.' );
+	assert_same( 2, $prewarm_result['data']['bundles'], 'Prewarming the Header/Footer list must cache both returned bundles.' );
+
+	$bundle_requests = 0;
+	foreach ( $GLOBALS['paf_remote_requests'] as $request ) {
+		if ( false !== strpos( $request[0], '/layout-unit-bundles' ) ) {
+			$bundle_requests++;
+		}
+	}
+	assert_same( 1, $bundle_requests, 'Prewarming Header/Footer bundles must use one source bundle request.' );
+
+	$GLOBALS['paf_remote_requests'] = array();
+	$queued_header                  = $bundle_starter_content->queue_layout_unit_job(
+		'anima-restaurant',
+		'https://starter.test/wp-json/sce/v2/',
+		'wp_template_part',
+		'header',
+		array(),
+		false
+	);
+
+	assert_same( 'success', $queued_header['code'], 'Queueing a prewarmed header Apply job must return success immediately.' );
+	assert_same( array(), $GLOBALS['paf_remote_requests'], 'Queueing a prewarmed header Apply job must not call the remote source.' );
+
+	$processed_header = $bundle_starter_content->process_layout_unit_job( $queued_header['data']['jobId'], $queued_header['data']['token'] );
+	assert_same( 'success', $processed_header['code'], 'Processing a prewarmed header Apply job must succeed.' );
+	assert_same( 'success', $processed_header['data']['status'], 'A prewarmed header Apply job must complete successfully.' );
+
+	$unexpected_discovery_requests = array();
+	foreach ( $GLOBALS['paf_remote_requests'] as $request ) {
+		$request_url = isset( $request[0] ) ? $request[0] : '';
+		if (
+			false !== strpos( $request_url, '/wp-json/sce/v2/data' )
+			|| false !== strpos( $request_url, '/wp-json/sce/v2/posts' )
+			|| false !== strpos( $request_url, '/wp-json/sce/v2/terms' )
+			|| false !== strpos( $request_url, '/wp-json/wp/v2/pages' )
+			|| false !== strpos( $request_url, '/wp-json/wp/v2/media/38' )
+			|| false !== strpos( $request_url, '/wp-json/wp/v2/media/39' )
+		) {
+			$unexpected_discovery_requests[] = $request_url;
+		}
+	}
+	assert_same( array(), $unexpected_discovery_requests, 'A prewarmed header Apply must not rediscover posts, terms, menu targets, source data, or media URLs at click time.' );
+
+	$GLOBALS['paf_bundle_endpoint_status'] = 404;
+	$fallback_starter_content             = new PixelgradeAssistant_StarterContent( (object) array( 'file' => __FILE__ ) );
+	$GLOBALS['paf_transients']            = array();
+	$GLOBALS['paf_remote_requests']       = array();
+	$GLOBALS['paf_pixassist_options']     = array();
+	$GLOBALS['paf_pixassist_db_options']  = array();
+
+	$fallback_prewarm = $fallback_starter_content->prewarm_layout_unit_bundles(
+		'anima-restaurant',
+		'https://starter.test/wp-json/sce/v2/',
+		array(
+			array(
+				'type' => 'wp_template_part',
+				'slug' => 'footer',
+			),
+		)
+	);
+	assert_same( 'bundle_unavailable', $fallback_prewarm['code'], 'A missing source bundle endpoint must be reported as unavailable, not as a hard Apply failure.' );
+
+	$GLOBALS['paf_remote_requests'] = array();
+	$fallback_summary              = $fallback_starter_content->import_layout_unit(
+		'anima-restaurant',
+		'https://starter.test/wp-json/sce/v2/',
+		'wp_template_part',
+		'footer'
+	);
+	$GLOBALS['paf_bundle_endpoint_status'] = 0;
+
+	assert_same( 'success', $fallback_summary['code'], 'Layout-unit Apply must still use the existing dynamic fallback when the source bundle endpoint is unavailable.' );
+
+	$fallback_post_fetches = 0;
+	foreach ( $GLOBALS['paf_remote_requests'] as $request ) {
+		$request_url = isset( $request[0] ) ? $request[0] : '';
+		if ( false !== strpos( $request_url, '/wp-json/sce/v2/posts' ) ) {
+			$fallback_post_fetches++;
+		}
+	}
+	assert_true( 0 < $fallback_post_fetches, 'The unavailable-bundle fallback must use the existing post discovery path.' );
+
+	$queued_footer = $starter_content->queue_layout_unit_job(
+		'anima-restaurant',
+		'https://starter.test/wp-json/sce/v2/',
+		'wp_template_part',
+		'footer',
+		array(),
+		false
+	);
+
+	assert_same( 'success', $queued_footer['code'], 'Queueing a layout Apply job must return success immediately.' );
+	assert_same( 'queued', $queued_footer['data']['status'], 'A newly queued layout Apply job must start in queued status.' );
+	assert_true( ! empty( $queued_footer['data']['jobId'] ), 'A queued layout Apply job must expose a pollable job ID.' );
+	assert_true( ! empty( $queued_footer['data']['token'] ), 'The direct queue helper must retain the worker token for internal processing.' );
+
+	$queued_status = $starter_content->get_layout_unit_job_status( $queued_footer['data']['jobId'] );
+	assert_same( 'success', $queued_status['code'], 'Reading a queued layout Apply job status must succeed.' );
+	assert_same( 'queued', $queued_status['data']['status'], 'Stored layout Apply job status must remain queued before processing.' );
+
+	$processed_footer = $starter_content->process_layout_unit_job( $queued_footer['data']['jobId'], $queued_footer['data']['token'] );
+	assert_same( 'success', $processed_footer['code'], 'Processing a queued layout Apply job must run the existing import path successfully.' );
+	assert_same( 'success', $processed_footer['data']['status'], 'A successfully processed layout Apply job must store success status.' );
+	assert_true( isset( $processed_footer['data']['result']['data']['appliedUnits']['wp_template_part:footer'] ), 'The queued layout Apply job must preserve applied-unit journal state.' );
+
+	$processed_status = $starter_content->get_layout_unit_job_status( $queued_footer['data']['jobId'] );
+	assert_same( 'success', $processed_status['code'], 'Reading a processed layout Apply job status must succeed.' );
+	assert_same( 'success', $processed_status['data']['status'], 'Stored layout Apply job status must reflect completion.' );
+	assert_true( isset( $processed_status['data']['result']['data']['appliedUnits']['wp_template_part:footer'] ), 'Stored completed job result must expose applied units for UI polling.' );
 
 $feature_units_response = $starter_content->list_layout_units(
 	'anima-portfolio',
@@ -1188,5 +1580,38 @@ assert_same( array( 1185 => $local_home_id ), $blog_journal['post_types']['wp_te
 assert_true( empty( $blog_journal['post_types']['page'] ), 'Fallback template imports must not import pages.' );
 assert_true( empty( $blog_journal['post_types']['post'] ), 'Fallback template imports must not import posts.' );
 assert_true( empty( $blog_journal['post_types']['portfolio'] ), 'Fallback template imports must not import portfolio projects.' );
+
+$GLOBALS['paf_remote_requests']                 = array();
+$GLOBALS['paf_remote_media_failures']           = array( 9101 => 1 );
+$GLOBALS['paf_pixassist_options']               = array();
+$GLOBALS['paf_pixassist_db_options']            = array();
+$GLOBALS['paf_uploaded_bits']                   = array();
+$GLOBALS['paf_inserted_attachments']            = array();
+$GLOBALS['paf_attachment_metadata']             = array();
+$GLOBALS['paf_next_attachment_id']              = 3000;
+
+$starter_summary = $starter_content->import_starter(
+	'anima-restaurant',
+	'https://starter.test/wp-json/sce/v2/',
+	array(
+		'media' => array(
+			'placeholders' => array( 1 ),
+			'ignored'      => array( 9101 ),
+		),
+	)
+);
+
+assert_same( 'success', $starter_summary['code'], 'Full starter media import must retry a transient media fetch timeout and still succeed.' );
+assert_same( 1, $starter_summary['data']['summary']['media'], 'Retried full-starter media import must count the imported media item.' );
+assert_same( 'retried media', $GLOBALS['paf_uploaded_bits'][0][1], 'Retried media payload must be uploaded after the successful retry.' );
+assert_same( true, $GLOBALS['paf_attachment_metadata'][3001]['imported_with_pixassist'], 'Retried media import must still tag attachment metadata for safe reset.' );
+
+$media_request_timeouts = array();
+foreach ( $GLOBALS['paf_remote_requests'] as $request ) {
+	if ( false !== strpos( $request[0], '/wp-json/sce/v2/media?id=9101' ) ) {
+		$media_request_timeouts[] = isset( $request[1]['timeout'] ) ? (int) $request[1]['timeout'] : 0;
+	}
+}
+assert_same( array( 30, 90 ), $media_request_timeouts, 'A transient full-starter media timeout must be retried with a longer timeout.' );
 
 echo "Layout unit import contract OK\n";

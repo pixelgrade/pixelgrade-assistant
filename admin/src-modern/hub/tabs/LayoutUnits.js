@@ -45,6 +45,9 @@ const DEFAULT_LAYOUT_UNITS = {
 	applied: {},
 };
 
+const LAYOUT_UNIT_JOB_POLL_INTERVAL = 300;
+const LAYOUT_UNIT_JOB_TIMEOUT = 120000;
+
 function getLayoutUnitsData() {
 	if ( typeof window !== 'undefined' && window.pixelgradeLayoutUnits ) {
 		return window.pixelgradeLayoutUnits;
@@ -125,6 +128,12 @@ async function restRequest( data, key, payload ) {
 	return response;
 }
 
+function delay( milliseconds ) {
+	return new Promise( ( resolve ) => {
+		window.setTimeout( resolve, milliseconds );
+	} );
+}
+
 function normalizeApplied( applied ) {
 	if ( ! applied || 'object' !== typeof applied || Array.isArray( applied ) ) {
 		return {};
@@ -203,6 +212,30 @@ function groupUnits( units ) {
 			features: [],
 		}
 	);
+}
+
+function getPrewarmableUnits( units ) {
+	return units
+		.filter( ( unit ) => 'wp_template_part' === unit.type && [ 'header', 'footer' ].includes( unit.slug ) )
+		.map( ( unit ) => ( {
+			type: unit.type,
+			slug: unit.slug,
+			id: unit.id,
+		} ) );
+}
+
+function prewarmSourceUnits( data, source, units ) {
+	const prewarmUnits = getPrewarmableUnits( units );
+
+	if ( ! prewarmUnits.length || ! getEndpoint( data, 'prewarmUnitBundles' ).url ) {
+		return;
+	}
+
+	restRequest( data, 'prewarmUnitBundles', {
+		demo_key: source.id,
+		url: source.baseRestUrl,
+		units: prewarmUnits,
+	} ).catch( () => {} );
 }
 
 function getPreviewUrl( unit ) {
@@ -449,6 +482,7 @@ export function LayoutUnits() {
 							url: source.baseRestUrl,
 						} );
 						const sourceUnits = response && response.data && Array.isArray( response.data.units ) ? response.data.units : [];
+						prewarmSourceUnits( data, source, sourceUnits );
 
 						return {
 							source,
@@ -485,17 +519,56 @@ export function LayoutUnits() {
 		}
 
 		const slot = getSlotKey( unit );
+		const payload = {
+			demo_key: unit.source.id,
+			url: unit.source.baseRestUrl,
+			unit_type: unit.type,
+			unit: unit.slug || unit.id,
+			...( 'feature' === unit.type ? { include_sample: Boolean( options.includeSample ) } : {} ),
+		};
+		const supportsQueuedImport = Boolean( getEndpoint( data, 'queueUnit' ).url && getEndpoint( data, 'unitJobStatus' ).url );
+
 		setBusyKey( 'import:' + slot + ':' + unit.source.id );
 		setMessage( null );
 
 		try {
-			const response = await restRequest( data, 'importUnit', {
-				demo_key: unit.source.id,
-				url: unit.source.baseRestUrl,
-				unit_type: unit.type,
-				unit: unit.slug || unit.id,
-				...( 'feature' === unit.type ? { include_sample: Boolean( options.includeSample ) } : {} ),
-			} );
+			let response;
+
+			if ( supportsQueuedImport ) {
+				const queued = await restRequest( data, 'queueUnit', payload );
+				const jobId = queued && queued.data ? queued.data.jobId : '';
+				const started = Date.now();
+
+				if ( ! jobId ) {
+					throw new Error( copy.importFailure );
+				}
+
+				while ( Date.now() - started < LAYOUT_UNIT_JOB_TIMEOUT ) {
+					await delay( LAYOUT_UNIT_JOB_POLL_INTERVAL );
+
+					const statusResponse = await restRequest( data, 'unitJobStatus', {
+						job_id: jobId,
+					} );
+					const job = statusResponse && statusResponse.data ? statusResponse.data : {};
+
+					if ( 'success' === job.status ) {
+						response = job.result || {};
+						break;
+					}
+
+					if ( 'error' === job.status ) {
+						const result = job.result || {};
+						const error = job.error || {};
+						throw new Error( result.message || error.message || copy.importFailure );
+					}
+				}
+
+				if ( ! response ) {
+					throw new Error( copy.importFailure );
+				}
+			} else {
+				response = await restRequest( data, 'importUnit', payload );
+			}
 
 			if ( response && response.data && response.data.appliedUnits ) {
 				setApplied( normalizeApplied( response.data.appliedUnits ) );

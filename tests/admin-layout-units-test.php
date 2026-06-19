@@ -101,14 +101,22 @@ class PixelgradeAssistant_Admin {
 			'method' => 'POST',
 			'url'    => 'https://example.test/wp-json/pixassist/v1/layout_units',
 		),
-		'importUnit'  => array(
-			'method' => 'POST',
-			'url'    => 'https://example.test/wp-json/pixassist/v1/import_unit',
-		),
-		'undoUnit'    => array(
-			'method' => 'POST',
-			'url'    => 'https://example.test/wp-json/pixassist/v1/undo_unit',
-		),
+			'importUnit'  => array(
+				'method' => 'POST',
+				'url'    => 'https://example.test/wp-json/pixassist/v1/import_unit',
+			),
+			'queueUnit'   => array(
+				'method' => 'POST',
+				'url'    => 'https://example.test/wp-json/pixassist/v1/queue_unit',
+			),
+			'unitJobStatus' => array(
+				'method' => 'POST',
+				'url'    => 'https://example.test/wp-json/pixassist/v1/unit_job_status',
+			),
+			'undoUnit'    => array(
+				'method' => 'POST',
+				'url'    => 'https://example.test/wp-json/pixassist/v1/undo_unit',
+			),
 	);
 }
 
@@ -166,6 +174,8 @@ assert_same( '', $data['sources'][0]['gate'], 'Free source gates must stay empty
 assert_same( 'plus_licensed', $data['sources'][1]['gate'], 'Premium source gates must be preserved for presentation.' );
 assert_same( PixelgradeAssistant_Admin::$internalApiEndpoints['layoutUnits'], $data['endpoints']['layoutUnits'], 'Layouts payload must expose the unit-list endpoint.' );
 assert_same( PixelgradeAssistant_Admin::$internalApiEndpoints['importUnit'], $data['endpoints']['importUnit'], 'Layouts payload must expose the unit-import endpoint.' );
+assert_same( PixelgradeAssistant_Admin::$internalApiEndpoints['queueUnit'], $data['endpoints']['queueUnit'], 'Layouts payload must expose the async unit queue endpoint.' );
+assert_same( PixelgradeAssistant_Admin::$internalApiEndpoints['unitJobStatus'], $data['endpoints']['unitJobStatus'], 'Layouts payload must expose the async unit job status endpoint.' );
 assert_same( PixelgradeAssistant_Admin::$internalApiEndpoints['undoUnit'], $data['endpoints']['undoUnit'], 'Layouts payload must expose the unit-undo endpoint.' );
 assert_same( 'Olive & Ash', $data['applied']['wp_template_part:header']['sourceTitle'], 'Layouts payload must expose initially applied units.' );
 

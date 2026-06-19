@@ -120,8 +120,10 @@ class PixelgradeAssistant_Admin {
 	    // Make sure TGMPA is loaded.
 	    require_once plugin_dir_path( $this->parent->file ) . 'admin/required-plugins/class-tgm-plugin-activation.php';
 
-	    // Make sure the Gutenberg vs Classic Editor logic is loaded.
-	    require_once plugin_dir_path( $this->parent->file ) . 'vendor/classic-editor/classic-editor.php';
+	    // Load the bundled Classic Editor only for themes that explicitly require it.
+	    if ( pixassist_theme_requires_classic_editor( PixelgradeAssistant::get_theme_config() ) ) {
+		    require_once plugin_dir_path( $this->parent->file ) . 'vendor/classic-editor/classic-editor.php';
+	    }
 
 	    // Fill up the WUpdates identification data for missing entities that we can deduce through other means.
 	    // This mostly addresses WordPress.org themes that don't have the WUpdates identification data.
@@ -171,25 +173,49 @@ class PixelgradeAssistant_Admin {
 		    ),
 
 		    // Starter content needed endpoints
-		    'import'             => array(
-			    'method' => 'POST',
-			    'url'    => esc_url_raw( rest_url() . 'pixassist/v1/import' ),
-		    ),
-		    'uploadMedia'        => array(
-			    'method' => 'POST',
-			    'url'    => esc_url_raw( rest_url() . 'pixassist/v1/upload_media' ),
-		    ),
+			    'import'             => array(
+				    'method' => 'POST',
+				    'url'    => esc_url_raw( rest_url() . 'pixassist/v1/import' ),
+			    ),
+			    'importStarter'      => array(
+				    'method' => 'POST',
+				    'url'    => esc_url_raw( rest_url() . 'pixassist/v1/import_starter' ),
+			    ),
+			    'uploadMedia'        => array(
+				    'method' => 'POST',
+				    'url'    => esc_url_raw( rest_url() . 'pixassist/v1/upload_media' ),
+			    ),
 		    'layoutUnits'        => array(
 			    'method' => 'POST',
 			    'url'    => esc_url_raw( rest_url() . 'pixassist/v1/layout_units' ),
 		    ),
-		    'importUnit'         => array(
+			    'importUnit'         => array(
+				    'method' => 'POST',
+				    'url'    => esc_url_raw( rest_url() . 'pixassist/v1/import_unit' ),
+			    ),
+			    'queueUnit'          => array(
+				    'method' => 'POST',
+				    'url'    => esc_url_raw( rest_url() . 'pixassist/v1/queue_unit' ),
+			    ),
+			    'unitJobStatus'      => array(
+				    'method' => 'POST',
+				    'url'    => esc_url_raw( rest_url() . 'pixassist/v1/unit_job_status' ),
+			    ),
+			    'undoUnit'           => array(
+				    'method' => 'POST',
+				    'url'    => esc_url_raw( rest_url() . 'pixassist/v1/undo_unit' ),
+			    ),
+		    'recipes'            => array(
 			    'method' => 'POST',
-			    'url'    => esc_url_raw( rest_url() . 'pixassist/v1/import_unit' ),
+			    'url'    => esc_url_raw( rest_url() . 'pixassist/v1/recipes' ),
 		    ),
-		    'undoUnit'           => array(
+		    'applyRecipe'        => array(
 			    'method' => 'POST',
-			    'url'    => esc_url_raw( rest_url() . 'pixassist/v1/undo_unit' ),
+			    'url'    => esc_url_raw( rest_url() . 'pixassist/v1/apply_recipe' ),
+		    ),
+		    'undoRecipe'         => array(
+			    'method' => 'POST',
+			    'url'    => esc_url_raw( rest_url() . 'pixassist/v1/undo_recipe' ),
 		    ),
 
 		    'dataCollect'        => array(
@@ -226,8 +252,6 @@ class PixelgradeAssistant_Admin {
 		add_action( 'admin_notices', array( $this, 'admin_notices' ) );
 
 		add_action( 'admin_menu', array( $this, 'add_pixelgrade_assistant_menu' ) );
-
-		add_action( 'current_screen', array( $this, 'add_tabs' ) );
 
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_styles' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_scripts' ) );
@@ -310,6 +334,8 @@ class PixelgradeAssistant_Admin {
             // The mixed Starter Sites tab (#49) reuses the existing free starter-content config and
             // lets Plus inject premium starters through the documented PHP filter.
             wp_localize_script( $handle, 'pixelgradeStarterSites', pixassist_get_starter_sites_data() );
+            // Recipes are source-as-recipe presets over the granular layout-unit importer.
+            wp_localize_script( $handle, 'pixelgradeRecipes', pixassist_get_recipes_data() );
             wp_localize_script( $handle, 'pixelgradeLayoutUnits', pixassist_get_layout_units_data() );
             // Secondary diagnostics/maintenance tabs (#50), sourced from existing Assistant REST
             // endpoints and data collectors.
@@ -620,28 +646,6 @@ class PixelgradeAssistant_Admin {
         }
 
         return $tgmpa->plugins;
-    }
-
-    /**
-     * Add Contextual help tabs.
-     *
-     * Only on the Appearance -> Pixelgrade hub screen. This is hooked to `current_screen` (which
-     * fires on every admin page), so without this guard the "Pixelgrade Assistant" help tab leaked
-     * into WordPress's Help dropdown on every wp-admin screen. (Interim: the onboarding link still
-     * lives here on the hub until the hub-native onboarding lands; see the migration plan.)
-     */
-    public function add_tabs() {
-        $screen = get_current_screen();
-        if ( ! $screen || 'appearance_page_pixelgrade' !== $screen->id ) {
-            return;
-        }
-        $screen->add_help_tab( array(
-            'id'      => 'pixelgrade_assistant_setup_wizard_tab',
-            'title'   => esc_html__( 'Pixelgrade Assistant', '__plugin_txtd' ),
-            'content' =>
-                '<h2>' . esc_html__( 'Pixelgrade Assistant Site Setup', '__plugin_txtd' ) . '</h2>' .
-                '<p><a href="' . esc_url( admin_url( 'themes.php?page=pixelgrade_assistant-setup-wizard' ) ) . '" class="button button-primary">' . esc_html__( 'Setup Pixelgrade Assistant', '__plugin_txtd' ) . '</a></p>',
-        ) );
     }
 
     /**

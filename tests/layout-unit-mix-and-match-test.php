@@ -468,7 +468,7 @@ $GLOBALS['wpdb'] = new PAF_WPDB();
 class PixelgradeAssistant_Admin {
 	public static $saved = 0;
 
-	public static function get_option( $key, $default = null ) {
+	public static function get_option( $key, $default = null, $force_refresh = false ) {
 		return array_key_exists( $key, $GLOBALS['paf_pixassist_options'] ) ? $GLOBALS['paf_pixassist_options'][ $key ] : $default;
 	}
 

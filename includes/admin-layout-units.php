@@ -141,23 +141,35 @@ if ( ! function_exists( 'pixassist_get_layout_units_endpoints' ) ) {
 				'method' => 'POST',
 				'url'    => function_exists( 'rest_url' ) ? esc_url_raw( rest_url( 'pixassist/v1/layout_units' ) ) : '',
 			),
-			'importUnit'  => array(
-				'method' => 'POST',
-				'url'    => function_exists( 'rest_url' ) ? esc_url_raw( rest_url( 'pixassist/v1/import_unit' ) ) : '',
-			),
-			'undoUnit'    => array(
-				'method' => 'POST',
-				'url'    => function_exists( 'rest_url' ) ? esc_url_raw( rest_url( 'pixassist/v1/undo_unit' ) ) : '',
-			),
-		);
+				'prewarmUnitBundles' => array(
+					'method' => 'POST',
+					'url'    => function_exists( 'rest_url' ) ? esc_url_raw( rest_url( 'pixassist/v1/prewarm_unit_bundles' ) ) : '',
+				),
+				'importUnit'  => array(
+					'method' => 'POST',
+					'url'    => function_exists( 'rest_url' ) ? esc_url_raw( rest_url( 'pixassist/v1/import_unit' ) ) : '',
+				),
+				'queueUnit'   => array(
+					'method' => 'POST',
+					'url'    => function_exists( 'rest_url' ) ? esc_url_raw( rest_url( 'pixassist/v1/queue_unit' ) ) : '',
+				),
+				'unitJobStatus' => array(
+					'method' => 'POST',
+					'url'    => function_exists( 'rest_url' ) ? esc_url_raw( rest_url( 'pixassist/v1/unit_job_status' ) ) : '',
+				),
+				'undoUnit'    => array(
+					'method' => 'POST',
+					'url'    => function_exists( 'rest_url' ) ? esc_url_raw( rest_url( 'pixassist/v1/undo_unit' ) ) : '',
+				),
+			);
 
 		if ( class_exists( 'PixelgradeAssistant_Admin' )
 			&& isset( PixelgradeAssistant_Admin::$internalApiEndpoints )
 			&& is_array( PixelgradeAssistant_Admin::$internalApiEndpoints ) ) {
-			foreach ( array( 'layoutUnits', 'importUnit', 'undoUnit' ) as $key ) {
-				if ( ! empty( PixelgradeAssistant_Admin::$internalApiEndpoints[ $key ] ) && is_array( PixelgradeAssistant_Admin::$internalApiEndpoints[ $key ] ) ) {
-					$endpoints[ $key ] = PixelgradeAssistant_Admin::$internalApiEndpoints[ $key ];
-				}
+				foreach ( array( 'layoutUnits', 'prewarmUnitBundles', 'importUnit', 'queueUnit', 'unitJobStatus', 'undoUnit' ) as $key ) {
+					if ( ! empty( PixelgradeAssistant_Admin::$internalApiEndpoints[ $key ] ) && is_array( PixelgradeAssistant_Admin::$internalApiEndpoints[ $key ] ) ) {
+						$endpoints[ $key ] = PixelgradeAssistant_Admin::$internalApiEndpoints[ $key ];
+					}
 			}
 		}
 

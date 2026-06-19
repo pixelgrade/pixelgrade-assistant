@@ -510,23 +510,27 @@ if ( ! function_exists( 'pixassist_get_starter_sites_endpoints' ) ) {
 	 */
 	function pixassist_get_starter_sites_endpoints() {
 		$endpoints = array(
-			'import'      => array(
-				'method' => 'POST',
-				'url'    => function_exists( 'rest_url' ) ? pixassist_starter_sites_esc_url_raw( rest_url( 'pixassist/v1/import' ) ) : '',
-			),
-			'uploadMedia' => array(
-				'method' => 'POST',
-				'url'    => function_exists( 'rest_url' ) ? pixassist_starter_sites_esc_url_raw( rest_url( 'pixassist/v1/upload_media' ) ) : '',
-			),
+				'import'      => array(
+					'method' => 'POST',
+					'url'    => function_exists( 'rest_url' ) ? pixassist_starter_sites_esc_url_raw( rest_url( 'pixassist/v1/import' ) ) : '',
+				),
+				'importStarter' => array(
+					'method' => 'POST',
+					'url'    => function_exists( 'rest_url' ) ? pixassist_starter_sites_esc_url_raw( rest_url( 'pixassist/v1/import_starter' ) ) : '',
+				),
+				'uploadMedia' => array(
+					'method' => 'POST',
+					'url'    => function_exists( 'rest_url' ) ? pixassist_starter_sites_esc_url_raw( rest_url( 'pixassist/v1/upload_media' ) ) : '',
+				),
 		);
 
 		if ( class_exists( 'PixelgradeAssistant_Admin' )
 			&& isset( PixelgradeAssistant_Admin::$internalApiEndpoints )
 			&& is_array( PixelgradeAssistant_Admin::$internalApiEndpoints ) ) {
-			foreach ( array( 'import', 'uploadMedia' ) as $key ) {
-				if ( ! empty( PixelgradeAssistant_Admin::$internalApiEndpoints[ $key ] ) && is_array( PixelgradeAssistant_Admin::$internalApiEndpoints[ $key ] ) ) {
-					$endpoints[ $key ] = PixelgradeAssistant_Admin::$internalApiEndpoints[ $key ];
-				}
+				foreach ( array( 'import', 'importStarter', 'uploadMedia' ) as $key ) {
+					if ( ! empty( PixelgradeAssistant_Admin::$internalApiEndpoints[ $key ] ) && is_array( PixelgradeAssistant_Admin::$internalApiEndpoints[ $key ] ) ) {
+						$endpoints[ $key ] = PixelgradeAssistant_Admin::$internalApiEndpoints[ $key ];
+					}
 			}
 		}
 

@@ -38,6 +38,9 @@ require_once plugin_dir_path( __FILE__ ) . 'vendor/autoload.php';
 // Capability helpers: free vs commercial, and Pixelgrade Plus / Care detection.
 require_once plugin_dir_path( __FILE__ ) . 'includes/capabilities.php';
 
+// Classic Editor is opt-in for themes that explicitly require it.
+require_once plugin_dir_path( __FILE__ ) . 'includes/classic-editor.php';
+
 // Asset helpers for enqueuing @wordpress/scripts build artifacts (admin/build/*.asset.php).
 require_once plugin_dir_path( __FILE__ ) . 'includes/assets.php';
 
@@ -58,6 +61,9 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/admin-plugins.php';
 
 // Free Starter Sites tab: existing free demos plus Plus-injected premium starters.
 require_once plugin_dir_path( __FILE__ ) . 'includes/admin-starter-sites.php';
+
+// Free Recipes tab: source-as-recipe bundles over granular starter layouts.
+require_once plugin_dir_path( __FILE__ ) . 'includes/admin-recipes.php';
 
 // Free Layouts tab: granular single-unit layout import.
 require_once plugin_dir_path( __FILE__ ) . 'includes/admin-layout-units.php';

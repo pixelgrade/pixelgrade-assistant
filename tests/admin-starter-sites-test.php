@@ -285,6 +285,7 @@ assert_same( 3, count( $payload['starters'] ), 'Payload starters must come from 
 assert_same( 'Starter Sites', $payload['copy']['title'], 'Payload copy must include a tab title.' );
 assert_same( 'Anima LT demo content', $payload['copy']['importTitle'], 'Payload copy must preserve the legacy importTitle token replacement.' );
 assert_same( 'https://example.test/wp-json/pixassist/v1/import', $payload['endpoints']['import']['url'], 'Payload must expose the existing import REST endpoint.' );
+assert_same( 'https://example.test/wp-json/pixassist/v1/import_starter', $payload['endpoints']['importStarter']['url'], 'Payload must expose the bulk starter import REST endpoint.' );
 assert_same( true, $payload['imported']['main']['pre_settings'], 'Payload must include existing starter import state.' );
 assert_same( false, $payload['plus']['is_plus_licensed'], 'Payload must include the existing four-key Plus status for gated cards.' );
 

@@ -170,7 +170,7 @@ $GLOBALS['wpdb'] = new PAF_WPDB();
 class PixelgradeAssistant_Admin {
 	public static $saved = 0;
 
-	public static function get_option( $key, $default = null ) {
+	public static function get_option( $key, $default = null, $force_refresh = false ) {
 		return array_key_exists( $key, $GLOBALS['paf_pixassist_options'] ) ? $GLOBALS['paf_pixassist_options'][ $key ] : $default;
 	}
 
@@ -348,7 +348,8 @@ assert_same( 'posts', $GLOBALS['paf_wp_options']['show_on_front'], 'When multipl
 
 paf_reset_runtime();
 $GLOBALS['paf_pixassist_options'] = array(
-	'account' => array( 'is_connected' => true ),
+	'account'          => array( 'is_connected' => true ),
+	'enabled_features' => array( 'portfolio' ),
 );
 
 $summary = $starter_content->reset_starter_content();
@@ -356,6 +357,8 @@ $summary = $starter_content->reset_starter_content();
 assert_same( 0, $summary['journals'], 'Reset with no journal must be a no-op success.' );
 assert_same( 0, $summary['posts_deleted'], 'No journal means no post deletions.' );
 assert_same( 0, $summary['media_deleted'], 'No journal means no media deletions.' );
+assert_same( 1, $summary['features_disabled'], 'No-journal reset must still clear stale Assistant feature flags.' );
+assert_same( array(), PixelgradeAssistant_Admin::get_option( 'enabled_features' ), 'No-journal reset must persist stale feature flag cleanup.' );
 assert_same( array( 'is_connected' => true ), PixelgradeAssistant_Admin::get_option( 'account' ), 'No-op reset must not touch account state.' );
 
 echo "Starter content reset contract OK\n";

@@ -6,6 +6,7 @@
         "test": [
             "php tests/plus-status-contract-test.php",
             "php tests/built-asset-test.php",
+            "php tests/classic-editor-policy-test.php",
             "php tests/account-test.php",
             "php tests/host-extension-surface-test.php",
             "php tests/admin-menu-retirement-test.php",
@@ -13,7 +14,9 @@
             "php tests/admin-overview-test.php",
             "php tests/admin-plugins-test.php",
             "php tests/admin-starter-sites-test.php",
+            "php tests/admin-recipes-test.php",
             "php tests/admin-layout-units-test.php",
+            "php tests/recipe-test.php",
             "php tests/layout-unit-import-test.php",
             "php tests/layout-unit-mix-and-match-test.php",
             "php tests/starter-content-reset-test.php",
