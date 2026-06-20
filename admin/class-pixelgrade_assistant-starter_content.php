@@ -6309,6 +6309,16 @@ class PixelgradeAssistant_StarterContent {
 
 					if ( ! empty( $meta ) ) {
 						$post_args['meta_input'][ $key ] = apply_filters( 'sce_pre_postmeta', $meta, $key, $demo_key );
+
+						// Preserve the raw source featured-image id so end_import() can backfill it if the
+						// referenced media was not yet imported when this post was inserted (interrupted /
+						// out-of-order import). See backfill_pending_thumbnails().
+						if ( '_thumbnail_id' === $key ) {
+							$pending_thumbnail = $this->first_numeric_media_id( $meta );
+							if ( $pending_thumbnail ) {
+								$post_args['meta_input']['_pixassist_pending_thumbnail'] = $pending_thumbnail;
+							}
+						}
 					}
 				}
 
@@ -6992,7 +7002,59 @@ class PixelgradeAssistant_StarterContent {
 
 	public function end_import() {
 		$this->replace_demo_urls_in_content();
+		$this->backfill_pending_thumbnails();
 		$this->regenerate_style_manager_after_import();
+	}
+
+	/**
+	 * Backfill featured images that could not be remapped during import.
+	 *
+	 * import_post_type() remaps each post's `_thumbnail_id` at insert time using the media map as it
+	 * stands then. If the referenced media had not been imported yet (e.g. an interrupted or out-of-order
+	 * import), the featured image is left unset. We stash the raw source id in `_pixassist_pending_thumbnail`;
+	 * here, once all media is imported, we resolve it against the now-complete map and set the featured image.
+	 * Idempotent: clears the marker either way, and never overwrites a post that already has a valid image.
+	 */
+	private function backfill_pending_thumbnails() {
+		$starter_content = PixelgradeAssistant_Admin::get_option( 'imported_starter_content' );
+		if ( empty( $starter_content ) || ! is_array( $starter_content ) ) {
+			return;
+		}
+
+		foreach ( $starter_content as $demo_key => $journal ) {
+			if ( empty( $journal['post_types'] ) || ! is_array( $journal['post_types'] ) ) {
+				continue;
+			}
+
+			foreach ( $journal['post_types'] as $post_type => $map ) {
+				foreach ( (array) $map as $local_id ) {
+					$local_id = absint( $local_id );
+					if ( empty( $local_id ) ) {
+						continue;
+					}
+
+					$pending = $this->first_numeric_media_id( get_post_meta( $local_id, '_pixassist_pending_thumbnail', true ) );
+					if ( empty( $pending ) ) {
+						continue;
+					}
+
+					$current            = absint( get_post_thumbnail_id( $local_id ) );
+					$current_attachment = $current ? get_post( $current ) : null;
+					$has_valid_thumb    = $current_attachment
+						&& 'attachment' === $current_attachment->post_type
+						&& 0 === strpos( (string) $current_attachment->post_mime_type, 'image/' );
+
+					if ( ! $has_valid_thumb ) {
+						$resolved = $this->get_imported_media_id( $demo_key, $pending );
+						if ( $resolved && get_post( $resolved ) ) {
+							set_post_thumbnail( $local_id, $resolved );
+						}
+					}
+
+					delete_post_meta( $local_id, '_pixassist_pending_thumbnail' );
+				}
+			}
+		}
 	}
 
 	/**
