@@ -179,4 +179,21 @@ assert_same( PixelgradeAssistant_Admin::$internalApiEndpoints['unitJobStatus'], 
 assert_same( PixelgradeAssistant_Admin::$internalApiEndpoints['undoUnit'], $data['endpoints']['undoUnit'], 'Layouts payload must expose the unit-undo endpoint.' );
 assert_same( 'Olive & Ash', $data['applied']['wp_template_part:header']['sourceTitle'], 'Layouts payload must expose initially applied units.' );
 
+$layout_units_js = file_get_contents( __DIR__ . '/../admin/src-modern/hub/tabs/LayoutUnits.js' );
+assert_true( false !== strpos( $layout_units_js, 'prewarmedJobs' ), 'Layouts JS must keep prewarmed Apply jobs in component state.' );
+assert_true( false !== strpos( $layout_units_js, 'prewarmedJobsRef' ), 'Layouts JS must read prewarmed Apply jobs from a ref so async prewarm results are available to the next click.' );
+assert_true( false !== strpos( $layout_units_js, 'getPrewarmedJob' ), 'Layouts JS must look up a prewarmed Apply job before calling queueUnit.' );
+assert_true( false !== strpos( $layout_units_js, 'consumePrewarmedJob' ), 'Layouts JS must consume each prewarmed Apply job only once.' );
+assert_true( false !== strpos( $layout_units_js, 'operationSteps' ), 'Layouts JS must track visible operation steps for long Load/Apply actions.' );
+assert_true( false !== strpos( $layout_units_js, 'getOperationButtonLabel' ), 'Layouts JS must surface operation steps inline through the active Load/Apply button label.' );
+assert_true( false !== strpos( $layout_units_js, 'operation.key' ), 'Layouts JS must scope operation labels to the specific Load/Apply button that started the action.' );
+assert_true( false === strpos( $layout_units_js, 'renderOperationSteps' ), 'Layouts JS must not render Load/Apply progress as a detached operation section.' );
+assert_true( false !== strpos( $layout_units_js, 'Loading list' ), 'Load progress must show the layout-list request step with compact button copy.' );
+assert_true( false !== strpos( $layout_units_js, 'Preparing parts' ), 'Load progress must show the background header/footer preparation step with compact button copy.' );
+assert_true( false !== strpos( $layout_units_js, 'Prepared job' ), 'Apply progress must show when a prewarmed job is reused without widening row buttons too much.' );
+assert_true( false !== strpos( $layout_units_js, 'Queueing job' ), 'Apply progress must show when a fresh apply job is queued with compact button copy.' );
+assert_true( false !== strpos( $layout_units_js, 'Applying' ), 'Apply progress must show the layout application step with compact button copy.' );
+assert_true( false !== strpos( $layout_units_js, 'Refreshing' ), 'Apply progress must show the final UI refresh step with compact button copy.' );
+assert_true( false !== strpos( $layout_units_js, "minWidth: '104px'" ), 'Apply progress buttons must keep a stable row width across label changes.' );
+
 echo "Admin Layouts tab OK\n";

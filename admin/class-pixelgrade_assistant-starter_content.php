@@ -232,8 +232,9 @@ class PixelgradeAssistant_StarterContent {
 			'permission_callback' => array( $this, 'permission_nonce_callback' ),
 			'show_in_index'       => false,
 			'args'                => array(
-				'demo_key'        => array( 'required' => true ),
-				'url'             => array( 'required' => true ),
+				'demo_key'        => array( 'required' => false ),
+				'url'             => array( 'required' => false ),
+				'sources'         => array( 'required' => false ),
 				'pixassist_nonce' => array( 'required' => true ),
 			),
 		) );
@@ -1367,6 +1368,8 @@ class PixelgradeAssistant_StarterContent {
 	public function list_layout_units_for_sources( $sources ) {
 		$results = array();
 
+		$this->prefetch_layout_source_unit_lists( $sources );
+
 		foreach ( (array) $sources as $source ) {
 			if ( empty( $source ) || ! is_array( $source ) ) {
 				continue;
@@ -1549,23 +1552,45 @@ class PixelgradeAssistant_StarterContent {
 			);
 		}
 
-		$cached = 0;
-		$bundles = isset( $bundle_data['bundles'] ) && is_array( $bundle_data['bundles'] ) ? $bundle_data['bundles'] : array();
-		foreach ( $bundles as $bundle ) {
-			if ( $this->prime_layout_unit_bundle_cache( $base_url, $bundle ) ) {
-				$cached++;
+			$cached = 0;
+			$jobs   = array();
+			$bundles = isset( $bundle_data['bundles'] ) && is_array( $bundle_data['bundles'] ) ? $bundle_data['bundles'] : array();
+			foreach ( $bundles as $bundle ) {
+				if ( $this->prime_layout_unit_bundle_cache( $base_url, $bundle ) ) {
+					$cached++;
+				}
 			}
-		}
 
-		return array(
-			'code'    => 'success',
-			'message' => '',
-			'data'    => array(
-				'bundles' => $cached,
-				'hash'    => isset( $bundle_data['hash'] ) ? sanitize_text_field( $bundle_data['hash'] ) : '',
-				'version' => isset( $bundle_data['version'] ) ? sanitize_text_field( $bundle_data['version'] ) : '',
-			),
-		);
+			foreach ( $units as $unit ) {
+				$unit_type = isset( $unit['type'] ) ? sanitize_key( $unit['type'] ) : '';
+				$unit_slug = isset( $unit['slug'] ) ? sanitize_text_field( $unit['slug'] ) : '';
+				$slot      = $this->get_layout_unit_slot_key( $unit_type, $unit_slug );
+				if ( empty( $slot ) ) {
+					continue;
+				}
+
+				$queued = $this->queue_layout_unit_job( $demo_key, $base_url, $unit_type, $unit_slug, array(), false );
+				if ( empty( $queued['data']['jobId'] ) ) {
+					continue;
+				}
+
+				if ( isset( $queued['data']['token'] ) ) {
+					unset( $queued['data']['token'] );
+				}
+
+				$jobs[ $slot ] = $queued['data'];
+			}
+
+			return array(
+				'code'    => 'success',
+				'message' => '',
+				'data'    => array(
+					'bundles' => $cached,
+					'hash'    => isset( $bundle_data['hash'] ) ? sanitize_text_field( $bundle_data['hash'] ) : '',
+					'jobs'    => $jobs,
+					'version' => isset( $bundle_data['version'] ) ? sanitize_text_field( $bundle_data['version'] ) : '',
+				),
+			);
 	}
 
 	/**
@@ -1724,7 +1749,7 @@ class PixelgradeAssistant_StarterContent {
 	}
 
 	/**
-	 * Import featured images referenced by sample posts before post import remaps `_thumbnail_id`.
+	 * Import media referenced by sample posts before post import remaps content and `_thumbnail_id`.
 	 *
 	 * @param string $demo_key     Starter/demo key.
 	 * @param array  $sample_posts Source sample posts.
@@ -1735,18 +1760,17 @@ class PixelgradeAssistant_StarterContent {
 		$media_ids = array();
 
 		foreach ( (array) $sample_posts as $post ) {
-			if ( empty( $post['meta']['_thumbnail_id'] ) ) {
-				continue;
+			$thumbnail_id = 0;
+			if ( ! empty( $post['meta']['_thumbnail_id'] ) ) {
+				$thumbnail_id = $this->first_numeric_media_id( $post['meta']['_thumbnail_id'] );
 			}
 
-			$thumbnail_id = $post['meta']['_thumbnail_id'];
-			if ( is_array( $thumbnail_id ) ) {
-				$thumbnail_id = reset( $thumbnail_id );
-			}
-
-			$thumbnail_id = absint( $thumbnail_id );
 			if ( $thumbnail_id ) {
 				$media_ids[] = $thumbnail_id;
+			}
+
+			if ( ! empty( $post['post_content'] ) ) {
+				$media_ids = array_merge( $media_ids, $this->extract_layout_media_ids( $post['post_content'] ) );
 			}
 		}
 
@@ -1762,6 +1786,64 @@ class PixelgradeAssistant_StarterContent {
 		}
 
 		return $imported;
+	}
+
+	/**
+	 * Resolve source featured image IDs for feature sample posts.
+	 *
+	 * @param array $sample_posts Source sample posts.
+	 *
+	 * @return array Source post ID => source media ID.
+	 */
+	private function get_feature_sample_thumbnail_source_ids( $sample_posts ) {
+		$thumbnail_ids = array();
+
+		foreach ( (array) $sample_posts as $post ) {
+			if ( empty( $post['ID'] ) ) {
+				continue;
+			}
+
+			$thumbnail_id = ! empty( $post['meta']['_thumbnail_id'] )
+				? $this->first_numeric_media_id( $post['meta']['_thumbnail_id'] )
+				: 0;
+
+			if ( empty( $thumbnail_id ) && ! empty( $post['post_content'] ) ) {
+				$content_media_ids = $this->extract_layout_media_ids_in_source_order( $post['post_content'] );
+				$thumbnail_id      = ! empty( $content_media_ids ) ? reset( $content_media_ids ) : 0;
+			}
+
+			if ( $thumbnail_id ) {
+				$thumbnail_ids[ absint( $post['ID'] ) ] = $thumbnail_id;
+			}
+		}
+
+		return $thumbnail_ids;
+	}
+
+	/**
+	 * Return the first numeric media ID from a loose source value.
+	 *
+	 * @param mixed $value Source media value.
+	 *
+	 * @return int
+	 */
+	private function first_numeric_media_id( $value ) {
+		if ( is_string( $value ) ) {
+			$value = maybe_unserialize( $value );
+		}
+
+		if ( is_array( $value ) ) {
+			foreach ( $value as $item ) {
+				$id = $this->first_numeric_media_id( $item );
+				if ( $id ) {
+					return $id;
+				}
+			}
+
+			return 0;
+		}
+
+		return is_scalar( $value ) && is_numeric( $value ) ? absint( $value ) : 0;
 	}
 
 	/**
@@ -2200,7 +2282,9 @@ class PixelgradeAssistant_StarterContent {
 
 		$unit_slug = isset( $unit_post['post_name'] ) ? sanitize_key( $unit_post['post_name'] ) : '';
 		if ( $this->get_applied_layout_unit_entry( $unit_type, $unit_slug ) ) {
-			$undo = $this->undo_layout_unit( $unit_type, $unit_slug );
+			$undo = $this->undo_layout_unit( $unit_type, $unit_slug, array(
+				'skip_style_manager_regeneration' => true,
+			) );
 			if ( empty( $undo['code'] ) || 'success' !== $undo['code'] ) {
 				$this->restore_import_counting();
 
@@ -2527,6 +2611,7 @@ class PixelgradeAssistant_StarterContent {
 				return $this->layout_unit_error_response( $sample_posts );
 			}
 
+			$sample_thumbnail_source_ids = $this->get_feature_sample_thumbnail_source_ids( $sample_posts );
 			$dependencies['media'] = $this->import_feature_sample_media_dependencies( $demo_key, $sample_posts );
 
 			$thumbnail_filter = function ( $meta, $key, $filter_demo_key ) use ( $demo_key ) {
@@ -2539,6 +2624,26 @@ class PixelgradeAssistant_StarterContent {
 			};
 			add_filter( 'sce_pre_postmeta', $thumbnail_filter, 10, 3 );
 
+			$thumbnail_insert_filter = function ( $post_args, $post, $filter_demo_key ) use ( $demo_key, $sample_thumbnail_source_ids ) {
+				if ( $filter_demo_key !== $demo_key || empty( $post['ID'] ) || empty( $sample_thumbnail_source_ids[ absint( $post['ID'] ) ] ) ) {
+					return $post_args;
+				}
+
+				$local_id = $this->get_imported_media_id( $demo_key, $sample_thumbnail_source_ids[ absint( $post['ID'] ) ] );
+				if ( empty( $local_id ) ) {
+					return $post_args;
+				}
+
+				if ( empty( $post_args['meta_input'] ) || ! is_array( $post_args['meta_input'] ) ) {
+					$post_args['meta_input'] = array();
+				}
+
+				$post_args['meta_input']['_thumbnail_id'] = $local_id;
+
+				return $post_args;
+			};
+			add_filter( 'pixassist_sce_insert_post_args', $thumbnail_insert_filter, 10, 3 );
+
 			try {
 				$sample_import = $this->import_post_type(
 					$demo_key,
@@ -2550,6 +2655,7 @@ class PixelgradeAssistant_StarterContent {
 				);
 			} finally {
 				remove_filter( 'sce_pre_postmeta', $thumbnail_filter, 10 );
+				remove_filter( 'pixassist_sce_insert_post_args', $thumbnail_insert_filter, 10 );
 			}
 
 			if ( is_wp_error( $sample_import ) ) {
@@ -2600,13 +2706,15 @@ class PixelgradeAssistant_StarterContent {
 	 *
 	 * @param string $unit_type Unit post type.
 	 * @param string $unit      Unit slug.
+	 * @param array  $options   Undo options.
 	 *
 	 * @return array Response payload.
 	 */
-	public function undo_layout_unit( $unit_type, $unit ) {
+	public function undo_layout_unit( $unit_type, $unit, $options = array() ) {
 		$unit_type = sanitize_key( $unit_type );
 		$unit      = sanitize_key( $unit );
 		$slot      = $this->get_layout_unit_slot_key( $unit_type, $unit );
+		$options   = is_array( $options ) ? $options : array();
 
 		if ( empty( $slot ) ) {
 			return array(
@@ -2670,7 +2778,9 @@ class PixelgradeAssistant_StarterContent {
 		}
 
 		$this->remove_layout_unit_from_starter_content( $starter_content, $demo_key, $slot, $delete_journal, $unit_journal );
-		$this->regenerate_style_manager_after_import();
+		if ( empty( $options['skip_style_manager_regeneration'] ) ) {
+			$this->regenerate_style_manager_after_import();
+		}
 
 		PixelgradeAssistant_Admin::set_option( 'enabled_features', $enabled_features );
 		PixelgradeAssistant_Admin::set_option( 'imported_starter_content', $starter_content );
@@ -3811,11 +3921,67 @@ class PixelgradeAssistant_StarterContent {
 					continue;
 				}
 
+				$cached = array( 'source_url' => $source_url );
+				$payload = $this->fetch_layout_media_payload( $source_url );
+				if ( ! is_wp_error( $payload ) ) {
+					$cached = array_merge( $cached, $payload );
+					$this->set_cached_layout_source( array( 'media_payload', $source_url ), $payload );
+				}
+
 				$this->set_cached_layout_source(
 					array( 'media', $base_url, $media_id ),
-					array( 'source_url' => $source_url )
+					$cached
 				);
 			}
+		}
+
+		/**
+		 * Fetch media bytes into the transient source cache without importing them.
+		 *
+		 * @param string $source_url Public source media URL.
+		 *
+		 * @return array|WP_Error
+		 */
+		private function fetch_layout_media_payload( $source_url ) {
+			$source_url = esc_url_raw( $source_url );
+			if ( empty( $source_url ) || ! $this->is_allowed_demo_url( $source_url ) ) {
+				return new WP_Error( 'layout_media_invalid_source', esc_html__( 'The layout media source is not allowed.', '__plugin_txtd' ) );
+			}
+
+			$response = wp_remote_get(
+				$source_url,
+				array(
+					'timeout'             => 10,
+					'sslverify'           => true,
+					'limit_response_size' => 5 * 1024 * 1024,
+				)
+			);
+
+			if ( is_wp_error( $response ) || 200 !== (int) wp_remote_retrieve_response_code( $response ) ) {
+				return new WP_Error( 'layout_media_fetch_failed', esc_html__( 'The layout media file could not be fetched.', '__plugin_txtd' ) );
+			}
+
+			$body = wp_remote_retrieve_body( $response );
+			if ( '' === (string) $body ) {
+				return new WP_Error( 'layout_media_empty', esc_html__( 'The layout media file is empty.', '__plugin_txtd' ) );
+			}
+
+			$path     = (string) wp_parse_url( $source_url, PHP_URL_PATH );
+			$basename = wp_basename( $path );
+			$ext      = pathinfo( $basename, PATHINFO_EXTENSION );
+			$title    = pathinfo( $basename, PATHINFO_FILENAME );
+			if ( empty( $ext ) ) {
+				return new WP_Error( 'layout_media_missing_extension', esc_html__( 'The layout media file type could not be determined.', '__plugin_txtd' ) );
+			}
+			if ( empty( $title ) ) {
+				$title = 'layout-media-' . substr( md5( $source_url ), 0, 8 );
+			}
+
+			return array(
+				'title' => sanitize_text_field( $title ),
+				'ext'   => sanitize_key( $ext ),
+				'data'  => 'data:application/octet-stream;base64,' . base64_encode( $body ),
+			);
 		}
 
 		/**
@@ -3968,6 +4134,136 @@ class PixelgradeAssistant_StarterContent {
 			}
 
 			return $this->set_cached_layout_source( $cache, $units );
+		}
+
+		/**
+		 * Prime compact layout-unit lists for multiple sources concurrently.
+		 *
+		 * The normal single-source list method still owns validation, fallback, and response shaping; this only
+		 * fills its cache for the batched admin request so cold multi-source loads are bounded by the slowest source.
+		 *
+		 * @param array $sources Source descriptors.
+		 *
+		 * @return void
+		 */
+		private function prefetch_layout_source_unit_lists( $sources ) {
+			$requests_class = '';
+			if ( class_exists( 'WpOrg\Requests\Requests' ) ) {
+				$requests_class = 'WpOrg\Requests\Requests';
+			} elseif ( class_exists( 'Requests' ) ) {
+				$requests_class = 'Requests';
+			}
+
+			if ( empty( $requests_class ) ) {
+				return;
+			}
+
+			$requests = array();
+			$caches   = array();
+
+			foreach ( (array) $sources as $source ) {
+				if ( empty( $source ) || ! is_array( $source ) ) {
+					continue;
+				}
+
+				$base_url = ! empty( $source['url'] ) ? esc_url_raw( $source['url'] ) : ( ! empty( $source['baseRestUrl'] ) ? esc_url_raw( $source['baseRestUrl'] ) : '' );
+				$base_url = trailingslashit( $base_url );
+				if ( empty( $base_url ) || ! $this->is_allowed_demo_url( $base_url ) ) {
+					continue;
+				}
+
+				$cache = array( 'layout_units', $base_url );
+				if ( false !== $this->get_cached_layout_source( $cache ) ) {
+					continue;
+				}
+
+				$key = md5( $base_url );
+				if ( isset( $requests[ $key ] ) ) {
+					continue;
+				}
+
+				$requests[ $key ] = array(
+					'url'     => $base_url . 'layout-units',
+					'type'    => 'GET',
+					'headers' => array(),
+					'data'    => array(),
+					'options' => array(
+						'timeout' => 10,
+						'verify'  => true,
+					),
+				);
+				$caches[ $key ] = $cache;
+			}
+
+			if ( empty( $requests ) ) {
+				return;
+			}
+
+			try {
+				$responses = call_user_func( array( $requests_class, 'request_multiple' ), $requests, array() );
+			} catch ( Exception $e ) {
+				return;
+			} catch ( Throwable $e ) {
+				return;
+			}
+
+			foreach ( (array) $responses as $key => $response ) {
+				if ( empty( $caches[ $key ] ) ) {
+					continue;
+				}
+
+				$wp_response = $this->normalize_requests_response( $response );
+				if ( is_wp_error( $wp_response ) ) {
+					continue;
+				}
+
+				$data = $this->parse_layout_source_response( $wp_response, 'units' );
+				if ( is_wp_error( $data ) ) {
+					continue;
+				}
+
+				$units = $this->normalize_layout_source_units( isset( $data['units'] ) ? $data['units'] : array() );
+				if ( empty( $units ) ) {
+					continue;
+				}
+
+				$this->set_cached_layout_source( $caches[ $key ], $units );
+			}
+		}
+
+		/**
+		 * Convert a Requests response object to a wp_remote_* response array.
+		 *
+		 * @param mixed $response Response returned by Requests::request_multiple().
+		 *
+		 * @return array|WP_Error
+		 */
+		private function normalize_requests_response( $response ) {
+			if ( is_wp_error( $response ) ) {
+				return $response;
+			}
+
+			if ( is_object( $response ) && method_exists( $response, 'getMessage' ) && ! isset( $response->status_code ) ) {
+				return new WP_Error( 'layout_units_prefetch_failed', $response->getMessage() );
+			}
+
+			if ( is_object( $response ) && isset( $response->status_code ) ) {
+				return array(
+					'headers'  => array(),
+					'body'     => isset( $response->body ) ? (string) $response->body : '',
+					'response' => array(
+						'code'    => (int) $response->status_code,
+						'message' => isset( $response->reason_phrase ) ? (string) $response->reason_phrase : '',
+					),
+					'cookies'  => array(),
+				);
+			}
+
+			if ( is_array( $response ) ) {
+				return $response;
+			}
+
+			return new WP_Error( 'layout_units_prefetch_failed', esc_html__( 'The layout source did not return a valid response.', '__plugin_txtd' ) );
 		}
 
 		/**
@@ -4292,14 +4588,33 @@ class PixelgradeAssistant_StarterContent {
 				)
 			);
 
+			$custom_link_menu_item_ids = array();
+			foreach ( $selected_source_items as $selected_source_item ) {
+				$target = $this->get_layout_menu_item_custom_target( $selected_source_item, $base_url );
+				if ( ! is_wp_error( $target ) && ! empty( $target['title'] ) && ! empty( $target['url'] ) && ! empty( $selected_source_item['ID'] ) ) {
+					$custom_link_menu_item_ids[] = absint( $selected_source_item['ID'] );
+				}
+			}
+			$custom_link_menu_item_ids = array_values( array_unique( array_filter( $custom_link_menu_item_ids ) ) );
+
 			$menu_filter = function ( $post_args, $post ) use ( $base_url ) {
 				return $this->normalize_layout_menu_item_args( $post_args, $post, $base_url );
 			};
-		$menu_finalizer = function ( $post, $imported_ids ) use ( $base_url ) {
-			$this->finalize_layout_menu_item_custom_link( $post, $imported_ids, $base_url );
-		};
-		add_filter( 'pixassist_sce_insert_post_args', $menu_filter, 10, 2 );
-			add_action( 'pixassist_sce_after_insert_post', $menu_finalizer, 20, 3 );
+			$menu_prepare_filter = function ( $should_prepare, $post ) use ( $custom_link_menu_item_ids ) {
+				if ( ! empty( $post['ID'] ) && in_array( absint( $post['ID'] ), $custom_link_menu_item_ids, true ) ) {
+					return false;
+				}
+
+				return $should_prepare;
+			};
+			$menu_term_finalizer = function ( $post, $imported_ids, $demo_key ) use ( $custom_link_menu_item_ids ) {
+				if ( ! empty( $post['ID'] ) && in_array( absint( $post['ID'] ), $custom_link_menu_item_ids, true ) ) {
+					$this->assign_imported_nav_menu_item_terms( $post, $imported_ids, $demo_key );
+				}
+			};
+			add_filter( 'pixassist_sce_insert_post_args', $menu_filter, 10, 2 );
+			add_filter( 'pixassist_sce_should_prepare_menu_link', $menu_prepare_filter, 10, 4 );
+			add_action( 'pixassist_sce_after_insert_post', $menu_term_finalizer, 10, 3 );
 
 			try {
 				$items_import = $this->with_cached_layout_source_http(
@@ -4323,8 +4638,9 @@ class PixelgradeAssistant_StarterContent {
 				);
 			} finally {
 				remove_filter( 'pixassist_sce_insert_post_args', $menu_filter, 10 );
-				remove_action( 'pixassist_sce_after_insert_post', $menu_finalizer, 20 );
-		}
+				remove_filter( 'pixassist_sce_should_prepare_menu_link', $menu_prepare_filter, 10 );
+				remove_action( 'pixassist_sce_after_insert_post', $menu_term_finalizer, 10 );
+			}
 
 		if ( is_wp_error( $items_import ) ) {
 			return $items_import;
@@ -4615,39 +4931,6 @@ class PixelgradeAssistant_StarterContent {
 	}
 
 	/**
-	 * Keep layout-only menu items as custom links after the default menu remapper runs.
-	 *
-	 * @param array  $post         Source menu-item post.
-	 * @param array  $imported_ids Source-to-local imported IDs for this import pass.
-	 * @param string $base_url     Source SCE REST base URL.
-	 *
-	 * @return void
-	 */
-	private function finalize_layout_menu_item_custom_link( $post, $imported_ids, $base_url ) {
-		if ( empty( $post['ID'] ) || empty( $imported_ids[ $post['ID'] ] ) ) {
-			return;
-		}
-
-		$target = $this->get_layout_menu_item_custom_target( $post, $base_url );
-		if ( empty( $target ) || is_wp_error( $target ) ) {
-			return;
-		}
-
-		$post_id = absint( $imported_ids[ $post['ID'] ] );
-		update_post_meta( $post_id, '_menu_item_type', 'custom' );
-		update_post_meta( $post_id, '_menu_item_object', 'custom' );
-		update_post_meta( $post_id, '_menu_item_object_id', (string) absint( $post['ID'] ) );
-		update_post_meta( $post_id, '_menu_item_url', esc_url_raw( $target['url'] ) );
-
-		if ( ! empty( $target['title'] ) ) {
-			wp_update_post( array(
-				'ID'         => $post_id,
-				'post_title' => $target['title'],
-			) );
-		}
-	}
-
-	/**
 	 * Resolve an unimported source object referenced by a source menu item.
 	 *
 	 * @param array  $post     Source menu-item post.
@@ -4793,14 +5076,26 @@ class PixelgradeAssistant_StarterContent {
 	 * @return int[] Media IDs.
 	 */
 	private function extract_layout_media_ids( $content ) {
+		$ids = $this->extract_layout_media_ids_in_source_order( $content );
+
+		$ids = array_values( array_unique( array_filter( array_map( 'absint', $ids ) ) ) );
+		sort( $ids );
+
+		return $ids;
+	}
+
+	/**
+	 * Extract attachment IDs in the order they appear in block content.
+	 *
+	 * @param string $content Block content.
+	 *
+	 * @return int[] Media IDs.
+	 */
+	private function extract_layout_media_ids_in_source_order( $content ) {
 		$ids = array();
 
 		if ( ! is_string( $content ) || '' === $content ) {
 			return $ids;
-		}
-
-		if ( preg_match_all( '/\bwp-image-(\d+)\b/', $content, $matches ) ) {
-			$ids = array_merge( $ids, array_map( 'absint', $matches[1] ) );
 		}
 
 		if ( preg_match_all( '/<!--\s+wp:([^\s]+)\s+({.*?})\s*(?:\/-->|-->)/', $content, $matches ) ) {
@@ -4812,8 +5107,11 @@ class PixelgradeAssistant_StarterContent {
 			}
 		}
 
+		if ( preg_match_all( '/\bwp-image-(\d+)\b/', $content, $matches ) ) {
+			$ids = array_merge( $ids, array_map( 'absint', $matches[1] ) );
+		}
+
 		$ids = array_values( array_unique( array_filter( array_map( 'absint', $ids ) ) ) );
-		sort( $ids );
 
 		return $ids;
 	}
@@ -4835,7 +5133,8 @@ class PixelgradeAssistant_StarterContent {
 
 		foreach ( $attributes as $key => $value ) {
 			if ( is_array( $value ) ) {
-				$ids = array_merge( $ids, $this->extract_layout_media_ids_from_attributes( $value, $block_name ) );
+				$nested_block_name = in_array( (string) $key, array( 'image', 'images', 'media', 'gallery', 'backgroundImage', 'backgroundMedia' ), true ) ? 'image' : $block_name;
+				$ids               = array_merge( $ids, $this->extract_layout_media_ids_from_attributes( $value, $nested_block_name ) );
 				continue;
 			}
 
@@ -6592,9 +6891,53 @@ class PixelgradeAssistant_StarterContent {
 	}
 
 	/** CUSTOM FILTERS */
+	/**
+	 * Reattach an imported menu item to the imported nav_menu terms from the source item.
+	 *
+	 * @param array  $post         Source menu-item post.
+	 * @param array  $imported_ids Source-to-local imported IDs for this import pass.
+	 * @param string $demo_key     Starter/demo key.
+	 *
+	 * @return void
+	 */
+	private function assign_imported_nav_menu_item_terms( $post, $imported_ids, $demo_key ) {
+		$starter_content  = PixelgradeAssistant_Admin::get_option( 'imported_starter_content' );
+		$imported_post_id = isset( $post['ID'], $imported_ids[ $post['ID'] ] ) ? absint( $imported_ids[ $post['ID'] ] ) : 0;
+
+		if ( ! $imported_post_id || empty( $post['taxonomies']['nav_menu'] ) ) {
+			return;
+		}
+
+		$menu_term_ids = array();
+
+		foreach ( (array) $post['taxonomies']['nav_menu'] as $menu_term ) {
+			if ( is_numeric( $menu_term ) && isset( $starter_content[ $demo_key ]['taxonomies']['nav_menu'][ $menu_term ] ) ) {
+				$menu_term_ids[] = absint( $starter_content[ $demo_key ]['taxonomies']['nav_menu'][ $menu_term ] );
+				continue;
+			}
+
+			$term = get_term_by( 'name', $menu_term, 'nav_menu' );
+			if ( ! $term ) {
+				$term = get_term_by( 'slug', sanitize_title( $menu_term ), 'nav_menu' );
+			}
+
+			if ( $term && ! is_wp_error( $term ) ) {
+				$menu_term_ids[] = absint( $term->term_id );
+			}
+		}
+
+		if ( ! empty( $menu_term_ids ) ) {
+			wp_set_object_terms( $imported_post_id, array_values( array_unique( $menu_term_ids ) ), 'nav_menu', false );
+		}
+	}
+
 	public function prepare_menus_links( $post, $imported_ids, $demo_key ) {
 
 		if ( 'nav_menu_item' !== $post['post_type'] ) {
+			return;
+		}
+
+		if ( ! apply_filters( 'pixassist_sce_should_prepare_menu_link', true, $post, $imported_ids, $demo_key ) ) {
 			return;
 		}
 
@@ -6607,6 +6950,8 @@ class PixelgradeAssistant_StarterContent {
 			}
 		}
 
+		$this->assign_imported_nav_menu_item_terms( $post, $imported_ids, $demo_key );
+
 		$starter_content     = PixelgradeAssistant_Admin::get_option( 'imported_starter_content' );
 		$menu_item_type      = maybe_unserialize( $post['meta']['_menu_item_type'] );
 		$menu_item_type      = wp_slash( $menu_item_type[0] );
@@ -6614,31 +6959,6 @@ class PixelgradeAssistant_StarterContent {
 		$menu_item_object    = wp_slash( $menu_item_object[0] );
 		$menu_item_object_id = maybe_unserialize( $post['meta']['_menu_item_object_id'] );
 		$menu_item_object_id = wp_slash( $menu_item_object_id[0] );
-		$imported_post_id    = isset( $imported_ids[ $post['ID'] ] ) ? absint( $imported_ids[ $post['ID'] ] ) : 0;
-
-		if ( $imported_post_id && ! empty( $post['taxonomies']['nav_menu'] ) ) {
-			$menu_term_ids = array();
-
-			foreach ( (array) $post['taxonomies']['nav_menu'] as $menu_term ) {
-				if ( is_numeric( $menu_term ) && isset( $starter_content[ $demo_key ]['taxonomies']['nav_menu'][ $menu_term ] ) ) {
-					$menu_term_ids[] = absint( $starter_content[ $demo_key ]['taxonomies']['nav_menu'][ $menu_term ] );
-					continue;
-				}
-
-				$term = get_term_by( 'name', $menu_term, 'nav_menu' );
-				if ( ! $term ) {
-					$term = get_term_by( 'slug', sanitize_title( $menu_term ), 'nav_menu' );
-				}
-
-				if ( $term && ! is_wp_error( $term ) ) {
-					$menu_term_ids[] = absint( $term->term_id );
-				}
-			}
-
-			if ( ! empty( $menu_term_ids ) ) {
-				wp_set_object_terms( $imported_post_id, array_values( array_unique( $menu_term_ids ) ), 'nav_menu', false );
-			}
-		}
 
 		// Try to remap custom objects in nav items
 		switch ( $menu_item_type ) {
@@ -7257,6 +7577,11 @@ class PixelgradeAssistant_StarterContent {
 			return false;
 		}
 
+		$existing_id = $this->get_imported_media_id( $demo_key, $attach_id );
+		if ( ! empty( $existing_id ) ) {
+			return $existing_id;
+		}
+
 		// The demo base URL captured during the import steps (the SCE REST base).
 		$demo_url = esc_url_raw( (string) get_transient( 'pixassist_sce_demo_url' ) );
 		if ( empty( $demo_url ) ) {
@@ -7294,6 +7619,29 @@ class PixelgradeAssistant_StarterContent {
 
 		if ( empty( $media['source_url'] ) ) {
 			return false;
+		}
+
+		if ( empty( $media['data'] ) || empty( $media['title'] ) || empty( $media['ext'] ) ) {
+			$payload = $this->get_cached_layout_source( array( 'media_payload', esc_url_raw( $media['source_url'] ) ) );
+			if ( is_array( $payload ) ) {
+				$media = array_merge( $media, $payload );
+			}
+		}
+
+		if ( ! empty( $media['data'] ) && ! empty( $media['title'] ) && ! empty( $media['ext'] ) ) {
+			$result = $this->import_media_file(
+				$demo_key,
+				'ignored',
+				$attach_id,
+				sanitize_text_field( $media['title'] ),
+				sanitize_text_field( $media['ext'] ),
+				$media['data'],
+				false
+			);
+
+			if ( ! empty( $result['code'] ) && 'success' === $result['code'] && ! empty( $result['data']['attachmentID'] ) ) {
+				return absint( $result['data']['attachmentID'] );
+			}
 		}
 
 		// The image must also live on an allowed demo host (it normally shares the demo's host).

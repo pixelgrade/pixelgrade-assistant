@@ -4,9 +4,9 @@
  * Lets an admin mix headers, footers, and templates from multiple starter sources without running the
  * full starter-content import.
  */
-import { createElement, Fragment, useMemo, useState } from '@wordpress/element';
+import { createElement, Fragment, useMemo, useRef, useState } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
-import { Button, Card, CardBody, CardHeader, CheckboxControl, Flex, FlexItem, Notice, Spinner } from '@wordpress/components';
+import { Button, Card, CardBody, CardHeader, CheckboxControl, Flex, FlexItem, Notice } from '@wordpress/components';
 
 const DEFAULT_LAYOUT_UNITS = {
 	copy: {
@@ -17,11 +17,21 @@ const DEFAULT_LAYOUT_UNITS = {
 		empty: __( 'No layouts are available from these sources.', 'pixelgrade_assistant' ),
 		failure: __( 'Layouts could not be loaded. Please try again.', 'pixelgrade_assistant' ),
 		partialFailure: __( 'Some layout sources could not be loaded.', 'pixelgrade_assistant' ),
+		loadStepPrepare: __( 'Preparing', 'pixelgrade_assistant' ),
+		loadStepList: __( 'Loading list', 'pixelgrade_assistant' ),
+		loadStepPrewarm: __( 'Preparing parts', 'pixelgrade_assistant' ),
+		loadStepReady: __( 'Ready', 'pixelgrade_assistant' ),
 		importLabel: __( 'Apply', 'pixelgrade_assistant' ),
 		replaceLabel: __( 'Replace', 'pixelgrade_assistant' ),
 		importing: __( 'Applying layout...', 'pixelgrade_assistant' ),
 		importSuccess: __( 'Layout applied.', 'pixelgrade_assistant' ),
 		importFailure: __( 'Layout could not be applied. Please try again.', 'pixelgrade_assistant' ),
+		applyStepPrepare: __( 'Preparing', 'pixelgrade_assistant' ),
+		applyStepPreparedJob: __( 'Prepared job', 'pixelgrade_assistant' ),
+		applyStepQueue: __( 'Queueing job', 'pixelgrade_assistant' ),
+		applyStepApply: __( 'Applying', 'pixelgrade_assistant' ),
+		applyStepRefresh: __( 'Refreshing', 'pixelgrade_assistant' ),
+		applyStepReady: __( 'Ready', 'pixelgrade_assistant' ),
 		undoLabel: __( 'Remove', 'pixelgrade_assistant' ),
 		undoing: __( 'Removing layout...', 'pixelgrade_assistant' ),
 		undoSuccess: __( 'Layout removed.', 'pixelgrade_assistant' ),
@@ -228,14 +238,14 @@ function prewarmSourceUnits( data, source, units ) {
 	const prewarmUnits = getPrewarmableUnits( units );
 
 	if ( ! prewarmUnits.length || ! getEndpoint( data, 'prewarmUnitBundles' ).url ) {
-		return;
+		return Promise.resolve( null );
 	}
 
-	restRequest( data, 'prewarmUnitBundles', {
+	return restRequest( data, 'prewarmUnitBundles', {
 		demo_key: source.id,
 		url: source.baseRestUrl,
 		units: prewarmUnits,
-	} ).catch( () => {} );
+	} ).catch( () => null );
 }
 
 function getPreviewUrl( unit ) {
@@ -334,7 +344,23 @@ function AppliedLayouts( { applied, busyKey, copy, onUndo } ) {
 	);
 }
 
-function UnitList( { title, units, applied, busyKey, copy, featureSamples, onFeatureSampleChange, onImport } ) {
+function getActiveOperationStep( operation ) {
+	const operationSteps = operation && Array.isArray( operation.operationSteps ) ? operation.operationSteps : [];
+
+	return operationSteps.find( ( step ) => 'active' === step.status ) || null;
+}
+
+function getOperationButtonLabel( operation, key, fallback ) {
+	const activeStep = operation && operation.key === key ? getActiveOperationStep( operation ) : null;
+
+	return activeStep && activeStep.label ? activeStep.label : fallback;
+}
+
+function isOperationButtonBusy( operation, key ) {
+	return Boolean( operation && operation.key === key && getActiveOperationStep( operation ) );
+}
+
+function UnitList( { title, units, applied, busyKey, copy, featureSamples, operation, onFeatureSampleChange, onImport } ) {
 	if ( ! units.length ) {
 		return null;
 	}
@@ -354,6 +380,7 @@ function UnitList( { title, units, applied, busyKey, copy, featureSamples, onFea
 					const appliedUnit = applied[ slot ];
 					const isCurrent = Boolean( appliedUnit && appliedUnit.demoKey === unit.source.id && appliedUnit.slug === unit.slug );
 					const isBusy = busyKey === 'import:' + slot + ':' + unit.source.id;
+					const operationKey = 'import:' + slot + ':' + unit.source.id;
 					const preview = getPreviewUrl( unit );
 					const source = unit.source || {};
 					const sampleKey = slot + ':' + source.id;
@@ -439,8 +466,15 @@ function UnitList( { title, units, applied, busyKey, copy, featureSamples, onFea
 								isBusy,
 								disabled: Boolean( busyKey ) || isCurrent,
 								onClick: () => onImport( unit, { includeSample } ),
+								style: { minWidth: '104px' },
 							},
-							isBusy ? copy.importing : isCurrent ? copy.appliedButton : appliedUnit ? copy.replaceLabel : copy.importLabel
+							isBusy
+								? getOperationButtonLabel( operation, operationKey, copy.importing )
+								: isCurrent
+								? copy.appliedButton
+								: appliedUnit
+								? copy.replaceLabel
+								: copy.importLabel
 						)
 					);
 				} )
@@ -460,8 +494,120 @@ export function LayoutUnits() {
 	const [ message, setMessage ] = useState( null );
 	const [ applied, setApplied ] = useState( normalizeApplied( data.applied ) );
 	const [ featureSamples, setFeatureSamples ] = useState( {} );
+	const [ prewarmedJobs, setPrewarmedJobs ] = useState( {} );
+	const [ operation, setOperation ] = useState( { key: '', operationSteps: [] } );
+	const prewarmedJobsRef = useRef( prewarmedJobs );
+	const operationIdRef = useRef( 0 );
 
 	const grouped = useMemo( () => groupUnits( units ), [ units ] );
+
+	const startOperationSteps = ( key, steps ) => {
+		const operationId = operationIdRef.current + 1;
+		operationIdRef.current = operationId;
+
+		setOperation( {
+			key,
+			operationSteps: steps.map( ( step, index ) => ( {
+				...step,
+				status: 0 === index ? 'active' : 'pending',
+			} ) ),
+		} );
+
+		return operationId;
+	};
+
+	const advanceOperationStep = ( operationId, completedId, activeId ) => {
+		if ( operationIdRef.current !== operationId ) {
+			return;
+		}
+
+		setOperation( ( current ) => ( {
+			...current,
+			operationSteps: current.operationSteps.map( ( step ) => {
+					if ( step.id === completedId ) {
+						return { ...step, status: 'complete' };
+					}
+
+					if ( step.id === activeId ) {
+						return { ...step, status: 'active' };
+					}
+
+					return step;
+				} ),
+		} ) );
+	};
+
+	const finishOperationSteps = ( operationId ) => {
+		if ( operationIdRef.current !== operationId ) {
+			return;
+		}
+
+		setOperation( ( current ) => ( {
+			...current,
+			operationSteps: current.operationSteps.map( ( step ) => ( {
+					...step,
+					status: 'complete',
+				} ) ),
+		} ) );
+	};
+
+	const failOperationSteps = ( operationId ) => {
+		if ( operationIdRef.current !== operationId ) {
+			return;
+		}
+
+		setOperation( ( current ) => ( {
+			...current,
+			operationSteps: current.operationSteps.map( ( step ) => ( 'active' === step.status ? { ...step, status: 'error' } : step ) ),
+		} ) );
+	};
+
+	const getPrewarmedJobKey = ( unit ) => {
+		return unit && unit.source ? unit.source.id + ':' + getSlotKey( unit ) : '';
+	};
+
+	const storePrewarmedJobs = ( source, response ) => {
+		const jobs = response && response.data && response.data.jobs ? response.data.jobs : {};
+		const entries = Object.keys( jobs )
+			.filter( ( slot ) => jobs[ slot ] && jobs[ slot ].jobId )
+			.reduce( ( next, slot ) => {
+				next[ source.id + ':' + slot ] = jobs[ slot ];
+
+				return next;
+			}, {} );
+
+		if ( Object.keys( entries ).length ) {
+			prewarmedJobsRef.current = {
+				...prewarmedJobsRef.current,
+				...entries,
+			};
+			setPrewarmedJobs( ( current ) => ( {
+				...current,
+				...entries,
+			} ) );
+		}
+	};
+
+	const getPrewarmedJob = ( unit ) => {
+		const key = getPrewarmedJobKey( unit );
+
+		return key && prewarmedJobsRef.current[ key ] && prewarmedJobsRef.current[ key ].jobId ? prewarmedJobsRef.current[ key ] : null;
+	};
+
+	const consumePrewarmedJob = ( unit ) => {
+		const key = getPrewarmedJobKey( unit );
+		const job = key && prewarmedJobsRef.current[ key ] && prewarmedJobsRef.current[ key ].jobId ? prewarmedJobsRef.current[ key ] : null;
+
+		if ( job ) {
+			const next = { ...prewarmedJobsRef.current };
+			delete next[ key ];
+			prewarmedJobsRef.current = next;
+
+			setPrewarmedJobs( next );
+		}
+
+		return job;
+	};
 
 	const loadUnits = async () => {
 		if ( ! sources.length ) {
@@ -473,7 +619,17 @@ export function LayoutUnits() {
 		setMessage( null );
 		setUnits( [] );
 
+		const operationId = startOperationSteps( 'load', [
+			{ id: 'prepare', label: copy.loadStepPrepare },
+			{ id: 'list', label: copy.loadStepList },
+			{ id: 'prewarm', label: copy.loadStepPrewarm },
+			{ id: 'ready', label: copy.loadStepReady },
+		] );
+		const prewarmPromises = [];
+
 		try {
+			advanceOperationStep( operationId, 'prepare', 'list' );
+
 			let results = null;
 			try {
 				const response = await restRequest( data, 'layoutUnits', {
@@ -490,7 +646,9 @@ export function LayoutUnits() {
 						const sourceUnits = result && 'success' === result.code && Array.isArray( result.units ) ? result.units : [];
 
 						if ( sourceUnits.length ) {
-							prewarmSourceUnits( data, source, sourceUnits );
+							prewarmPromises.push(
+								prewarmSourceUnits( data, source, sourceUnits ).then( ( response ) => storePrewarmedJobs( source, response ) )
+							);
 						}
 
 						return 'success' === result.code
@@ -520,7 +678,9 @@ export function LayoutUnits() {
 								url: source.baseRestUrl,
 							} );
 							const sourceUnits = response && response.data && Array.isArray( response.data.units ) ? response.data.units : [];
-							prewarmSourceUnits( data, source, sourceUnits );
+							prewarmPromises.push(
+								prewarmSourceUnits( data, source, sourceUnits ).then( ( response ) => storePrewarmedJobs( source, response ) )
+							);
 
 							return {
 								source,
@@ -547,6 +707,27 @@ export function LayoutUnits() {
 			} else if ( failed.length ) {
 				setMessage( { type: 'error', text: copy.failure } );
 			}
+
+			if ( failed.length && ! successful.length ) {
+				failOperationSteps( operationId );
+			} else if ( prewarmPromises.length ) {
+				advanceOperationStep( operationId, 'list', 'prewarm' );
+				Promise.all( prewarmPromises )
+					.then( () => {
+						advanceOperationStep( operationId, 'prewarm', 'ready' );
+						finishOperationSteps( operationId );
+					} )
+					.catch( () => {
+						advanceOperationStep( operationId, 'prewarm', 'ready' );
+						finishOperationSteps( operationId );
+					} );
+			} else {
+				advanceOperationStep( operationId, 'list', 'ready' );
+				finishOperationSteps( operationId );
+			}
+		} catch ( error ) {
+			setMessage( { type: 'error', text: error && error.message ? error.message : copy.failure } );
+			failOperationSteps( operationId );
 		} finally {
 			setLoading( false );
 		}
@@ -566,21 +747,47 @@ export function LayoutUnits() {
 			...( 'feature' === unit.type ? { include_sample: Boolean( options.includeSample ) } : {} ),
 		};
 		const supportsQueuedImport = Boolean( getEndpoint( data, 'queueUnit' ).url && getEndpoint( data, 'unitJobStatus' ).url );
+		const prewarmedJob = supportsQueuedImport ? getPrewarmedJob( unit ) : null;
+		const operationKey = 'import:' + slot + ':' + unit.source.id;
+		const queueStep = supportsQueuedImport
+			? {
+					id: 'queue',
+					label: prewarmedJob ? copy.applyStepPreparedJob : copy.applyStepQueue,
+			  }
+			: null;
+		const operationId = startOperationSteps(
+			operationKey,
+			[
+				{ id: 'prepare', label: copy.applyStepPrepare },
+				queueStep,
+				{ id: 'apply', label: copy.applyStepApply },
+				{ id: 'refresh', label: copy.applyStepRefresh },
+				{ id: 'ready', label: copy.applyStepReady },
+			].filter( Boolean )
+		);
 
-		setBusyKey( 'import:' + slot + ':' + unit.source.id );
+		setBusyKey( operationKey );
 		setMessage( null );
 
 		try {
 			let response;
 
+			advanceOperationStep( operationId, 'prepare', queueStep ? 'queue' : 'apply' );
+
 			if ( supportsQueuedImport ) {
-				const queued = await restRequest( data, 'queueUnit', payload );
-				const jobId = queued && queued.data ? queued.data.jobId : '';
+				const queued = prewarmedJob || ( await restRequest( data, 'queueUnit', payload ) );
+				const jobId = prewarmedJob && prewarmedJob.jobId ? prewarmedJob.jobId : queued && queued.data ? queued.data.jobId : '';
 				const started = Date.now();
 
 				if ( ! jobId ) {
 					throw new Error( copy.importFailure );
 				}
+
+				if ( prewarmedJob ) {
+					consumePrewarmedJob( unit );
+				}
+
+				advanceOperationStep( operationId, 'queue', 'apply' );
 
 				while ( Date.now() - started < LAYOUT_UNIT_JOB_TIMEOUT ) {
 					await delay( LAYOUT_UNIT_JOB_POLL_INTERVAL );
@@ -592,6 +799,7 @@ export function LayoutUnits() {
 
 					if ( 'success' === job.status ) {
 						response = job.result || {};
+						advanceOperationStep( operationId, 'apply', 'refresh' );
 						break;
 					}
 
@@ -607,6 +815,7 @@ export function LayoutUnits() {
 				}
 			} else {
 				response = await restRequest( data, 'importUnit', payload );
+				advanceOperationStep( operationId, 'apply', 'refresh' );
 			}
 
 			if ( response && response.data && response.data.appliedUnits ) {
@@ -614,8 +823,11 @@ export function LayoutUnits() {
 			}
 
 			setMessage( { type: 'success', text: copy.importSuccess } );
+			advanceOperationStep( operationId, 'refresh', 'ready' );
+			finishOperationSteps( operationId );
 		} catch ( error ) {
 			setMessage( { type: 'error', text: error && error.message ? error.message : copy.importFailure } );
+			failOperationSteps( operationId );
 		} finally {
 			setBusyKey( '' );
 		}
@@ -663,6 +875,9 @@ export function LayoutUnits() {
 		);
 	}
 
+	const loadOperationBusy = loading || isOperationButtonBusy( operation, 'load' );
+	const loadButtonLabel = getOperationButtonLabel( operation, 'load', loading ? copy.loading : copy.loadLabel );
+
 	return createElement(
 		'section',
 		{ className: 'pixelgrade-layout-units' },
@@ -679,20 +894,14 @@ export function LayoutUnits() {
 					Button,
 					{
 						variant: 'secondary',
-						isBusy: loading,
-						disabled: loading || Boolean( busyKey ),
+						isBusy: loadOperationBusy,
+						disabled: loadOperationBusy || Boolean( busyKey ),
 						onClick: loadUnits,
+						style: { minWidth: '132px' },
 					},
-					loading ? copy.loading : copy.loadLabel
+					loadButtonLabel
 				)
-			),
-			loading
-				? createElement(
-						FlexItem,
-						null,
-						createElement( 'span', { style: { alignItems: 'center', display: 'inline-flex', gap: '8px' } }, createElement( Spinner, null ), copy.loading )
-				  )
-				: null
+			)
 		),
 		createElement( AppliedLayouts, {
 			applied,
@@ -711,6 +920,7 @@ export function LayoutUnits() {
 				busyKey,
 				copy,
 				featureSamples,
+				operation,
 				onFeatureSampleChange: setFeatureSample,
 				onImport: importUnit,
 			} ),
@@ -721,6 +931,7 @@ export function LayoutUnits() {
 				busyKey,
 				copy,
 				featureSamples,
+				operation,
 				onFeatureSampleChange: setFeatureSample,
 				onImport: importUnit,
 			} ),
@@ -731,6 +942,7 @@ export function LayoutUnits() {
 				busyKey,
 				copy,
 				featureSamples,
+				operation,
 				onFeatureSampleChange: setFeatureSample,
 				onImport: importUnit,
 			} ),
@@ -741,6 +953,7 @@ export function LayoutUnits() {
 				busyKey,
 				copy,
 				featureSamples,
+				operation,
 				onFeatureSampleChange: setFeatureSample,
 				onImport: importUnit,
 			} ),
@@ -751,6 +964,7 @@ export function LayoutUnits() {
 				busyKey,
 				copy,
 				featureSamples,
+				operation,
 				onFeatureSampleChange: setFeatureSample,
 				onImport: importUnit,
 			} )

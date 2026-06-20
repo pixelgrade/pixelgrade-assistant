@@ -311,7 +311,7 @@ class PAF_Recipe_Starter_Content extends PixelgradeAssistant_StarterContent {
 		);
 	}
 
-	public function undo_layout_unit( $unit_type, $unit ) {
+	public function undo_layout_unit( $unit_type, $unit, $options = array() ) {
 		$unit_type = sanitize_key( $unit_type );
 		$unit      = sanitize_key( $unit );
 		$slot      = $unit_type . ':' . $unit;

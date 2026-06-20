@@ -19,9 +19,12 @@ $GLOBALS['paf_theme_mods']            = array();
 $GLOBALS['paf_wp_options']            = array();
 $GLOBALS['paf_transients']            = array();
 $GLOBALS['paf_remote_requests']       = array();
+$GLOBALS['paf_remote_multiple_requests'] = array();
 $GLOBALS['paf_inserted_posts']        = array();
 $GLOBALS['paf_updated_posts']         = array();
 $GLOBALS['paf_deleted_posts']         = array();
+$GLOBALS['paf_post_meta']             = array();
+$GLOBALS['paf_post_meta_updates']     = array();
 $GLOBALS['paf_object_terms']          = array();
 $GLOBALS['paf_inserted_terms']        = array();
 $GLOBALS['paf_deleted_terms']         = array();
@@ -33,11 +36,56 @@ $GLOBALS['paf_inserted_attachments']  = array();
 $GLOBALS['paf_remote_media_failures'] = array();
 $GLOBALS['paf_bundle_endpoint_status'] = 0;
 $GLOBALS['paf_layout_units_endpoint_status'] = 404;
+$GLOBALS['paf_rest_routes']           = array();
 $GLOBALS['paf_downloads']             = array();
 $GLOBALS['paf_sideloads']             = array();
 $GLOBALS['paf_next_post_id']          = 1000;
 $GLOBALS['paf_next_attachment_id']    = 3000;
 $GLOBALS['paf_terms_by_name']         = array();
+
+if ( ! class_exists( 'WP_REST_Server' ) ) {
+	class WP_REST_Server {
+		const CREATABLE = 'POST';
+	}
+}
+
+if ( ! class_exists( 'Requests' ) ) {
+	class Requests {
+		public static function request_multiple( $requests, $options = array() ) {
+			$GLOBALS['paf_remote_multiple_requests'][] = $requests;
+
+			$responses = array();
+			foreach ( $requests as $key => $request ) {
+				$url = isset( $request['url'] ) ? $request['url'] : '';
+				if ( false !== strpos( $url, '/wp-json/sce/v2/layout-units' ) ) {
+					if ( ! empty( $GLOBALS['paf_layout_units_endpoint_status'] ) ) {
+						$responses[ $key ] = new PAF_Requests_Response( array( 'code' => 'not_found' ), (int) $GLOBALS['paf_layout_units_endpoint_status'] );
+						continue;
+					}
+
+					$responses[ $key ] = new PAF_Requests_Response( paf_remote_layout_units( $url, array() ) );
+					continue;
+				}
+
+				$responses[ $key ] = new PAF_Requests_Response( array(), 404 );
+			}
+
+			return $responses;
+		}
+	}
+}
+
+class PAF_Requests_Response {
+	public $body;
+	public $status_code;
+	public $reason_phrase = 'OK';
+	public $headers = array();
+
+	public function __construct( $body, $status_code = 200 ) {
+		$this->body        = wp_json_encode( $body );
+		$this->status_code = (int) $status_code;
+	}
+}
 
 function add_action( $hook, $callback, $priority = 10, $args = 1 ) {
 	$GLOBALS['paf_actions'][ $hook ][] = array(
@@ -171,6 +219,12 @@ function is_wp_error( $value ) {
 
 function rest_ensure_response( $value ) {
 	return $value;
+}
+
+function register_rest_route( $namespace, $route, $args = array() ) {
+	$GLOBALS['paf_rest_routes'][ trailingslashit( $namespace ) . ltrim( $route, '/' ) ] = $args;
+
+	return true;
 }
 
 function wp_unslash( $value ) {
@@ -376,6 +430,24 @@ function wp_remote_get( $url, $args = array() ) {
 				'id'         => 39,
 				'source_url' => 'https://starter.test/header-image.jpg',
 			)
+		);
+	}
+
+	if ( 'https://starter.test/logo.svg' === $url ) {
+		return array(
+			'body'     => '<svg>logo</svg>',
+			'response' => array(
+				'code' => 200,
+			),
+		);
+	}
+
+	if ( 'https://starter.test/header-image.jpg' === $url ) {
+		return array(
+			'body'     => 'header image bytes',
+			'response' => array(
+				'code' => 200,
+			),
 		);
 	}
 
@@ -689,12 +761,13 @@ function paf_remote_posts( $post_type, $url = '' ) {
 				'menu_order'            => 0,
 				'guid'                  => 'https://portfolio-source.test/?post_type=portfolio&p=' . $post_id,
 				'meta'                  => array(
-					'_thumbnail_id' => array( (string) ( 701 + $index ) ),
+					'_thumbnail_id' => array( 'Array' ),
 				),
 				'taxonomies'            => array(
 					'portfolio_type' => array( 31 ),
 				),
 			);
+			$posts[ $index ]['post_content'] = '<!-- wp:novablocks/supernova-item {"images":[{"id":' . ( 701 + $index ) . ',"url":"https://portfolio-source.test/project-' . ( 701 + $index ) . '.jpg"}]} --><!-- /wp:novablocks/supernova-item -->';
 		}
 
 		return $posts;
@@ -926,6 +999,11 @@ function wp_insert_post( $args ) {
 	}
 
 	$GLOBALS['paf_inserted_posts'][ $post_id ] = $args;
+	if ( ! empty( $args['meta_input'] ) && is_array( $args['meta_input'] ) ) {
+		foreach ( $args['meta_input'] as $key => $value ) {
+			$GLOBALS['paf_post_meta'][ $post_id ][ $key ] = $value;
+		}
+	}
 
 	return $post_id;
 }
@@ -951,6 +1029,11 @@ function get_post_meta( $post_id, $key = '', $single = false ) {
 }
 
 function update_post_meta( $post_id, $key, $value ) {
+	$GLOBALS['paf_post_meta_updates'][] = array(
+		'post_id' => (int) $post_id,
+		'key'     => $key,
+		'value'   => $value,
+	);
 	$GLOBALS['paf_post_meta'][ $post_id ][ $key ] = $value;
 
 	return true;
@@ -1065,6 +1148,14 @@ function wp_delete_file( $file ) {
 }
 
 function wp_get_attachment_image_src( $image_id, $size = 'thumbnail' ) {
+	if ( isset( $GLOBALS['paf_inserted_attachments'][ $image_id ]['attachment']['guid'] ) ) {
+		return array( $GLOBALS['paf_inserted_attachments'][ $image_id ]['attachment']['guid'], 100, 100 );
+	}
+
+	if ( isset( $GLOBALS['paf_sideloads'][ $image_id ][0]['name'] ) ) {
+		return array( 'https://local.test/uploads/' . $GLOBALS['paf_sideloads'][ $image_id ][0]['name'], 100, 100 );
+	}
+
 	return false;
 }
 
@@ -1315,6 +1406,13 @@ assert_same( true, $GLOBALS['paf_attachment_metadata'][3002]['imported_with_pixa
 
 assert_true( method_exists( $starter_content, 'list_layout_units' ), 'Starter Content must expose list_layout_units().' );
 
+$starter_content->add_rest_routes_api();
+$layout_units_route = isset( $GLOBALS['paf_rest_routes']['pixassist/v1/layout_units'] ) ? $GLOBALS['paf_rest_routes']['pixassist/v1/layout_units'] : array();
+assert_true( ! empty( $layout_units_route ), 'The layout_units REST route must be registered.' );
+assert_same( false, $layout_units_route['args']['demo_key']['required'], 'Batched layout-unit listing must not be blocked by a required demo_key argument.' );
+assert_same( false, $layout_units_route['args']['url']['required'], 'Batched layout-unit listing must not be blocked by a required url argument.' );
+assert_same( false, $layout_units_route['args']['sources']['required'], 'The batched sources payload must be accepted by the layout_units route.' );
+
 $units_response = $starter_content->list_layout_units(
 	'anima-restaurant',
 	'https://starter.test/wp-json/sce/v2/'
@@ -1397,6 +1495,43 @@ foreach ( $GLOBALS['paf_remote_requests'] as $request ) {
 	}
 	assert_same( array( 'layoutUnits' => 1, 'posts' => 0, 'data' => 0 ), $fast_list_requests, 'The fast list path must use one source list request and skip legacy posts/data discovery.' );
 
+	$GLOBALS['paf_layout_units_endpoint_status'] = 0;
+	$GLOBALS['paf_transients']                  = array();
+	$GLOBALS['paf_remote_requests']             = array();
+	$GLOBALS['paf_remote_multiple_requests']    = array();
+	$batched_list_starter_content               = new PixelgradeAssistant_StarterContent( (object) array( 'file' => __FILE__ ) );
+	$batched_units_response                     = $batched_list_starter_content->list_layout_units_for_sources(
+		array(
+			array(
+				'id'          => 'anima-restaurant',
+				'baseRestUrl' => 'https://starter.test/wp-json/sce/v2/',
+			),
+			array(
+				'id'          => 'anima-blog',
+				'baseRestUrl' => 'https://broken-data.test/wp-json/sce/v2/',
+			),
+			array(
+				'id'          => 'anima-portfolio',
+				'baseRestUrl' => 'https://portfolio-source.test/wp-json/sce/v2/',
+			),
+		)
+	);
+	$GLOBALS['paf_layout_units_endpoint_status'] = 404;
+
+	assert_same( 'success', $batched_units_response['code'], 'Batched layout-unit listing must return a success code.' );
+	assert_same( array( 'success', 'success', 'success' ), array_column( $batched_units_response['data']['sources'], 'code' ), 'Batched layout-unit listing must preserve per-source success states.' );
+	assert_same( 1, count( $GLOBALS['paf_remote_multiple_requests'] ), 'Batched layout-unit listing must prefetch compact source lists in one concurrent request batch.' );
+	assert_same( 3, count( $GLOBALS['paf_remote_multiple_requests'][0] ), 'Batched layout-unit listing must include each uncached source in the concurrent request batch.' );
+
+	$batched_sequential_layout_unit_fetches = 0;
+	foreach ( $GLOBALS['paf_remote_requests'] as $request ) {
+		$request_url = isset( $request[0] ) ? $request[0] : '';
+		if ( false !== strpos( $request_url, '/wp-json/sce/v2/layout-units' ) ) {
+			$batched_sequential_layout_unit_fetches++;
+		}
+	}
+	assert_same( 0, $batched_sequential_layout_unit_fetches, 'Batched layout-unit listing must not fetch compact source lists sequentially after concurrent prefetch.' );
+
 	assert_true( method_exists( $starter_content, 'prewarm_layout_unit_bundles' ), 'Starter Content must expose prewarm_layout_unit_bundles() for background layout bundle caching.' );
 
 	$bundle_starter_content                = new PixelgradeAssistant_StarterContent( (object) array( 'file' => __FILE__ ) );
@@ -1437,6 +1572,9 @@ foreach ( $GLOBALS['paf_remote_requests'] as $request ) {
 
 	assert_same( 'success', $prewarm_result['code'], 'Prewarming layout bundles from the source endpoint must succeed on a warmable source.' );
 	assert_same( 2, $prewarm_result['data']['bundles'], 'Prewarming the Header/Footer list must cache both returned bundles.' );
+	assert_true( ! empty( $prewarm_result['data']['jobs']['wp_template_part:header']['jobId'] ), 'Prewarming Header/Footer bundles must also prequeue a reusable header Apply job.' );
+	assert_true( ! empty( $prewarm_result['data']['jobs']['wp_template_part:footer']['jobId'] ), 'Prewarming Header/Footer bundles must also prequeue a reusable footer Apply job.' );
+	assert_true( empty( $prewarm_result['data']['jobs']['wp_template_part:header']['token'] ), 'Prewarmed Apply jobs returned to the browser must not expose worker tokens.' );
 
 	$bundle_requests = 0;
 	foreach ( $GLOBALS['paf_remote_requests'] as $request ) {
@@ -1446,8 +1584,20 @@ foreach ( $GLOBALS['paf_remote_requests'] as $request ) {
 	}
 	assert_same( 1, $bundle_requests, 'Prewarming Header/Footer bundles must use one source bundle request.' );
 
-	$GLOBALS['paf_remote_requests'] = array();
-	$queued_header                  = $bundle_starter_content->queue_layout_unit_job(
+	$cached_logo_media = array();
+	foreach ( $GLOBALS['paf_transients'] as $transient_value ) {
+		if ( is_array( $transient_value ) && ! empty( $transient_value['source_url'] ) && 'https://starter.test/logo.svg' === $transient_value['source_url'] ) {
+			$cached_logo_media = $transient_value;
+			break;
+		}
+	}
+	assert_true( ! empty( $cached_logo_media['title'] ) && ! empty( $cached_logo_media['ext'] ) && ! empty( $cached_logo_media['data'] ), 'Prewarming Header/Footer bundles must cache import-ready media bytes for referenced logo files.' );
+
+	$GLOBALS['paf_remote_requests']   = array();
+	$GLOBALS['paf_post_meta_updates'] = array();
+	$GLOBALS['paf_updated_posts']     = array();
+	$GLOBALS['wpdb']->queries         = array();
+	$queued_header                    = $bundle_starter_content->queue_layout_unit_job(
 		'anima-restaurant',
 		'https://starter.test/wp-json/sce/v2/',
 		'wp_template_part',
@@ -1462,6 +1612,42 @@ foreach ( $GLOBALS['paf_remote_requests'] as $request ) {
 	$processed_header = $bundle_starter_content->process_layout_unit_job( $queued_header['data']['jobId'], $queued_header['data']['token'] );
 	assert_same( 'success', $processed_header['code'], 'Processing a prewarmed header Apply job must succeed.' );
 	assert_same( 'success', $processed_header['data']['status'], 'A prewarmed header Apply job must complete successfully.' );
+	assert_same( array(), $GLOBALS['paf_downloads'], 'A prewarmed header Apply must use cached media bytes instead of download_url() at click time.' );
+
+	$style_manager_regeneration_queries = array_values(
+		array_filter(
+			$GLOBALS['wpdb']->queries,
+			function ( $sql ) {
+				return false !== strpos( $sql, 'style_manager' )
+					|| false !== strpos( $sql, 'customify_style' )
+					|| false !== strpos( $sql, 'sm_dynamic' );
+			}
+		)
+	);
+	assert_same( array(), $style_manager_regeneration_queries, 'Replacing an applied layout unit must not regenerate Style Manager during the undo half of the import.' );
+
+	$redundant_menu_meta_repairs = array_values(
+		array_filter(
+			$GLOBALS['paf_post_meta_updates'],
+			function ( $update ) {
+				return in_array(
+					$update['key'],
+					array( '_menu_item_type', '_menu_item_object', '_menu_item_object_id', '_menu_item_url' ),
+					true
+				);
+			}
+		)
+	);
+	assert_same( array(), $redundant_menu_meta_repairs, 'A prewarmed header Apply must not repair layout menu custom-link meta after wp_insert_post() already saved it.' );
+	$redundant_menu_title_repairs = array_values(
+		array_filter(
+			$GLOBALS['paf_updated_posts'],
+			function ( $update ) {
+				return isset( $update['post_title'] );
+			}
+		)
+	);
+	assert_same( array(), $redundant_menu_title_repairs, 'A prewarmed header Apply must not run post-title repair updates for converted layout menu items.' );
 
 	$unexpected_discovery_requests = array();
 	foreach ( $GLOBALS['paf_remote_requests'] as $request ) {
@@ -1589,9 +1775,23 @@ assert_true( empty( $feature_journal['post_types']['post'] ), 'Portfolio feature
 assert_same( true, $feature_journal['enabled_features']['portfolio'], 'Portfolio feature import must journal the enabled feature flag for undo/reset.' );
 assert_true( isset( $feature_journal['layout_units']['feature:portfolio'] ), 'Portfolio feature import must record one applied feature unit.' );
 assert_same( 'Portfolio', $feature_journal['layout_units']['feature:portfolio']['title'], 'Applied feature state must carry a readable title.' );
+assert_same( array( 701, 702, 703 ), array_map( 'intval', array_keys( $feature_journal['media']['ignored'] ) ), 'Portfolio feature import must journal media referenced by sample project block content.' );
 
 $first_sample_id = $feature_journal['post_types']['portfolio'][601];
-assert_true( ! empty( $GLOBALS['paf_inserted_posts'][ $first_sample_id ]['meta_input']['_thumbnail_id'] ), 'Sample portfolio items must receive local featured images.' );
+$first_sample_thumbnail_id = isset( $GLOBALS['paf_inserted_posts'][ $first_sample_id ]['meta_input']['_thumbnail_id'] ) ? $GLOBALS['paf_inserted_posts'][ $first_sample_id ]['meta_input']['_thumbnail_id'] : 0;
+assert_same( $feature_journal['media']['ignored'][701], $first_sample_thumbnail_id, 'Sample portfolio items must replace malformed source thumbnail meta with a local featured image.' );
+
+$portfolio_import_request = null;
+foreach ( $GLOBALS['paf_remote_requests'] as $request ) {
+	$request_url  = isset( $request[0] ) ? $request[0] : '';
+	$request_args = isset( $request[1] ) ? $request[1] : array();
+	$post_type    = isset( $request_args['body']['post_type'] ) ? $request_args['body']['post_type'] : '';
+	$include      = isset( $request_args['body']['include'] ) ? array_map( 'intval', (array) $request_args['body']['include'] ) : array();
+	if ( false !== strpos( $request_url, '/posts' ) && 'portfolio' === $post_type && array( 601, 602, 603 ) === $include ) {
+		$portfolio_import_request = $request_args;
+	}
+}
+assert_true( ! empty( $portfolio_import_request['body']['ignored_images'][701]['sizes']['full'] ), 'Sample post import must send local image mappings so SCE rewrites project content URLs to real attachments.' );
 
 $undo_feature = $starter_content->undo_layout_unit( 'feature', 'portfolio' );
 assert_same( 'success', $undo_feature['code'], 'Undoing the Portfolio feature unit must succeed.' );
