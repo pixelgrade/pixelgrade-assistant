@@ -2,10 +2,9 @@
  * The free Overview tab — the Appearance -> Pixelgrade hub's orientation surface (#44, #55).
  *
  * This is the branded orientation hub: it explains, at a value level, what the Pixelgrade design
- * system is, then routes *out* to where the work actually happens (Style Manager lives in the Site
- * Editor -> Styles; the hub never owns the design-editing surface). Top-to-bottom it renders an
- * always-on orientation lead, three value areas that double as routes out, the demoted theme card,
- * and the Pixelgrade Plus discovery/manage card.
+ * system is, then routes to the right hub section or external action. Top-to-bottom it renders an
+ * always-on orientation lead, three value areas that double as routes, the demoted theme card, and
+ * the Pixelgrade Plus discovery/manage card.
  *
  * Presentational only: all *data* (theme, account, plus state, and the link list — labels, URLs, and
  * which links exist) comes from the server-assembled `window.pixelgradeOverview` payload
@@ -29,7 +28,7 @@ const DEFAULT_OVERVIEW = { theme: {}, links: [], plus: {}, account: { is_connect
 // describes the scope of the design system, not a free guarantee — the Plus card carries the upsell.
 const VALUE_AREAS = [
 	{
-		ids: [ 'site-editor', 'customize' ],
+		ids: [ 'styles', 'site-editor', 'customize' ],
 		title: __( 'A design system you control', 'pixelgrade_assistant' ),
 		description: __(
 			'Colors, fonts, spacing, and motion live in Style Manager — change them once and your theme and blocks update together.',
@@ -203,6 +202,10 @@ function renderThemeCard( theme, account ) {
 
 function renderPlusCard( plus ) {
 	if ( ! plus || ! plus.label ) {
+		return null;
+	}
+
+	if ( plus.isActive ) {
 		return null;
 	}
 

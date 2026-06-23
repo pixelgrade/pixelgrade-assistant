@@ -16,8 +16,9 @@ export function App( { bootstrap } ) {
 	const tabs = Array.isArray( bootstrap.tabs ) ? bootstrap.tabs : [];
 	const ids = tabs.map( ( tab ) => tab.id );
 	const fallback = bootstrap.defaultTab || ids[ 0 ] || '';
+	const tabAliases = bootstrap.tabAliases && 'object' === typeof bootstrap.tabAliases ? bootstrap.tabAliases : {};
 
-	const [ activeId, navigate ] = useTabRouting( ids, fallback );
+	const [ activeId, navigate ] = useTabRouting( ids, fallback, tabAliases );
 
 	if ( ! tabs.length ) {
 		return createElement( Placeholder, { tab: { id: 'pixelgrade', label: __( 'Pixelgrade Design', 'pixelgrade_assistant' ) } } );
@@ -52,11 +53,41 @@ export function App( { bootstrap } ) {
 		Fragment,
 		null,
 		createElement(
-			'h1',
-			{ className: 'screen-reader-text' },
-			__( 'Pixelgrade Design', 'pixelgrade_assistant' )
+			'header',
+			{
+				className: 'pixelgrade-admin-hub__chrome',
+				style: {
+					margin: '0 0 24px',
+				},
+			},
+			createElement(
+				'div',
+				{
+					className: 'pixelgrade-admin-hub__heading',
+					style: {
+						alignItems: 'center',
+						display: 'flex',
+						gap: '16px',
+						justifyContent: 'space-between',
+						margin: '0 0 14px',
+					},
+				},
+				createElement(
+					'h1',
+					{
+						className: 'pixelgrade-admin-hub__title',
+						style: {
+							fontSize: '26px',
+							fontWeight: 600,
+							lineHeight: 1.2,
+							margin: 0,
+						},
+					},
+					__( 'Pixelgrade Design', 'pixelgrade_assistant' )
+				)
+			),
+			createElement( TabBar, { tabs, activeId: activeTab.id, onSelect } )
 		),
-		createElement( TabBar, { tabs, activeId: activeTab.id, onSelect } ),
 		createElement( 'div', { className: 'pixelgrade-admin-hub__content' }, content )
 	);
 }

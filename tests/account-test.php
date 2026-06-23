@@ -411,6 +411,7 @@ assert_same( 'Account', $registered[0]['label'], 'Account tab label must be `Acc
 assert_same( 'manage_options', $registered[0]['capability'], 'Account tab must require manage_options.' );
 assert_same( 'account', $registered[0]['component'], 'Account tab must bind the `account` JS component.' );
 assert_same( '', $registered[0]['gate'], 'Account tab is free — no upsell gate.' );
+assert_same( 'PLUS', $registered[0]['badge'], 'Account tab must carry the PLUS badge for the right-side service cluster.' );
 assert_same( 10, $registered[0]['order'], 'Account tab must sort after Overview.' );
 
 $_GET['pixassist_account'] = 'connected';
@@ -427,6 +428,14 @@ assert_same( 'success', $payload['notice']['type'], 'Connected notice must be su
 assert_same( true, $payload['oauth']['isConfigured'], 'The shipped build reports OAuth configured out of the box.' );
 assert_same( 'Pixelgrade account', $payload['copy']['title'], 'Account tab copy must live in PHP.' );
 unset( $_GET['pixassist_account'] );
+
+$account_js = file_get_contents( __DIR__ . '/../admin/src-modern/hub/tabs/Account.js' );
+assert_true( false !== strpos( $account_js, 'pixelgrade.adminHub.accountPanels' ), 'The Account tab must expose a JS filter for contributed account panels.' );
+assert_true( false !== strpos( $account_js, 'renderAccountPanels' ), 'The Account tab must render contributed panels after the host account card.' );
+assert_true( false !== strpos( $account_js, 'pixelgrade-account-panel--' ), 'The Account tab must give contributed panels stable section anchors.' );
+assert_true( false !== strpos( $account_js, 'scrollIntoView' ), 'The Account tab must scroll linked sections such as section=plus into view.' );
+assert_true( false !== strpos( $account_js, "params.get( 'tab' )" ), 'The Account tab must inspect legacy tab routes before router canonicalization.' );
+assert_true( false !== strpos( $account_js, 'account-license' ), 'The Account tab must treat legacy account-license routes as the Plus section.' );
 
 /*
  * OAuth consumer resolution: the consumer key + secret resolve together, as a pair. The shipped build

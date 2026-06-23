@@ -92,11 +92,11 @@ assert_same( 1, count( $registered ), 'Plugins registration must append exactly 
 
 $tab = $registered[0];
 assert_same( 'plugins', $tab['id'], 'Plugins tab id must be `plugins`.' );
-assert_same( 'Plugins', $tab['label'], 'Plugins tab label must be `Plugins`.' );
+assert_same( 'Setup', $tab['label'], 'Plugins tab visible label must be renamed to Setup while keeping id `plugins`.' );
 assert_same( 'edit_theme_options', $tab['capability'], 'Plugins tab must require edit_theme_options.' );
 assert_same( 'plugins', $tab['component'], 'Plugins tab must bind the `plugins` JS component.' );
 assert_same( '', $tab['gate'], 'Plugins tab is free - no upsell gate.' );
-assert_same( 20, $tab['order'], 'Plugins tab must sort after Overview and before Plus tabs (order 20).' );
+assert_same( 50, $tab['order'], 'Setup must sort after Layouts in the design cluster.' );
 
 $registered = pixassist_register_plugins_tab( array( array( 'id' => 'overview' ) ) );
 assert_same( 2, count( $registered ), 'Plugins registration must keep existing tabs.' );
@@ -106,8 +106,9 @@ add_filter( 'pixelgrade/admin_hub/tabs', 'pixassist_register_plugins_tab' );
 $tabs = pixassist_get_admin_hub_tabs();
 assert_same( 1, count( $tabs ), 'The normalized hub registry must include the Plugins tab.' );
 assert_same( 'plugins', $tabs[0]['id'], 'The normalized Plugins tab must retain id `plugins`.' );
+assert_same( 'Setup', $tabs[0]['label'], 'The normalized Plugins tab must be visible as Setup.' );
 assert_same( '', $tabs[0]['gate'], 'The normalized Plugins tab must remain free.' );
-assert_same( 20, $tabs[0]['order'], 'The normalized Plugins tab must retain order 20.' );
+assert_same( 50, $tabs[0]['order'], 'The normalized Setup tab must retain order 50.' );
 
 $GLOBALS['paf_plugin_config'] = array(
 	'recommendedPlugins' => array(
@@ -182,9 +183,21 @@ $GLOBALS['paf_tgmpa_plugins'] = array(
 $payload = pixassist_get_plugins_data();
 $keys    = array_keys( $payload );
 sort( $keys );
-assert_same( array( 'copy', 'plugins' ), $keys, 'Plugins payload must expose exactly plugins/copy.' );
+assert_same( array( 'copy', 'plugins', 'readiness' ), $keys, 'Setup payload must expose plugins (the actionable list), copy, and the readiness summary.' );
 
-assert_same( 'Manage plugins', $payload['copy']['title'], 'Plugins copy title comes from the existing recommendedPlugins config.' );
+// The Setup tab is a Pixelgrade Design preflight: the readiness summary must be present and classified.
+$readiness = $payload['readiness'];
+assert_true( is_array( $readiness ) && ! empty( $readiness['overall'] ), 'Setup payload must carry an overall readiness verdict.' );
+assert_true( in_array( $readiness['overall']['status'], array( 'ready', 'attention', 'blocked' ), true ), 'Overall readiness must be one of ready/attention/blocked.' );
+assert_true( ! empty( $readiness['checks'] ) && is_array( $readiness['checks'] ), 'Readiness must expose individual checks.' );
+$readiness_ids = array_column( $readiness['checks'], 'id' );
+assert_true( in_array( 'plugins', $readiness_ids, true ), 'Readiness checks must include the recommended-plugins check.' );
+assert_true( in_array( 'php', $readiness_ids, true ), 'Readiness checks must include the PHP environment check.' );
+assert_true( in_array( 'theme', $readiness_ids, true ), 'Readiness checks must include the active-theme check.' );
+
+assert_same( 'Setup', $payload['copy']['title'], 'Setup copy title must frame the screen as Pixelgrade Design readiness, not generic plugin management.' );
+assert_same( 'Check the recommended plugins and activate anything Pixelgrade Design needs before you start working.', $payload['copy']['content'], 'Setup copy must describe readiness for Pixelgrade Design.' );
+assert_true( false === strpos( $payload['copy']['title'], 'Plugins' ), 'Setup title must not use the old Plugins wording.' );
 assert_same( 'No recommended plugins.', $payload['copy']['empty'], 'Plugins empty copy comes from pluginManager l10n.' );
 assert_same( 'Required', $payload['copy']['groups']['required'], 'Required group label comes from pluginManager l10n.' );
 assert_same( 'Recommended', $payload['copy']['groups']['recommended'], 'Recommended group label comes from pluginManager l10n.' );
@@ -221,5 +234,9 @@ assert_same( 'You are all set. There are no recommended plugins for this theme r
 $wizard_source = file_get_contents( __DIR__ . '/../admin/src/components/plugin_manager.js' );
 assert_true( false !== strpos( $wizard_source, 'plugin-manager__empty' ), 'Setup wizard plugin manager must render a styled empty state.' );
 assert_true( false !== strpos( $wizard_source, 'noPluginsTitle' ), 'Setup wizard plugin manager must support a title for the empty state.' );
+
+$plugins_js = file_get_contents( __DIR__ . '/../admin/src-modern/hub/tabs/Plugins.js' );
+assert_true( false !== strpos( $plugins_js, "title: __( 'Setup'" ), 'Setup JS fallback copy must use the new Setup title.' );
+assert_true( false === strpos( $plugins_js, "title: __( 'Manage plugins'" ), 'Setup JS fallback copy must not use the old Manage plugins title.' );
 
 echo "Admin Plugins tab OK\n";

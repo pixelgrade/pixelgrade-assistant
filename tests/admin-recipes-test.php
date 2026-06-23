@@ -133,21 +133,14 @@ require $module;
 assert_true( function_exists( 'pixassist_register_recipes_tab' ), 'The Recipes tab registration function must be defined.' );
 assert_true( function_exists( 'pixassist_get_recipes_data' ), 'The Recipes payload function must be defined.' );
 
-$registered = pixassist_register_recipes_tab( array() );
-assert_same( 1, count( $registered ), 'Recipes registration must append exactly one tab.' );
-
-$tab = $registered[0];
-assert_same( 'recipes', $tab['id'], 'Recipes tab id must be `recipes`.' );
-assert_same( 'Recipes', $tab['label'], 'Recipes tab label must be `Recipes`.' );
-assert_same( 'edit_theme_options', $tab['capability'], 'Recipes tab must require edit_theme_options.' );
-assert_same( 'starterRecipes', $tab['component'], 'Recipes tab must bind the `starterRecipes` JS component.' );
-assert_same( 34, $tab['order'], 'Recipes tab must sort before Layouts.' );
+$existing = array( array( 'id' => 'starter-sites' ) );
+$registered = pixassist_register_recipes_tab( $existing );
+assert_same( $existing, $registered, 'Recipes registration must be a no-op so Recipes is not exposed as a visible hub tab.' );
 
 $GLOBALS['paf_filters'] = array();
 add_filter( 'pixelgrade/admin_hub/tabs', 'pixassist_register_recipes_tab' );
 $tabs = pixassist_get_admin_hub_tabs();
-assert_same( 1, count( $tabs ), 'The normalized hub registry must include the Recipes tab.' );
-assert_same( 'recipes', $tabs[0]['id'], 'The normalized Recipes tab must retain id `recipes`.' );
+assert_same( array(), $tabs, 'Even if the legacy Recipes registration callback is filtered in, Recipes must not become a visible tab.' );
 
 $data = pixassist_get_recipes_data();
 assert_same( 'Recipes', $data['copy']['title'], 'Recipes payload must carry tab copy.' );

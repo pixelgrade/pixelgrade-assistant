@@ -9,6 +9,7 @@
  */
 import { addFilter } from '@wordpress/hooks';
 import { Overview } from './Overview';
+import { Styles } from './Styles';
 import { Account } from './Account';
 import { Plugins } from './Plugins';
 import { StarterSites } from './StarterSites';
@@ -20,6 +21,12 @@ import { HelpTab } from './Help';
 
 addFilter( 'pixelgrade.adminHub.tabs', 'pixelgrade-assistant/overview', ( map ) => {
 	map.overview = { component: Overview };
+
+	return map;
+} );
+
+addFilter( 'pixelgrade.adminHub.tabs', 'pixelgrade-assistant/styles', ( map ) => {
+	map.styles = { component: Styles };
 
 	return map;
 } );

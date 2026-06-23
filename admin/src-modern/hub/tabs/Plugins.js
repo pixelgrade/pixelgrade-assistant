@@ -1,18 +1,23 @@
 /**
- * The free Plugins tab (#48).
+ * The free Setup tab (#48) — a Pixelgrade Design preflight / readiness screen.
  *
- * Presentational shell around the existing TGMPA/recommended-plugins data. Definitions, status, and
- * activation URLs come from `window.pixelgradePlugins`, assembled by includes/admin-plugins.php.
+ * Presentational shell around the readiness summary + the existing TGMPA/recommended-plugins data.
+ * The readiness classification, copy, environment facts, and the plugin status/activation URLs all
+ * come from `window.pixelgradePlugins`, assembled by includes/admin-plugins.php +
+ * includes/setup-readiness.php. This component only renders and runs the install/activate actions.
  */
 import { createElement, Fragment, useState } from '@wordpress/element';
-import { __ } from '@wordpress/i18n';
-import { Button, Card, CardBody, CardHeader, Flex, FlexItem, Notice, Spinner } from '@wordpress/components';
+import { __, sprintf } from '@wordpress/i18n';
+import { Button, Card, CardBody, Flex, FlexItem, Notice, Spinner } from '@wordpress/components';
 
 const DEFAULT_PLUGINS = {
 	plugins: [],
 	copy: {
-		title: __( 'Manage plugins', 'pixelgrade_assistant' ),
-		content: '',
+		title: __( 'Setup', 'pixelgrade_assistant' ),
+		content: __(
+			'Check the recommended plugins and activate anything Pixelgrade Design needs before you start working.',
+			'pixelgrade_assistant'
+		),
 		empty: __( 'You are all set. There are no recommended plugins for this theme right now.', 'pixelgrade_assistant' ),
 		groups: {
 			required: __( 'Required', 'pixelgrade_assistant' ),
@@ -383,9 +388,274 @@ function renderPlugin( plugin, updatePlugin, copy, setNotice ) {
 	);
 }
 
+/**
+ * Color tones for the overall readiness state and the per-check severity badges. Mirrors the
+ * statusTone() palette so the Setup screen reads consistently with the plugin status pills.
+ */
+function readinessTone( status ) {
+	if ( 'ready' === status || 'ok' === status ) {
+		return { background: '#edfaef', color: '#0a7a28', border: '#b8e6c2' };
+	}
+
+	if ( 'attention' === status || 'warning' === status ) {
+		return { background: '#fff8e5', color: '#7a4d00', border: '#f0d58a' };
+	}
+
+	if ( 'blocked' === status ) {
+		return { background: '#fcf0f1', color: '#b32d2e', border: '#f0b8bd' };
+	}
+
+	return { background: '#f6f7f7', color: '#50575e', border: '#dcdcde' };
+}
+
+function readinessCountsLabel( overall ) {
+	const counts = ( overall && overall.counts ) || {};
+	const blocked = counts.blocked || 0;
+	const warning = counts.warning || 0;
+
+	if ( ! blocked && ! warning ) {
+		return __( 'All checks passed.', 'pixelgrade_assistant' );
+	}
+
+	const bits = [];
+	if ( blocked ) {
+		bits.push(
+			blocked === 1
+				? __( '1 blocker', 'pixelgrade_assistant' )
+				// translators: %d: number of blocking issues.
+				: sprintf( __( '%d blockers', 'pixelgrade_assistant' ), blocked )
+		);
+	}
+	if ( warning ) {
+		bits.push(
+			warning === 1
+				? __( '1 to review', 'pixelgrade_assistant' )
+				// translators: %d: number of non-blocking issues to review.
+				: sprintf( __( '%d to review', 'pixelgrade_assistant' ), warning )
+		);
+	}
+
+	return bits.join( ' · ' );
+}
+
+function renderOverallCard( overall ) {
+	if ( ! overall || ! overall.status ) {
+		return null;
+	}
+
+	const tone = readinessTone( overall.status );
+
+	return createElement(
+		Card,
+		{
+			className: 'pixelgrade-setup__overall pixelgrade-setup__overall--' + overall.status,
+			style: { marginBottom: '16px', borderLeft: '4px solid ' + tone.color },
+		},
+		createElement(
+			CardBody,
+			null,
+			createElement(
+				'span',
+				{
+					style: {
+						background: tone.background,
+						border: '1px solid ' + tone.border,
+						borderRadius: '999px',
+						color: tone.color,
+						display: 'inline-block',
+						fontSize: '12px',
+						fontWeight: 600,
+						lineHeight: '20px',
+						marginBottom: '8px',
+						padding: '0 10px',
+					},
+				},
+				readinessCountsLabel( overall )
+			),
+			createElement( 'h2', { style: { margin: '0 0 4px' } }, overall.title ),
+			overall.description
+				? createElement( 'p', { style: { color: '#50575e', margin: 0, maxWidth: '760px' } }, overall.description )
+				: null
+		)
+	);
+}
+
+function renderCheckItems( check ) {
+	const items = Array.isArray( check.items ) ? check.items : [];
+	if ( ! items.length ) {
+		return null;
+	}
+
+	return createElement(
+		'ul',
+		{ style: { margin: '8px 0 0', paddingLeft: '18px', color: '#50575e' } },
+		items.map( ( item, index ) => {
+			// Plugin items carry { name, status }; companion items carry { label, version, range }.
+			let text = item.name || item.label || '';
+			if ( item.range ) {
+				text = ( item.label || '' ) + ' ' + ( item.version || '' ) + ' (' + item.range + ')';
+			}
+
+			return createElement( 'li', { key: index, style: { margin: '2px 0' } }, text );
+		} )
+	);
+}
+
+function renderIssueCard( check, copy ) {
+	const tone = readinessTone( check.status );
+	const badge = 'blocked' === check.status ? copy.blockedBadge : copy.warningBadge;
+
+	const rows = [];
+	if ( check.value ) {
+		rows.push( [ copy.currentLabel, check.value ] );
+	}
+	if ( check.expected ) {
+		rows.push( [ copy.expectedLabel, check.expected ] );
+	}
+
+	return createElement(
+		Card,
+		{
+			key: check.id,
+			className: 'pixelgrade-setup__issue pixelgrade-setup__issue--' + check.id,
+			style: { marginBottom: '12px', borderLeft: '4px solid ' + tone.color },
+		},
+		createElement(
+			CardBody,
+			null,
+			createElement(
+				Flex,
+				{ align: 'flex-start', gap: 4, justify: 'space-between' },
+				createElement(
+					FlexItem,
+					{ isBlock: true },
+					createElement(
+						'div',
+						{ style: { alignItems: 'center', display: 'flex', flexWrap: 'wrap', gap: '8px' } },
+						createElement(
+							'span',
+							{
+								style: {
+									background: tone.background,
+									border: '1px solid ' + tone.border,
+									borderRadius: '999px',
+									color: tone.color,
+									fontSize: '11px',
+									fontWeight: 600,
+									lineHeight: '18px',
+									padding: '0 8px',
+									textTransform: 'uppercase',
+								},
+							},
+							badge
+						),
+						createElement( 'h3', { style: { margin: 0 } }, check.label )
+					),
+					rows.map( ( row, index ) =>
+						createElement(
+							'p',
+							{ key: index, style: { color: '#50575e', margin: '6px 0 0' } },
+							createElement( 'strong', null, row[ 0 ] + ': ' ),
+							row[ 1 ]
+						)
+					),
+					check.why
+						? createElement(
+								'p',
+								{ style: { color: '#50575e', margin: '6px 0 0' } },
+								createElement( 'strong', null, copy.whyLabel + ': ' ),
+								check.why
+						  )
+						: null,
+					renderCheckItems( check )
+				),
+				check.action && check.action.url
+					? createElement(
+							FlexItem,
+							null,
+							createElement(
+								Button,
+								{ variant: 'secondary', href: check.action.url, target: '_blank', rel: 'noreferrer' },
+								check.action.label
+							)
+					  )
+					: null
+			)
+		)
+	);
+}
+
+function renderIssues( readiness, copy ) {
+	const checks = Array.isArray( readiness.checks ) ? readiness.checks : [];
+	// The `plugins` check has its own actionable list rendered below, so surfacing it as an issue card
+	// here would just duplicate it. Every other check has no list, so it keeps its actionable card.
+	const issues = checks.filter(
+		( check ) => ( 'warning' === check.status || 'blocked' === check.status ) && 'plugins' !== check.id
+	);
+
+	if ( ! issues.length ) {
+		return null;
+	}
+
+	return createElement(
+		Fragment,
+		null,
+		createElement( 'h2', { style: { fontSize: '15px', margin: '0 0 8px' } }, copy.issuesTitle ),
+		issues.map( ( check ) => renderIssueCard( check, copy ) )
+	);
+}
+
+// Informational, not actionable — rendered as a plain, de-emphasized section (no bordered card, which
+// is reserved for the actionable issue cards above) separated from the list by a hairline rule.
+function renderEnvironmentSummary( readiness, copy ) {
+	const rows = Array.isArray( readiness.environment ) ? readiness.environment : [];
+	const links = readiness.links || {};
+
+	if ( ! rows.length && ! links.systemStatus ) {
+		return null;
+	}
+
+	return createElement(
+		'div',
+		{
+			className: 'pixelgrade-setup__environment',
+			style: { borderTop: '1px solid #e0e0e0', marginTop: '24px', paddingTop: '16px' },
+		},
+		createElement( 'h2', { style: { fontSize: '15px', margin: '0 0 12px' } }, copy.environmentTitle ),
+		createElement(
+			'div',
+			{ style: { display: 'flex', flexWrap: 'wrap', gap: '8px 32px' } },
+			rows.map( ( row, index ) =>
+				createElement(
+					'div',
+					{ key: index, style: { minWidth: '120px' } },
+					createElement( 'div', { style: { color: '#757575', fontSize: '12px' } }, row.label ),
+					createElement( 'div', { style: { fontWeight: 600 } }, row.value )
+				)
+			)
+		),
+		links.systemStatus
+			? createElement(
+					'div',
+					{ style: { marginTop: '12px' } },
+					createElement(
+						Button,
+						{ variant: 'link', href: links.systemStatus, style: { paddingLeft: 0 } },
+						copy.diagnosticsLabel
+					),
+					copy.diagnosticsHint
+						? createElement( 'p', { style: { color: '#757575', fontSize: '12px', margin: '4px 0 0' } }, copy.diagnosticsHint )
+						: null
+			  )
+			: null
+	);
+}
+
 export function Plugins() {
 	const data = getPluginsData();
 	const copy = data.copy || DEFAULT_PLUGINS.copy;
+	const readiness = data.readiness || {};
+	const readinessCopy = readiness.copy || {};
 	const [ plugins, setPlugins ] = useState( Array.isArray( data.plugins ) ? data.plugins : [] );
 	const [ notice, setNotice ] = useState( null );
 
@@ -395,27 +665,13 @@ export function Plugins() {
 		);
 	};
 
+	const pluginsTitle = readinessCopy.pluginsTitle || copy.title || DEFAULT_PLUGINS.copy.title;
+
 	return createElement(
 		Fragment,
 		null,
-		createElement(
-			Card,
-			{ className: 'pixelgrade-plugins__intro', style: { marginBottom: '16px' } },
-			createElement( CardHeader, null, createElement( 'h2', { style: { margin: 0 } }, copy.title || DEFAULT_PLUGINS.copy.title ) ),
-			copy.content
-				? createElement(
-						CardBody,
-						null,
-						// The copy embeds the active theme title, which legitimately carries a small
-						// "Free"/"Pro" badge span (see pixassist_modify_theme_supports_by_features()).
-						// Render it as HTML so the badge shows instead of leaking a literal `<span>`.
-						createElement( 'p', {
-							style: { margin: 0, maxWidth: '760px' },
-							dangerouslySetInnerHTML: { __html: copy.content },
-						} )
-				  )
-				: null
-		),
+		renderOverallCard( readiness.overall ),
+		renderIssues( readiness, readinessCopy ),
 		notice
 			? createElement(
 					Notice,
@@ -426,12 +682,28 @@ export function Plugins() {
 					notice.message
 			  )
 			: null,
+		// Plain section header (not a bordered card) — the bordered-card treatment is reserved for the
+		// actionable issue cards above. The actionable plugin rows below stay as cards.
+		createElement(
+			'div',
+			{ className: 'pixelgrade-plugins__intro', style: { margin: '24px 0 12px' } },
+			createElement( 'h2', { style: { fontSize: '15px', margin: '0 0 4px' } }, pluginsTitle ),
+			copy.content
+				? // Plain, static readiness copy (PHP-escaped, no embedded markup) — render as text.
+				  createElement(
+						'p',
+						{ style: { color: '#50575e', margin: 0, maxWidth: '760px' } },
+						copy.content
+				  )
+				: null
+		),
 		plugins.length
 			? plugins.map( ( plugin ) => renderPlugin( plugin, updatePlugin, copy, setNotice ) )
 			: createElement(
 					Notice,
 					{ status: 'info', isDismissible: false },
 					copy.empty || DEFAULT_PLUGINS.copy.empty
-			  )
+			  ),
+		renderEnvironmentSummary( readiness, readinessCopy )
 	);
 }

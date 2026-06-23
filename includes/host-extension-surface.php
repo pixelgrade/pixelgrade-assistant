@@ -47,6 +47,7 @@ if ( ! function_exists( 'pixassist_get_admin_hub_tabs' ) ) {
 	 *   - capability (string): WP capability required to see the tab. Default `manage_options`.
 	 *   - gate (string): cosmetic entitlement hint for upsell rendering — recognized: '' (free),
 	 *     'plus', 'plus_licensed'. NOT access control (capability is).
+	 *   - badge (string): optional short display badge rendered beside the tab label.
 	 *   - component (string): JS component key the hub registry resolves to a React component.
 	 *   - url (string): if non-empty, the tab is a plain link-out and `component` is cleared.
 	 *   - icon (string): optional dashicon/url for the tab.
@@ -96,6 +97,7 @@ if ( ! function_exists( 'pixassist_get_admin_hub_tabs' ) ) {
 				'label'      => isset( $tab['label'] ) ? (string) $tab['label'] : '',
 				'capability' => $capability,
 				'gate'       => isset( $tab['gate'] ) ? sanitize_key( $tab['gate'] ) : '',
+				'badge'      => isset( $tab['badge'] ) ? sanitize_text_field( $tab['badge'] ) : '',
 				'component'  => $component,
 				'url'        => $url,
 				'icon'       => isset( $tab['icon'] ) ? (string) $tab['icon'] : '',

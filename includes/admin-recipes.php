@@ -15,25 +15,20 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 if ( ! function_exists( 'pixassist_register_recipes_tab' ) ) {
 	/**
-	 * Register the Recipes tab on the Appearance -> Pixelgrade hub registry.
+	 * Preserve the legacy registration callback without exposing Recipes in navigation.
+	 *
+	 * Recipes now surface through Starter Sites' layout-only/starter composer flow. The payload and
+	 * REST descriptors below remain available internally, but this callback no longer appends a
+	 * visible hub tab.
 	 *
 	 * @param array $tabs Tab descriptors collected so far.
 	 *
-	 * @return array Tab descriptors with the Recipes tab appended.
+	 * @return array Unchanged tab descriptors.
 	 */
 	function pixassist_register_recipes_tab( $tabs ) {
 		if ( ! is_array( $tabs ) ) {
 			$tabs = array();
 		}
-
-		$tabs[] = array(
-			'id'         => 'recipes',
-			'label'      => esc_html__( 'Recipes', '__plugin_txtd' ),
-			'capability' => 'edit_theme_options',
-			'component'  => 'starterRecipes',
-			'gate'       => '',
-			'order'      => 34,
-		);
 
 		return $tabs;
 	}

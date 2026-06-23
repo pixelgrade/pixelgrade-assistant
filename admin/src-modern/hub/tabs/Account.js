@@ -6,9 +6,10 @@
  *
  * No JSX; keep externals compatible with WordPress 5.9.
  */
-import { createElement, Fragment } from '@wordpress/element';
+import { createElement, Fragment, useEffect } from '@wordpress/element';
 import { __, sprintf } from '@wordpress/i18n';
 import { Card, CardHeader, CardBody, Button, Notice, Flex, FlexItem } from '@wordpress/components';
+import { applyFilters } from '@wordpress/hooks';
 import { renderAvatar } from '../avatar';
 
 const DEFAULT_ACCOUNT = {
@@ -25,6 +26,58 @@ function getAccountData() {
 	}
 
 	return DEFAULT_ACCOUNT;
+}
+
+function sanitizeSectionId( value ) {
+	return String( value || '' ).toLowerCase().replace( /[^a-z0-9_-]/g, '' );
+}
+
+function getLinkedSection() {
+	if ( 'undefined' === typeof window ) {
+		return '';
+	}
+
+	const params = new URLSearchParams( window.location.search );
+	const section = sanitizeSectionId( params.get( 'section' ) || '' );
+	if ( section ) {
+		return section;
+	}
+
+	return 'account-license' === params.get( 'tab' ) ? 'plus' : '';
+}
+
+function getAccountPanels( data ) {
+	const panels = applyFilters( 'pixelgrade.adminHub.accountPanels', [], data );
+
+	if ( ! Array.isArray( panels ) ) {
+		return [];
+	}
+
+	return panels
+		.map( ( panel, index ) => {
+			if ( ! panel || 'object' !== typeof panel ) {
+				return null;
+			}
+
+			const id = sanitizeSectionId( panel.id || '' );
+			if ( ! id || ! panel.component ) {
+				return null;
+			}
+
+			return {
+				id,
+				order: Number.isFinite( Number( panel.order ) ) ? Number( panel.order ) : 10 + index,
+				component: panel.component,
+			};
+		} )
+		.filter( Boolean )
+		.sort( ( a, b ) => {
+			if ( a.order === b.order ) {
+				return a.id.localeCompare( b.id );
+			}
+
+			return a.order < b.order ? -1 : 1;
+		} );
 }
 
 function renderNotice( notice ) {
@@ -193,14 +246,53 @@ function renderDisconnected( data ) {
 	);
 }
 
+function renderAccountPanels( data ) {
+	const panels = getAccountPanels( data );
+
+	return panels.map( ( panel ) => {
+		const Panel = panel.component;
+
+		return createElement(
+			'section',
+			{
+				key: panel.id,
+				id: 'pixelgrade-account-panel-' + panel.id,
+				className: 'pixelgrade-account-panel pixelgrade-account-panel--' + panel.id,
+				'data-account-section': panel.id,
+				tabIndex: '-1',
+				style: { marginTop: '24px' },
+			},
+			createElement( Panel, { accountData: data, sectionId: panel.id } )
+		);
+	} );
+}
+
 export function Account() {
 	const data = getAccountData();
 	const account = data.account || {};
+	const section = getLinkedSection();
+
+	useEffect( () => {
+		if ( ! section ) {
+			return;
+		}
+
+		const element = document.getElementById( 'pixelgrade-account-panel-' + section );
+		if ( ! element || 'function' !== typeof element.scrollIntoView ) {
+			return;
+		}
+
+		element.scrollIntoView( { block: 'start', behavior: 'smooth' } );
+		if ( 'function' === typeof element.focus ) {
+			element.focus( { preventScroll: true } );
+		}
+	}, [ section ] );
 
 	return createElement(
 		Fragment,
 		null,
 		renderNotice( data.notice ),
-		account.is_connected ? renderConnected( data ) : renderDisconnected( data )
+		account.is_connected ? renderConnected( data ) : renderDisconnected( data ),
+		renderAccountPanels( data )
 	);
 }

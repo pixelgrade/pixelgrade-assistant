@@ -328,6 +328,9 @@ class PixelgradeAssistant_Admin {
             // The free Overview tab (#44) reads its own bootstrap payload (theme status, quick links,
             // Plus discovery card). Tab-specific data channel, kept out of the generic hub bootstrap.
             wp_localize_script( $handle, 'pixelgradeOverview', pixassist_get_overview_data() );
+            // The free Styles tab keeps the hub navigation stable and routes into the editor only from
+            // explicit style actions.
+            wp_localize_script( $handle, 'pixelgradeStyles', pixassist_get_styles_data() );
             // The free Plugins tab (#48) reuses the existing TGMPA/recommended-plugins source and
             // exposes only normalized UI data to the modern tab.
             wp_localize_script( $handle, 'pixelgradePlugins', pixassist_get_plugins_data() );

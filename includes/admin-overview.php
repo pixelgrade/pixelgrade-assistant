@@ -41,7 +41,7 @@ if ( ! function_exists( 'pixassist_register_overview_tab' ) ) {
 
 		$tabs[] = array(
 			'id'         => 'overview',
-			'label'      => esc_html__( 'Overview', '__plugin_txtd' ),
+			'label'      => esc_html__( 'Home', '__plugin_txtd' ),
 			'capability' => 'edit_theme_options',
 			'component'  => 'overview',
 			'gate'       => '',
@@ -145,19 +145,27 @@ if ( ! function_exists( 'pixassist_get_overview_links' ) ) {
 	function pixassist_get_overview_links( $tabs, $base_url, $is_block ) {
 		$links = array();
 
-		// 1. Canvas link — the primary CTA, always present.
-		if ( $is_block ) {
+		// 1. Design System — prefer the in-hub section; fall back to the native style surface.
+		$styles = pixassist_find_overview_tab( $tabs, array( 'styles' ) );
+		if ( $styles ) {
+			$links[] = array(
+				'id'      => 'styles',
+				'label'   => esc_html__( 'Open Design System', '__plugin_txtd' ),
+				'url'     => pixassist_overview_tab_url( $styles, $base_url ),
+				'primary' => true,
+			);
+		} elseif ( $is_block ) {
 			$links[] = array(
 				'id'      => 'site-editor',
-				'label'   => esc_html__( 'Edit Styles', '__plugin_txtd' ),
-				'url'     => admin_url( 'site-editor.php?path=%2Fwp_global_styles' ),
+				'label'   => esc_html__( 'Open Style Manager', '__plugin_txtd' ),
+				'url'     => pixassist_get_styles_url( true ),
 				'primary' => true,
 			);
 		} else {
 			$links[] = array(
 				'id'      => 'customize',
-				'label'   => esc_html__( 'Edit Styles', '__plugin_txtd' ),
-				'url'     => admin_url( 'customize.php' ),
+				'label'   => esc_html__( 'Open Style Manager', '__plugin_txtd' ),
+				'url'     => pixassist_get_styles_url( false ),
 				'primary' => true,
 			);
 		}
@@ -251,6 +259,7 @@ if ( ! function_exists( 'pixassist_get_overview_plus_card' ) ) {
 		$settings_url  = ! empty( $status['plus_settings_url'] ) ? (string) $status['plus_settings_url'] : '';
 		$shop_base     = defined( 'PIXELGRADE_ASSISTANT__SHOP_BASE' ) ? PIXELGRADE_ASSISTANT__SHOP_BASE : 'https://pixelgrade.com/';
 		$discover_url  = trailingslashit( $shop_base ) . 'plus/';
+		$account_url   = admin_url( 'themes.php?page=pixelgrade&tab=account&section=plus' );
 
 		if ( empty( $status['is_plus_active'] ) ) {
 			$card = array(
@@ -264,14 +273,14 @@ if ( ! function_exists( 'pixassist_get_overview_plus_card' ) ) {
 				'state'       => 'setup',
 				'label'       => esc_html__( 'Set up Pixelgrade Plus', '__plugin_txtd' ),
 				'description' => esc_html__( 'Pixelgrade Plus is installed. Activate it to unlock its advanced design tools.', '__plugin_txtd' ),
-				'url'         => '' !== $settings_url ? $settings_url : $discover_url,
+				'url'         => '' !== $settings_url ? $settings_url : $account_url,
 			);
 		} else {
 			$card = array(
 				'state'       => 'manage',
 				'label'       => esc_html__( 'Manage Pixelgrade Plus', '__plugin_txtd' ),
 				'description' => esc_html__( 'Pixelgrade Plus is active. Manage your advanced design tools and settings.', '__plugin_txtd' ),
-				'url'         => '' !== $settings_url ? $settings_url : $discover_url,
+				'url'         => '' !== $settings_url ? $settings_url : $account_url,
 			);
 		}
 

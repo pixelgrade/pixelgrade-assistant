@@ -122,7 +122,10 @@ function assert_true( $condition, $message ) {
 require __DIR__ . '/../includes/capabilities.php';
 require __DIR__ . '/../includes/host-extension-surface.php';
 require __DIR__ . '/../includes/admin-hub.php';
+require __DIR__ . '/../includes/admin-styles.php';
 require __DIR__ . '/../includes/admin-overview.php';
+
+assert_true( function_exists( 'pixassist_register_styles_tab' ), 'The Styles tab registration function must be defined.' );
 
 /*
  * 1. Registration: the free Overview tab descriptor — first (order 0), free (no gate), gated only
@@ -133,7 +136,7 @@ assert_same( 1, count( $registered ), 'Overview registration must append exactly
 
 $tab = $registered[0];
 assert_same( 'overview', $tab['id'], 'Overview tab id must be `overview`.' );
-assert_same( 'Overview', $tab['label'], 'Overview tab label must be `Overview`.' );
+assert_same( 'Home', $tab['label'], 'Overview tab visible label must be renamed to Home while keeping id `overview`.' );
 assert_same( 'edit_theme_options', $tab['capability'], 'Overview tab must require edit_theme_options.' );
 assert_same( 'overview', $tab['component'], 'Overview tab must bind the `overview` JS component.' );
 assert_same( '', $tab['gate'], 'Overview tab is free — no upsell gate.' );
@@ -143,13 +146,29 @@ assert_same( 0, $tab['order'], 'Overview tab must sort first (order 0).' );
 $registered = pixassist_register_overview_tab( array( array( 'id' => 'starter-sites' ) ) );
 assert_same( 2, count( $registered ), 'Overview registration must keep existing tabs.' );
 
+$registered = pixassist_register_styles_tab( array() );
+assert_same( 1, count( $registered ), 'Styles registration must append exactly one tab.' );
+
+$styles_tab = $registered[0];
+assert_same( 'styles', $styles_tab['id'], 'Styles tab id must be `styles`.' );
+assert_same( 'Design System', $styles_tab['label'], 'Styles tab visible label must be `Design System`.' );
+assert_same( 'edit_theme_options', $styles_tab['capability'], 'Styles tab must require edit_theme_options.' );
+assert_same( 'styles', $styles_tab['component'], 'Styles must render an in-hub component.' );
+assert_same( '', $styles_tab['gate'], 'Styles tab is free — no upsell gate.' );
+assert_same( 10, $styles_tab['order'], 'Styles must sort after Home and before Starter Sites.' );
+assert_true( empty( $styles_tab['url'] ), 'Styles must not be a link tab.' );
+
 /*
  * 2. Through the live registry the Overview tab is present and sorts first.
  */
 paf_reset();
 add_filter( 'pixelgrade/admin_hub/tabs', 'pixassist_register_overview_tab' );
+add_filter( 'pixelgrade/admin_hub/tabs', 'pixassist_register_styles_tab' );
 $data = pixassist_get_admin_hub_data();
 assert_same( 'overview', $data['defaultTab'], 'Overview must be the default (first) hub tab.' );
+assert_same( array( 'overview', 'styles' ), array_column( $data['tabs'], 'id' ), 'Home and Design System must be the first design-cluster tabs.' );
+assert_same( 'Home', $data['tabs'][0]['label'], 'The normalized Overview tab must be visible as Home.' );
+assert_same( 'Design System', $data['tabs'][1]['label'], 'The normalized Styles tab must be visible as Design System.' );
 
 /*
  * 3. Classic theme + Plus inactive: canvas link is the Customizer, Plus card is in `discover`,
@@ -157,6 +176,7 @@ assert_same( 'overview', $data['defaultTab'], 'Overview must be the default (fir
  */
 paf_reset();
 add_filter( 'pixelgrade/admin_hub/tabs', 'pixassist_register_overview_tab' );
+add_filter( 'pixelgrade/admin_hub/tabs', 'pixassist_register_styles_tab' );
 paf_set_plus_status( array(
 	'is_plus_active'     => false,
 	'is_plus_licensed'   => false,
@@ -173,9 +193,9 @@ assert_same( array( 'account', 'links', 'onboarding', 'plus', 'theme' ), $keys, 
 assert_same( false, $overview['theme']['isBlockTheme'], 'Classic theme must read isBlockTheme=false.' );
 
 $canvas = $overview['links'][0];
-assert_same( 'customize', $canvas['id'], 'Classic theme canvas link must be the Customizer.' );
-assert_same( 'https://example.test/wp-admin/customize.php', $canvas['url'], 'Customizer link URL must resolve.' );
-assert_same( 'Edit Styles', $canvas['label'], 'The classic-theme canvas CTA must read "Edit Styles".' );
+assert_same( 'styles', $canvas['id'], 'Home must route the style CTA to the in-hub Design System section when it exists.' );
+assert_same( 'https://example.test/wp-admin/themes.php?page=pixelgrade&tab=styles', $canvas['url'], 'Home Design System CTA must resolve to the in-hub Styles route.' );
+assert_same( 'Open Design System', $canvas['label'], 'The Home style CTA must read "Open Design System".' );
 assert_true( ! empty( $canvas['primary'] ), 'The canvas link must be the primary quick link.' );
 
 assert_same( null, paf_find_link( $overview['links'], 'starter-sites' ), 'No Starter Sites link without a Starter tab.' );
@@ -201,6 +221,7 @@ assert_same( false, $overview['account']['is_connected'], 'Account reads disconn
 paf_reset();
 $GLOBALS['paf_is_block_theme'] = true;
 add_filter( 'pixelgrade/admin_hub/tabs', 'pixassist_register_overview_tab' );
+add_filter( 'pixelgrade/admin_hub/tabs', 'pixassist_register_styles_tab' );
 add_filter(
 	'pixelgrade/admin_hub/tabs',
 	function ( $tabs ) {
@@ -213,16 +234,16 @@ add_filter(
 paf_set_plus_status( array(
 	'is_plus_active'     => true,
 	'is_plus_licensed'   => false,
-	'plus_settings_url'  => 'https://example.test/wp-admin/themes.php?page=pixelgrade&tab=account-license',
+	'plus_settings_url'  => 'https://example.test/wp-admin/themes.php?page=pixelgrade&tab=account&section=plus',
 	'plus_product_label' => 'Pixelgrade Plus',
 ) );
 
 $overview = pixassist_get_overview_data();
 
 $canvas = $overview['links'][0];
-assert_same( 'site-editor', $canvas['id'], 'Block theme canvas link must be the Site Editor.' );
-assert_same( 'https://example.test/wp-admin/site-editor.php?path=%2Fwp_global_styles', $canvas['url'], 'Site Editor canvas link must deep-link into the Styles view.' );
-assert_same( 'Edit Styles', $canvas['label'], 'The block-theme canvas CTA must read "Edit Styles".' );
+assert_same( 'styles', $canvas['id'], 'Block-theme Home must route the style CTA to the in-hub Design System section.' );
+assert_same( 'https://example.test/wp-admin/themes.php?page=pixelgrade&tab=styles', $canvas['url'], 'Block-theme Home Design System CTA must resolve to the in-hub Styles route.' );
+assert_same( 'Open Design System', $canvas['label'], 'The block-theme Home style CTA must read "Open Design System".' );
 
 $starter = paf_find_link( $overview['links'], 'starter-sites' );
 assert_true( null !== $starter, 'Starter Sites link appears when the tab is registered.' );
@@ -235,7 +256,7 @@ assert_same( 'https://example.test/wp-admin/themes.php?page=pixelgrade&tab=help'
 assert_same( 'setup', $overview['plus']['state'], 'Active-but-unlicensed Plus must be in the set-up state.' );
 assert_same( true, $overview['plus']['isActive'], 'Active Plus must report isActive=true.' );
 assert_same( false, $overview['plus']['isLicensed'], 'Unlicensed Plus must report isLicensed=false.' );
-assert_same( 'https://example.test/wp-admin/themes.php?page=pixelgrade&tab=account-license', $overview['plus']['url'], 'Set-up state links to the Plus Account & License URL.' );
+assert_same( 'https://example.test/wp-admin/themes.php?page=pixelgrade&tab=account&section=plus', $overview['plus']['url'], 'Set-up state links to the Plus section inside Account.' );
 
 /*
  * 5. Plus active + licensed: the card flips to the manage state.
@@ -245,13 +266,17 @@ add_filter( 'pixelgrade/admin_hub/tabs', 'pixassist_register_overview_tab' );
 paf_set_plus_status( array(
 	'is_plus_active'     => true,
 	'is_plus_licensed'   => true,
-	'plus_settings_url'  => 'https://example.test/wp-admin/themes.php?page=pixelgrade&tab=account-license',
+	'plus_settings_url'  => 'https://example.test/wp-admin/themes.php?page=pixelgrade&tab=account&section=plus',
 	'plus_product_label' => 'Pixelgrade Plus',
 ) );
 
 $overview = pixassist_get_overview_data();
 assert_same( 'manage', $overview['plus']['state'], 'Licensed Plus must be in the manage state.' );
 assert_same( true, $overview['plus']['isLicensed'], 'Licensed Plus must report isLicensed=true.' );
+
+$overview_js = file_get_contents( __DIR__ . '/../admin/src-modern/hub/tabs/Overview.js' );
+assert_true( false !== strpos( $overview_js, 'plus.isActive' ), 'Home must suppress the large Plus card once Plus is already active.' );
+assert_true( false !== strpos( $overview_js, 'tab=account&section=plus' ) || false !== strpos( $overview_js, 'renderPlusCard( plus )' ), 'Plus setup/manage routing must stay tied to the Account Plus section, not a standalone Home card.' );
 
 /*
  * 6. Onboarding "Get started" state model.

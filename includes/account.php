@@ -1147,6 +1147,7 @@ if ( ! function_exists( 'pixassist_register_account_tab' ) ) {
 			'capability' => pixassist_account_capability(),
 			'component'  => 'account',
 			'gate'       => '',
+			'badge'      => 'PLUS',
 			'order'      => 10,
 		);
 

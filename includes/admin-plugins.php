@@ -16,6 +16,11 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
+// The Setup tab is a Pixelgrade Design preflight/readiness screen. The recommended-plugins list is
+// one (actionable) part of it; the readiness classification + copy live in setup-readiness.php so the
+// React tab stays presentational and the logic stays unit-testable.
+require_once __DIR__ . '/setup-readiness.php';
+
 if ( ! function_exists( 'pixassist_register_plugins_tab' ) ) {
 	/**
 	 * Register the free Plugins tab on the Appearance -> Pixelgrade hub registry.
@@ -31,11 +36,11 @@ if ( ! function_exists( 'pixassist_register_plugins_tab' ) ) {
 
 		$tabs[] = array(
 			'id'         => 'plugins',
-			'label'      => esc_html__( 'Plugins', '__plugin_txtd' ),
+			'label'      => esc_html__( 'Setup', '__plugin_txtd' ),
 			'capability' => 'edit_theme_options',
 			'component'  => 'plugins',
 			'gate'       => '',
-			'order'      => 20,
+			'order'      => 50,
 		);
 
 		return $tabs;
@@ -44,14 +49,33 @@ if ( ! function_exists( 'pixassist_register_plugins_tab' ) ) {
 
 if ( ! function_exists( 'pixassist_get_plugins_data' ) ) {
 	/**
-	 * Build the bootstrap payload the Plugins tab renders.
+	 * Build the bootstrap payload the Setup tab renders.
 	 *
 	 * @return array {
-	 *     @type array[] $plugins Normalized recommended plugins.
-	 *     @type array   $copy    Labels and helper copy derived from the existing config.
+	 *     @type array[] $plugins   Normalized recommended plugins (the actionable list).
+	 *     @type array   $copy      Labels and helper copy derived from the existing config.
+	 *     @type array   $readiness Pixelgrade Design preflight summary (see pixassist_get_setup_readiness_data()).
 	 * }
 	 */
 	function pixassist_get_plugins_data() {
+		return array(
+			'plugins'   => pixassist_get_recommended_plugins_list(),
+			'copy'      => pixassist_get_plugins_copy( pixassist_get_plugins_config() ),
+			'readiness' => function_exists( 'pixassist_get_setup_readiness_data' ) ? pixassist_get_setup_readiness_data() : array(),
+		);
+	}
+}
+
+if ( ! function_exists( 'pixassist_get_recommended_plugins_list' ) ) {
+	/**
+	 * Build just the normalized recommended-plugins list (the actionable part of the Setup tab).
+	 *
+	 * Split out from pixassist_get_plugins_data() so the readiness fact-gatherer can read plugin state
+	 * without re-entering pixassist_get_plugins_data() (which now also assembles the readiness summary).
+	 *
+	 * @return array[] Normalized, sorted recommended plugins.
+	 */
+	function pixassist_get_recommended_plugins_list() {
 		$config  = pixassist_get_plugins_config();
 		$plugins = array();
 
@@ -63,10 +87,7 @@ if ( ! function_exists( 'pixassist_get_plugins_data' ) ) {
 			$plugins = $config['requiredPlugins']['plugins'];
 		}
 
-		return array(
-			'plugins' => pixassist_normalize_plugins_payload( $plugins ),
-			'copy'    => pixassist_get_plugins_copy( $config ),
-		);
+		return pixassist_normalize_plugins_payload( $plugins );
 	}
 }
 
@@ -107,9 +128,9 @@ if ( ! function_exists( 'pixassist_get_plugins_copy' ) ) {
 			: array();
 
 		return array(
-			'title'            => pixassist_plugins_replace_tokens( isset( $recommended['title'] ) ? (string) $recommended['title'] : esc_html__( 'Manage plugins', '__plugin_txtd' ) ),
-			'content'          => pixassist_plugins_replace_tokens( isset( $recommended['content'] ) ? (string) $recommended['content'] : esc_html__( 'Install and activate the plugins recommended for your Pixelgrade site.', '__plugin_txtd' ) ),
-			'validatedTitle'   => pixassist_plugins_replace_tokens( isset( $recommended['validatedTitle'] ) ? (string) $recommended['validatedTitle'] : esc_html__( 'Plugins ready', '__plugin_txtd' ) ),
+			'title'            => esc_html__( 'Setup', '__plugin_txtd' ),
+			'content'          => esc_html__( 'Check the recommended plugins and activate anything Pixelgrade Design needs before you start working.', '__plugin_txtd' ),
+			'validatedTitle'   => pixassist_plugins_replace_tokens( isset( $recommended['validatedTitle'] ) ? (string) $recommended['validatedTitle'] : esc_html__( 'Setup ready', '__plugin_txtd' ) ),
 			'validatedContent' => pixassist_plugins_replace_tokens( isset( $recommended['validatedContent'] ) ? (string) $recommended['validatedContent'] : esc_html__( 'The recommended plugins are active.', '__plugin_txtd' ) ),
 			'empty'            => isset( $manager_l10n['noPlugins'] ) ? (string) $manager_l10n['noPlugins'] : esc_html__( 'You are all set. There are no recommended plugins for this theme right now.', '__plugin_txtd' ),
 			'groups'           => array(
