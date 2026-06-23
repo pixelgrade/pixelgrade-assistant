@@ -362,9 +362,11 @@ if ( ! function_exists( 'pixassist_starter_declares_commerce' ) ) {
 	/**
 	 * Decide whether a starter carries the commerce segment.
 	 *
-	 * Precedence: an explicit `segments` declaration listing `commerce`, an explicit `commerce` flag,
-	 * then a conservative inference from the starter identity. Inference only surfaces a (locked,
-	 * default-excluded) upsell — it never changes the free import.
+	 * Precedence: an explicit `segments` declaration listing `commerce`, an explicit `commerce` flag
+	 * (so the remote descriptor can opt in OR out), a curated allowlist of known free commerce
+	 * starters (Felt LT — whose identity carries no commerce keyword), then a conservative inference
+	 * from the starter identity. None of these change the free import or gate the card; they only
+	 * surface the (locked, default-excluded) commerce segment as an upsell.
 	 *
 	 * @param array $raw_starter Raw starter descriptor.
 	 * @param array $normalized  Partial normalized starter descriptor.
@@ -383,6 +385,26 @@ if ( ! function_exists( 'pixassist_starter_declares_commerce' ) ) {
 
 		if ( isset( $raw_starter['commerce'] ) ) {
 			return (bool) $raw_starter['commerce'];
+		}
+
+		// Curated free commerce starters. Felt LT is a commerce-flavored Anima LT starter whose id/title
+		// carries no commerce keyword, so it would otherwise miss the copy inference below. The list is
+		// keyed by demo id and filterable, so the team / a companion / the remote config can curate it
+		// without forcing a copy-keyword hack into the starter title.
+		$commerce_ids = function_exists( 'apply_filters' )
+			? apply_filters( 'pixassist_starter_commerce_ids', array( 'felt-lt' => true ) )
+			: array( 'felt-lt' => true );
+		if ( is_array( $commerce_ids ) ) {
+			foreach ( array(
+				isset( $normalized['id'] ) ? $normalized['id'] : '',
+				isset( $raw_starter['id'] ) ? $raw_starter['id'] : '',
+				isset( $raw_starter['slug'] ) ? $raw_starter['slug'] : '',
+			) as $candidate ) {
+				$candidate = function_exists( 'sanitize_key' ) ? sanitize_key( $candidate ) : strtolower( trim( (string) $candidate ) );
+				if ( '' !== $candidate && ! empty( $commerce_ids[ $candidate ] ) ) {
+					return true;
+				}
+			}
 		}
 
 		$haystack = strtolower(
@@ -651,6 +673,34 @@ if ( ! function_exists( 'pixassist_starter_post_meta_value' ) ) {
 	}
 }
 
+if ( ! function_exists( 'pixassist_starter_commerce_object_key' ) ) {
+	/**
+	 * Build the lookup key for the skipped-commerce source-id registry.
+	 *
+	 * The registry is keyed by `"<object-type>:<source-id>"` (never a bare numeric id) so that a
+	 * nav menu item targeting an editorial term cannot collide with a skipped product/page that
+	 * merely shares the same numeric id: post ids and term ids live in separate tables and freely
+	 * coincide (e.g. category term 18 vs product post id 18). This is the single key shape shared by
+	 * the importer (which records skipped ids) and {@see pixassist_starter_classify_post_record()}
+	 * (which matches nav-item targets against them), so the two can never drift.
+	 *
+	 * @param string     $object_type Object type (post type or taxonomy, e.g. `page`, `product`, `product_cat`).
+	 * @param string|int $object_id   Source id of the object.
+	 *
+	 * @return string Typed key, or '' when either part is missing (archives/custom links carry id 0).
+	 */
+	function pixassist_starter_commerce_object_key( $object_type, $object_id ) {
+		$object_type = strtolower( trim( (string) $object_type ) );
+		$object_id   = trim( (string) $object_id );
+
+		if ( '' === $object_type || '' === $object_id || '0' === $object_id ) {
+			return '';
+		}
+
+		return $object_type . ':' . $object_id;
+	}
+}
+
 if ( ! function_exists( 'pixassist_starter_classify_post_record' ) ) {
 	/**
 	 * Classify an individual imported post record (page/post/template/product/nav item/...) into a
@@ -662,9 +712,11 @@ if ( ! function_exists( 'pixassist_starter_classify_post_record' ) ) {
 	 * slug, title, owning theme taxonomy, content, and (for nav menu items) its exported target meta.
 	 *
 	 * @param array $post    Source post record (as returned by the SCE `/posts` endpoint).
-	 * @param array $context Optional. `commerce_object_ids` => map of source ids already classified as
-	 *                       commerce (e.g. skipped shop/cart pages, products), so a menu item whose own
-	 *                       slug/title is neutral but which targets one of them is caught.
+	 * @param array $context Optional. `commerce_object_ids` => map of `"<object-type>:<source-id>"`
+	 *                       keys (see pixassist_starter_commerce_object_key) for records already
+	 *                       classified as commerce and skipped (e.g. shop/cart pages, products), so a
+	 *                       menu item whose own slug/title is neutral but which targets one of them is
+	 *                       caught — without ever colliding with an editorial term of the same id.
 	 *
 	 * @return string Segment id (defaults to `base`).
 	 */
@@ -704,8 +756,14 @@ if ( ! function_exists( 'pixassist_starter_classify_post_record' ) ) {
 				return 'commerce';
 			}
 
+			// A nav item whose own slug/title is neutral (empty, or e.g. "products") but which targets a
+			// skipped commerce record by id — typically the Shop page, exported as an ordinary `page`. The
+			// registry is keyed by `"<object-type>:<id>"`, so a target is matched only against a skipped
+			// record of the SAME object type: a base nav item pointing at category/post_tag term 18 can
+			// never be dropped just because a product or product_tag term also has id 18.
 			$commerce_ids = isset( $context['commerce_object_ids'] ) && is_array( $context['commerce_object_ids'] ) ? $context['commerce_object_ids'] : array();
-			if ( '' !== (string) $object_id && isset( $commerce_ids[ (string) $object_id ] ) ) {
+			$object_key   = pixassist_starter_commerce_object_key( $object, $object_id );
+			if ( '' !== $object_key && isset( $commerce_ids[ $object_key ] ) ) {
 				return 'commerce';
 			}
 		}

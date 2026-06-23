@@ -1935,11 +1935,16 @@ class PixelgradeAssistant_StarterContent {
 		}
 
 		/**
-		 * Read the set of source ids classified as gated commerce (and skipped) for a demo.
+		 * Read the set of source records classified as gated commerce (and skipped) for a demo.
+		 *
+		 * Keyed by `"<object-type>:<source-id>"` (see pixassist_starter_commerce_object_key) so a later
+		 * nav menu item is matched only against a skipped record of the SAME object type — a base nav
+		 * item pointing at an editorial term can never collide with a skipped product/page sharing the
+		 * numeric id (post ids and term ids live in separate tables and freely coincide).
 		 *
 		 * @param string $demo_key Demo key.
 		 *
-		 * @return array Map of source id (string) => true.
+		 * @return array Map of `"<object-type>:<source-id>"` => true.
 		 */
 		private function get_commerce_source_ids( $demo_key ) {
 			$demo_key = sanitize_key( $demo_key );
@@ -1952,23 +1957,31 @@ class PixelgradeAssistant_StarterContent {
 		}
 
 		/**
-		 * Record one or more source ids as gated commerce that was skipped during a free import, so a
-		 * later nav menu item targeting one of them (by id) is also recognized as commerce. Writes the
-		 * transient once after merging.
+		 * Record one or more source records as gated commerce that was skipped during a free import, so
+		 * a later nav menu item targeting one of them (by object type + id) is also recognized as
+		 * commerce. Stored under `"<object-type>:<source-id>"` keys (see
+		 * pixassist_starter_commerce_object_key) so the match is type-scoped and collision-free. Writes
+		 * the transient once after merging.
 		 *
-		 * @param string       $demo_key Demo key.
-		 * @param array|string $ids      Source id(s).
+		 * @param string       $demo_key    Demo key.
+		 * @param string       $object_type Object type of the skipped record(s): a post type (e.g.
+		 *                                  `page`, `product`) or a taxonomy (e.g. `product_cat`).
+		 * @param array|string $ids         Source id(s).
 		 */
-		private function record_commerce_source_ids( $demo_key, $ids ) {
+		private function record_commerce_source_ids( $demo_key, $object_type, $ids ) {
+			if ( ! function_exists( 'pixassist_starter_commerce_object_key' ) ) {
+				return;
+			}
+
 			$demo_key = sanitize_key( $demo_key );
 			$current  = $this->get_commerce_source_ids( $demo_key );
 			$changed  = false;
 
 			foreach ( (array) $ids as $id ) {
-				$id = (string) $id;
-				if ( '' !== $id && ! isset( $current[ $id ] ) ) {
-					$current[ $id ] = true;
-					$changed        = true;
+				$key = pixassist_starter_commerce_object_key( $object_type, $id );
+				if ( '' !== $key && ! isset( $current[ $key ] ) ) {
+					$current[ $key ] = true;
+					$changed         = true;
 				}
 			}
 
@@ -3060,7 +3073,7 @@ class PixelgradeAssistant_StarterContent {
 					// Free/default full import excludes commerce: skip product taxonomies unless authorized.
 					if ( function_exists( 'pixassist_starter_authorize_import' )
 						&& is_wp_error( pixassist_starter_authorize_import( 'taxonomy', array( 'tax' => sanitize_key( $entry['name'] ) ) ) ) ) {
-						$this->record_commerce_source_ids( $demo_key, $entry['ids'] );
+						$this->record_commerce_source_ids( $demo_key, sanitize_key( $entry['name'] ), $entry['ids'] );
 						continue;
 					}
 
@@ -3087,7 +3100,7 @@ class PixelgradeAssistant_StarterContent {
 					// Free/default full import excludes commerce: skip product/shop post types unless authorized.
 					if ( function_exists( 'pixassist_starter_authorize_import' )
 						&& is_wp_error( pixassist_starter_authorize_import( 'post_type', array( 'post_type' => sanitize_key( $entry['name'] ) ) ) ) ) {
-						$this->record_commerce_source_ids( $demo_key, $entry['ids'] );
+						$this->record_commerce_source_ids( $demo_key, sanitize_key( $entry['name'] ), $entry['ids'] );
 						continue;
 					}
 
@@ -6389,9 +6402,10 @@ class PixelgradeAssistant_StarterContent {
 			return rest_ensure_response( $response_data );
 		}
 
-		// Source ids already skipped as commerce (shop/cart pages, products) so a later nav menu item
-		// that targets one of them by id is also recognized as commerce. Pages/products (priority 10)
-		// import before nav menu items (priority 900), so the set is populated in time.
+		// Source records already skipped as commerce (shop/cart pages, products) so a later nav menu
+		// item that targets one of them by object type + id is also recognized as commerce. Pages/
+		// products (priority 10) import before nav menu items (priority 900), so the set is populated
+		// in time.
 		$commerce_context = function_exists( 'pixassist_starter_post_record_is_authorized' )
 			? array( 'commerce_object_ids' => $this->get_commerce_source_ids( $demo_key ) )
 			: array();
@@ -6407,7 +6421,9 @@ class PixelgradeAssistant_StarterContent {
 			if ( function_exists( 'pixassist_starter_post_record_is_authorized' )
 				&& ! pixassist_starter_post_record_is_authorized( $post, $commerce_context ) ) {
 				if ( isset( $post['ID'] ) ) {
-					$this->record_commerce_source_ids( $demo_key, $post['ID'] );
+					// Record under the record's own object type (e.g. "page:4" for a shop page) so a
+					// page-targeting nav item matches only a skipped page, never an editorial term.
+					$this->record_commerce_source_ids( $demo_key, isset( $post['post_type'] ) ? $post['post_type'] : '', $post['ID'] );
 					$commerce_context['commerce_object_ids'] = $this->get_commerce_source_ids( $demo_key );
 				}
 				continue;

@@ -447,7 +447,8 @@ assert_same(
 	'A nav item targeting a product category classifies as commerce.'
 );
 // _menu_item_object = page targeting a skipped commerce page id (with no own slug/title signal).
-$skipped_pages = array( 'commerce_object_ids' => array( '4' => true ) );
+// The registry is keyed by "<object-type>:<id>" (see pixassist_starter_commerce_object_key).
+$skipped_pages = array( 'commerce_object_ids' => array( 'page:4' => true ) );
 assert_same(
 	'commerce',
 	pixassist_starter_classify_post_record( array(
@@ -478,6 +479,54 @@ assert_same(
 		'meta'      => array( '_menu_item_type' => array( 'post_type' ), '_menu_item_object' => array( 'page' ), '_menu_item_object_id' => array( 7 ) ),
 	), $skipped_pages ),
 	'A nav item targeting a base page stays base.'
+);
+
+/*
+ * 6e. Post-id / term-id collision safety (regression).
+ *     The skipped-commerce registry must be keyed by object-type + id, never a bare numeric id.
+ *     Live Felt LT ships base editorial nav items that target category/post_tag TERMS (e.g. item
+ *     2040 -> category term 18, item 2131 -> post_tag term 85), while the same free import skips
+ *     product/product_cat/product_tag records whose ids live in unrelated tables and freely
+ *     coincide. A bare-id registry would drop a base category/post_tag link the instant a skipped
+ *     product post id or product taxonomy term id equals the editorial term id. Typed keys make
+ *     that collision structurally impossible.
+ */
+// A registry carrying a bare numeric id (as the buggy untyped scheme produced) must NOT match a
+// base category/post_tag nav item that targets a TERM of the same numeric id.
+$bare_id_registry = array( 'commerce_object_ids' => array( '18' => true, 'product:18' => true, 'product_tag:18' => true ) );
+assert_same(
+	'base',
+	pixassist_starter_classify_post_record( array(
+		'post_type' => 'nav_menu_item',
+		'post_title' => '',
+		'meta'      => array( '_menu_item_type' => array( 'taxonomy' ), '_menu_item_object' => array( 'category' ), '_menu_item_object_id' => array( 18 ) ),
+	), $bare_id_registry ),
+	'A base category nav item must not collide with a skipped product/term that shares its numeric id.'
+);
+assert_same(
+	'base',
+	pixassist_starter_classify_post_record( array(
+		'post_type' => 'nav_menu_item',
+		'post_title' => '',
+		'meta'      => array( '_menu_item_type' => array( 'taxonomy' ), '_menu_item_object' => array( 'post_tag' ), '_menu_item_object_id' => array( 18 ) ),
+	), $bare_id_registry ),
+	'A base post_tag nav item must not collide with a skipped product/term that shares its numeric id.'
+);
+// The typed key is the shared, drift-proof contract between importer and classifier.
+assert_true( function_exists( 'pixassist_starter_commerce_object_key' ), 'A shared typed-key builder must define the registry key shape.' );
+assert_same( 'page:4', pixassist_starter_commerce_object_key( 'page', 4 ), 'The registry key must be "<object-type>:<id>".' );
+assert_same( '', pixassist_starter_commerce_object_key( 'page', 0 ), 'A zero/empty object id yields no key (archives/custom links).' );
+assert_same( '', pixassist_starter_commerce_object_key( '', 4 ), 'An empty object type yields no key.' );
+// A page-targeted nav item still matches the typed registry key for a skipped commerce page.
+$typed_pages = array( 'commerce_object_ids' => array( 'page:4' => true ) );
+assert_same(
+	'commerce',
+	pixassist_starter_classify_post_record( array(
+		'post_type' => 'nav_menu_item',
+		'post_title' => '',
+		'meta'      => array( '_menu_item_type' => array( 'post_type' ), '_menu_item_object' => array( 'page' ), '_menu_item_object_id' => array( 4 ) ),
+	), $typed_pages ),
+	'A nav item targeting a skipped commerce page (typed key) classifies as commerce.'
 );
 
 // Per-record authorization honors the context for meta-targeted nav items in a free import.
@@ -521,7 +570,32 @@ assert_same( true, pixassist_starter_post_record_is_authorized( array( 'post_typ
 assert_same( true, pixassist_starter_post_record_is_authorized( array( 'post_type' => 'wp_template', 'post_name' => 'single-product' ) ), 'A WooCommerce template must be authorized when WooCommerce + the Plus capability are present.' );
 
 /*
- * 7. Gated segment data must never leak OAuth/license secrets to JS.
+ * 7. Curated free commerce starters (Felt LT).
+ *    Felt LT is a free Anima LT starter whose id/title carries no commerce keyword, so it is
+ *    recognized through the filterable `pixassist_starter_commerce_ids` allowlist (default: felt-lt).
+ *    The starter stays a free object (no card gate) — only its commerce SEGMENT is gated.
+ */
+$GLOBALS['paf_installed_plugins'] = array();
+$GLOBALS['paf_entitlements']      = array();
+
+$felt_default = pixassist_get_starter_segments( array( 'id' => 'felt-lt', 'title' => 'Felt LT' ), array( 'id' => 'felt-lt' ) );
+assert_true( in_array( 'commerce', array_column( $felt_default, 'id' ), true ), 'Felt LT must declare the commerce segment by default (curated allowlist), even with a neutral title.' );
+
+// A neutral, non-curated free starter must NOT gain a commerce segment.
+$blog_default = pixassist_get_starter_segments( array( 'id' => 'anima-blog', 'title' => 'Field Notes' ), array( 'id' => 'anima-blog' ) );
+assert_same( array( 'base', 'look', 'layouts' ), array_column( $blog_default, 'id' ), 'A neutral free starter must not gain a commerce segment.' );
+
+// An explicit `commerce => false` on the descriptor overrides the allowlist (remote can opt out).
+$felt_optout = pixassist_get_starter_segments( array( 'id' => 'felt-lt', 'title' => 'Felt LT', 'commerce' => false ), array( 'id' => 'felt-lt' ) );
+assert_same( array( 'base', 'look', 'layouts' ), array_column( $felt_optout, 'id' ), 'An explicit commerce=false must override the curated allowlist.' );
+
+// The allowlist is filterable (the team / a companion can curate it for additional free starters).
+add_filter( 'pixassist_starter_commerce_ids', function ( $ids ) { $ids['anima-extra'] = true; return $ids; } );
+$extra_default = pixassist_get_starter_segments( array( 'id' => 'anima-extra', 'title' => 'Anima Extra' ), array( 'id' => 'anima-extra' ) );
+assert_true( in_array( 'commerce', array_column( $extra_default, 'id' ), true ), 'The commerce-id allowlist must be filterable.' );
+
+/*
+ * 8. Gated segment data must never leak OAuth/license secrets to JS.
  *    Even a companion filter that injects sensitive keys is stripped to the whitelist.
  */
 add_filter(
@@ -551,5 +625,121 @@ foreach ( $leaky as $segment ) {
 		assert_true( ! in_array( $secret, $keys, true ), 'Segment descriptors must never carry the secret key: ' . $secret );
 	}
 }
+
+/*
+ * 9. Live Felt LT menu/content fidelity (free import).
+ *    Models the actual content exported by starter.pixelgrade.com/felt-lt (object/object_id taken
+ *    from the live /posts endpoint: pages 4/5/6/7 = shop/cart/checkout/my-account; nav items target
+ *    those pages or product objects; editorial nav items target category/post_tag terms). In a free
+ *    import (no WooCommerce, no Plus entitlement) every commerce item is dropped and every editorial
+ *    item is kept — including category/post_tag links whose term ids coincide with skipped
+ *    product/product_tag ids (the typed-key collision fix verified against real data).
+ */
+$GLOBALS['paf_installed_plugins'] = array();
+$GLOBALS['paf_entitlements']      = array();
+
+/**
+ * Build a nav-item record in the live SCE export shape.
+ */
+function felt_nav_item( $object, $object_id, $title = '', $type = '' ) {
+	return array(
+		'post_type'  => 'nav_menu_item',
+		'post_title' => $title,
+		'meta'       => array(
+			'_menu_item_type'      => array( $type ),
+			'_menu_item_object'    => array( $object ),
+			'_menu_item_object_id' => array( $object_id ),
+		),
+	);
+}
+
+// Typed skipped-commerce registry as the importer builds it for a free Felt import: the four
+// WooCommerce pages, plus a product and a product_tag whose numeric ids deliberately collide with
+// base editorial term ids (category term 18, post_tag term 115) to prove the typed-key fix.
+$felt_ctx = array(
+	'commerce_object_ids' => array(
+		'page:4'          => true,
+		'page:5'          => true,
+		'page:6'          => true,
+		'page:7'          => true,
+		'product:18'      => true,
+		'product_tag:115' => true,
+	),
+);
+
+$felt_commerce_nav = array(
+	'shop link 2563'       => felt_nav_item( 'page', 4, '', 'post_type' ),
+	'shop link 1765'       => felt_nav_item( 'page', 4, '', 'post_type' ),
+	'products link 2509'   => felt_nav_item( 'page', 4, 'products', 'post_type' ),
+	'product archive 2603' => felt_nav_item( 'product', 0, '', 'post_type_archive' ),
+	'product_cat 2599'     => felt_nav_item( 'product_cat', 63, '', 'taxonomy' ),
+	'product_cat 2600'     => felt_nav_item( 'product_cat', 22, '', 'taxonomy' ),
+	'cart extra 2228'      => felt_nav_item( 'pxg-extras__cart', 0, 'Cart', 'custom-pxg' ),
+);
+foreach ( $felt_commerce_nav as $label => $item ) {
+	assert_same( 'commerce', pixassist_starter_classify_post_record( $item, $felt_ctx ), 'Live Felt commerce nav item must classify as commerce: ' . $label );
+	assert_same( false, pixassist_starter_post_record_is_authorized( $item, $felt_ctx ), 'Live Felt commerce nav item must NOT be authorized in a free import: ' . $label );
+}
+
+$felt_base_nav = array(
+	'home 1764'      => felt_nav_item( 'page', 1733, '', 'post_type' ),
+	'contact 2042'   => felt_nav_item( 'page', 2039, '', 'post_type' ),
+	'about 1837'     => felt_nav_item( 'page', 1775, '', 'post_type' ),
+	'post 2534'      => felt_nav_item( 'post', 1039, 'portrait', 'post_type' ),
+	'category 2040'  => felt_nav_item( 'category', 18, '', 'taxonomy' ),   // collides with product:18
+	'category 1766'  => felt_nav_item( 'category', 17, '', 'taxonomy' ),
+	'category 1767'  => felt_nav_item( 'category', 16, '', 'taxonomy' ),
+	'category 2533'  => felt_nav_item( 'category', 103, '', 'taxonomy' ),
+	'post_tag 2131'  => felt_nav_item( 'post_tag', 85, '', 'taxonomy' ),
+	'post_tag 2532'  => felt_nav_item( 'post_tag', 115, '', 'taxonomy' ),  // collides with product_tag:115
+	'twitter 1773'   => felt_nav_item( 'custom', 1773, 'Twitter', 'custom' ),
+	'instagram 2522' => felt_nav_item( 'custom', 2522, 'Instagram', 'custom' ),
+	'darkmode 2564'  => felt_nav_item( 'pxg-extras__color-scheme-switcher', 0, 'Light/Dark Mode', 'custom-pxg' ),
+	'search 2562'    => felt_nav_item( 'pxg-extras__search', 0, 'Search', 'custom-pxg' ),
+);
+foreach ( $felt_base_nav as $label => $item ) {
+	assert_same( 'base', pixassist_starter_classify_post_record( $item, $felt_ctx ), 'Live Felt editorial nav item must classify as base: ' . $label );
+	assert_same( true, pixassist_starter_post_record_is_authorized( $item, $felt_ctx ), 'Live Felt editorial nav item must be authorized in a free import: ' . $label );
+}
+
+// Pages: shop/cart/checkout/my-account dropped, editorial pages kept (base page content carries no
+// embedded WooCommerce blocks/shortcodes — verified live).
+foreach ( array( 'shop', 'cart', 'checkout', 'my-account' ) as $slug ) {
+	assert_same( 'commerce', pixassist_starter_classify_post_record( array( 'post_type' => 'page', 'post_name' => $slug ) ), 'Live Felt WooCommerce page must be dropped: ' . $slug );
+}
+foreach ( array( 'home', 'home-alt', 'about', 'contact', 'blog' ) as $slug ) {
+	assert_same( 'base', pixassist_starter_classify_post_record( array( 'post_type' => 'page', 'post_name' => $slug ) ), 'Live Felt editorial page must be kept: ' . $slug );
+}
+
+// Felt's exported templates are the theme's own (single / header / footer), all base.
+assert_same( 'base', pixassist_starter_classify_post_record( array( 'post_type' => 'wp_template', 'post_name' => 'single', 'taxonomies' => array( 'wp_theme' => array( 'anima' ) ) ) ), 'Felt single template is base.' );
+assert_same( 'base', pixassist_starter_classify_post_record( array( 'post_type' => 'wp_template_part', 'post_name' => 'header' ) ), 'Felt header part is base.' );
+assert_same( 'base', pixassist_starter_classify_post_record( array( 'post_type' => 'wp_template_part', 'post_name' => 'footer' ) ), 'Felt footer part is base.' );
+
+// Operation-level: products/variations/product taxonomies are commerce (skipped); editorial kept.
+assert_same( 'commerce', pixassist_starter_classify_import( 'post_type', array( 'post_type' => 'product' ) ), 'Felt products are skipped.' );
+assert_same( 'commerce', pixassist_starter_classify_import( 'post_type', array( 'post_type' => 'product_variation' ) ), 'Felt product variations are skipped.' );
+assert_same( 'commerce', pixassist_starter_classify_import( 'taxonomy', array( 'tax' => 'product_cat' ) ), 'Felt product_cat is skipped.' );
+assert_same( 'commerce', pixassist_starter_classify_import( 'taxonomy', array( 'tax' => 'product_tag' ) ), 'Felt product_tag is skipped.' );
+assert_same( 'base', pixassist_starter_classify_import( 'post_type', array( 'post_type' => 'post' ) ), 'Felt posts are kept.' );
+assert_same( 'base', pixassist_starter_classify_import( 'taxonomy', array( 'tax' => 'category' ) ), 'Felt categories are kept.' );
+assert_same( 'base', pixassist_starter_classify_import( 'taxonomy', array( 'tax' => 'post_tag' ) ), 'Felt post_tags are kept.' );
+
+/*
+ * 9b. Unlocked path (WooCommerce active + Plus woocommerce_integration): the same Felt commerce
+ *     content is authorized to import.
+ */
+$GLOBALS['paf_installed_plugins'] = array( 'woocommerce/woocommerce.php' => true );
+$GLOBALS['paf_entitlements']      = array( 'woocommerce_integration' => true );
+foreach ( $felt_commerce_nav as $label => $item ) {
+	assert_same( true, pixassist_starter_post_record_is_authorized( $item, $felt_ctx ), 'Unlocked: Felt commerce nav item must be authorized: ' . $label );
+}
+assert_same( true, pixassist_starter_post_record_is_authorized( array( 'post_type' => 'page', 'post_name' => 'shop' ) ), 'Unlocked: the shop page must be authorized.' );
+assert_same( true, pixassist_starter_authorize_import( 'post_type', array( 'post_type' => 'product' ) ), 'Unlocked: product import must be authorized.' );
+assert_same( true, pixassist_starter_authorize_import( 'post_type', array( 'post_type' => 'product_variation' ) ), 'Unlocked: product_variation import must be authorized.' );
+assert_same( true, pixassist_starter_authorize_import( 'taxonomy', array( 'tax' => 'product_cat' ) ), 'Unlocked: product_cat import must be authorized.' );
+
+$GLOBALS['paf_installed_plugins'] = array();
+$GLOBALS['paf_entitlements']      = array();
 
 echo "Starter capability-segments OK\n";
