@@ -13,6 +13,7 @@ $GLOBALS['paf_filters']      = array();
 $GLOBALS['paf_denied_caps']  = array();
 $GLOBALS['paf_plugin_config'] = array();
 $GLOBALS['paf_options']       = array();
+$GLOBALS['paf_post_counts']   = array();
 
 function add_filter( $hook, $callback, $priority = 10, $args = 1 ) {
 	$GLOBALS['paf_filters'][ $hook ][] = array(
@@ -81,6 +82,28 @@ function wp_strip_all_tags( $value ) {
 	return trim( strip_tags( (string) $value ) );
 }
 
+function wp_count_posts( $post_type = 'post' ) {
+	$counts = isset( $GLOBALS['paf_post_counts'][ $post_type ] ) ? $GLOBALS['paf_post_counts'][ $post_type ] : array();
+
+	return (object) array_merge(
+		array(
+			'publish' => 0,
+			'private' => 0,
+			'draft'   => 0,
+			'future'  => 0,
+		),
+		$counts
+	);
+}
+
+function get_post_types( $args = array(), $output = 'names' ) {
+	return array( 'post', 'page', 'portfolio' );
+}
+
+function post_type_exists( $post_type ) {
+	return in_array( $post_type, array( 'post', 'page', 'portfolio' ), true );
+}
+
 // Simulate the installed/active plugin set the dependency gate inspects. The test toggles entries in
 // $GLOBALS['paf_installed_plugins'] (file_path => is_active) to drive the gate.
 function get_plugins() {
@@ -116,7 +139,7 @@ function pixassist_get_plus_status() {
 	return array(
 		'is_plus_active'     => true,
 		'is_plus_licensed'   => false,
-		'plus_settings_url'  => 'https://example.test/wp-admin/themes.php?page=pixelgrade&tab=account-license',
+		'plus_settings_url'  => 'https://example.test/wp-admin/themes.php?page=pixelgrade&tab=account&section=plus',
 		'plus_product_label' => 'Pixelgrade Plus',
 	);
 }
@@ -126,6 +149,18 @@ class PixelgradeAssistant_Admin {
 		'import'      => array(
 			'method' => 'POST',
 			'url'    => 'https://example.test/wp-json/pixassist/v1/import',
+		),
+		'importStarter' => array(
+			'method' => 'POST',
+			'url'    => 'https://example.test/wp-json/pixassist/v1/import_starter',
+		),
+		'applyRecipe' => array(
+			'method' => 'POST',
+			'url'    => 'https://example.test/wp-json/pixassist/v1/apply_recipe',
+		),
+		'importUnit'  => array(
+			'method' => 'POST',
+			'url'    => 'https://example.test/wp-json/pixassist/v1/import_unit',
 		),
 		'uploadMedia' => array(
 			'method' => 'POST',
@@ -139,6 +174,10 @@ class PixelgradeAssistant_Admin {
 
 	public static function get_option( $key, $default = null ) {
 		return array_key_exists( $key, $GLOBALS['paf_options'] ) ? $GLOBALS['paf_options'][ $key ] : $default;
+	}
+
+	public static function set_option( $key, $value ) {
+		$GLOBALS['paf_options'][ $key ] = $value;
 	}
 
 	public static function get_theme_support() {
@@ -201,6 +240,13 @@ $GLOBALS['paf_plugin_config'] = array(
 				'order'       => 20,
 				'image'       => 'https://demos.pixelgrade.test/main.jpg',
 			),
+			'anima-portfolio' => array(
+				'title'       => 'Meridian',
+				'description' => 'Portfolio starter description.',
+				'url'         => 'https://demos.pixelgrade.test/portfolio',
+				'order'       => 15,
+				'image'       => 'https://demos.pixelgrade.test/portfolio.jpg',
+			),
 			array(
 				'id'    => 'secondary',
 				'url'   => 'https://demos.pixelgrade.test/secondary/',
@@ -213,11 +259,8 @@ $GLOBALS['paf_plugin_config'] = array(
 	),
 );
 
-$GLOBALS['paf_options']['imported_starter_content'] = array(
-	'main' => array(
-		'pre_settings' => true,
-	),
-);
+$GLOBALS['paf_options']['imported_starter_content'] = array();
+$GLOBALS['paf_options']['enabled_features']         = array();
 
 $GLOBALS['paf_filters'] = array();
 add_filter(
@@ -252,9 +295,9 @@ add_filter(
 );
 
 $starters = pixassist_get_admin_hub_starters();
-assert_same( array( 'premium-pack', 'secondary', 'main' ), array_column( $starters, 'id' ), 'Starters must include free + injected premium entries, drop malformed entries, dedupe ids, and sort by order.' );
+assert_same( array( 'premium-pack', 'secondary', 'anima-portfolio', 'main' ), array_column( $starters, 'id' ), 'Starters must include free + injected premium entries, drop malformed entries, dedupe ids, and sort by order.' );
 
-$expected_starter_keys = array( 'badge', 'baseRestUrl', 'description', 'gate', 'id', 'image', 'order', 'previewUrl', 'requiredPlugins', 'source', 'title', 'url' );
+$expected_starter_keys = array( 'applyPlan', 'badge', 'baseRestUrl', 'capabilities', 'description', 'gate', 'id', 'image', 'order', 'previewUrl', 'requiredPlugins', 'segments', 'source', 'title', 'url' );
 foreach ( $starters as $starter ) {
 	$keys = array_keys( $starter );
 	sort( $keys );
@@ -263,6 +306,20 @@ foreach ( $starters as $starter ) {
 
 $premium = $starters[0];
 assert_same( 'plus_licensed', $premium['gate'], 'Injected premium starters must preserve their gate.' );
+
+// Capability-segments: free starters expose exactly the three baseline (free) segments and no commerce.
+$main_for_segments = null;
+foreach ( $starters as $candidate ) {
+	if ( 'main' === $candidate['id'] ) {
+		$main_for_segments = $candidate;
+	}
+}
+assert_true( null !== $main_for_segments, 'The main free starter must resolve for the segment check.' );
+assert_same( array( 'base', 'look', 'layouts' ), array_column( $main_for_segments['segments'], 'id' ), 'A free starter must expose only the three baseline free segments (no commerce).' );
+foreach ( $main_for_segments['segments'] as $segment ) {
+	assert_same( true, $segment['available'], 'Free baseline segments must be available.' );
+	assert_same( true, $segment['defaultIncluded'], 'Free baseline segments must be included in the default apply plan.' );
+}
 assert_same( 'plus', $premium['source'], 'Injected premium starters may identify their source.' );
 assert_same( 'https://premium.pixelgrade.test/pack/wp-json/sce/v2/', $premium['baseRestUrl'], 'baseRestUrl must be trailingslashed.' );
 
@@ -271,23 +328,123 @@ assert_same( 'Anima LT Demo Content', $secondary['title'], 'Missing starter titl
 assert_same( 'Import the content from the theme demo.', $secondary['description'], 'Missing starter description must fall back to starterContent l10n.' );
 assert_same( 'https://demos.pixelgrade.test/secondary/wp-json/sce/v2/', $secondary['baseRestUrl'], 'Missing baseRestUrl must derive from url + defaultSceRestPath.' );
 assert_same( '', $secondary['gate'], 'Configured free starters must default to no gate.' );
+assert_same( true, $secondary['capabilities']['fullDemo'], 'A starter with a source URL must advertise full-demo availability.' );
+assert_same( true, $secondary['capabilities']['recipe'], 'A starter with an SCE REST base must advertise recipe availability.' );
+assert_same( array( 'Header', 'Footer', 'Home', 'Archive', 'Single' ), $secondary['capabilities']['layoutGroups'], 'Starter capabilities must expose the broad layout groups available to recipe apply.' );
 
-$main = $starters[2];
+$portfolio = $starters[2];
+assert_same( 'anima-portfolio', $portfolio['id'], 'The portfolio starter must keep its configured id.' );
+assert_same( array( 'portfolio' ), $portfolio['capabilities']['features'], 'Meridian/portfolio starters must expose the Portfolio feature opportunity from bootstrap data.' );
+
+$main = $starters[3];
 assert_same( 'main', $main['id'], 'Configured associative demo keys must become stable starter ids.' );
 assert_same( 'Main demo', $main['title'], 'Configured starter title must be preserved.' );
 assert_same( 'https://demos.pixelgrade.test/main/', $main['url'], 'Starter url must be trailingslashed.' );
+assert_same( 'full_demo', $main['applyPlan']['primaryAction']['type'], 'Empty sites must default each starter to the full-demo import plan.' );
+assert_same( 'Apply full site', $main['applyPlan']['primaryAction']['label'], 'Empty-site full-demo operations must use composer final-action copy.' );
+assert_same( array( 'layout_only' ), array_column( $main['applyPlan']['secondaryActions'], 'type' ), 'Empty-site apply plans must expose layout-only as the alternate composer operation.' );
+
+$empty_analysis = pixassist_get_starter_site_analysis();
+assert_same( 'empty', $empty_analysis['classification'], 'A site without local content or starter journal must classify as empty.' );
+assert_same( true, $empty_analysis['isEmpty'], 'Empty-site analysis must expose isEmpty=true.' );
+
+$GLOBALS['paf_options']['imported_starter_content'] = array(
+	'main' => array(
+		'pre_settings' => true,
+	),
+);
 
 $payload = pixassist_get_starter_sites_data();
 $keys    = array_keys( $payload );
 sort( $keys );
-assert_same( array( 'copy', 'endpoints', 'imported', 'plus', 'starters' ), $keys, 'Starter Sites payload must expose exactly starters/copy/endpoints/imported/plus.' );
-assert_same( 3, count( $payload['starters'] ), 'Payload starters must come from the same normalized free + injected list.' );
+assert_same( array( 'applied', 'copy', 'endpoints', 'imported', 'plus', 'siteAnalysis', 'starters' ), $keys, 'Starter Sites payload must expose starters, site analysis, unified applied state, endpoints, imported, and Plus state.' );
+assert_same( 4, count( $payload['starters'] ), 'Payload starters must come from the same normalized free + injected list.' );
 assert_same( 'Starter Sites', $payload['copy']['title'], 'Payload copy must include a tab title.' );
+assert_same( 'Pick a starter, then choose how much of it to apply.', $payload['copy']['description'], 'Starter Sites description must frame the gallery as a chooser, not a legacy demo-content import.' );
 assert_same( 'Anima LT demo content', $payload['copy']['importTitle'], 'Payload copy must preserve the legacy importTitle token replacement.' );
+assert_same( 'Successfully applied.', $payload['copy']['success'], 'Starter Sites success copy must use the composer apply language.' );
+assert_same( 'Use %s', $payload['copy']['actions']['useStarter'], 'Payload copy must expose the gallery-card primary action template.' );
+assert_same( 'Apply full site', $payload['copy']['actions']['applyFullSite'], 'Payload copy must include the empty-site composer final action.' );
+assert_same( 'Apply layouts', $payload['copy']['actions']['applyLayouts'], 'Payload copy must include the existing-site composer final action.' );
+assert_same( 'Add portfolio', $payload['copy']['actions']['addPortfolio'], 'Payload copy must include the portfolio composer final action.' );
+assert_same( 'Cancel', $payload['copy']['actions']['cancel'], 'Payload copy must include a composer cancel action.' );
+assert_same( 'Full site', $payload['copy']['composer']['presets']['fullSite'], 'Composer copy must include the Full site preset.' );
+assert_same( 'Layouts only', $payload['copy']['composer']['presets']['layoutsOnly'], 'Composer copy must include the Layouts only preset.' );
+assert_same( 'Portfolio only', $payload['copy']['composer']['presets']['portfolioOnly'], 'Composer copy must include the Portfolio only preset.' );
+assert_same( 'Choose parts', $payload['copy']['composer']['presets']['chooseParts'], 'Composer copy must include the Choose parts preset.' );
+assert_same( 'Everything from the starter: content, layouts, menus, and design.', $payload['copy']['composer']['presetDescriptions']['fullSite'], 'Full-site preset copy must explain the import scope.' );
+assert_same( 'Keep your content and apply the starter structure.', $payload['copy']['composer']['presetDescriptions']['layoutsOnly'], 'Layouts-only preset copy must explain the safe redesign scope.' );
+assert_same( 'Add the portfolio feature and its templates.', $payload['copy']['composer']['presetDescriptions']['portfolioOnly'], 'Portfolio preset copy must explain the feature scope.' );
+assert_same( 'Select the exact pieces you want.', $payload['copy']['composer']['presetDescriptions']['chooseParts'], 'Choose-parts preset copy must explain manual selection.' );
+assert_true( empty( $payload['copy']['actions']['importExactDemo'] ), 'Starter Sites copy must not expose old exact-demo action copy.' );
 assert_same( 'https://example.test/wp-json/pixassist/v1/import', $payload['endpoints']['import']['url'], 'Payload must expose the existing import REST endpoint.' );
 assert_same( 'https://example.test/wp-json/pixassist/v1/import_starter', $payload['endpoints']['importStarter']['url'], 'Payload must expose the bulk starter import REST endpoint.' );
+assert_same( 'https://example.test/wp-json/pixassist/v1/apply_recipe', $payload['endpoints']['applyRecipe']['url'], 'Payload must expose the recipe apply endpoint for layout-only starter actions.' );
+assert_same( 'https://example.test/wp-json/pixassist/v1/import_unit', $payload['endpoints']['importUnit']['url'], 'Payload must expose the layout-unit endpoint for feature starter actions.' );
 assert_same( true, $payload['imported']['main']['pre_settings'], 'Payload must include existing starter import state.' );
+assert_same( true, $payload['applied']['fullDemos']['main']['pre_settings'], 'Unified applied state must expose imported full demos.' );
+assert_same( 'already-imported', $payload['siteAnalysis']['classification'], 'Starter Sites payload must expose already-imported state when the journal exists.' );
+assert_same( true, $payload['siteAnalysis']['hasImportedStarterContent'], 'Payload site analysis must expose the starter journal flag.' );
 assert_same( false, $payload['plus']['is_plus_licensed'], 'Payload must include the existing four-key Plus status for gated cards.' );
+
+$GLOBALS['paf_post_counts'] = array(
+	'post' => array( 'publish' => 4 ),
+	'page' => array( 'publish' => 3 ),
+);
+$GLOBALS['paf_options']['imported_starter_content'] = array();
+$GLOBALS['paf_options']['enabled_features']         = array();
+
+$analysis = pixassist_get_starter_site_analysis();
+assert_same( 'content-heavy', $analysis['classification'], 'Sites with real pages/posts must classify as content-heavy.' );
+assert_same( 7, $analysis['contentCount'], 'Site analysis must count local pages/posts for plan selection.' );
+assert_same( false, $analysis['features']['portfolio']['enabled'], 'Site analysis must expose whether the Portfolio feature is already enabled.' );
+
+$content_starers = pixassist_get_admin_hub_starters();
+$content_main    = null;
+$content_portfolio = null;
+foreach ( $content_starers as $starter ) {
+	if ( 'main' === $starter['id'] ) {
+		$content_main = $starter;
+	}
+	if ( 'anima-portfolio' === $starter['id'] ) {
+		$content_portfolio = $starter;
+	}
+}
+assert_same( 'layout_only', $content_main['applyPlan']['primaryAction']['type'], 'Existing-content sites must default non-feature starters to the layout-only recipe plan.' );
+assert_same( 'Apply layouts', $content_main['applyPlan']['primaryAction']['label'], 'Existing-content layout-only plans must use the composer `Apply layouts` final-action label.' );
+assert_same( false, $content_main['applyPlan']['primaryAction']['includeLookDefault'], 'Layout-only apply must not import the starter look by default.' );
+assert_same( false, $content_main['applyPlan']['primaryAction']['includeSampleDefault'], 'Layout-only apply must not import sample content by default.' );
+assert_same( 'feature', $content_portfolio['applyPlan']['primaryAction']['type'], 'Existing sites without Portfolio must surface the portfolio feature path for Meridian.' );
+assert_same( 'Add portfolio', $content_portfolio['applyPlan']['primaryAction']['label'], 'Portfolio-capable starters must expose the `Add portfolio` primary action.' );
+assert_same( 'portfolio', $content_portfolio['applyPlan']['primaryAction']['unit'], 'The portfolio feature plan must target the Portfolio feature unit.' );
+assert_same( 'importUnit', $content_portfolio['applyPlan']['primaryAction']['endpoint'], 'Feature plans must map to the existing importUnit endpoint.' );
+assert_true( in_array( 'Portfolio', $content_portfolio['applyPlan']['affectedAreas'], true ), 'Feature plans must show Portfolio in affected areas.' );
+assert_same( 'plus_licensed', $premium['gate'], 'Premium gates must remain presentational metadata on the starter.' );
+assert_same( 'plus_licensed', $premium['applyPlan']['gate'], 'Premium gates must remain presentational metadata on the apply plan, not server entitlement state.' );
+assert_true( ! empty( $premium['applyPlan']['primaryAction'] ), 'A gated starter must still receive an apply plan; gate is not a server-side entitlement reset or blocker.' );
+
+$GLOBALS['paf_options']['enabled_features'] = array( 'portfolio' );
+$portfolio_enabled = pixassist_normalize_admin_hub_starter(
+	array(
+		'id'    => 'anima-portfolio',
+		'title' => 'Meridian',
+		'url'   => 'https://demos.pixelgrade.test/portfolio',
+	),
+	'anima-portfolio',
+	$GLOBALS['paf_plugin_config']
+);
+assert_same( 'layout_only', $portfolio_enabled['applyPlan']['primaryAction']['type'], 'Once Portfolio is enabled, Meridian should fall back to the safe layout-only plan on content-heavy sites.' );
+
+$GLOBALS['paf_options']['imported_starter_content'] = array(
+	'anima-portfolio' => array(
+		'recipe_bundles' => array(
+			'recipe:anima-portfolio' => array( 'id' => 'anima-portfolio' ),
+		),
+	),
+);
+$imported_analysis = pixassist_get_starter_site_analysis();
+assert_same( 'already-imported', $imported_analysis['classification'], 'A site with starter journal state must classify as already imported.' );
+assert_same( true, $imported_analysis['hasImportedStarterContent'], 'Already-imported analysis must expose the starter journal flag.' );
 
 /*
  * Dependency gate (data-driven required plugins).
@@ -366,5 +523,24 @@ assert_true( isset( $gate_copy['requirements']['message'] ), 'Starter Sites copy
 assert_true( false !== strpos( $gate_copy['requirements']['message'], '%s' ), 'The requirements message must carry a %s placeholder for the plugin names.' );
 assert_same( 'https://example.test/wp-admin/themes.php?page=pixelgrade&tab=plugins', $gate_copy['pluginsTabUrl'], 'Starter Sites copy must deep-link to the Plugins tab.' );
 assert_true( isset( $gate_copy['actions']['managePlugins'] ), 'Starter Sites copy must include the managePlugins action label.' );
+
+$starter_sites_js = file_get_contents( __DIR__ . '/../admin/src-modern/hub/tabs/StarterSites.js' );
+assert_true( false !== strpos( $starter_sites_js, 'applyPlan' ), 'Starter Sites JS must render from the server-generated apply plan.' );
+assert_true( false !== strpos( $starter_sites_js, 'applyRecipe' ), 'Starter Sites JS must call the recipe endpoint for layout-only actions.' );
+assert_true( false !== strpos( $starter_sites_js, 'importUnit' ), 'Starter Sites JS must call the layout-unit endpoint for feature actions.' );
+assert_true( false !== strpos( $starter_sites_js, 'include_look' ), 'Starter Sites JS must pass the include-look decision to recipe apply.' );
+assert_true( false !== strpos( $starter_sites_js, 'include_sample' ), 'Starter Sites JS must pass the include-sample decision to recipe/feature apply.' );
+assert_true( false !== strpos( $starter_sites_js, 'unit_type' ), 'Starter Sites JS must map feature actions to unit_type/unit REST params.' );
+assert_true( false !== strpos( $starter_sites_js, 'activeStarterId' ), 'Starter Sites JS must keep a dedicated starter composer state.' );
+assert_true( false !== strpos( $starter_sites_js, 'buildComposerPresets' ), 'Starter Sites JS must derive composer preset controls.' );
+assert_true( false !== strpos( $starter_sites_js, 'getComposerParts' ), 'Starter Sites JS must derive grouped include checkboxes.' );
+assert_true( false !== strpos( $starter_sites_js, 'applyComposerSelection' ), 'Starter Sites JS must translate composer selections into existing operations.' );
+assert_true( false !== strpos( $starter_sites_js, 'Back to Starter Sites' ), 'Starter Sites JS must render a clear back control for the composer view.' );
+assert_true( false !== strpos( $starter_sites_js, 'Choose parts' ), 'Starter Sites JS must render the manual parts preset.' );
+assert_true( false !== strpos( $starter_sites_js, 'Portfolio only' ), 'Starter Sites JS must render the portfolio preset when supported.' );
+assert_true( false === strpos( $starter_sites_js, 'selectedPanelStarterId' ), 'Starter Sites JS must remove the inline card customization panel state.' );
+assert_true( false === strpos( $starter_sites_js, 'renderApplyPanel' ), 'Starter Sites JS must remove inline apply panels from starter cards.' );
+assert_true( false === strpos( $starter_sites_js, 'Import exact demo' ), 'Starter Sites JS must replace exact-demo copy in this flow.' );
+assert_true( false === strpos( $starter_sites_js, 'isDestructive' ), 'Starter Sites JS must not render import actions with destructive styling.' );
 
 echo "Admin Starter Sites tab OK\n";

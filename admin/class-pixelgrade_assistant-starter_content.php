@@ -34,6 +34,15 @@ class PixelgradeAssistant_StarterContent {
 	private $layout_source_object_cache = array();
 
 	/**
+	 * Per-demo set of source ids classified as gated commerce and skipped during a free/default import
+	 * (shop/cart pages, products, product terms). Mirrored to a transient so the cross-request granular
+	 * import path can still catch nav menu items that target a skipped commerce object by id.
+	 *
+	 * @var array
+	 */
+	private $commerce_source_ids_cache = array();
+
+	/**
 	 * The only instance.
 	 * @var     PixelgradeAssistant_StarterContent
 	 * @access  protected
@@ -1888,6 +1897,11 @@ class PixelgradeAssistant_StarterContent {
 			) );
 		}
 
+		$commerce_block = $this->maybe_block_commerce_unit( $params['unit_type'], $params['unit'] );
+		if ( null !== $commerce_block ) {
+			return rest_ensure_response( $commerce_block );
+		}
+
 		return rest_ensure_response( $this->import_layout_unit(
 			sanitize_key( $params['demo_key'] ),
 			esc_url_raw( $params['url'] ),
@@ -1897,6 +1911,92 @@ class PixelgradeAssistant_StarterContent {
 				'include_sample' => isset( $params['include_sample'] ) ? $this->sanitize_bool( $params['include_sample'] ) : null,
 				)
 			) );
+		}
+
+		/**
+		 * Reject a layout-unit import that resolves to gated commerce content the environment is not
+		 * authorized for (e.g. a WooCommerce template such as `archive-product`). Classification is
+		 * intrinsic to the unit type + slug, never a client-supplied label.
+		 *
+		 * @param string $unit_type Layout unit type (wp_template, wp_template_part, feature).
+		 * @param string $unit      Layout unit slug.
+		 *
+		 * @return array|null Error response payload to return, or null when the unit is allowed.
+		 */
+		/**
+		 * Transient key for a demo's skipped-commerce source-id set.
+		 *
+		 * @param string $demo_key Demo key.
+		 *
+		 * @return string
+		 */
+		private function commerce_source_ids_transient_key( $demo_key ) {
+			return 'pixassist_sce_commerce_ids_' . sanitize_key( $demo_key );
+		}
+
+		/**
+		 * Read the set of source ids classified as gated commerce (and skipped) for a demo.
+		 *
+		 * @param string $demo_key Demo key.
+		 *
+		 * @return array Map of source id (string) => true.
+		 */
+		private function get_commerce_source_ids( $demo_key ) {
+			$demo_key = sanitize_key( $demo_key );
+			if ( ! isset( $this->commerce_source_ids_cache[ $demo_key ] ) ) {
+				$stored = get_transient( $this->commerce_source_ids_transient_key( $demo_key ) );
+				$this->commerce_source_ids_cache[ $demo_key ] = is_array( $stored ) ? $stored : array();
+			}
+
+			return $this->commerce_source_ids_cache[ $demo_key ];
+		}
+
+		/**
+		 * Record one or more source ids as gated commerce that was skipped during a free import, so a
+		 * later nav menu item targeting one of them (by id) is also recognized as commerce. Writes the
+		 * transient once after merging.
+		 *
+		 * @param string       $demo_key Demo key.
+		 * @param array|string $ids      Source id(s).
+		 */
+		private function record_commerce_source_ids( $demo_key, $ids ) {
+			$demo_key = sanitize_key( $demo_key );
+			$current  = $this->get_commerce_source_ids( $demo_key );
+			$changed  = false;
+
+			foreach ( (array) $ids as $id ) {
+				$id = (string) $id;
+				if ( '' !== $id && ! isset( $current[ $id ] ) ) {
+					$current[ $id ] = true;
+					$changed        = true;
+				}
+			}
+
+			if ( $changed ) {
+				$this->commerce_source_ids_cache[ $demo_key ] = $current;
+				set_transient( $this->commerce_source_ids_transient_key( $demo_key ), $current, HOUR_IN_SECONDS );
+			}
+		}
+
+		private function maybe_block_commerce_unit( $unit_type, $unit ) {
+			if ( ! function_exists( 'pixassist_starter_post_record_is_authorized' ) ) {
+				return null;
+			}
+
+			$record = array(
+				'post_type' => sanitize_key( $unit_type ),
+				'post_name' => sanitize_text_field( $unit ),
+			);
+
+			if ( pixassist_starter_post_record_is_authorized( $record ) ) {
+				return null;
+			}
+
+			return array(
+				'code'    => 'gated_segment_unavailable',
+				'message' => esc_html__( 'WooCommerce layouts require WooCommerce to be active and the Pixelgrade Plus WooCommerce integration.', '__plugin_txtd' ),
+				'data'    => array( 'segment' => 'commerce' ),
+			);
 		}
 
 		/**
@@ -1915,6 +2015,11 @@ class PixelgradeAssistant_StarterContent {
 					'message' => esc_html__( 'You need to provide all the needed parameters.', '__plugin_txtd' ),
 					'data'    => array(),
 				) );
+			}
+
+			$commerce_block = $this->maybe_block_commerce_unit( $params['unit_type'], $params['unit'] );
+			if ( null !== $commerce_block ) {
+				return rest_ensure_response( $commerce_block );
 			}
 
 			$response = $this->queue_layout_unit_job(
@@ -2924,7 +3029,12 @@ class PixelgradeAssistant_StarterContent {
 
 			try {
 				if ( ! empty( $source_data['pre_settings'] ) ) {
-					$result = $this->import_settings( $demo_key, 'pre', $this->maybeCastNumbersDeep( $source_data['pre_settings'] ) );
+					// Free/default full import excludes commerce: strip WooCommerce settings unless commerce is authorized.
+					$pre_settings = $this->maybeCastNumbersDeep( $source_data['pre_settings'] );
+					if ( function_exists( 'pixassist_starter_filter_unauthorized_settings' ) ) {
+						$pre_settings = pixassist_starter_filter_unauthorized_settings( $pre_settings );
+					}
+					$result = $this->import_settings( $demo_key, 'pre', $pre_settings );
 					if ( is_wp_error( $result ) ) {
 						return $this->layout_unit_error_response( $result );
 					}
@@ -2947,6 +3057,13 @@ class PixelgradeAssistant_StarterContent {
 						continue;
 					}
 
+					// Free/default full import excludes commerce: skip product taxonomies unless authorized.
+					if ( function_exists( 'pixassist_starter_authorize_import' )
+						&& is_wp_error( pixassist_starter_authorize_import( 'taxonomy', array( 'tax' => sanitize_key( $entry['name'] ) ) ) ) ) {
+						$this->record_commerce_source_ids( $demo_key, $entry['ids'] );
+						continue;
+					}
+
 					$result = $this->import_taxonomy( $demo_key, $base_url, array(
 						'tax' => sanitize_key( $entry['name'] ),
 						'ids' => $entry['ids'],
@@ -2964,6 +3081,13 @@ class PixelgradeAssistant_StarterContent {
 
 				foreach ( $this->sort_starter_import_entries_by_priority( isset( $source_data['post_types'] ) ? $source_data['post_types'] : array() ) as $entry ) {
 					if ( empty( $entry['name'] ) || empty( $entry['ids'] ) ) {
+						continue;
+					}
+
+					// Free/default full import excludes commerce: skip product/shop post types unless authorized.
+					if ( function_exists( 'pixassist_starter_authorize_import' )
+						&& is_wp_error( pixassist_starter_authorize_import( 'post_type', array( 'post_type' => sanitize_key( $entry['name'] ) ) ) ) ) {
+						$this->record_commerce_source_ids( $demo_key, $entry['ids'] );
 						continue;
 					}
 
@@ -2994,7 +3118,11 @@ class PixelgradeAssistant_StarterContent {
 				}
 
 				if ( ! empty( $source_data['post_settings'] ) ) {
-					$result = $this->import_settings( $demo_key, 'post', $this->maybeCastNumbersDeep( $source_data['post_settings'] ) );
+					$post_settings = $this->maybeCastNumbersDeep( $source_data['post_settings'] );
+					if ( function_exists( 'pixassist_starter_filter_unauthorized_settings' ) ) {
+						$post_settings = pixassist_starter_filter_unauthorized_settings( $post_settings );
+					}
+					$result = $this->import_settings( $demo_key, 'post', $post_settings );
 					if ( is_wp_error( $result ) ) {
 						return $this->layout_unit_error_response( $result );
 					}
@@ -3421,6 +3549,21 @@ class PixelgradeAssistant_StarterContent {
 					'requiredPlugins' => array_values( $missing_plugins ),
 				),
 			) );
+		}
+
+		// Capability-segment guard: reject gated content (e.g. WooCommerce/commerce) the environment is
+		// not authorized for. The segment is classified intrinsically from the content itself, so a
+		// tampered client that mislabels commerce content as base cannot bypass it. Server-side
+		// enforcement on top of the UI gate, never instead of it.
+		if ( function_exists( 'pixassist_starter_authorize_import' ) ) {
+			$segment_auth = pixassist_starter_authorize_import( $type, is_array( $args ) ? $args : array() );
+			if ( is_wp_error( $segment_auth ) ) {
+				return rest_ensure_response( array(
+					'code'    => $segment_auth->get_error_code(),
+					'message' => $segment_auth->get_error_message(),
+					'data'    => $segment_auth->get_error_data(),
+				) );
+			}
 		}
 
 		// Remember the demo base URL so end_import() can rewrite demo links reliably,
@@ -6246,7 +6389,30 @@ class PixelgradeAssistant_StarterContent {
 			return rest_ensure_response( $response_data );
 		}
 
+		// Source ids already skipped as commerce (shop/cart pages, products) so a later nav menu item
+		// that targets one of them by id is also recognized as commerce. Pages/products (priority 10)
+		// import before nav menu items (priority 900), so the set is populated in time.
+		$commerce_context = function_exists( 'pixassist_starter_post_record_is_authorized' )
+			? array( 'commerce_object_ids' => $this->get_commerce_source_ids( $demo_key ) )
+			: array();
+
 		foreach ( $response_data['data']['posts'] as $i => $post ) {
+			// Per-record capability-segment guard: WooCommerce pages (shop/cart/checkout/my-account),
+			// commerce templates, and commerce-targeting nav menu items ship inside a `page`/`wp_template`/
+			// `nav_menu_item` step whose step-level type is `base`, so they pass the operation-level gate.
+			// Classify each record intrinsically and skip commerce records unless commerce is authorized —
+			// this is how the free/default import excludes all WooCommerce/shop content while still
+			// importing base pages/posts/templates. Skipped ids are recorded so later menu items that
+			// target them by id are caught too.
+			if ( function_exists( 'pixassist_starter_post_record_is_authorized' )
+				&& ! pixassist_starter_post_record_is_authorized( $post, $commerce_context ) ) {
+				if ( isset( $post['ID'] ) ) {
+					$this->record_commerce_source_ids( $demo_key, $post['ID'] );
+					$commerce_context['commerce_object_ids'] = $this->get_commerce_source_ids( $demo_key );
+				}
+				continue;
+			}
+
 			$post_args = array(
 				'import_id'             => $post['ID'],
 				'post_title'            => wp_strip_all_tags( $post['post_title'] ),

@@ -6,20 +6,27 @@
  * `gate` so this presentational tab can show an upsell without owning commercial state.
  */
 import { createElement, Fragment, useState } from '@wordpress/element';
-import { __ } from '@wordpress/i18n';
-import { Button, Card, CardBody, CardHeader, Flex, FlexItem, Spinner } from '@wordpress/components';
+import { __, sprintf } from '@wordpress/i18n';
+import { Button, Card, CardBody, CardHeader, CheckboxControl, Flex, FlexItem, Spinner } from '@wordpress/components';
 
 const DEFAULT_STARTER_SITES = {
 	starters: [],
+	siteAnalysis: {
+		classification: 'empty',
+		isEmpty: true,
+		hasContent: false,
+		hasImportedStarterContent: false,
+		features: {},
+	},
 	copy: {
 		title: __( 'Starter Sites', 'pixelgrade_assistant' ),
-		description: '',
+		description: __( 'Pick a starter, then choose how much of it to apply.', 'pixelgrade_assistant' ),
 		empty: __( 'No starter sites are currently configured.', 'pixelgrade_assistant' ),
 		confirm: __( 'Starter content was already imported. Import it again?', 'pixelgrade_assistant' ),
 		importing: __( 'Getting data about available content...', 'pixelgrade_assistant' ),
 		error: __( 'This starter content is not available right now. Please try again later.', 'pixelgrade_assistant' ),
 		failed: __( 'Something went wrong.', 'pixelgrade_assistant' ),
-		success: __( 'Successfully imported.', 'pixelgrade_assistant' ),
+		success: __( 'Successfully applied.', 'pixelgrade_assistant' ),
 		labels: {
 			free: __( 'Free', 'pixelgrade_assistant' ),
 			premium: __( 'Premium', 'pixelgrade_assistant' ),
@@ -29,16 +36,66 @@ const DEFAULT_STARTER_SITES = {
 			import: __( 'Import', 'pixelgrade_assistant' ),
 			imported: __( 'Imported', 'pixelgrade_assistant' ),
 			reimport: __( 'Re-import', 'pixelgrade_assistant' ),
+			useStarter: __( 'Use %s', 'pixelgrade_assistant' ),
+			applyFullSite: __( 'Apply full site', 'pixelgrade_assistant' ),
+			applyLayouts: __( 'Apply layouts', 'pixelgrade_assistant' ),
+			applySelectedParts: __( 'Apply selected parts', 'pixelgrade_assistant' ),
+			addPortfolio: __( 'Add portfolio', 'pixelgrade_assistant' ),
+			cancel: __( 'Cancel', 'pixelgrade_assistant' ),
+			backToStarterSites: __( 'Back to Starter Sites', 'pixelgrade_assistant' ),
 			preview: __( 'Preview', 'pixelgrade_assistant' ),
 			setupPlus: __( 'Set up Pixelgrade Plus', 'pixelgrade_assistant' ),
 			managePlus: __( 'Manage Pixelgrade Plus', 'pixelgrade_assistant' ),
-			working: __( 'Importing...', 'pixelgrade_assistant' ),
+			working: __( 'Applying...', 'pixelgrade_assistant' ),
 			managePlugins: __( 'Install required plugins', 'pixelgrade_assistant' ),
+		},
+		composer: {
+			preset: __( 'Preset', 'pixelgrade_assistant' ),
+			include: __( 'What to include', 'pixelgrade_assistant' ),
+			summary: __( 'Summary', 'pixelgrade_assistant' ),
+			selected: __( 'Selected', 'pixelgrade_assistant' ),
+			summaryPrefix: __( 'This will add/update: %s.', 'pixelgrade_assistant' ),
+			emptySummary: __( 'Choose at least one part to continue.', 'pixelgrade_assistant' ),
+			presets: {
+				fullSite: __( 'Full site', 'pixelgrade_assistant' ),
+				layoutsOnly: __( 'Layouts only', 'pixelgrade_assistant' ),
+				portfolioOnly: __( 'Portfolio only', 'pixelgrade_assistant' ),
+				chooseParts: __( 'Choose parts', 'pixelgrade_assistant' ),
+			},
+			presetDescriptions: {
+				fullSite: __( 'Everything from the starter: content, layouts, menus, and design.', 'pixelgrade_assistant' ),
+				layoutsOnly: __( 'Keep your content and apply the starter structure.', 'pixelgrade_assistant' ),
+				portfolioOnly: __( 'Add the portfolio feature and its templates.', 'pixelgrade_assistant' ),
+				chooseParts: __( 'Select the exact pieces you want.', 'pixelgrade_assistant' ),
+			},
+			groups: {
+				content: __( 'Content', 'pixelgrade_assistant' ),
+				layouts: __( 'Layouts', 'pixelgrade_assistant' ),
+				design: __( 'Design', 'pixelgrade_assistant' ),
+				features: __( 'Features', 'pixelgrade_assistant' ),
+			},
+			parts: {
+				pages: __( 'Pages', 'pixelgrade_assistant' ),
+				posts: __( 'Posts', 'pixelgrade_assistant' ),
+				projects: __( 'Projects', 'pixelgrade_assistant' ),
+				products: __( 'Products', 'pixelgrade_assistant' ),
+				header: __( 'Header', 'pixelgrade_assistant' ),
+				footer: __( 'Footer', 'pixelgrade_assistant' ),
+				home: __( 'Home', 'pixelgrade_assistant' ),
+				archive: __( 'Archive', 'pixelgrade_assistant' ),
+				single: __( 'Single', 'pixelgrade_assistant' ),
+				portfolioArchive: __( 'Portfolio archive', 'pixelgrade_assistant' ),
+				portfolioSingle: __( 'Portfolio single', 'pixelgrade_assistant' ),
+				colorsFonts: __( 'Colors and fonts', 'pixelgrade_assistant' ),
+				menus: __( 'Menus', 'pixelgrade_assistant' ),
+				logo: __( 'Logo', 'pixelgrade_assistant' ),
+				portfolio: __( 'Portfolio', 'pixelgrade_assistant' ),
+			},
 		},
 		requirements: {
 			heading: __( 'This starter needs a couple of plugins first', 'pixelgrade_assistant' ),
 			message: __(
-				'To import this starter exactly as designed, install and activate %s. Without them the imported pages would render broken (missing blocks, colors and fonts).',
+				'To use this starter as intended, install and activate %s. Without them the imported pages would render broken (missing blocks, colors and fonts).',
 				'pixelgrade_assistant'
 			),
 			separator: __( ', ', 'pixelgrade_assistant' ),
@@ -48,12 +105,31 @@ const DEFAULT_STARTER_SITES = {
 	},
 	endpoints: {},
 	imported: {},
+	applied: {},
 	plus: {
 		is_plus_active: false,
 		is_plus_licensed: false,
 		plus_settings_url: '',
 		plus_product_label: 'Pixelgrade Plus',
 	},
+};
+
+const CONTENT_POST_TYPES = {
+	pages: 'page',
+	posts: 'post',
+	projects: 'portfolio',
+	products: 'product',
+	menus: 'nav_menu_item',
+};
+
+const LAYOUT_UNITS = {
+	header: { unit_type: 'wp_template_part', unit: 'header' },
+	footer: { unit_type: 'wp_template_part', unit: 'footer' },
+	home: { unit_type: 'wp_template', unit: 'front-page' },
+	archive: { unit_type: 'wp_template', unit: 'archive' },
+	single: { unit_type: 'wp_template', unit: 'single' },
+	portfolioArchive: { unit_type: 'wp_template', unit: 'archive-portfolio' },
+	portfolioSingle: { unit_type: 'wp_template', unit: 'single-portfolio' },
 };
 
 export function getStarterSitesData() {
@@ -65,6 +141,8 @@ export function getStarterSitesData() {
 }
 
 export function mergeCopy( copy ) {
+	const incomingComposer = copy && copy.composer ? copy.composer : {};
+
 	return {
 		...DEFAULT_STARTER_SITES.copy,
 		...( copy || {} ),
@@ -79,6 +157,26 @@ export function mergeCopy( copy ) {
 		requirements: {
 			...DEFAULT_STARTER_SITES.copy.requirements,
 			...( copy && copy.requirements ? copy.requirements : {} ),
+		},
+		composer: {
+			...DEFAULT_STARTER_SITES.copy.composer,
+			...incomingComposer,
+			presets: {
+				...DEFAULT_STARTER_SITES.copy.composer.presets,
+				...( incomingComposer.presets || {} ),
+			},
+			presetDescriptions: {
+				...DEFAULT_STARTER_SITES.copy.composer.presetDescriptions,
+				...( incomingComposer.presetDescriptions || {} ),
+			},
+			groups: {
+				...DEFAULT_STARTER_SITES.copy.composer.groups,
+				...( incomingComposer.groups || {} ),
+			},
+			parts: {
+				...DEFAULT_STARTER_SITES.copy.composer.parts,
+				...( incomingComposer.parts || {} ),
+			},
 		},
 		pluginsTabUrl: ( copy && copy.pluginsTabUrl ) || DEFAULT_STARTER_SITES.copy.pluginsTabUrl,
 	};
@@ -190,6 +288,68 @@ export function isStarterImported( imported, starterId ) {
 	return Boolean( imported && imported[ starterId ] && Object.keys( imported[ starterId ] ).length );
 }
 
+function normalizeApplied( applied ) {
+	if ( ! applied || 'object' !== typeof applied || Array.isArray( applied ) ) {
+		return {
+			fullDemos: {},
+			recipes: {},
+			layoutUnits: {},
+		};
+	}
+
+	return {
+		fullDemos: applied.fullDemos || {},
+		recipes: applied.recipes || {},
+		layoutUnits: applied.layoutUnits || {},
+	};
+}
+
+function getPrimaryAction( starter, copy ) {
+	const plan = starter && starter.applyPlan ? starter.applyPlan : {};
+	const action = plan.primaryAction || {};
+
+	if ( action.type ) {
+		return action;
+	}
+
+	return {
+		type: 'full_demo',
+		label: copy.actions.applyFullSite || copy.actions.import,
+		endpoint: 'importStarter',
+		affectedAreas: [ 'Content', 'Media', 'Menus', 'Templates', 'Look' ],
+	};
+}
+
+function getActionOptionDefaults( action ) {
+	return {
+		includeLook: Boolean( action && action.includeLookDefault ),
+		includeSample: Boolean( action && action.includeSampleDefault ),
+	};
+}
+
+function getAppliedStatusLabels( starter, imported, applied ) {
+	const labels = [];
+	const normalizedApplied = normalizeApplied( applied );
+	const recipe = normalizedApplied.recipes[ 'recipe:' + starter.id ];
+
+	if ( isStarterImported( imported, starter.id ) ) {
+		labels.push( __( 'Full site applied', 'pixelgrade_assistant' ) );
+	}
+
+	if ( recipe ) {
+		labels.push( recipe.isApplied ? __( 'Layouts applied', 'pixelgrade_assistant' ) : __( 'Layouts customized', 'pixelgrade_assistant' ) );
+	}
+
+	if (
+		normalizedApplied.layoutUnits[ 'feature:portfolio' ] &&
+		normalizedApplied.layoutUnits[ 'feature:portfolio' ].demoKey === starter.id
+	) {
+		labels.push( __( 'Portfolio added', 'pixelgrade_assistant' ) );
+	}
+
+	return labels;
+}
+
 /**
  * The starter's required companion plugins that are not active yet.
  *
@@ -240,10 +400,16 @@ function isStarterLocked( starter, plus ) {
 	return false;
 }
 
-function buildImportTasks( starter, config, data, setProgress ) {
+function buildImportTasks( starter, config, data, setProgress, filters = {} ) {
 	const tasks = [];
 	const demoKey = starter.id;
 	const baseUrl = trailingslash( starter.baseRestUrl );
+	const postTypes = Array.isArray( filters.postTypes ) ? filters.postTypes.filter( Boolean ) : null;
+	const includeSettings = ! Object.prototype.hasOwnProperty.call( filters, 'includeSettings' ) || Boolean( filters.includeSettings );
+	const includeMedia = ! Object.prototype.hasOwnProperty.call( filters, 'includeMedia' ) || Boolean( filters.includeMedia );
+	const includeTaxonomies = ! Object.prototype.hasOwnProperty.call( filters, 'includeTaxonomies' ) || Boolean( filters.includeTaxonomies );
+	const includeWidgets = ! Object.prototype.hasOwnProperty.call( filters, 'includeWidgets' ) || Boolean( filters.includeWidgets );
+	const includePostSettings = ! Object.prototype.hasOwnProperty.call( filters, 'includePostSettings' ) || Boolean( filters.includePostSettings );
 
 	const addImportTask = ( label, type, args ) => {
 		tasks.push( async () => {
@@ -257,11 +423,11 @@ function buildImportTasks( starter, config, data, setProgress ) {
 		} );
 	};
 
-	if ( config.pre_settings ) {
+	if ( includeSettings && config.pre_settings ) {
 		addImportTask( __( 'Preparing settings...', 'pixelgrade_assistant' ), 'pre_settings', { data: config.pre_settings } );
 	}
 
-	if ( config.media && ! isEmptyObject( config.media.placeholders ) ) {
+	if ( includeMedia && config.media && ! isEmptyObject( config.media.placeholders ) ) {
 		const mediaUrl = trailingslash( starter.baseRestUrl ) + 'media';
 		Object.keys( config.media ).forEach( ( groupKey ) => {
 			if ( 'placeholders' === groupKey || ! config.media[ groupKey ] ) {
@@ -296,19 +462,25 @@ function buildImportTasks( starter, config, data, setProgress ) {
 		} );
 	}
 
-	valuesSortedByPriority( config.taxonomies ).forEach( ( entry ) => {
+	if ( includeTaxonomies ) {
+		valuesSortedByPriority( config.taxonomies ).forEach( ( entry ) => {
+			if ( ! entry.name || ! entry.ids ) {
+				return;
+			}
+
+			addImportTask( __( 'Importing taxonomies...', 'pixelgrade_assistant' ), 'taxonomy', {
+				tax: entry.name,
+				ids: entry.ids,
+			} );
+		} );
+	}
+
+	valuesSortedByPriority( config.post_types ).forEach( ( entry ) => {
 		if ( ! entry.name || ! entry.ids ) {
 			return;
 		}
 
-		addImportTask( __( 'Importing taxonomies...', 'pixelgrade_assistant' ), 'taxonomy', {
-			tax: entry.name,
-			ids: entry.ids,
-		} );
-	} );
-
-	valuesSortedByPriority( config.post_types ).forEach( ( entry ) => {
-		if ( ! entry.name || ! entry.ids ) {
+		if ( postTypes && ! postTypes.includes( entry.name ) ) {
 			return;
 		}
 
@@ -318,11 +490,11 @@ function buildImportTasks( starter, config, data, setProgress ) {
 		} );
 	} );
 
-	if ( config.widgets ) {
+	if ( includeWidgets && config.widgets ) {
 		addImportTask( __( 'Importing widgets...', 'pixelgrade_assistant' ), 'parsed_widgets', { data: 'ok' } );
 	}
 
-	if ( config.post_settings ) {
+	if ( includePostSettings && config.post_settings ) {
 		tasks.push( async () => {
 			const adminUrl = getAdminUrl();
 			if ( adminUrl ) {
@@ -330,7 +502,7 @@ function buildImportTasks( starter, config, data, setProgress ) {
 				await window.fetch( adminUrl, { credentials: 'same-origin' } ).catch( () => {} );
 			}
 
-			if ( config.widgets ) {
+			if ( includeWidgets && config.widgets ) {
 				await restRequest( data, 'import', {
 					demo_key: demoKey,
 					type: 'parsed_widgets',
@@ -367,6 +539,424 @@ export async function importStarter( starter, data, copy, setProgress ) {
 	for ( const task of tasks ) {
 		await task();
 	}
+}
+
+async function importStarterParts( starter, parts, data, copy, setProgress ) {
+	setProgress( copy.actions.applySelectedParts );
+
+	const config = await fetchJson( trailingslash( starter.baseRestUrl ) + 'data', { method: 'GET' } );
+
+	if ( ! config || 'success' !== config.code ) {
+		throw new Error( config && config.message ? config.message : copy.failed );
+	}
+
+	const tasks = buildImportTasks( starter, config.data || {}, data, setProgress, parts );
+
+	for ( const task of tasks ) {
+		await task();
+	}
+
+	return { code: 'success', data: {} };
+}
+
+async function applyStarterAction( starter, action, options, data, copy, setProgress ) {
+	const selectedAction = action || getPrimaryAction( starter, copy );
+	const selectedOptions = {
+		...getActionOptionDefaults( selectedAction ),
+		...( options || {} ),
+	};
+
+	if ( 'layout_only' === selectedAction.type ) {
+		setProgress( copy.actions.applyLayouts );
+		return restRequest( data, 'applyRecipe', {
+			recipe_id: starter.id,
+			url: trailingslash( starter.baseRestUrl ),
+			include_look: Boolean( selectedOptions.includeLook ),
+			include_sample: Boolean( selectedOptions.includeSample ),
+		} );
+	}
+
+	if ( 'feature' === selectedAction.type ) {
+		setProgress( copy.actions.addPortfolio );
+		return restRequest( data, 'importUnit', {
+			demo_key: starter.id,
+			url: trailingslash( starter.baseRestUrl ),
+			unit_type: selectedAction.unitType || 'feature',
+			unit: selectedAction.unit || 'portfolio',
+			include_sample: Boolean( selectedOptions.includeSample ),
+		} );
+	}
+
+	if ( 'layout_unit' === selectedAction.type ) {
+		setProgress( copy.actions.applySelectedParts );
+		return restRequest( data, 'importUnit', {
+			demo_key: starter.id,
+			url: trailingslash( starter.baseRestUrl ),
+			unit_type: selectedAction.unitType,
+			unit: selectedAction.unit,
+		} );
+	}
+
+	if ( 'starter_parts' === selectedAction.type ) {
+		return importStarterParts( starter, selectedAction.parts || {}, data, copy, setProgress );
+	}
+
+	return importStarter( starter, data, copy, setProgress );
+}
+
+function getStarterFeatures( starter ) {
+	const capabilities = starter && starter.capabilities && 'object' === typeof starter.capabilities ? starter.capabilities : {};
+	return Array.isArray( capabilities.features ) ? capabilities.features : [];
+}
+
+/**
+ * The starter's capability-segments (server-computed). Each segment carries its own availability:
+ * the three baseline segments (base/look/layouts) are free; gated segments (commerce) only become
+ * available when their required plugins are active AND Plus grants the matching capability. The
+ * descriptors are secret-free — availability is a boolean + reason, never tokens/license data.
+ *
+ * @param {Object} starter Normalized starter descriptor.
+ * @return {Array} Segment descriptors.
+ */
+export function getStarterSegments( starter ) {
+	return Array.isArray( starter && starter.segments ) ? starter.segments : [];
+}
+
+export function getStarterSegment( starter, id ) {
+	return getStarterSegments( starter ).find( ( segment ) => segment && segment.id === id ) || null;
+}
+
+/**
+ * Whether the starter's commerce segment can be applied right now. No commerce segment → fall back to
+ * legacy product detection so older payloads keep working; a present-but-locked commerce segment
+ * means the user is not entitled / WooCommerce is inactive (the server enforces this regardless).
+ *
+ * @param {Object} starter Normalized starter descriptor.
+ * @return {boolean}
+ */
+export function starterCommerceAvailable( starter ) {
+	const commerce = getStarterSegment( starter, 'commerce' );
+
+	if ( ! commerce ) {
+		return true;
+	}
+
+	return Boolean( commerce.available );
+}
+
+function starterHasFeature( starter, feature ) {
+	return getStarterFeatures( starter ).includes( feature );
+}
+
+function starterHasPortfolio( starter ) {
+	return starterHasFeature( starter, 'portfolio' );
+}
+
+function starterHasProducts( starter ) {
+	const features = getStarterFeatures( starter );
+	const haystack = [
+		...( features || [] ),
+		starter && starter.id,
+		starter && starter.title,
+		starter && starter.description,
+	]
+		.filter( Boolean )
+		.join( ' ' )
+		.toLowerCase();
+
+	return /shop|store|product|commerce|woocommerce/.test( haystack );
+}
+
+function getAvailableLayoutIds( starter ) {
+	const capabilities = starter && starter.capabilities && 'object' === typeof starter.capabilities ? starter.capabilities : {};
+	const groups = Array.isArray( capabilities.layoutGroups ) && capabilities.layoutGroups.length
+		? capabilities.layoutGroups
+		: [ 'Header', 'Footer', 'Home', 'Archive', 'Single' ];
+	const available = [];
+	const byLabel = {
+		header: 'header',
+		footer: 'footer',
+		home: 'home',
+		front: 'home',
+		archive: 'archive',
+		single: 'single',
+		'portfolio archive': 'portfolioArchive',
+		'portfolio single': 'portfolioSingle',
+	};
+
+	groups.forEach( ( group ) => {
+		const key = byLabel[ String( group || '' ).trim().toLowerCase() ];
+		if ( key && ! available.includes( key ) ) {
+			available.push( key );
+		}
+	} );
+
+	if ( starterHasPortfolio( starter ) ) {
+		[ 'portfolioArchive', 'portfolioSingle' ].forEach( ( key ) => {
+			if ( ! available.includes( key ) ) {
+				available.push( key );
+			}
+		} );
+	}
+
+	return available.filter( ( key ) => LAYOUT_UNITS[ key ] );
+}
+
+export function getComposerParts( starter, copy ) {
+	const labels = copy.composer.parts;
+	const groups = copy.composer.groups;
+	const hasPortfolio = starterHasPortfolio( starter );
+	const contentParts = [
+		{ id: 'pages', label: labels.pages },
+		{ id: 'posts', label: labels.posts },
+	];
+	const layoutParts = getAvailableLayoutIds( starter ).map( ( id ) => ( { id, label: labels[ id ] } ) );
+	const designParts = [
+		{ id: 'colorsFonts', label: labels.colorsFonts },
+		{ id: 'menus', label: labels.menus },
+		{ id: 'logo', label: labels.logo },
+	];
+	const featureParts = [];
+
+	if ( hasPortfolio ) {
+		contentParts.push( { id: 'projects', label: labels.projects } );
+		featureParts.push( { id: 'portfolio', label: labels.portfolio } );
+	}
+
+	// Commerce/products is a gated segment: only offer it when the commerce segment is available
+	// (WooCommerce active AND the Plus WooCommerce integration). The free/default import excludes it,
+	// and the server rejects unauthorized commerce content even if this UI gate is bypassed.
+	if ( starterHasProducts( starter ) && starterCommerceAvailable( starter ) ) {
+		contentParts.push( { id: 'products', label: labels.products } );
+	}
+
+	return [
+		{ id: 'content', label: groups.content, parts: contentParts },
+		{ id: 'layouts', label: groups.layouts, parts: layoutParts },
+		{ id: 'design', label: groups.design, parts: designParts },
+		{ id: 'features', label: groups.features, parts: featureParts },
+	].filter( ( group ) => group.parts.length );
+}
+
+function getAllPartIds( starter, copy ) {
+	return getComposerParts( starter, copy ).reduce( ( ids, group ) => ids.concat( group.parts.map( ( part ) => part.id ) ), [] );
+}
+
+function getDefaultPresetId( starter, siteAnalysis ) {
+	const portfolioEnabled = Boolean(
+		siteAnalysis &&
+			siteAnalysis.features &&
+			siteAnalysis.features.portfolio &&
+			siteAnalysis.features.portfolio.enabled
+	);
+
+	if ( starterHasPortfolio( starter ) && siteAnalysis && siteAnalysis.hasContent && ! portfolioEnabled ) {
+		return 'portfolioOnly';
+	}
+
+	if ( siteAnalysis && siteAnalysis.isEmpty ) {
+		return 'fullSite';
+	}
+
+	return 'layoutsOnly';
+}
+
+function getPresetSelectedPartIds( presetId, starter, copy ) {
+	const allIds = getAllPartIds( starter, copy );
+	const layouts = getAvailableLayoutIds( starter );
+
+	if ( 'fullSite' === presetId ) {
+		return allIds;
+	}
+
+	if ( 'layoutsOnly' === presetId ) {
+		return layouts;
+	}
+
+	if ( 'portfolioOnly' === presetId ) {
+		return [ 'portfolio', 'portfolioArchive', 'portfolioSingle' ].filter( ( id ) => allIds.includes( id ) );
+	}
+
+	return [];
+}
+
+function normalizeSelectedPartIds( ids, starter, copy ) {
+	const allowed = getAllPartIds( starter, copy );
+	return allowed.filter( ( id ) => Array.isArray( ids ) && ids.includes( id ) );
+}
+
+function getComposerState( starter, storedStates, data, copy ) {
+	const stored = storedStates[ starter.id ];
+
+	if ( stored ) {
+		return {
+			presetId: stored.presetId || 'chooseParts',
+			selectedPartIds: normalizeSelectedPartIds( stored.selectedPartIds, starter, copy ),
+		};
+	}
+
+	const presetId = getDefaultPresetId( starter, data.siteAnalysis || DEFAULT_STARTER_SITES.siteAnalysis );
+
+	return {
+		presetId,
+		selectedPartIds: getPresetSelectedPartIds( presetId, starter, copy ),
+	};
+}
+
+export function buildComposerPresets( starter, copy ) {
+	const presets = [
+		{ id: 'fullSite', label: copy.composer.presets.fullSite, description: copy.composer.presetDescriptions.fullSite },
+		{ id: 'layoutsOnly', label: copy.composer.presets.layoutsOnly, description: copy.composer.presetDescriptions.layoutsOnly },
+	];
+
+	if ( starterHasPortfolio( starter ) ) {
+		presets.push( { id: 'portfolioOnly', label: copy.composer.presets.portfolioOnly, description: copy.composer.presetDescriptions.portfolioOnly } );
+	}
+
+	presets.push( { id: 'chooseParts', label: copy.composer.presets.chooseParts, description: copy.composer.presetDescriptions.chooseParts } );
+
+	return presets;
+}
+
+function selectedPartSet( composerState ) {
+	return new Set( Array.isArray( composerState.selectedPartIds ) ? composerState.selectedPartIds : [] );
+}
+
+function selectedIncludesAll( selected, ids ) {
+	return ids.length > 0 && ids.every( ( id ) => selected.has( id ) );
+}
+
+function selectedOnlyIncludes( selected, ids ) {
+	return selected.size === ids.length && ids.every( ( id ) => selected.has( id ) );
+}
+
+function getSelectedLabels( starter, copy, composerState ) {
+	const selected = selectedPartSet( composerState );
+	const labels = [];
+
+	getComposerParts( starter, copy ).forEach( ( group ) => {
+		group.parts.forEach( ( part ) => {
+			if ( selected.has( part.id ) ) {
+				labels.push( part.label );
+			}
+		} );
+	} );
+
+	return labels;
+}
+
+function getComposerSummary( starter, copy, composerState ) {
+	const labels = getSelectedLabels( starter, copy, composerState );
+
+	if ( ! labels.length ) {
+		return copy.composer.emptySummary;
+	}
+
+	return sprintf( copy.composer.summaryPrefix, labels.join( ', ' ) );
+}
+
+function getComposerActionLabel( starter, copy, composerState ) {
+	if ( 'fullSite' === composerState.presetId ) {
+		return copy.actions.applyFullSite;
+	}
+
+	if ( 'layoutsOnly' === composerState.presetId ) {
+		return copy.actions.applyLayouts;
+	}
+
+	if ( 'portfolioOnly' === composerState.presetId ) {
+		return copy.actions.addPortfolio;
+	}
+
+	const selected = selectedPartSet( composerState );
+	if ( selected.has( 'portfolio' ) && selectedOnlyIncludes( selected, [ 'portfolio', 'portfolioArchive', 'portfolioSingle' ].filter( ( id ) => getAllPartIds( starter, copy ).includes( id ) ) ) ) {
+		return copy.actions.addPortfolio;
+	}
+
+	if ( selectedIncludesAll( selected, getAvailableLayoutIds( starter ) ) && selected.size === getAvailableLayoutIds( starter ).length ) {
+		return copy.actions.applyLayouts;
+	}
+
+	return copy.actions.applySelectedParts;
+}
+
+function buildComposerOperations( starter, copy, composerState ) {
+	const selected = selectedPartSet( composerState );
+	const allIds = getAllPartIds( starter, copy );
+	const allSelected = allIds.length > 0 && selectedOnlyIncludes( selected, allIds );
+
+	if ( ! selected.size ) {
+		return [];
+	}
+
+	if ( 'fullSite' === composerState.presetId || allSelected ) {
+		return [ { type: 'full_demo' } ];
+	}
+
+	if ( 'layoutsOnly' === composerState.presetId ) {
+		return [ { type: 'layout_only', includeLookDefault: false, includeSampleDefault: false } ];
+	}
+
+	if ( 'portfolioOnly' === composerState.presetId ) {
+		return [ { type: 'feature', unitType: 'feature', unit: 'portfolio', includeSampleDefault: selected.has( 'projects' ) } ];
+	}
+
+	const operations = [];
+	const layoutIds = getAvailableLayoutIds( starter ).filter( ( id ) => selected.has( id ) );
+	const selectedRegularLayouts = layoutIds.filter( ( id ) => ! [ 'portfolioArchive', 'portfolioSingle' ].includes( id ) );
+	const selectedPortfolioLayouts = layoutIds.filter( ( id ) => [ 'portfolioArchive', 'portfolioSingle' ].includes( id ) );
+	const allRegularLayoutIds = getAvailableLayoutIds( starter ).filter( ( id ) => ! [ 'portfolioArchive', 'portfolioSingle' ].includes( id ) );
+	const hasPortfolioFeature = selected.has( 'portfolio' );
+	const postTypes = Object.keys( CONTENT_POST_TYPES )
+		.filter( ( id ) => selected.has( id ) )
+		.filter( ( id ) => ! ( 'projects' === id && hasPortfolioFeature ) )
+		.map( ( id ) => CONTENT_POST_TYPES[ id ] );
+	const includeSettings = selected.has( 'colorsFonts' ) || selected.has( 'logo' );
+	const includeMenus = selected.has( 'menus' );
+
+	if ( hasPortfolioFeature ) {
+		operations.push( { type: 'feature', unitType: 'feature', unit: 'portfolio', includeSampleDefault: selected.has( 'projects' ) } );
+	} else {
+		selectedPortfolioLayouts.forEach( ( id ) => {
+			operations.push( {
+				type: 'layout_unit',
+				unitType: LAYOUT_UNITS[ id ].unit_type,
+				unit: LAYOUT_UNITS[ id ].unit,
+			} );
+		} );
+	}
+
+	if ( selectedRegularLayouts.length ) {
+		if ( selectedOnlyIncludes( new Set( selectedRegularLayouts ), allRegularLayoutIds ) ) {
+			operations.push( { type: 'layout_only', includeLookDefault: false, includeSampleDefault: false } );
+		} else {
+			selectedRegularLayouts.forEach( ( id ) => {
+				operations.push( {
+					type: 'layout_unit',
+					unitType: LAYOUT_UNITS[ id ].unit_type,
+					unit: LAYOUT_UNITS[ id ].unit,
+				} );
+			} );
+		}
+	}
+
+	if ( postTypes.length || includeSettings || includeMenus ) {
+		const selectedPostTypes = Array.from( new Set( includeMenus ? postTypes.concat( CONTENT_POST_TYPES.menus ) : postTypes ) );
+
+		operations.push( {
+			type: 'starter_parts',
+			parts: {
+				postTypes: selectedPostTypes,
+				includeSettings,
+				includeMedia: Boolean( postTypes.length || selected.has( 'logo' ) ),
+				includeTaxonomies: Boolean( postTypes.length || includeMenus ),
+				includeWidgets: false,
+				includePostSettings: includeSettings,
+			},
+		} );
+	}
+
+	return operations;
 }
 
 function renderStatusNotice( state, copy ) {
@@ -452,13 +1042,17 @@ function renderBadge( starter, locked, copy ) {
 	);
 }
 
+function getUseStarterLabel( starter, copy ) {
+	return sprintf( copy.actions.useStarter || __( 'Use %s', 'pixelgrade_assistant' ), starter.title || starter.id );
+}
+
 function renderStarterCard( starter, context ) {
-	const { copy, imported, plus, state, onImport } = context;
+	const { copy, imported, applied, plus, state, onOpenComposer } = context;
 	const locked = isStarterLocked( starter, plus );
-	const alreadyImported = isStarterImported( imported, starter.id );
 	const isWorking = state && 'working' === state.status;
 	const actions = copy.actions;
 	const plusUrl = getPlusSetupUrl( plus );
+	const appliedLabels = getAppliedStatusLabels( starter, imported, applied );
 
 	const primaryAction = locked
 		? createElement(
@@ -474,32 +1068,51 @@ function renderStarterCard( starter, context ) {
 		: createElement(
 				Button,
 				{
-					variant: alreadyImported ? 'secondary' : 'primary',
+					variant: 'primary',
 					isBusy: isWorking,
 					disabled: isWorking,
-					onClick: () => onImport( starter ),
+					onClick: () => onOpenComposer( starter ),
 				},
-				isWorking ? actions.working : alreadyImported ? actions.reimport : actions.import
+				isWorking ? actions.working : getUseStarterLabel( starter, copy )
 		  );
 
-	// Keep a passive "Imported" status next to the action so the state is still legible once the
-	// button reads "Re-import" (the button is an action, not a status).
 	const importedStatus =
-		! locked && alreadyImported && ! isWorking
+		! locked && appliedLabels.length && ! isWorking
 			? createElement(
-					'span',
+					'div',
 					{
 						style: {
 							alignItems: 'center',
-							color: '#0a7a28',
-							display: 'inline-flex',
-							fontSize: '12px',
-							fontWeight: 600,
-							gap: '4px',
-							whiteSpace: 'nowrap',
+							borderTop: '1px solid #f0f0f1',
+							color: '#50575e',
+							display: 'flex',
+							flexWrap: 'wrap',
+							fontSize: '11px',
+							gap: '6px',
+							marginTop: '18px',
+							paddingTop: '12px',
 						},
 					},
-					'✓ ' + actions.imported
+					appliedLabels.map( ( label ) =>
+						createElement(
+							'span',
+							{
+								key: label,
+								style: {
+									alignItems: 'center',
+									background: '#f6f7f7',
+									border: '1px solid #dcdcde',
+									borderRadius: '999px',
+									display: 'inline-flex',
+									fontWeight: 500,
+									lineHeight: '20px',
+									padding: '0 8px',
+									whiteSpace: 'nowrap',
+								},
+							},
+							'✓ ' + label
+						)
+					)
 			  )
 			: null;
 
@@ -533,31 +1146,272 @@ function renderStarterCard( starter, context ) {
 			CardBody,
 			null,
 			starter.description
-				? createElement( 'p', { style: { color: '#50575e', margin: '0 0 16px' } }, starter.description )
+				? createElement( 'p', { style: { color: '#50575e', margin: '0 0 18px' } }, starter.description )
 				: null,
 			createElement(
-				Flex,
-				{ align: 'center', gap: 2, justify: 'flex-start', expanded: false },
-				createElement( FlexItem, null, primaryAction ),
+				'div',
+				{ style: { alignItems: 'center', display: 'flex', flexWrap: 'wrap', gap: '10px' } },
+				primaryAction,
 				starter.previewUrl || starter.url
 					? createElement(
-							FlexItem,
-							null,
-							createElement(
-								Button,
-								{
-									href: starter.previewUrl || starter.url,
-									variant: 'tertiary',
-									target: '_blank',
-									rel: 'noreferrer noopener',
-								},
-								actions.preview
-							)
+							Button,
+							{
+								href: starter.previewUrl || starter.url,
+								variant: 'tertiary',
+								target: '_blank',
+								rel: 'noreferrer noopener',
+							},
+							actions.preview
 					  )
 					: null,
-				importedStatus ? createElement( FlexItem, null, importedStatus ) : null
 			),
+			importedStatus,
 			renderStatusNotice( state, copy )
+		)
+	);
+}
+
+function renderComposerPartGroups( starter, copy, composerState, isWorking, onTogglePart ) {
+	const selected = selectedPartSet( composerState );
+
+	return createElement(
+		'div',
+		{ style: { display: 'grid', gap: '18px' } },
+		getComposerParts( starter, copy ).map( ( group ) =>
+			createElement(
+				'section',
+				{ key: group.id },
+				createElement(
+					'h3',
+					{
+						style: {
+							color: '#1d2327',
+							fontSize: '13px',
+							fontWeight: 600,
+							margin: '0 0 8px',
+							textTransform: 'none',
+						},
+					},
+					group.label
+				),
+				createElement(
+					'div',
+					{
+						style: {
+							display: 'grid',
+							gap: '8px',
+							gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
+						},
+					},
+					group.parts.map( ( part ) => {
+						const isSelected = selected.has( part.id );
+
+						return createElement(
+							'div',
+							{
+								key: part.id,
+								style: {
+									background: isSelected ? '#f6f7ff' : '#fff',
+									border: '1px solid ' + ( isSelected ? '#3858e9' : '#dcdcde' ),
+									borderRadius: '4px',
+									boxShadow: isSelected ? 'inset 3px 0 0 #3858e9' : 'none',
+									padding: '9px 10px',
+								},
+							},
+							createElement( CheckboxControl, {
+								checked: isSelected,
+								disabled: isWorking,
+								label: part.label,
+								onChange: ( nextValue ) => onTogglePart( part.id, nextValue ),
+							} )
+						);
+					} )
+				)
+			)
+		)
+	);
+}
+
+function renderPresetChoices( presets, copy, composerState, isWorking, onPresetChange ) {
+	return createElement(
+		'div',
+		{
+			style: {
+				display: 'grid',
+				gap: '10px',
+				gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+			},
+		},
+		presets.map( ( preset ) => {
+			const selected = composerState.presetId === preset.id;
+
+			return createElement(
+				'button',
+				{
+					key: preset.id,
+					type: 'button',
+					'aria-pressed': selected,
+					disabled: isWorking,
+					onClick: () => onPresetChange( preset.id ),
+					style: {
+						background: selected ? '#fff' : '#f6f7f7',
+						border: '1px solid ' + ( selected ? '#3858e9' : '#dcdcde' ),
+						borderRadius: '4px',
+						boxShadow: selected ? 'inset 3px 0 0 #3858e9' : 'none',
+						color: '#1d2327',
+						cursor: isWorking ? 'default' : 'pointer',
+						display: 'grid',
+						gap: '5px',
+						padding: '12px 13px',
+						textAlign: 'left',
+					},
+				},
+				createElement( 'span', { style: { color: selected ? '#3858e9' : '#1d2327', fontSize: '14px', fontWeight: 600 } }, preset.label ),
+				preset.description
+					? createElement( 'span', { style: { color: '#646970', fontSize: '12px', lineHeight: 1.35 } }, preset.description )
+					: null,
+				selected ? createElement( 'span', { style: { color: '#3858e9', fontSize: '11px', fontWeight: 600 } }, copy.composer.selected ) : null
+			);
+		} )
+	);
+}
+
+function renderComposerView( starter, context ) {
+	const {
+		copy,
+		composerState,
+		state,
+		isWorking,
+		onBack,
+		onPresetChange,
+		onTogglePart,
+		onApply,
+	} = context;
+	const presets = buildComposerPresets( starter, copy );
+	const summary = getComposerSummary( starter, copy, composerState );
+	const actionLabel = getComposerActionLabel( starter, copy, composerState );
+	const preview = starter.image || '';
+	const canApply = selectedPartSet( composerState ).size > 0 && ! isWorking;
+
+	return createElement(
+		'section',
+		{ className: 'pixelgrade-starter-sites__composer' },
+		createElement(
+			Button,
+			{
+				variant: 'tertiary',
+				onClick: onBack,
+				style: { marginBottom: '18px' },
+			},
+			copy.actions.backToStarterSites
+		),
+		createElement(
+			'div',
+			{
+				style: {
+					alignItems: 'start',
+					display: 'grid',
+					gap: '40px',
+					gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 360px), 1fr))',
+					maxWidth: '1180px',
+				},
+			},
+			createElement(
+				'div',
+				{ style: { display: 'grid', gap: '12px', maxWidth: '420px' } },
+				preview
+					? createElement( 'img', {
+							src: preview,
+							alt: '',
+							style: {
+								aspectRatio: '4 / 3',
+								background: '#f0f0f1',
+								border: '1px solid #dcdcde',
+								borderRadius: '2px',
+								display: 'block',
+								height: 'auto',
+								objectFit: 'cover',
+								width: '100%',
+							},
+					  } )
+					: null,
+				starter.previewUrl || starter.url
+					? createElement(
+							Button,
+							{
+								href: starter.previewUrl || starter.url,
+								variant: 'tertiary',
+								target: '_blank',
+								rel: 'noreferrer noopener',
+								style: { justifySelf: 'start' },
+							},
+							copy.actions.preview
+					  )
+					: null
+			),
+			createElement(
+				'div',
+				{ style: { display: 'grid', gap: '26px', maxWidth: '760px' } },
+				createElement(
+					'header',
+					null,
+					createElement( 'h2', { style: { fontSize: '28px', lineHeight: 1.2, margin: 0 } }, starter.title ),
+					starter.description
+						? createElement( 'p', { style: { color: '#50575e', fontSize: '15px', margin: '8px 0 0', maxWidth: '560px' } }, starter.description )
+						: null
+				),
+				createElement(
+					'section',
+					null,
+					createElement( 'h3', { style: { fontSize: '13px', margin: '0 0 10px' } }, copy.composer.preset ),
+					renderPresetChoices( presets, copy, composerState, isWorking, onPresetChange )
+				),
+				createElement(
+					'section',
+					null,
+					createElement( 'h3', { style: { fontSize: '15px', margin: '0 0 16px' } }, copy.composer.include ),
+					renderComposerPartGroups( starter, copy, composerState, isWorking, onTogglePart )
+				),
+				createElement(
+					'section',
+					{
+						style: {
+							background: '#fff',
+							border: '1px solid #dcdcde',
+							borderRadius: '4px',
+							display: 'grid',
+							gap: '14px',
+							padding: '16px',
+						},
+					},
+					createElement( 'h3', { style: { fontSize: '15px', margin: 0 } }, copy.composer.summary ),
+					createElement( 'p', { style: { color: '#50575e', margin: 0 } }, summary ),
+					createElement(
+						'div',
+						{ style: { alignItems: 'center', display: 'flex', flexWrap: 'wrap', gap: '10px' } },
+						createElement(
+							Button,
+							{
+								variant: 'primary',
+								isBusy: isWorking,
+								disabled: ! canApply,
+								onClick: onApply,
+							},
+							isWorking ? copy.actions.working : actionLabel
+						),
+						createElement(
+							Button,
+							{
+								variant: 'secondary',
+								disabled: isWorking,
+								onClick: onBack,
+							},
+							copy.actions.cancel
+						)
+					),
+					renderStatusNotice( state, copy )
+				)
+			)
 		)
 	);
 }
@@ -567,7 +1421,12 @@ export function StarterSites() {
 	const copy = mergeCopy( data.copy );
 	const starters = Array.isArray( data.starters ) ? data.starters : [];
 	const [ imported, setImported ] = useState( data.imported || {} );
+	const [ applied, setApplied ] = useState( normalizeApplied( data.applied ) );
 	const [ states, setStates ] = useState( {} );
+	const [ activeStarterId, setActiveStarterId ] = useState( '' );
+	const [ composerStates, setComposerStates ] = useState( {} );
+
+	const activeStarter = activeStarterId ? starters.find( ( starter ) => starter.id === activeStarterId ) : null;
 
 	const setStarterState = ( id, nextState ) => {
 		setStates( ( current ) => ( {
@@ -579,10 +1438,75 @@ export function StarterSites() {
 		} ) );
 	};
 
-	const startImport = async ( starter ) => {
-		// Dependency gate: never import a starter the site cannot render. If the starter's required
-		// companion plugins are not active, nudge the user to install + activate them first instead of
-		// silently importing broken content. When all requirements are met this is a no-op.
+	const storeComposerState = ( starter, nextState ) => {
+		setComposerStates( ( current ) => ( {
+			...current,
+			[ starter.id ]: {
+				...getComposerState( starter, current, data, copy ),
+				...nextState,
+			},
+		} ) );
+	};
+
+	const openComposer = ( starter ) => {
+		setActiveStarterId( starter.id );
+		setComposerStates( ( current ) => {
+			if ( current[ starter.id ] ) {
+				return current;
+			}
+
+			return {
+				...current,
+				[ starter.id ]: getComposerState( starter, current, data, copy ),
+			};
+		} );
+	};
+
+	const changePreset = ( starter, presetId ) => {
+		const current = getComposerState( starter, composerStates, data, copy );
+
+		storeComposerState( starter, {
+			presetId,
+			selectedPartIds:
+				'chooseParts' === presetId
+					? current.selectedPartIds
+					: getPresetSelectedPartIds( presetId, starter, copy ),
+		} );
+	};
+
+	const togglePart = ( starter, partId, enabled ) => {
+		const current = getComposerState( starter, composerStates, data, copy );
+		const selected = new Set( current.selectedPartIds );
+
+		if ( enabled ) {
+			selected.add( partId );
+		} else {
+			selected.delete( partId );
+		}
+
+		storeComposerState( starter, {
+			presetId: 'chooseParts',
+			selectedPartIds: normalizeSelectedPartIds( Array.from( selected ), starter, copy ),
+		} );
+	};
+
+	const updateAppliedFromResponse = ( response ) => {
+		if ( response && response.data && response.data.appliedRecipes ) {
+			setApplied( ( current ) => ( {
+				...current,
+				recipes: response.data.appliedRecipes,
+			} ) );
+		}
+
+		if ( response && response.data && response.data.appliedUnits ) {
+			setApplied( ( current ) => ( {
+				...current,
+				layoutUnits: response.data.appliedUnits,
+			} ) );
+		}
+	};
+
+	const applyComposerSelection = async ( starter ) => {
 		const missing = getMissingRequiredPlugins( starter );
 		if ( missing.length ) {
 			const names = missing.map( ( plugin ) => plugin.name || plugin.slug );
@@ -599,7 +1523,16 @@ export function StarterSites() {
 			return;
 		}
 
-		if ( isStarterImported( imported, starter.id ) && typeof window !== 'undefined' && window.confirm ) {
+		const composerState = getComposerState( starter, composerStates, data, copy );
+		const operations = buildComposerOperations( starter, copy, composerState );
+		const hasFullDemoOperation = operations.some( ( operation ) => 'full_demo' === operation.type );
+
+		if ( ! operations.length ) {
+			setStarterState( starter.id, { status: 'error', message: copy.composer.emptySummary } );
+			return;
+		}
+
+		if ( hasFullDemoOperation && isStarterImported( imported, starter.id ) && typeof window !== 'undefined' && window.confirm ) {
 			const sure = window.confirm( copy.confirm );
 			if ( ! sure ) {
 				return;
@@ -607,16 +1540,36 @@ export function StarterSites() {
 		}
 
 		try {
-			await importStarter( starter, data, copy, ( message ) => {
-				setStarterState( starter.id, { status: 'working', message } );
-			} );
-			setImported( ( current ) => ( {
-				...current,
-				[ starter.id ]: {
-					...( current[ starter.id ] || {} ),
-					imported: true,
-				},
-			} ) );
+			setStarterState( starter.id, { status: 'working', message: copy.actions.working } );
+
+			for ( const operation of operations ) {
+				const response = await applyStarterAction( starter, operation, {}, data, copy, ( message ) => {
+					setStarterState( starter.id, { status: 'working', message } );
+				} );
+
+				if ( 'full_demo' === operation.type ) {
+					setImported( ( current ) => ( {
+						...current,
+						[ starter.id ]: {
+							...( current[ starter.id ] || {} ),
+							imported: true,
+						},
+					} ) );
+					setApplied( ( current ) => ( {
+						...current,
+						fullDemos: {
+							...( current.fullDemos || {} ),
+							[ starter.id ]: {
+								...( current.fullDemos && current.fullDemos[ starter.id ] ? current.fullDemos[ starter.id ] : {} ),
+								imported: true,
+							},
+						},
+					} ) );
+				}
+
+				updateAppliedFromResponse( response );
+			}
+
 			setStarterState( starter.id, { status: 'success', message: copy.success } );
 		} catch ( error ) {
 			setStarterState( starter.id, {
@@ -625,6 +1578,23 @@ export function StarterSites() {
 			} );
 		}
 	};
+
+	if ( activeStarter ) {
+		const composerState = getComposerState( activeStarter, composerStates, data, copy );
+		const state = states[ activeStarter.id ] || { status: 'idle', message: '' };
+		const isWorking = 'working' === state.status;
+
+		return renderComposerView( activeStarter, {
+			copy,
+			composerState,
+			state,
+			isWorking,
+			onBack: () => setActiveStarterId( '' ),
+			onPresetChange: ( presetId ) => changePreset( activeStarter, presetId ),
+			onTogglePart: ( partId, enabled ) => togglePart( activeStarter, partId, enabled ),
+			onApply: () => applyComposerSelection( activeStarter ),
+		} );
+	}
 
 	return createElement(
 		Fragment,
@@ -648,9 +1618,10 @@ export function StarterSites() {
 						renderStarterCard( starter, {
 							copy,
 							imported,
+							applied,
 							plus: data.plus || {},
 							state: states[ starter.id ] || { status: 'idle', message: '' },
-							onImport: startImport,
+							onOpenComposer: openComposer,
 						} )
 					)
 			  )
