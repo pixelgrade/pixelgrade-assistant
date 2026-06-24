@@ -43,6 +43,14 @@ class PixelgradeAssistant_StarterContent {
 	private $commerce_source_ids_cache = array();
 
 	/**
+	 * Request-local cache for demo->local media URL maps (placeholders/ignored), keyed by group size,
+	 * so import_post_type() doesn't rebuild + re-resolve thumbnail URLs for every imported post type.
+	 *
+	 * @var array
+	 */
+	private $media_url_map_cache = array();
+
+	/**
 	 * The only instance.
 	 * @var     PixelgradeAssistant_StarterContent
 	 * @access  protected
@@ -3212,14 +3220,18 @@ class PixelgradeAssistant_StarterContent {
 				}
 
 				foreach ( $items as $remote_id ) {
-					$result = $this->import_starter_media_item( $demo_key, $base_url, $group, absint( $remote_id ) );
+					$result = $this->import_starter_media_item( $demo_key, $base_url, $group, absint( $remote_id ), true );
 					if ( is_wp_error( $result ) ) {
+						PixelgradeAssistant_Admin::save_options();
 						return $result;
 					}
 
 					$imported += (int) $result;
 				}
 			}
+
+			// Persist the whole media map once for the batch (per-item saves were O(n^2)).
+			PixelgradeAssistant_Admin::save_options();
 
 			return $imported;
 		}
@@ -3234,7 +3246,7 @@ class PixelgradeAssistant_StarterContent {
 		 *
 		 * @return int|WP_Error 1 when imported, 0 when the source item is intentionally skipped.
 		 */
-		private function import_starter_media_item( $demo_key, $base_url, $group, $remote_id ) {
+		private function import_starter_media_item( $demo_key, $base_url, $group, $remote_id, $defer_save = false ) {
 			if ( empty( $remote_id ) ) {
 				return 0;
 			}
@@ -3282,7 +3294,8 @@ class PixelgradeAssistant_StarterContent {
 				sanitize_text_field( $media['title'] ),
 				sanitize_text_field( $media['ext'] ),
 				$media['data'],
-				false
+				false,
+				$defer_save
 			);
 
 			if ( empty( $result['code'] ) || 'success' !== $result['code'] ) {
@@ -3384,7 +3397,7 @@ class PixelgradeAssistant_StarterContent {
 		 *
 		 * @return array Response payload.
 		 */
-		private function import_media_file( $demo_key, $group, $remote_id, $title, $ext, $file_data, $generate_metadata = true ) {
+		private function import_media_file( $demo_key, $group, $remote_id, $title, $ext, $file_data, $generate_metadata = true, $defer_save = false ) {
 			add_filter( 'upload_mimes', array( $this, 'allow_svg_upload' ) );
 
 			$demo_key  = sanitize_text_field( $demo_key );
@@ -3456,7 +3469,11 @@ class PixelgradeAssistant_StarterContent {
 			$starter_content[ $demo_key ]['media'][ $group ][ $remote_id ] = $attachment_id;
 
 			PixelgradeAssistant_Admin::set_option( 'imported_starter_content', $starter_content );
-			PixelgradeAssistant_Admin::save_options();
+			// During a full-site media batch the caller flushes once at the end; saving the entire
+			// (growing) journal option per media item is O(n^2). Single uploads still save immediately.
+			if ( ! $defer_save ) {
+				PixelgradeAssistant_Admin::save_options();
+			}
 
 			$attachment_data = array();
 			if ( $generate_metadata ) {
@@ -6513,6 +6530,11 @@ class PixelgradeAssistant_StarterContent {
 							$pending_thumbnail = $this->first_numeric_media_id( $meta );
 							if ( $pending_thumbnail ) {
 								$post_args['meta_input']['_pixassist_pending_thumbnail'] = $pending_thumbnail;
+							} else {
+								// The source gave a non-numeric featured-image id (e.g. a corrupt "Array" string
+								// from a misbehaving exporter). Never persist a broken _thumbnail_id — it would
+								// leave a dangling featured image. Drop it so the post simply has none.
+								unset( $post_args['meta_input']['_thumbnail_id'] );
 							}
 						}
 					}
@@ -6611,15 +6633,21 @@ class PixelgradeAssistant_StarterContent {
 			if ( function_exists( 'has_blocks' ) && function_exists( 'parse_blocks' ) && has_blocks( $post['post_content'] ) ) {
 				$new_post_content = $post['post_content'];
 
-				if ( ! empty( $starter_content[ $demo_key ]['taxonomies'] ) ) {
+				// parse_blocks() is expensive, so gate it behind a cheap strpos(): only posts whose content
+				// actually contains a block whose attributes can carry remappable ids need parsing. The vast
+				// majority of posts have no query/navigation blocks and skip the parse entirely.
+				if ( ! empty( $starter_content[ $demo_key ]['taxonomies'] )
+					&& ( false !== strpos( $new_post_content, 'wp:query' ) || false !== strpos( $new_post_content, 'wp:navigation-link' ) ) ) {
 					$new_post_content = $this->maybe_replace_tax_ids_in_blocks( $new_post_content, $starter_content[ $demo_key ]['taxonomies'] );
 				}
 
-				$post_type_maps = ( isset( $starter_content[ $demo_key ]['post_types'] ) && is_array( $starter_content[ $demo_key ]['post_types'] ) )
-					? $starter_content[ $demo_key ]['post_types']
-					: array();
-				$post_type_maps[ $args['post_type'] ] = $imported_ids;
-				$new_post_content = $this->maybe_replace_post_ids_in_blocks( $new_post_content, $post_type_maps );
+				if ( false !== strpos( $new_post_content, 'wp:navigation' ) ) {
+					$post_type_maps = ( isset( $starter_content[ $demo_key ]['post_types'] ) && is_array( $starter_content[ $demo_key ]['post_types'] ) )
+						? $starter_content[ $demo_key ]['post_types']
+						: array();
+					$post_type_maps[ $args['post_type'] ] = $imported_ids;
+					$new_post_content = $this->maybe_replace_post_ids_in_blocks( $new_post_content, $post_type_maps );
+				}
 
 				if ( $new_post_content !== $post['post_content'] ) {
 					$update_args['post_content'] = $new_post_content;
@@ -8309,41 +8337,46 @@ class PixelgradeAssistant_StarterContent {
 	 * HELPERS
 	 */
 	private function get_placeholders( $demo_key ) {
-		$imported_ids = array();
-
-		$starter_content = PixelgradeAssistant_Admin::get_option( 'imported_starter_content' );
-
-		if ( ! empty( $starter_content[ $demo_key ]['media']['placeholders'] ) ) {
-			foreach ( $starter_content[ $demo_key ]['media']['placeholders'] as $old_id => $new_id ) {
-				$sizes = $this->get_image_thumbnails_urls( $new_id );
-				if ( ! empty( $sizes ) ) {
-					$imported_ids[ $old_id ] = array(
-						'id'    => $new_id,
-						'sizes' => $this->get_image_thumbnails_urls( $new_id ),
-					);
-				}
-			}
-		}
-
-		return $imported_ids;
+		return $this->get_media_url_map( $demo_key, 'placeholders' );
 	}
 
 	private function get_ignored_images( $demo_key ) {
-		$imported_ids = array();
+		return $this->get_media_url_map( $demo_key, 'ignored' );
+	}
 
+	/**
+	 * Build the demo->local media map (with thumbnail URLs) for a media group, deduped and memoized.
+	 * The map is stable across the per-post-type calls in one run, so cache it keyed by the group's
+	 * size (recomputed if media is added mid-run). Each id's sizes are resolved exactly once.
+	 *
+	 * @param string $demo_key
+	 * @param string $group placeholders|ignored
+	 *
+	 * @return array
+	 */
+	private function get_media_url_map( $demo_key, $group ) {
 		$starter_content = PixelgradeAssistant_Admin::get_option( 'imported_starter_content' );
+		$map = ( ! empty( $starter_content[ $demo_key ]['media'][ $group ] ) && is_array( $starter_content[ $demo_key ]['media'][ $group ] ) )
+			? $starter_content[ $demo_key ]['media'][ $group ]
+			: array();
 
-		if ( ! empty( $starter_content[ $demo_key ]['media']['ignored'] ) ) {
-			foreach ( $starter_content[ $demo_key ]['media']['ignored'] as $old_id => $new_id ) {
-				$sizes = $this->get_image_thumbnails_urls( $new_id );
-				if ( ! empty( $sizes ) ) {
-					$imported_ids[ $old_id ] = array(
-						'id'    => $new_id,
-						'sizes' => $this->get_image_thumbnails_urls( $new_id ),
-					);
-				}
+		$cache_key = $demo_key . ':' . $group . ':' . count( $map );
+		if ( isset( $this->media_url_map_cache[ $cache_key ] ) ) {
+			return $this->media_url_map_cache[ $cache_key ];
+		}
+
+		$imported_ids = array();
+		foreach ( $map as $old_id => $new_id ) {
+			$sizes = $this->get_image_thumbnails_urls( $new_id );
+			if ( ! empty( $sizes ) ) {
+				$imported_ids[ $old_id ] = array(
+					'id'    => $new_id,
+					'sizes' => $sizes,
+				);
 			}
 		}
+
+		$this->media_url_map_cache[ $cache_key ] = $imported_ids;
 
 		return $imported_ids;
 	}
