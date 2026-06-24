@@ -97,6 +97,14 @@ function wp_delete_post( $post_id, $force_delete = false ) {
 	return true;
 }
 
+function get_post_status( $post_id ) {
+	return ! empty( $GLOBALS['paf_posts'][ (int) $post_id ] ) ? 'publish' : false;
+}
+
+function get_post_type( $post_id ) {
+	return ! empty( $GLOBALS['paf_posts'][ (int) $post_id ] ) ? 'page' : false;
+}
+
 function taxonomy_exists( $taxonomy ) {
 	return in_array( $taxonomy, array( 'portfolio_type', 'nav_menu', 'category' ), true );
 }
@@ -360,5 +368,63 @@ assert_same( 0, $summary['media_deleted'], 'No journal means no media deletions.
 assert_same( 1, $summary['features_disabled'], 'No-journal reset must still clear stale Assistant feature flags.' );
 assert_same( array(), PixelgradeAssistant_Admin::get_option( 'enabled_features' ), 'No-journal reset must persist stale feature flag cleanup.' );
 assert_same( array( 'is_connected' => true ), PixelgradeAssistant_Admin::get_option( 'account' ), 'No-op reset must not touch account state.' );
+
+// Dangling-front-page guard: the restored pre-import snapshot can itself reference a page that no
+// longer exists (accumulated re-import/reset state), which would make WordPress serve a 404
+// homepage after "Start from scratch". Reset must fall back to the latest-posts homepage.
+paf_reset_runtime();
+$GLOBALS['paf_pixassist_options'] = array(
+	'imported_starter_content' => array(
+		'felt-lt' => array(
+			'post_types'   => array(
+				// The journaled front page is deleted by this reset, leaving page_on_front dangling.
+				'page' => array( 1733 => 1733 ),
+			),
+			'pre_settings' => array(
+				'options' => array(
+					'show_on_front' => 'page',
+					'page_on_front' => 1733,
+				),
+			),
+		),
+	),
+);
+$GLOBALS['paf_wp_options'] = array(
+	'show_on_front' => 'page',
+	'page_on_front' => 1733,
+);
+$GLOBALS['paf_posts'] = array( 1733 => true );
+
+$summary = $starter_content->reset_starter_content();
+
+assert_same( 1, $summary['posts_deleted'], 'Reset must delete the journaled front page.' );
+assert_same( 'posts', $GLOBALS['paf_wp_options']['show_on_front'], 'Reset must fall back to a posts homepage when the restored front page no longer exists.' );
+assert_same( 0, $GLOBALS['paf_wp_options']['page_on_front'], 'Reset must clear a dangling page_on_front so WordPress does not 404 the homepage.' );
+
+// Control: when the restored front page DOES still exist, the static-page homepage is preserved.
+paf_reset_runtime();
+$GLOBALS['paf_pixassist_options'] = array(
+	'imported_starter_content' => array(
+		'keeper' => array(
+			'pre_settings' => array(
+				'options' => array(
+					'show_on_front' => 'page',
+					'page_on_front' => 42,
+				),
+			),
+		),
+	),
+);
+$GLOBALS['paf_wp_options'] = array(
+	'show_on_front' => 'page',
+	'page_on_front' => 7,
+);
+// Page 42 is a real, surviving published page (not journaled, so reset never deletes it).
+$GLOBALS['paf_posts'] = array( 42 => true );
+
+$summary = $starter_content->reset_starter_content();
+
+assert_same( 'page', $GLOBALS['paf_wp_options']['show_on_front'], 'A valid restored front page must keep the static-page homepage.' );
+assert_same( 42, $GLOBALS['paf_wp_options']['page_on_front'], 'A valid restored front page id must be preserved.' );
 
 echo "Starter content reset contract OK\n";

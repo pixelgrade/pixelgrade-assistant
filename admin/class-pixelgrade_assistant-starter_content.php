@@ -3146,6 +3146,11 @@ class PixelgradeAssistant_StarterContent {
 				} else {
 					do_action( 'pixassist_sce_import_end' );
 				}
+
+				// A starter that sets a static front page needs that page to actually render. Some block
+				// themes ship a self-contained `front-page` template (a wp.org standalone showcase) that
+				// would shadow it; create a clean override in that case so the imported front page wins.
+				$this->ensure_starter_front_page_template( $demo_key );
 			} finally {
 				$this->restore_import_counting();
 			}
@@ -6598,6 +6603,30 @@ class PixelgradeAssistant_StarterContent {
 				$update_this         = true;
 			}
 
+			// Rewrite term/post IDs embedded in block attributes (the core/query block's taxQuery,
+			// navigation-link/navigation references) from the demo's IDs to the imported local IDs.
+			// Taxonomies are imported before post types, so the term map is already available here.
+			// Without this, a query-by-tag homepage keeps the demo term IDs, matches nothing locally
+			// and renders blank. (Parity with Pixelgrade Care.)
+			if ( function_exists( 'has_blocks' ) && function_exists( 'parse_blocks' ) && has_blocks( $post['post_content'] ) ) {
+				$new_post_content = $post['post_content'];
+
+				if ( ! empty( $starter_content[ $demo_key ]['taxonomies'] ) ) {
+					$new_post_content = $this->maybe_replace_tax_ids_in_blocks( $new_post_content, $starter_content[ $demo_key ]['taxonomies'] );
+				}
+
+				$post_type_maps = ( isset( $starter_content[ $demo_key ]['post_types'] ) && is_array( $starter_content[ $demo_key ]['post_types'] ) )
+					? $starter_content[ $demo_key ]['post_types']
+					: array();
+				$post_type_maps[ $args['post_type'] ] = $imported_ids;
+				$new_post_content = $this->maybe_replace_post_ids_in_blocks( $new_post_content, $post_type_maps );
+
+				if ( $new_post_content !== $post['post_content'] ) {
+					$update_args['post_content'] = $new_post_content;
+					$update_this                 = true;
+				}
+			}
+
 			if ( $update_this ) {
 				wp_update_post( $update_args );
 			}
@@ -6613,6 +6642,182 @@ class PixelgradeAssistant_StarterContent {
 
 		// Return the imported post IDs
 		return $imported_ids;
+	}
+
+	/**
+	 * Remap term IDs inside a core/query block's taxQuery, supporting both the standard flat shape
+	 * ({ taxonomy: [ids] }) and the Nova Blocks include/exclude shape ({ include: { taxonomy: [ids] } }).
+	 * Unimported term IDs are dropped so the query never targets a stale demo term.
+	 *
+	 * @param array $tax_query           taxQuery sub-array.
+	 * @param array $imported_taxonomies Map of taxonomy => [ demo_term_id => local_term_id ].
+	 * @param bool  $changed             Set to true (by reference) when any id was remapped or dropped.
+	 *
+	 * @return array
+	 */
+	private function remap_tax_query_term_ids( $tax_query, $imported_taxonomies, &$changed ) {
+		foreach ( $tax_query as $key => $value ) {
+			if ( ! is_array( $value ) ) {
+				continue;
+			}
+
+			$values_are_scalar = true;
+			foreach ( $value as $maybe_id ) {
+				if ( is_array( $maybe_id ) ) {
+					$values_are_scalar = false;
+					break;
+				}
+			}
+
+			if ( ! $values_are_scalar ) {
+				// Nested wrapper (e.g. Nova Blocks include/exclude) — recurse one level deeper.
+				$tax_query[ $key ] = $this->remap_tax_query_term_ids( $value, $imported_taxonomies, $changed );
+				continue;
+			}
+
+			// $key is a taxonomy name and $value is its list of term IDs.
+			if ( empty( $imported_taxonomies[ $key ] ) ) {
+				continue;
+			}
+
+			$remapped_ids = array();
+			foreach ( $value as $term_id ) {
+				if ( ! empty( $imported_taxonomies[ $key ][ $term_id ] ) ) {
+					$remapped_ids[] = $imported_taxonomies[ $key ][ $term_id ];
+				}
+				// else: drop the unimported term id so the query does not target a stale demo term.
+				$changed = true;
+			}
+			$tax_query[ $key ] = array_values( $remapped_ids );
+		}
+
+		return $tax_query;
+	}
+
+	/**
+	 * Parse the blocks in the content and replace already-imported taxonomy term IDs where it is
+	 * appropriate. Mainly the core/query block's taxQuery argument and taxonomy navigation links.
+	 *
+	 * @param string $post_content
+	 * @param array  $imported_taxonomies Map of taxonomy => [ demo_term_id => local_term_id ].
+	 *
+	 * @return string
+	 */
+	private function maybe_replace_tax_ids_in_blocks( $post_content, $imported_taxonomies ) {
+		if ( ! has_blocks( $post_content ) || ! version_compare( get_bloginfo( 'version' ), '5.9', '>=' ) ) {
+			return $post_content;
+		}
+
+		$has_updated_content = false;
+		$new_content         = '';
+		$template_blocks     = parse_blocks( $post_content );
+
+		$blocks = _flatten_blocks( $template_blocks );
+		foreach ( $blocks as &$block ) {
+			// Replace the term IDs in the taxQuery of the core Query block. taxQuery can be the
+			// standard flat shape ({ taxonomy: [ids] }) or the Nova Blocks include/exclude shape
+			// ({ include: { taxonomy: [ids] }, exclude: {...} }), so walk it recursively.
+			if (
+				'core/query' === $block['blockName'] &&
+				! empty( $block['attrs']['query']['taxQuery'] ) &&
+				is_array( $block['attrs']['query']['taxQuery'] )
+			) {
+				$tax_changed = false;
+				$block['attrs']['query']['taxQuery'] = $this->remap_tax_query_term_ids(
+					$block['attrs']['query']['taxQuery'],
+					$imported_taxonomies,
+					$tax_changed
+				);
+				if ( $tax_changed ) {
+					$has_updated_content = true;
+				}
+			}
+
+			// Replace the term ID in a taxonomy navigation-link block.
+			if (
+				'core/navigation-link' === $block['blockName']
+				&& ! empty( $block['attrs']['type'] )
+				&& ! empty( $block['attrs']['kind'] )
+				&& 'taxonomy' === $block['attrs']['kind']
+				&& ! empty( $block['attrs']['id'] )
+			) {
+				if ( ! empty( $imported_taxonomies[ $block['attrs']['type'] ][ $block['attrs']['id'] ] ) ) {
+					$block['attrs']['id'] = $imported_taxonomies[ $block['attrs']['type'] ][ $block['attrs']['id'] ];
+					$has_updated_content  = true;
+				}
+			}
+		}
+		unset( $block );
+
+		if ( $has_updated_content ) {
+			foreach ( $template_blocks as &$block ) {
+				$new_content .= serialize_block( $block );
+			}
+			unset( $block );
+
+			return $new_content;
+		}
+
+		return $post_content;
+	}
+
+	/**
+	 * Parse the blocks in the content and replace already-imported post IDs where it is
+	 * appropriate (navigation-link post-type references and the navigation block's `ref`).
+	 *
+	 * @param string $post_content
+	 * @param array  $imported_post_types Map of post_type => [ demo_post_id => local_post_id ].
+	 *
+	 * @return string
+	 */
+	private function maybe_replace_post_ids_in_blocks( $post_content, $imported_post_types ) {
+		if ( ! has_blocks( $post_content ) || ! version_compare( get_bloginfo( 'version' ), '5.9', '>=' ) ) {
+			return $post_content;
+		}
+
+		$has_updated_content = false;
+		$new_content         = '';
+		$template_blocks     = parse_blocks( $post_content );
+
+		$blocks = _flatten_blocks( $template_blocks );
+		foreach ( $blocks as &$block ) {
+			// Replace the post ID in a post-type navigation-link block.
+			if (
+				'core/navigation-link' === $block['blockName']
+				&& ! empty( $block['attrs']['type'] )
+				&& ! empty( $block['attrs']['kind'] )
+				&& 'post-type' === $block['attrs']['kind']
+				&& ! empty( $block['attrs']['id'] )
+			) {
+				if ( ! empty( $imported_post_types[ $block['attrs']['type'] ][ $block['attrs']['id'] ] ) ) {
+					$block['attrs']['id'] = $imported_post_types[ $block['attrs']['type'] ][ $block['attrs']['id'] ];
+					$has_updated_content  = true;
+				}
+			}
+
+			// Replace the referenced wp_navigation post ID in a navigation block.
+			if (
+				'core/navigation' === $block['blockName']
+				&& ! empty( $block['attrs']['ref'] )
+			) {
+				if ( ! empty( $imported_post_types['wp_navigation'][ $block['attrs']['ref'] ] ) ) {
+					$block['attrs']['ref'] = $imported_post_types['wp_navigation'][ $block['attrs']['ref'] ];
+					$has_updated_content   = true;
+				}
+			}
+		}
+		unset( $block );
+
+		if ( $has_updated_content ) {
+			foreach ( $template_blocks as &$block ) {
+				$new_content .= serialize_block( $block );
+			}
+			unset( $block );
+
+			return $new_content;
+		}
+
+		return $post_content;
 	}
 
 	/**
@@ -7306,6 +7511,11 @@ class PixelgradeAssistant_StarterContent {
 		$summary['options_restored']    = count( $restored_options );
 		$summary['theme_mods_restored'] = count( $restored_mods );
 
+		// Settings restore replays the journaled pre-import snapshot, which on a re-imported site
+		// can point `show_on_front=page` at a page that no longer exists. Guard against a dangling
+		// front page (a 404 homepage) before persisting the cleared journal.
+		$this->harden_front_page_settings();
+
 		$remaining_features = $this->get_enabled_layout_features();
 		if ( ! empty( $remaining_features ) ) {
 			$summary['features_disabled'] += count( $remaining_features );
@@ -7457,6 +7667,115 @@ class PixelgradeAssistant_StarterContent {
 	 * @param array $restored_options Unique restored option keys, by reference.
 	 * @param array $restored_mods    Unique restored theme mod keys, by reference.
 	 */
+	/**
+	 * Ensure a starter's static front page actually renders after import.
+	 *
+	 * Some block themes ship a self-contained `front-page` template (a wp.org "solely active"
+	 * design-system showcase) with no `core/post-content`. When a starter sets a static front page,
+	 * that template SHADOWS it: the assigned page never renders. To keep the theme's standalone
+	 * showcase intact while making imported content win, create a clean DB `front-page` template
+	 * override (DB templates take precedence over theme files) that renders the assigned page.
+	 *
+	 * No-op when: not a block theme; no static front page; the theme has no front-page template (the
+	 * page template already renders the page); the front-page template already has post-content; or a
+	 * custom/imported front-page template already exists (never clobber an explicit one).
+	 *
+	 * @param string $demo_key
+	 */
+	private function ensure_starter_front_page_template( $demo_key ) {
+		if ( ! function_exists( 'wp_is_block_theme' ) || ! wp_is_block_theme() ) {
+			return;
+		}
+		if ( ! function_exists( 'get_block_template' ) || ! function_exists( 'get_stylesheet' ) ) {
+			return;
+		}
+		if ( 'page' !== get_option( 'show_on_front' ) ) {
+			return;
+		}
+
+		$front_page_id = absint( get_option( 'page_on_front' ) );
+		if ( $front_page_id <= 0 || 'publish' !== get_post_status( $front_page_id ) ) {
+			return;
+		}
+
+		$stylesheet = get_stylesheet();
+		$template   = get_block_template( $stylesheet . '//front-page', 'wp_template' );
+
+		// No front-page template at all -> WordPress uses the page template, which renders the page.
+		if ( empty( $template ) ) {
+			return;
+		}
+		// A custom (DB) front-page template already exists (imported by the starter or user-authored).
+		if ( ! empty( $template->source ) && 'custom' === $template->source ) {
+			return;
+		}
+		// The theme's front-page template already renders the assigned page -> not a shadow.
+		if ( ! empty( $template->content ) && false !== strpos( $template->content, 'wp:post-content' ) ) {
+			return;
+		}
+
+		$content = "<!-- wp:template-part {\"slug\":\"header\",\"tagName\":\"header\"} /-->\n\n"
+			. "<!-- wp:group {\"tagName\":\"main\",\"layout\":{\"type\":\"constrained\"}} -->\n"
+			. "<main class=\"wp-block-group\"><!-- wp:post-content {\"layout\":{\"type\":\"constrained\"}} /--></main>\n"
+			. "<!-- /wp:group -->\n\n"
+			. "<!-- wp:template-part {\"slug\":\"footer\",\"tagName\":\"footer\"} /-->\n";
+
+		$template_id = wp_insert_post( array(
+			'post_type'    => 'wp_template',
+			'post_status'  => 'publish',
+			'post_name'    => 'front-page',
+			'post_title'   => 'Front Page',
+			'post_content' => $content,
+			'post_excerpt' => esc_html__( 'Renders the page assigned as the static front page, overriding the theme placeholder front page.', '__plugin_txtd' ),
+		), true );
+
+		if ( is_wp_error( $template_id ) || empty( $template_id ) ) {
+			return;
+		}
+
+		wp_set_object_terms( $template_id, $stylesheet, 'wp_theme' );
+
+		// Journal the synthesized template under the demo's wp_template map so a reset removes it too.
+		$starter_content = PixelgradeAssistant_Admin::get_option( 'imported_starter_content' );
+		if ( ! is_array( $starter_content ) ) {
+			$starter_content = array();
+		}
+		if ( empty( $starter_content[ $demo_key ] ) || ! is_array( $starter_content[ $demo_key ] ) ) {
+			$starter_content[ $demo_key ] = array();
+		}
+		if ( empty( $starter_content[ $demo_key ]['post_types'] ) || ! is_array( $starter_content[ $demo_key ]['post_types'] ) ) {
+			$starter_content[ $demo_key ]['post_types'] = array();
+		}
+		if ( empty( $starter_content[ $demo_key ]['post_types']['wp_template'] ) || ! is_array( $starter_content[ $demo_key ]['post_types']['wp_template'] ) ) {
+			$starter_content[ $demo_key ]['post_types']['wp_template'] = array();
+		}
+		$starter_content[ $demo_key ]['post_types']['wp_template'][ $template_id ] = $template_id;
+		PixelgradeAssistant_Admin::set_option( 'imported_starter_content', $starter_content );
+		PixelgradeAssistant_Admin::save_options();
+	}
+
+	/**
+	 * Guard against a dangling front page after a reset. The restored "Front page displays"
+	 * settings come from the journaled pre-import snapshot, which on an accumulated/re-imported
+	 * site can reference a page that has since been removed (including one this very reset just
+	 * deleted). Leaving `show_on_front=page` with a missing `page_on_front` makes WordPress serve a
+	 * 404 homepage, so fall back to the latest-posts homepage when the front page is not a live
+	 * published page.
+	 */
+	private function harden_front_page_settings() {
+		if ( 'page' !== get_option( 'show_on_front' ) ) {
+			return;
+		}
+
+		$front_page_id = absint( get_option( 'page_on_front' ) );
+		if ( $front_page_id > 0 && 'page' === get_post_type( $front_page_id ) && 'publish' === get_post_status( $front_page_id ) ) {
+			return;
+		}
+
+		update_option( 'show_on_front', 'posts' );
+		update_option( 'page_on_front', 0 );
+	}
+
 	private function reset_starter_content_settings( $journal, &$restored_options, &$restored_mods ) {
 		foreach ( array( 'post_settings', 'pre_settings' ) as $settings_key ) {
 			if ( empty( $journal[ $settings_key ] ) || ! is_array( $journal[ $settings_key ] ) ) {
