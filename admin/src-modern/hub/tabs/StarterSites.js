@@ -1012,6 +1012,13 @@ function renderStatusNotice( state, copy ) {
 }
 
 function renderBadge( starter, locked, copy ) {
+	// Every starter site is a free object — gating lives on the segments, not the card — so a "Free"
+	// badge on every card is just noise. Only badge what's actually noteworthy: a locked starter, a
+	// premium (gated) starter, or an explicit custom badge.
+	if ( ! locked && ! starter.gate && ! starter.badge ) {
+		return null;
+	}
+
 	const label = locked
 		? copy.labels.locked
 		: starter.badge || ( starter.gate ? copy.labels.premium : copy.labels.free );
@@ -1022,23 +1029,27 @@ function renderBadge( starter, locked, copy ) {
 		: { background: '#edfaef', border: '#b8e6c2', color: '#0a7a28' };
 
 	return createElement(
-		'span',
-		{
-			style: {
-				background: style.background,
-				border: '1px solid ' + style.border,
-				borderRadius: '999px',
-				color: style.color,
-				display: 'inline-flex',
-				fontSize: '12px',
-				fontWeight: 600,
-				lineHeight: '20px',
-				minHeight: '22px',
-				padding: '0 8px',
-				whiteSpace: 'nowrap',
+		FlexItem,
+		null,
+		createElement(
+			'span',
+			{
+				style: {
+					background: style.background,
+					border: '1px solid ' + style.border,
+					borderRadius: '999px',
+					color: style.color,
+					display: 'inline-flex',
+					fontSize: '12px',
+					fontWeight: 600,
+					lineHeight: '20px',
+					minHeight: '22px',
+					padding: '0 8px',
+					whiteSpace: 'nowrap',
+				},
 			},
-		},
-		label
+			label
+		)
 	);
 }
 
@@ -1139,7 +1150,7 @@ function renderStarterCard( starter, context ) {
 				Flex,
 				{ align: 'center', justify: 'space-between', gap: 3 },
 				createElement( FlexItem, null, createElement( 'h2', { style: { margin: 0 } }, starter.title ) ),
-				createElement( FlexItem, null, renderBadge( starter, locked, copy ) )
+				renderBadge( starter, locked, copy )
 			)
 		),
 		createElement(
