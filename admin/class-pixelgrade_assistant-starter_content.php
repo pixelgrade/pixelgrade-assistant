@@ -3212,26 +3212,131 @@ class PixelgradeAssistant_StarterContent {
 				return 0;
 			}
 
-			$imported = 0;
-			foreach ( $media as $group => $items ) {
+			// Flatten the per-group media ids into one fetch list. The 'placeholders' GROUP is the rotation
+			// pool, not media to import as-is, so it is skipped (unchanged behavior).
+			$items = array();
+			foreach ( $media as $group => $ids ) {
 				$group = sanitize_key( $group );
-				if ( 'placeholders' === $group || empty( $items ) || ! is_array( $items ) ) {
+				if ( 'placeholders' === $group || empty( $ids ) || ! is_array( $ids ) ) {
 					continue;
 				}
-
-				foreach ( $items as $remote_id ) {
-					$result = $this->import_starter_media_item( $demo_key, $base_url, $group, absint( $remote_id ), true );
-					if ( is_wp_error( $result ) ) {
-						PixelgradeAssistant_Admin::save_options();
-						return $result;
+				foreach ( $ids as $remote_id ) {
+					$remote_id = absint( $remote_id );
+					if ( $remote_id ) {
+						$items[] = array( 'group' => $group, 'id' => $remote_id );
 					}
-
-					$imported += (int) $result;
 				}
 			}
 
-			// Persist the whole media map once for the batch (per-item saves were O(n^2)).
+			if ( empty( $items ) ) {
+				return 0;
+			}
+
+			// SCE serves one file per request, so ~100 images were ~100 sequential round-trips. Download in
+			// bounded concurrent batches instead; the journal is still saved once for the whole phase.
+			$imported = 0;
+			foreach ( array_chunk( $items, $this->get_media_fetch_concurrency() ) as $batch ) {
+				$result = $this->import_starter_media_batch( $demo_key, $base_url, $batch );
+				if ( is_wp_error( $result ) ) {
+					PixelgradeAssistant_Admin::save_options();
+					return $result;
+				}
+				$imported += (int) $result;
+			}
+
 			PixelgradeAssistant_Admin::save_options();
+
+			return $imported;
+		}
+
+		/**
+		 * How many media files to download concurrently per batch. Filterable so a slow/limited source
+		 * can be throttled (or set to 1 to force the sequential path).
+		 *
+		 * @return int
+		 */
+		private function get_media_fetch_concurrency() {
+			$concurrency = (int) apply_filters( 'pixassist_sce_media_fetch_concurrency', 8 );
+
+			return max( 1, $concurrency );
+		}
+
+		/**
+		 * Download a batch of media files concurrently (via Requests::request_multiple), then insert each.
+		 * Falls back to the sequential path when the concurrent client is unavailable or the batch is
+		 * trivial, and retries any individually-failed download through the sequential path (which carries
+		 * its own attempt budget) so one flaky file doesn't fail the whole import.
+		 *
+		 * @param string $demo_key
+		 * @param string $base_url
+		 * @param array  $items    List of array( 'group' => string, 'id' => int ).
+		 *
+		 * @return int|WP_Error Imported count, or the first hard error.
+		 */
+		private function import_starter_media_batch( $demo_key, $base_url, $items ) {
+			$requests_class = '';
+			if ( class_exists( 'WpOrg\\Requests\\Requests' ) ) {
+				$requests_class = 'WpOrg\\Requests\\Requests';
+			} elseif ( class_exists( 'Requests' ) ) {
+				$requests_class = 'Requests';
+			}
+
+			// No concurrent client (or a trivial batch): keep the sequential path.
+			if ( empty( $requests_class ) || count( $items ) < 2 ) {
+				$imported = 0;
+				foreach ( $items as $item ) {
+					$result = $this->import_starter_media_item( $demo_key, $base_url, $item['group'], $item['id'], true );
+					if ( is_wp_error( $result ) ) {
+						return $result;
+					}
+					$imported += (int) $result;
+				}
+
+				return $imported;
+			}
+
+			$requests = array();
+			foreach ( $items as $item ) {
+				$requests[ (string) $item['id'] ] = array(
+					'url'     => trailingslashit( $base_url ) . 'media?id=' . rawurlencode( (string) $item['id'] ),
+					'type'    => 'GET',
+					'headers' => array(),
+					'data'    => array(),
+					'options' => array(
+						'timeout' => 30,
+						'verify'  => true,
+					),
+				);
+			}
+
+			$responses = array();
+			try {
+				$responses = call_user_func( array( $requests_class, 'request_multiple' ), $requests, array() );
+			} catch ( Exception $e ) {
+				$responses = array();
+			} catch ( Throwable $e ) {
+				$responses = array();
+			}
+
+			$imported = 0;
+			foreach ( $items as $item ) {
+				$key      = (string) $item['id'];
+				$response = isset( $responses[ $key ] )
+					? $this->normalize_requests_response( $responses[ $key ] )
+					: new WP_Error( 'starter_media_no_response', esc_html__( 'A starter media file could not be fetched.', '__plugin_txtd' ) );
+
+				$result = $this->process_starter_media_response( $demo_key, $item['group'], $item['id'], $response, true );
+
+				// A concurrent download that failed gets one sequential retry (with its own attempt budget).
+				if ( is_wp_error( $result ) ) {
+					$result = $this->import_starter_media_item( $demo_key, $base_url, $item['group'], $item['id'], true );
+					if ( is_wp_error( $result ) ) {
+						return $result;
+					}
+				}
+
+				$imported += (int) $result;
+			}
 
 			return $imported;
 		}
@@ -3265,6 +3370,21 @@ class PixelgradeAssistant_StarterContent {
 				}
 			}
 
+			return $this->process_starter_media_response( $demo_key, $group, $remote_id, $response, $defer_save );
+		}
+
+		/**
+		 * Insert one fetched SCE media response. Shared by the sequential and concurrent fetch paths.
+		 *
+		 * @param string         $demo_key
+		 * @param string         $group
+		 * @param int            $remote_id
+		 * @param array|WP_Error $response   A wp_remote_* response, or a WP_Error from the fetch.
+		 * @param bool           $defer_save Whether to defer the journal save to the batch caller.
+		 *
+		 * @return int|WP_Error 1 when imported, 0 when intentionally skipped, WP_Error on failure.
+		 */
+		private function process_starter_media_response( $demo_key, $group, $remote_id, $response, $defer_save = false ) {
 			if ( is_wp_error( $response ) ) {
 				return $response;
 			}

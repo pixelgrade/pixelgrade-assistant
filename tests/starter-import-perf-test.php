@@ -25,7 +25,7 @@ foreach ( array( dirname( __DIR__ ) . '/../../../wp-includes', '/Users/georgeola
 }
 if ( null === $wp_includes ) { fwrite( STDOUT, "starter-import-perf-test: SKIP (WP block parser not found)\n" ); exit( 0 ); }
 
-$GLOBALS['cnt'] = array( 'save_options' => 0, 'parse_blocks' => 0, 'img_src' => 0 );
+$GLOBALS['cnt'] = array( 'save_options' => 0, 'parse_blocks' => 0, 'img_src' => 0, 'request_multiple' => 0, 'remote_get' => 0 );
 $GLOBALS['paf_filters'] = array();
 $GLOBALS['paf_pixassist_options'] = array();
 $GLOBALS['paf_next_post_id'] = 5000;
@@ -66,7 +66,15 @@ function wp_get_attachment_image_src( $id, $size = 'thumbnail' ) { $GLOBALS['cnt
 class WP_Error {}
 function is_wp_error( $t ) { return $t instanceof WP_Error; }
 function wp_remote_request( $url, $args = array() ) { return array( 'body' => $GLOBALS['paf_remote_request_body'] ); }
-function wp_remote_get( $url, $args = array() ) { return array( 'body' => $GLOBALS['paf_remote_get_body'] ); }
+function wp_remote_get( $url, $args = array() ) { $GLOBALS['cnt']['remote_get']++; return array( 'body' => $GLOBALS['paf_remote_get_body'], 'response' => array( 'code' => 200 ) ); }
+class Requests {
+	public static function request_multiple( $requests, $opts = array() ) {
+		$GLOBALS['cnt']['request_multiple']++;
+		$out = array();
+		foreach ( $requests as $key => $req ) { $r = new stdClass(); $r->status_code = 200; $r->body = $GLOBALS['paf_remote_get_body']; $out[ $key ] = $r; }
+		return $out;
+	}
+}
 function wp_remote_retrieve_body( $r ) { return isset( $r['body'] ) ? $r['body'] : ''; }
 function wp_remote_retrieve_response_code( $r ) { return 200; }
 function wp_slash_strings_only( $v ) { return $v; }
@@ -140,18 +148,22 @@ $m->invoke( $sc, 'bench', 'https://x/sce/v2/', array( 'post_type' => 'post', 'id
 $post_phase_parse  = $GLOBALS['cnt']['parse_blocks'];
 $post_phase_imgsrc = $GLOBALS['cnt']['img_src'];
 
-// Media phase: import 20 media files; count save_options().
+// Media phase: import 20 media files; count save_options(), and the fetch strategy.
 $GLOBALS['cnt']['save_options'] = 0;
+$GLOBALS['cnt']['request_multiple'] = 0;
+$GLOBALS['cnt']['remote_get'] = 0;
 $GLOBALS['paf_pixassist_options']['imported_starter_content'] = array();
 $GLOBALS['paf_remote_get_body'] = json_encode( array( 'code' => 'success', 'data' => array( 'media' => array( 'title' => 'pic', 'ext' => 'jpg', 'data' => 'data:image/jpeg;base64,' . base64_encode( 'imgbytes' ) ) ) ) );
 $mm = new ReflectionMethod( 'PixelgradeAssistant_StarterContent', 'import_starter_media' );
 $mm->setAccessible( true );
 $mm->invoke( $sc, 'bench', 'https://x/sce/v2/', array( 'placeholders' => array( 1 ), 'ignored' => range( 11, 30 ) ) );
-$media_phase_saves = $GLOBALS['cnt']['save_options'];
+$media_phase_saves    = $GLOBALS['cnt']['save_options'];
+$media_phase_batches  = $GLOBALS['cnt']['request_multiple'];
+$media_phase_seqfetch = $GLOBALS['cnt']['remote_get'];
 
 echo "=== starter import perf counts ===\n";
 echo "post phase: parse_blocks()=$post_phase_parse  wp_get_attachment_image_src()=$post_phase_imgsrc  (2 post types, 10 posts each, 20 media)\n";
-echo "media phase: save_options()=$media_phase_saves  (20 media items)\n";
+echo "media phase: save_options()=$media_phase_saves  request_multiple()=$media_phase_batches  wp_remote_get()=$media_phase_seqfetch  (20 media items, concurrency 8)\n";
 
 $fail = 0;
 function check( &$fail, $cond, $msg ) { echo ( $cond ? '  OK   ' : '  FAIL ' ) . $msg . "\n"; if ( ! $cond ) { $fail++; } }
@@ -161,6 +173,8 @@ check( $fail, $post_phase_parse <= 6, "#2 parse_blocks gated to query/nav posts 
 check( $fail, $post_phase_imgsrc <= 60, "#3 thumbnail URLs resolved once + memoized (<=60, not ~240)" );
 // #1: a single batch save, not one per media item.
 check( $fail, 1 === $media_phase_saves, "#1 media journal saved once per batch (==1, not 20)" );
+// #4: media fetched in concurrent batches (request_multiple), not 20 sequential GETs.
+check( $fail, $media_phase_batches >= 1 && $media_phase_seqfetch <= 1, "#4 media fetched concurrently (request_multiple used, not ~20 sequential GETs)" );
 
 echo ( $fail ? "starter-import-perf-test: FAIL\n" : "starter-import-perf-test: OK\n" );
 exit( $fail ? 1 : 0 );
