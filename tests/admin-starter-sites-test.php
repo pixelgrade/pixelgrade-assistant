@@ -582,5 +582,7 @@ assert_same( 'anima-portfolio', $applied_state['activeStarter'], 'Applied state 
 
 // The JS gates "Full site applied" on the server-tracked activeStarter, not the cumulative journal.
 assert_true( false !== strpos( $starter_sites_js, 'applied.activeStarter' ), 'Starter Sites JS must gate the full-site status on the active starter.' );
+// normalizeApplied() must preserve activeStarter, or the gated chip would never have its value.
+assert_true( false !== strpos( $starter_sites_js, 'activeStarter: applied.activeStarter' ), 'Starter Sites JS must preserve activeStarter through normalizeApplied.' );
 
 echo "Admin Starter Sites tab OK\n";

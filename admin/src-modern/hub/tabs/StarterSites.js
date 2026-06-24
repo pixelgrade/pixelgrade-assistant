@@ -294,6 +294,7 @@ function normalizeApplied( applied ) {
 			fullDemos: {},
 			recipes: {},
 			layoutUnits: {},
+			activeStarter: '',
 		};
 	}
 
@@ -301,6 +302,9 @@ function normalizeApplied( applied ) {
 		fullDemos: applied.fullDemos || {},
 		recipes: applied.recipes || {},
 		layoutUnits: applied.layoutUnits || {},
+		// The starter currently applied as the live full site (server-tracked). Preserved through
+		// normalization so the singular "Full site applied" status survives state updates.
+		activeStarter: applied.activeStarter || '',
 	};
 }
 
@@ -1579,6 +1583,9 @@ export function StarterSites() {
 								imported: true,
 							},
 						},
+						// A full demo defines the live site — it becomes the (singular) active starter,
+						// so "Full site applied" moves to this card without waiting for a reload.
+						activeStarter: starter.id,
 					} ) );
 				}
 
