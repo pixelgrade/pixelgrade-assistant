@@ -13,7 +13,18 @@ define( 'PIXELGRADE_ASSISTANT__SHOP_BASE', 'https://pixelgrade.com/' );
 
 $GLOBALS['paf_filters']        = array();
 $GLOBALS['paf_denied_caps']    = array();
-$GLOBALS['paf_is_block_theme'] = false;
+$GLOBALS['paf_is_block_theme']  = false;
+$GLOBALS['paf_stylesheet']      = 'anima-lt';
+$GLOBALS['paf_block_templates'] = array(
+	array(
+		'id'   => 'anima-lt//index',
+		'slug' => 'index',
+	),
+	array(
+		'id'   => 'anima-lt//front-page',
+		'slug' => 'front-page',
+	),
+);
 
 function add_filter( $hook, $callback, $priority = 10, $args = 1 ) {
 	$GLOBALS['paf_filters'][ $hook ][] = $callback;
@@ -60,6 +71,19 @@ function wp_is_block_theme() {
 	return ! empty( $GLOBALS['paf_is_block_theme'] );
 }
 
+function get_stylesheet() {
+	return $GLOBALS['paf_stylesheet'];
+}
+
+function get_block_templates( $query = array(), $template_type = 'wp_template' ) {
+	return array_map(
+		function ( $template ) {
+			return (object) $template;
+		},
+		$GLOBALS['paf_block_templates']
+	);
+}
+
 function __( $text, $domain = 'default' ) {
 	return $text;
 }
@@ -76,6 +100,17 @@ function paf_reset() {
 	$GLOBALS['paf_filters']        = array();
 	$GLOBALS['paf_denied_caps']    = array();
 	$GLOBALS['paf_is_block_theme'] = false;
+	$GLOBALS['paf_stylesheet']     = 'anima-lt';
+	$GLOBALS['paf_block_templates'] = array(
+		array(
+			'id'   => 'anima-lt//index',
+			'slug' => 'index',
+		),
+		array(
+			'id'   => 'anima-lt//front-page',
+			'slug' => 'front-page',
+		),
+	);
 }
 
 function paf_set_plus_status( $status ) {
@@ -151,7 +186,7 @@ assert_same( 'Open Style Manager', $styles['primaryAction']['label'], 'Primary S
 assert_same( 'https://example.test/wp-admin/customize.php', $styles['primaryAction']['url'], 'Classic-theme primary action must use the Customizer fallback.' );
 
 $ids = array_column( $styles['destinations'], 'id' );
-assert_same( array( 'colors', 'typography', 'spacing', 'motion' ), $ids, 'Styles destinations must focus the card grid on Design System sections.' );
+assert_same( array( 'colors', 'typography', 'spacing' ), $ids, 'Styles destinations must focus the card grid on currently available Design System sections.' );
 
 foreach ( array( 'colors', 'typography', 'spacing' ) as $free_id ) {
 	$destination = paf_find_destination( $styles['destinations'], $free_id );
@@ -159,30 +194,42 @@ foreach ( array( 'colors', 'typography', 'spacing' ) as $free_id ) {
 	assert_same( '', $destination['gate'], 'Free destination must not be gated: ' . $free_id );
 	assert_same( false, $destination['isLocked'], 'Free destination must not be locked: ' . $free_id );
 	assert_true( ! empty( $destination['url'] ), 'Free destination must expose a direct editor/customizer link: ' . $free_id );
-	assert_same( 'Open in Style Manager', $destination['actionLabel'], 'Specific style controls must not imply precise deep links when they all open Style Manager: ' . $free_id );
 }
 
-	$preview_extensions = array(
-		'colors'     => 'png',
-		'typography' => 'png',
-		'spacing'    => 'png',
-		'motion'     => 'svg',
-	);
+$section_action_labels = array(
+	'colors'     => 'Edit the Color System',
+	'typography' => 'Manage Typography',
+	'spacing'    => 'Adjust Spacing',
+);
+foreach ( $section_action_labels as $section_id => $action_label ) {
+	$destination = paf_find_destination( $styles['destinations'], $section_id );
+	assert_same( $action_label, $destination['actionLabel'], 'Section action label must match the intended Style Manager task: ' . $section_id );
+}
 
-	foreach ( $preview_extensions as $preview_id => $extension ) {
-		$destination = paf_find_destination( $styles['destinations'], $preview_id );
-		assert_true( ! empty( $destination['image'] ), 'Design System section card must expose a preview image: ' . $preview_id );
-		assert_true( false !== strpos( $destination['image'], '/admin/images/style-manager-preview-' . $preview_id . '.' . $extension ), 'Preview image URL must point to the local admin image asset: ' . $preview_id );
-		assert_true( ! empty( $destination['imageAlt'] ), 'Preview image must expose alt text: ' . $preview_id );
-	}
+$classic_section_urls = array(
+	'colors'     => 'https://example.test/wp-admin/customize.php?autofocus%5Bsection%5D=sm_color_palettes_section',
+	'typography' => 'https://example.test/wp-admin/customize.php?autofocus%5Bsection%5D=sm_font_palettes_section',
+	'spacing'    => 'https://example.test/wp-admin/customize.php?autofocus%5Bsection%5D=sm_spacing_section',
+);
+foreach ( $classic_section_urls as $section_id => $section_url ) {
+	$destination = paf_find_destination( $styles['destinations'], $section_id );
+	assert_same( $section_url, $destination['url'], 'Classic-theme section links must autofocus the intended Style Manager section: ' . $section_id );
+}
 
-$motion = paf_find_destination( $styles['destinations'], 'motion' );
-assert_same( 'plus', $motion['gate'], 'Motion must be marked as a Plus style capability.' );
-assert_same( true, $motion['isLocked'], 'Motion must be locked when Plus is inactive.' );
-assert_same( false, $motion['isProminent'], 'Motion must stay quiet rather than become the dominant CTA.' );
-assert_same( 'Available with Pixelgrade Plus', $motion['badge'], 'Motion gating language must be factual and quiet.' );
-assert_same( 'Learn about Pixelgrade Plus', $motion['actionLabel'], 'Inactive Plus motion action must be informational, not pushy.' );
-assert_same( 'https://pixelgrade.com/plus/', $motion['url'], 'Inactive Plus motion action must link to the Plus product page.' );
+$preview_extensions = array(
+	'colors'     => 'png',
+	'typography' => 'png',
+	'spacing'    => 'png',
+);
+
+foreach ( $preview_extensions as $preview_id => $extension ) {
+	$destination = paf_find_destination( $styles['destinations'], $preview_id );
+	assert_true( ! empty( $destination['image'] ), 'Design System section card must expose a preview image: ' . $preview_id );
+	assert_true( false !== strpos( $destination['image'], '/admin/images/style-manager-preview-' . $preview_id . '.' . $extension ), 'Preview image URL must point to the local admin image asset: ' . $preview_id );
+	assert_true( ! empty( $destination['imageAlt'] ), 'Preview image must expose alt text: ' . $preview_id );
+}
+
+assert_same( null, paf_find_destination( $styles['destinations'], 'motion' ), 'Motion must not appear on the Design System page until it has a real Style Manager surface.' );
 
 paf_reset();
 $GLOBALS['paf_is_block_theme'] = true;
@@ -194,12 +241,18 @@ paf_set_plus_status( array(
 ) );
 
 $styles = pixassist_get_styles_data();
-assert_same( 'https://example.test/wp-admin/site-editor.php?path=%2Fwp_global_styles', $styles['primaryAction']['url'], 'Block-theme primary action must use the Site Editor styles surface.' );
-
-$motion = paf_find_destination( $styles['destinations'], 'motion' );
-assert_same( true, $motion['isLocked'], 'Motion must remain locked when Plus is active but unlicensed.' );
-assert_same( 'Manage Pixelgrade Plus', $motion['actionLabel'], 'Active unlicensed Plus motion action must route to Plus management.' );
-assert_same( 'https://example.test/wp-admin/themes.php?page=pixelgrade&tab=account&section=plus', $motion['url'], 'Active unlicensed Plus motion action must use the Account Plus section.' );
+$block_theme_styles_url = 'https://example.test/wp-admin/site-editor.php?p=%2Fwp_template%2Fanima-lt%2F%2Ffront-page&canvas=edit&sm-sidebar=1';
+assert_same( $block_theme_styles_url, $styles['primaryAction']['url'], 'Block-theme primary action must open an existing Site Editor template canvas with Style Manager visible.' );
+$block_theme_section_urls = array(
+	'colors'     => $block_theme_styles_url . '&sm-section=sm_color_palettes_section&sm-preview=1',
+	'typography' => $block_theme_styles_url . '&sm-section=sm_font_palettes_section&sm-preview=1',
+	'spacing'    => $block_theme_styles_url . '&sm-section=sm_spacing_section&sm-preview=1',
+);
+foreach ( $block_theme_section_urls as $section_id => $section_url ) {
+	$destination = paf_find_destination( $styles['destinations'], $section_id );
+	assert_same( $section_url, $destination['url'], 'Block-theme section links must open the intended Style Manager section: ' . $section_id );
+}
+assert_same( null, paf_find_destination( $styles['destinations'], 'motion' ), 'Motion must stay hidden even when Plus is active but unlicensed.' );
 
 paf_reset();
 $GLOBALS['paf_is_block_theme'] = true;
@@ -211,10 +264,7 @@ paf_set_plus_status( array(
 ) );
 
 $styles = pixassist_get_styles_data();
-$motion = paf_find_destination( $styles['destinations'], 'motion' );
-assert_same( false, $motion['isLocked'], 'Motion must unlock when Plus is active and licensed.' );
-assert_same( 'Open Motion', $motion['actionLabel'], 'Licensed Plus motion action must be task-oriented.' );
-assert_same( 'https://example.test/wp-admin/site-editor.php?path=%2Fwp_global_styles', $motion['url'], 'Licensed Motion must link to the style editing surface.' );
+assert_same( null, paf_find_destination( $styles['destinations'], 'motion' ), 'Motion must stay hidden even when Plus is active and licensed.' );
 
 $tabs_js  = file_get_contents( __DIR__ . '/../admin/src-modern/hub/tabs/index.js' );
 $styles_js = file_get_contents( __DIR__ . '/../admin/src-modern/hub/tabs/Styles.js' );
@@ -223,8 +273,6 @@ $admin_php = file_get_contents( __DIR__ . '/../admin/class-pixelgrade_assistant-
 assert_true( false !== strpos( $tabs_js, 'pixelgrade-assistant/styles' ), 'The Styles component must be registered on the JS tab registry.' );
 assert_true( false !== strpos( $styles_js, 'pixelgradeStyles' ), 'The Styles component must read the tab-specific localized payload.' );
 assert_true( false !== strpos( $styles_js, 'destination.image' ), 'The Styles component must render section preview images when available.' );
-assert_true( false !== strpos( $styles_js, 'pixelgrade-styles__badge' ), 'The Styles component must render badges without crowding card titles.' );
-assert_true( false !== strpos( $styles_js, 'destination.isProminent' ), 'The Styles component must render gated destinations quietly.' );
 assert_true( false !== strpos( $admin_php, 'pixelgradeStyles' ), 'The admin enqueue must localize the Styles payload.' );
 
 echo "Admin Styles tab OK\n";

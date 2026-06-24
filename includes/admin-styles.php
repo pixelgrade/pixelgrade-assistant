@@ -3,8 +3,7 @@
  * The free Styles tab — the Pixelgrade Design hub's style control center.
  *
  * The tab stays inside Pixelgrade Design and routes users to the best available editing surfaces
- * through explicit destination actions. Assistant owns only the free routing/orientation layer; Plus
- * status is read through the public four-key contract and remains quiet/contextual.
+ * through explicit destination actions. Assistant owns only the free routing/orientation layer.
  *
  * @package    PixelgradeAssistant
  * @subpackage PixelgradeAssistant/includes
@@ -28,10 +27,108 @@ if ( ! function_exists( 'pixassist_get_styles_url' ) ) {
 		}
 
 		if ( $is_block_theme ) {
-			return admin_url( 'site-editor.php?path=%2Fwp_global_styles' );
+			return admin_url( 'site-editor.php?p=' . rawurlencode( pixassist_get_styles_canvas_path() ) . '&canvas=edit&sm-sidebar=1' );
 		}
 
 		return admin_url( 'customize.php' );
+	}
+}
+
+if ( ! function_exists( 'pixassist_get_styles_canvas_path' ) ) {
+	/**
+	 * Resolve a concrete Site Editor canvas path for the active block theme.
+	 *
+	 * @return string Site Editor path for an existing template.
+	 */
+	function pixassist_get_styles_canvas_path() {
+		$template_slugs = array( 'front-page', 'home', 'index' );
+
+		if ( function_exists( 'get_block_templates' ) ) {
+			$templates = get_block_templates(
+				array(
+					'slug__in' => $template_slugs,
+				),
+				'wp_template'
+			);
+
+			foreach ( $template_slugs as $slug ) {
+				foreach ( (array) $templates as $template ) {
+					if ( empty( $template->id ) || empty( $template->slug ) || $slug !== $template->slug ) {
+						continue;
+					}
+
+					return '/wp_template/' . $template->id;
+				}
+			}
+		}
+
+		if ( function_exists( 'get_stylesheet' ) ) {
+			$stylesheet = sanitize_key( get_stylesheet() );
+
+			if ( '' !== $stylesheet ) {
+				return '/wp_template/' . $stylesheet . '//index';
+			}
+		}
+
+		return '/template';
+	}
+}
+
+if ( ! function_exists( 'pixassist_get_styles_section_url' ) ) {
+	/**
+	 * Build a direct URL to a Style Manager section on the active editing surface.
+	 *
+	 * @param string $style_url    URL to the active style editing surface.
+	 * @param string $section_id   Style Manager section ID.
+	 * @param bool   $open_preview Whether the section preview should open with the section.
+	 *
+	 * @return string
+	 */
+	function pixassist_get_styles_section_url( $style_url, $section_id, $open_preview = false ) {
+		$style_url     = (string) $style_url;
+		$section_id    = sanitize_key( $section_id );
+		$open_preview  = (bool) $open_preview;
+
+		if ( '' === $style_url || '' === $section_id ) {
+			return $style_url;
+		}
+
+		if ( false !== strpos( $style_url, 'site-editor.php' ) ) {
+			$url = pixassist_add_styles_query_arg( $style_url, 'sm-section', $section_id );
+
+			if ( $open_preview ) {
+				$url = pixassist_add_styles_query_arg( $url, 'sm-preview', '1' );
+			}
+
+			return $url;
+		}
+
+		if ( false !== strpos( $style_url, 'customize.php' ) ) {
+			return pixassist_add_styles_query_arg( $style_url, 'autofocus[section]', $section_id );
+		}
+
+		return $style_url;
+	}
+}
+
+if ( ! function_exists( 'pixassist_add_styles_query_arg' ) ) {
+	/**
+	 * Append one query arg to a style URL.
+	 *
+	 * @param string $url   URL to update.
+	 * @param string $key   Query argument key.
+	 * @param string $value Query argument value.
+	 *
+	 * @return string
+	 */
+	function pixassist_add_styles_query_arg( $url, $key, $value ) {
+		if ( function_exists( 'add_query_arg' ) ) {
+			return add_query_arg( $key, $value, $url );
+		}
+
+		$separator = false === strpos( $url, '?' ) ? '?' : '&';
+
+		return $url . $separator . rawurlencode( $key ) . '=' . rawurlencode( $value );
 	}
 }
 
@@ -74,27 +171,26 @@ if ( ! function_exists( 'pixassist_get_styles_data' ) ) {
 	function pixassist_get_styles_data() {
 		$is_block_theme = function_exists( 'wp_is_block_theme' ) ? (bool) wp_is_block_theme() : false;
 		$style_url      = pixassist_get_styles_url( $is_block_theme );
-		$plus_status    = function_exists( 'pixassist_get_plus_status' ) ? pixassist_get_plus_status() : array();
 
 		$data = array(
 			'copy'          => array(
 				'title'       => esc_html__( 'Your Site Design System', '__plugin_txtd' ),
 				'intro'       => esc_html__( 'Style Manager controls the visual decisions that keep your theme and blocks working together.', '__plugin_txtd' ),
-				'description' => esc_html__( 'Start with the free style controls, then use optional Plus capabilities only when your site needs them.', '__plugin_txtd' ),
+				'description' => esc_html__( 'Use these Style Manager sections to refine the visual foundations your site exposes.', '__plugin_txtd' ),
 			),
 			'primaryAction' => array(
 				'id'    => 'style-manager',
 				'label' => esc_html__( 'Open Style Manager', '__plugin_txtd' ),
 				'url'   => $style_url,
 			),
-			'destinations'  => pixassist_get_styles_destinations( $style_url, $plus_status ),
+			'destinations'  => pixassist_get_styles_destinations( $style_url ),
 		);
 
 		/**
 		 * Filters the Styles tab bootstrap payload.
 		 *
 		 * Companion plugins may append destinations, but Assistant keeps the free controls first and
-		 * reads Plus state only through the published status contract.
+		 * avoids implying unavailable Style Manager sections.
 		 *
 		 * @param array $data Styles tab payload.
 		 */
@@ -107,18 +203,18 @@ if ( ! function_exists( 'pixassist_get_styles_destinations' ) ) {
 	 * Build the style destination list.
 	 *
 	 * @param string $style_url   URL to the active style editing surface.
-	 * @param array  $plus_status Pixelgrade Plus status contract payload.
+	 * @param array  $plus_status Deprecated. Kept only as a third filter argument for compatibility.
 	 *
 	 * @return array[]
 	 */
-	function pixassist_get_styles_destinations( $style_url, $plus_status ) {
+	function pixassist_get_styles_destinations( $style_url, $plus_status = array() ) {
 		$destinations = array(
 			array(
 				'id'          => 'colors',
 				'title'       => esc_html__( 'Colors', '__plugin_txtd' ),
 				'description' => esc_html__( 'Adjust the palette and contrast choices that shape your site.', '__plugin_txtd' ),
-				'actionLabel' => esc_html__( 'Open in Style Manager', '__plugin_txtd' ),
-				'url'         => $style_url,
+				'actionLabel' => esc_html__( 'Edit the Color System', '__plugin_txtd' ),
+				'url'         => pixassist_get_styles_section_url( $style_url, 'sm_color_palettes_section', true ),
 				'gate'        => '',
 				'badge'       => '',
 				'isLocked'    => false,
@@ -130,8 +226,8 @@ if ( ! function_exists( 'pixassist_get_styles_destinations' ) ) {
 				'id'          => 'typography',
 				'title'       => esc_html__( 'Typography', '__plugin_txtd' ),
 				'description' => esc_html__( 'Tune the font system for headings, body text, and interface details.', '__plugin_txtd' ),
-				'actionLabel' => esc_html__( 'Open in Style Manager', '__plugin_txtd' ),
-				'url'         => $style_url,
+				'actionLabel' => esc_html__( 'Manage Typography', '__plugin_txtd' ),
+				'url'         => pixassist_get_styles_section_url( $style_url, 'sm_font_palettes_section', true ),
 				'gate'        => '',
 				'badge'       => '',
 				'isLocked'    => false,
@@ -143,8 +239,8 @@ if ( ! function_exists( 'pixassist_get_styles_destinations' ) ) {
 				'id'          => 'spacing',
 				'title'       => esc_html__( 'Spacing', '__plugin_txtd' ),
 				'description' => esc_html__( 'Refine the rhythm and layout spacing that make pages feel balanced.', '__plugin_txtd' ),
-				'actionLabel' => esc_html__( 'Open in Style Manager', '__plugin_txtd' ),
-				'url'         => $style_url,
+				'actionLabel' => esc_html__( 'Adjust Spacing', '__plugin_txtd' ),
+				'url'         => pixassist_get_styles_section_url( $style_url, 'sm_spacing_section', true ),
 				'gate'        => '',
 				'badge'       => '',
 				'isLocked'    => false,
@@ -152,7 +248,6 @@ if ( ! function_exists( 'pixassist_get_styles_destinations' ) ) {
 				'image'       => pixassist_get_styles_preview_image_url( 'spacing' ),
 				'imageAlt'    => esc_attr__( 'Spacing and rhythm preview board with layout measurements.', '__plugin_txtd' ),
 			),
-			pixassist_get_styles_motion_destination( $style_url, $plus_status ),
 		);
 
 		/**
@@ -160,7 +255,7 @@ if ( ! function_exists( 'pixassist_get_styles_destinations' ) ) {
 		 *
 		 * @param array[] $destinations Style destination descriptors.
 		 * @param string  $style_url    URL to the active style editing surface.
-		 * @param array   $plus_status  Pixelgrade Plus status contract payload.
+		 * @param array   $plus_status  Deprecated. Empty by default.
 		 */
 		return apply_filters( 'pixassist_styles_destinations', $destinations, $style_url, $plus_status );
 	}
@@ -179,53 +274,9 @@ if ( ! function_exists( 'pixassist_get_styles_preview_image_url' ) ) {
 			return '';
 		}
 
-		$section   = sanitize_key( $section );
-		$extension = 'motion' === $section ? 'svg' : 'png';
+		$section = sanitize_key( $section );
 
-		return plugin_dir_url( PIXELGRADE_ASSISTANT__PLUGIN_FILE ) . 'admin/images/style-manager-preview-' . $section . '.' . $extension;
-	}
-}
-
-if ( ! function_exists( 'pixassist_get_styles_motion_destination' ) ) {
-	/**
-	 * Build the contextual, quiet Motion destination.
-	 *
-	 * @param string $style_url   URL to the active style editing surface.
-	 * @param array  $plus_status Pixelgrade Plus status contract payload.
-	 *
-	 * @return array
-	 */
-	function pixassist_get_styles_motion_destination( $style_url, $plus_status ) {
-		$is_plus_active   = ! empty( $plus_status['is_plus_active'] );
-		$is_plus_licensed = ! empty( $plus_status['is_plus_licensed'] );
-		$settings_url     = ! empty( $plus_status['plus_settings_url'] ) ? (string) $plus_status['plus_settings_url'] : admin_url( 'themes.php?page=pixelgrade&tab=account&section=plus' );
-
-		$destination = array(
-			'id'          => 'motion',
-			'title'       => esc_html__( 'Motion', '__plugin_txtd' ),
-			'description' => esc_html__( 'Add coordinated movement to supported blocks and theme elements when your site needs it.', '__plugin_txtd' ),
-			'actionLabel' => esc_html__( 'Learn about Pixelgrade Plus', '__plugin_txtd' ),
-			'url'         => trailingslashit( PIXELGRADE_ASSISTANT__SHOP_BASE ) . 'plus/',
-			'gate'        => 'plus',
-			'badge'       => esc_html__( 'Available with Pixelgrade Plus', '__plugin_txtd' ),
-			'isLocked'    => true,
-			'isProminent' => false,
-			'image'       => pixassist_get_styles_preview_image_url( 'motion' ),
-			'imageAlt'    => esc_attr__( 'Motion symbol with movement trails and staggered frames.', '__plugin_txtd' ),
-		);
-
-		if ( $is_plus_active && ! $is_plus_licensed ) {
-			$destination['actionLabel'] = esc_html__( 'Manage Pixelgrade Plus', '__plugin_txtd' );
-			$destination['url']         = $settings_url;
-		}
-
-		if ( $is_plus_active && $is_plus_licensed ) {
-			$destination['actionLabel'] = esc_html__( 'Open Motion', '__plugin_txtd' );
-			$destination['url']         = $style_url;
-			$destination['isLocked']    = false;
-		}
-
-		return $destination;
+		return plugin_dir_url( PIXELGRADE_ASSISTANT__PLUGIN_FILE ) . 'admin/images/style-manager-preview-' . $section . '.png';
 	}
 }
 
