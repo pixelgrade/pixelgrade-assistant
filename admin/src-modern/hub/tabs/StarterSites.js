@@ -332,7 +332,11 @@ function getAppliedStatusLabels( starter, imported, applied ) {
 	const normalizedApplied = normalizeApplied( applied );
 	const recipe = normalizedApplied.recipes[ 'recipe:' + starter.id ];
 
-	if ( isStarterImported( imported, starter.id ) ) {
+	// "Full site applied" is singular: only the starter currently applied as the live full site shows
+	// it. That's the server-tracked `activeStarter`, NOT every starter ever imported — the import
+	// journal is cumulative (it backs the reset feature), so applying several full demos over time
+	// would otherwise badge them all. See pixassist_get_starter_sites_active_starter().
+	if ( applied && applied.activeStarter && applied.activeStarter === starter.id ) {
 		labels.push( __( 'Full site applied', 'pixelgrade_assistant' ) );
 	}
 

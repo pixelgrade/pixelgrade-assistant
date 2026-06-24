@@ -543,4 +543,44 @@ assert_true( false === strpos( $starter_sites_js, 'renderApplyPanel' ), 'Starter
 assert_true( false === strpos( $starter_sites_js, 'Import exact demo' ), 'Starter Sites JS must replace exact-demo copy in this flow.' );
 assert_true( false === strpos( $starter_sites_js, 'isDestructive' ), 'Starter Sites JS must not render import actions with destructive styling.' );
 
+/*
+ * Active full-site starter: "Full site applied" is singular — the starter currently applied as the
+ * live full site — NOT every starter in the cumulative import journal (which backs the reset feature).
+ */
+assert_true( function_exists( 'pixassist_get_starter_sites_active_starter' ), 'The active-starter accessor must be defined.' );
+
+// Nothing imported, no marker -> nothing is active.
+$GLOBALS['paf_options'] = array();
+assert_same( '', pixassist_get_starter_sites_active_starter(), 'With nothing imported, no starter is active.' );
+
+// The persisted marker is authoritative even when several starters are in the journal.
+$GLOBALS['paf_options']['imported_starter_content'] = array(
+	'anima-blog' => array( 'post_types' => array() ),
+	'felt-lt'    => array( 'post_types' => array() ),
+);
+$GLOBALS['paf_options']['active_starter'] = 'anima-blog';
+assert_same( 'anima-blog', pixassist_get_starter_sites_active_starter(), 'The persisted active_starter marker is authoritative.' );
+
+// Fallback (no marker): the most-recently-recorded full-demo journal entry.
+$GLOBALS['paf_options']['active_starter'] = '';
+assert_same( 'felt-lt', pixassist_get_starter_sites_active_starter(), 'Without a marker, the last full-demo journal entry is treated as active.' );
+
+// Fallback must ignore layouts-only journals (never a false "Full site applied").
+$GLOBALS['paf_options']['imported_starter_content'] = array(
+	'anima-blog' => array( 'layout_units' => array( 'header' ), 'recipe_bundles' => array( 'recipe' ) ),
+);
+assert_same( '', pixassist_get_starter_sites_active_starter(), 'A layouts-only journal must NOT mark a starter as the live full site.' );
+
+// Applied state exposes activeStarter for the JS chip.
+$GLOBALS['paf_options'] = array(
+	'active_starter'           => 'anima-portfolio',
+	'imported_starter_content' => array( 'anima-portfolio' => array( 'post_types' => array() ) ),
+);
+$applied_state = pixassist_get_starter_sites_applied_state();
+assert_true( array_key_exists( 'activeStarter', $applied_state ), 'Applied state must expose activeStarter to JS.' );
+assert_same( 'anima-portfolio', $applied_state['activeStarter'], 'Applied state activeStarter must reflect the active full-site starter.' );
+
+// The JS gates "Full site applied" on the server-tracked activeStarter, not the cumulative journal.
+assert_true( false !== strpos( $starter_sites_js, 'applied.activeStarter' ), 'Starter Sites JS must gate the full-site status on the active starter.' );
+
 echo "Admin Starter Sites tab OK\n";

@@ -3150,6 +3150,11 @@ class PixelgradeAssistant_StarterContent {
 				$this->restore_import_counting();
 			}
 
+			// A full demo defines the live site — record it as the active starter so the "Full site
+			// applied" status is singular. The cumulative import journal still tracks every starter
+			// imported (the reset feature needs that), so it must not double as the active-site marker.
+			PixelgradeAssistant_Admin::set_option( 'active_starter', $demo_key );
+
 			return array(
 				'code'    => 'success',
 				'message' => esc_html__( 'Starter content imported.', '__plugin_txtd' ),
@@ -6458,8 +6463,12 @@ class PixelgradeAssistant_StarterContent {
 						// If the we have already imported this post, keep the data
 						$imported_ids[ $post['ID'] ] = $starter_content[ $demo_key ]['post_types'][ $args['post_type'] ][ $post['ID'] ];
 					} else {
-						// At least remember something about this post
-						$imported_ids[ $post['ID'] ] = $post['ID'];
+						// The slug already exists locally and we are not overwriting it, so treat the
+						// existing post as the imported one. Mapping to the existing LOCAL id (not the
+						// remote demo id) keeps `page_on_front` / `page_for_posts` / nav-menu remaps
+						// pointing at a real page — otherwise the front page resolves to a non-existent
+						// id and renders blank with an unset "Front page displays" setting.
+						$imported_ids[ $post['ID'] ] = absint( $existing_post_id );
 					}
 					continue;
 				}
@@ -7264,8 +7273,11 @@ class PixelgradeAssistant_StarterContent {
 			if ( ! empty( $remaining_features ) ) {
 				$summary['features_disabled'] += count( $remaining_features );
 				PixelgradeAssistant_Admin::set_option( 'enabled_features', array() );
-				PixelgradeAssistant_Admin::save_options();
 			}
+			// Nothing journaled to delete, but still clear any stale active full-site marker so the
+			// "Full site applied" status can never outlive the content it describes.
+			PixelgradeAssistant_Admin::set_option( 'active_starter', '' );
+			PixelgradeAssistant_Admin::save_options();
 
 			return $summary;
 		}
@@ -7304,6 +7316,8 @@ class PixelgradeAssistant_StarterContent {
 			$this->regenerate_style_manager_after_import();
 
 			PixelgradeAssistant_Admin::set_option( 'imported_starter_content', array() );
+			// Reset clears the active full-site starter too — nothing is applied after "Start from scratch".
+			PixelgradeAssistant_Admin::set_option( 'active_starter', '' );
 			PixelgradeAssistant_Admin::save_options();
 		}
 

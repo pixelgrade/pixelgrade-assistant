@@ -939,6 +939,45 @@ if ( ! function_exists( 'pixassist_get_starter_sites_imported_state' ) ) {
 	}
 }
 
+if ( ! function_exists( 'pixassist_get_starter_sites_active_starter' ) ) {
+	/**
+	 * The starter currently applied as the live full site.
+	 *
+	 * Only one starter can define the site at a time — applying a full demo layers over the previous
+	 * one — so the "Full site applied" status is singular. A persisted `active_starter` marker is set
+	 * whenever a full demo is applied and cleared on reset. As a fallback for installs that imported
+	 * before the marker existed, the most-recently-recorded *full-demo* starter in the
+	 * (insertion-ordered) import journal is used; a layouts-only journal and an empty journal return ''
+	 * so the status is never falsely claimed.
+	 *
+	 * The cumulative import journal (`imported_starter_content`) intentionally still tracks every
+	 * starter ever imported — the reset feature needs it to know what to delete — so it must not be
+	 * used to decide which single starter is live.
+	 *
+	 * @return string Demo key of the active full-site starter, or '' when none.
+	 */
+	function pixassist_get_starter_sites_active_starter() {
+		if ( class_exists( 'PixelgradeAssistant_Admin' ) && method_exists( 'PixelgradeAssistant_Admin', 'get_option' ) ) {
+			$active = PixelgradeAssistant_Admin::get_option( 'active_starter', '' );
+			$active = is_string( $active ) ? trim( $active ) : '';
+			if ( '' !== $active ) {
+				return function_exists( 'sanitize_key' ) ? sanitize_key( $active ) : strtolower( $active );
+			}
+		}
+
+		// Fallback: the last starter whose journal records full-demo content (not layouts-only).
+		$fallback     = '';
+		$full_markers = array( 'post_types', 'taxonomies', 'media', 'pre_settings', 'post_settings', 'widgets' );
+		foreach ( pixassist_get_starter_sites_imported_state() as $key => $entry ) {
+			if ( is_array( $entry ) && array_intersect( array_keys( $entry ), $full_markers ) ) {
+				$fallback = (string) $key;
+			}
+		}
+
+		return function_exists( 'sanitize_key' ) ? sanitize_key( $fallback ) : strtolower( $fallback );
+	}
+}
+
 if ( ! function_exists( 'pixassist_get_starter_sites_applied_state' ) ) {
 	/**
 	 * Present full demo, recipe, and layout-unit state through one Starter Sites payload branch.
@@ -947,9 +986,10 @@ if ( ! function_exists( 'pixassist_get_starter_sites_applied_state' ) ) {
 	 */
 	function pixassist_get_starter_sites_applied_state() {
 		return array(
-			'fullDemos'   => pixassist_get_starter_sites_imported_state(),
-			'recipes'     => function_exists( 'pixassist_get_recipes_applied' ) ? pixassist_get_recipes_applied() : array(),
-			'layoutUnits' => function_exists( 'pixassist_get_layout_units_applied' ) ? pixassist_get_layout_units_applied() : array(),
+			'fullDemos'     => pixassist_get_starter_sites_imported_state(),
+			'recipes'       => function_exists( 'pixassist_get_recipes_applied' ) ? pixassist_get_recipes_applied() : array(),
+			'layoutUnits'   => function_exists( 'pixassist_get_layout_units_applied' ) ? pixassist_get_layout_units_applied() : array(),
+			'activeStarter' => pixassist_get_starter_sites_active_starter(),
 		);
 	}
 }
