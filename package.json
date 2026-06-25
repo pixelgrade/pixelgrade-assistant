@@ -29,6 +29,7 @@
 		"@material-ui/icons": "^4.11.3",
 		"@material-ui/styles": "^4.11.5",
 		"@wordpress/icons": "^15.0.0",
+		"@wordpress/interface": "^9.34.0",
 		"core-js": "^3.22.0",
 		"entities": "^4.3.0",
 		"lodash": "^4.17.15",

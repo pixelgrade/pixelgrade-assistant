@@ -1,17 +1,24 @@
 /**
- * Contextual Pixelgrade Docs PluginSidebar entry point (#46).
+ * Pixelgrade Docs editor entry point (#46).
  *
- * The panel runs on editor screens, not on the Appearance -> Pixelgrade hub, so it has its own
- * wp-scripts entry (`docs`). No JSX: WordPress 5.9 is still supported.
+ * Docs live in a single MODELESS floating window (DocsArticleWindow) that floats over the canvas
+ * instead of a docked sidebar that eats the right rail — so it sits next to block settings / the
+ * Style Manager sidebar rather than fighting them for the slot. The window hosts the full KB browser
+ * (categories → search → article) AND the contextual single-article pop-up companions open via
+ * openArticle(). Three entry points toggle it: a pinned toolbar button, the ⋮ Options menu, and the
+ * command palette. No JSX: WordPress 5.9 is still supported.
  */
-import { createElement, Fragment } from '@wordpress/element';
-import { createSlotFill } from '@wordpress/components';
+import { createElement, Fragment, useEffect, useState } from '@wordpress/element';
+import { Button, createSlotFill } from '@wordpress/components';
 import { useSelect } from '@wordpress/data';
 import { __ } from '@wordpress/i18n';
 import { registerPlugin } from '@wordpress/plugins';
-import { PluginSidebar, PluginSidebarMoreMenuItem } from '@wordpress/editor';
+import { PluginMoreMenuItem } from '@wordpress/editor';
+import { PinnedItems } from '@wordpress/interface';
+import { useCommand } from '@wordpress/commands';
+import { help as helpIcon } from '@wordpress/icons';
 import { getDocsData } from './data';
-import { DocsArticleWindow, KbPanel, openDocsArticle } from './KbPanel';
+import { DocsArticleWindow, closeDocsWindow, openDocsArticle, openDocsBrowse } from './KbPanel';
 
 const SLOT_FILL = createSlotFill( 'pixelgrade-docs' );
 
@@ -84,11 +91,85 @@ function useEditorContext() {
 	);
 }
 
-function DocsPlugin() {
-	if ( ! PluginSidebar || ! PluginSidebarMoreMenuItem ) {
+// Track the window's open/minimized state (broadcast by DocsArticleWindow) so the toolbar toggle can
+// reflect it and toggle correctly: open (and not minimized) → close; otherwise open/restore.
+function useDocsWindowState() {
+	const [ state, setState ] = useState( { open: false, minimized: false } );
+
+	useEffect( () => {
+		if ( 'undefined' === typeof window ) {
+			return undefined;
+		}
+
+		const onState = ( event ) => {
+			setState( ( event && event.detail ) || { open: false, minimized: false } );
+		};
+
+		window.addEventListener( 'pixelgrade-docs:openstate', onState );
+
+		return () => window.removeEventListener( 'pixelgrade-docs:openstate', onState );
+	}, [] );
+
+	return state;
+}
+
+function toggleDocs( state ) {
+	if ( state.open && ! state.minimized ) {
+		closeDocsWindow();
+	} else {
+		openDocsBrowse();
+	}
+}
+
+// Pinned toolbar button — the primary, most-discoverable launcher, matching the editor's other pinned
+// plugin icons. PinnedItems IS the Fill; its slot name is `PinnedItems/<scope>` in the shared
+// wp-components registry. The editor mounts a single PinnedItems slot, but the scope differs by
+// editor/version (post vs site vs unified `core`), so we fill each candidate — only the active
+// editor's mounted slot renders, giving exactly one button.
+function DocsToolbarButton( { label } ) {
+	const state = useDocsWindowState();
+
+	if ( ! PinnedItems ) {
 		return null;
 	}
 
+	const button = () =>
+		createElement( Button, {
+			icon: helpIcon,
+			label,
+			isPressed: state.open,
+			'aria-expanded': state.open && ! state.minimized,
+			onClick: () => toggleDocs( state ),
+		} );
+
+	return createElement(
+		Fragment,
+		null,
+		createElement( PinnedItems, { scope: 'core' }, button() ),
+		createElement( PinnedItems, { scope: 'core/edit-site' }, button() ),
+		createElement( PinnedItems, { scope: 'core/edit-post' }, button() )
+	);
+}
+
+// Command-palette entry (Cmd/Ctrl+K → "Pixelgrade Docs"). wp-commands is a hard bundle dependency,
+// so useCommand is always available here.
+function DocsCommand( { label } ) {
+	useCommand( {
+		name: 'pixelgrade-assistant/open-docs',
+		label,
+		icon: helpIcon,
+		callback: ( { close } ) => {
+			openDocsBrowse();
+			if ( close ) {
+				close();
+			}
+		},
+	} );
+
+	return null;
+}
+
+function DocsPlugin() {
 	const data = getDocsData();
 	const context = useEditorContext();
 	const title = data.copy && data.copy.title ? data.copy.title : __( 'Pixelgrade Docs', 'pixelgrade_assistant' );
@@ -97,27 +178,22 @@ function DocsPlugin() {
 	return createElement(
 		Fragment,
 		null,
-		createElement(
-			PluginSidebarMoreMenuItem,
-			{ target: 'pixelgrade-docs' },
-			menuLabel
-		),
-		createElement(
-			PluginSidebar,
-			{
-				name: 'pixelgrade-docs',
-				title,
-				icon: 'book',
-			},
-			createElement( KbPanel, { context, layout: 'compact', EscalationSlot: SLOT_FILL.Slot } )
-		),
-		// Contextual article pop-up — opened by companions via openArticle(). A modeless floating
-		// window (not a blocking modal): the editor stays interactive while the user reads.
-		createElement( DocsArticleWindow, null )
+		createElement( DocsToolbarButton, { label: title } ),
+		createElement( DocsCommand, { label: title } ),
+		PluginMoreMenuItem
+			? createElement(
+					PluginMoreMenuItem,
+					{ icon: helpIcon, onClick: () => openDocsBrowse() },
+					menuLabel
+			  )
+			: null,
+		// The single docs surface: floating window hosting both the KB browser (default) and the
+		// contextual single-article pop-up. The editor stays interactive while the user reads.
+		createElement( DocsArticleWindow, { context, EscalationSlot: SLOT_FILL.Slot } )
 	);
 }
 
 registerPlugin( 'pixelgrade-docs', {
 	render: DocsPlugin,
-	icon: 'book',
+	icon: helpIcon,
 } );

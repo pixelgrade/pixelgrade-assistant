@@ -760,6 +760,29 @@ export function openDocsArticle( payload ) {
 	return true;
 }
 
+/**
+ * Open (or restore) the docs browser in the floating window. Used by the editor toolbar toggle.
+ * Returns truthy only while a DocsArticleWindow is mounted (same delivery attestation as openArticle).
+ */
+export function openDocsBrowse() {
+	if ( 'undefined' === typeof window || ! window.CustomEvent || docsArticleListeners < 1 ) {
+		return false;
+	}
+
+	window.dispatchEvent( new window.CustomEvent( 'pixelgrade-docs:open-browse', {} ) );
+
+	return true;
+}
+
+/** Close the docs window from outside (the editor toolbar toggle). */
+export function closeDocsWindow() {
+	if ( 'undefined' === typeof window || ! window.CustomEvent ) {
+		return;
+	}
+
+	window.dispatchEvent( new window.CustomEvent( 'pixelgrade-docs:close', {} ) );
+}
+
 const DOCS_WINDOW_STORAGE_KEY = 'pixassistDocsWindow';
 const DOCS_WINDOW_WIDTH = 360;
 const DOCS_WINDOW_MARGIN = 16;
@@ -811,7 +834,12 @@ function defaultDocsWindowPosition() {
  * same time. Drag it out of the way, minimize it to a corner chip, and it reopens where it was left.
  * Falls back to opening the online docs when the article can't be resolved in this product's KB.
  */
-export function DocsArticleWindow() {
+export function DocsArticleWindow( props ) {
+	// Optional editor context + escalation Slot, supplied by the docs plugin so the in-window browse
+	// (KbPanel) can prefill support requests just like the old docked sidebar did.
+	const windowContext = ( props && props.context ) || {};
+	const EscalationSlot = props && props.EscalationSlot ? props.EscalationSlot : null;
+
 	const [ request, setRequest ] = useState( null );
 	const [ article, setArticle ] = useState( null );
 	const [ loading, setLoading ] = useState( false );
@@ -830,6 +858,8 @@ export function DocsArticleWindow() {
 	const panelRef = useRef( null );
 	const dragRef = useRef( null );
 	const previousFocusRef = useRef( null );
+	const closeRef = useRef( null );
+	const justOpenedRef = useRef( false );
 
 	// Return focus to whatever was focused when the window opened (a11y: a surface that programmatically
 	// takes focus must hand it back on dismiss). Best-effort; guard against the trigger leaving the DOM.
@@ -850,27 +880,65 @@ export function DocsArticleWindow() {
 		restoreFocus();
 	}, [ restoreFocus ] );
 
-	// Register the open() listener; openDocsArticle() returns truthy only while one is mounted.
+	// Keep a stable ref so the mount-only event listeners always call the latest close().
 	useEffect( () => {
-		const handler = ( event ) => {
+		closeRef.current = close;
+	}, [ close ] );
+
+	// Register the open/close listeners; openDocsArticle() returns truthy only while one is mounted.
+	// Three entry points share this single window: open-article (a specific article, e.g. from a
+	// companion's openArticle()), open-browse (the editor toolbar opens/​restores the KB browser),
+	// and close (the toolbar toggles it shut).
+	useEffect( () => {
+		const rememberTrigger = () => {
 			// Remember the trigger so focus can return there on close/minimize.
 			previousFocusRef.current = 'undefined' !== typeof document ? document.activeElement : null;
+		};
+		const onOpenArticle = ( event ) => {
+			rememberTrigger();
+			justOpenedRef.current = true;
 			setRequest( ( event && event.detail ) || {} );
 			setMinimized( false ); // a freshly-requested article always shows.
 		};
+		const onOpenBrowse = () => {
+			rememberTrigger();
+			justOpenedRef.current = true;
+			// Restore an existing reading session if there is one; otherwise open at the browse root.
+			setRequest( ( prev ) => ( prev ? prev : { browse: true } ) );
+			setMinimized( false );
+		};
+		const onCloseEvent = () => {
+			if ( closeRef.current ) {
+				closeRef.current();
+			}
+		};
 
 		docsArticleListeners += 1;
-		window.addEventListener( 'pixelgrade-docs:open-article', handler );
+		window.addEventListener( 'pixelgrade-docs:open-article', onOpenArticle );
+		window.addEventListener( 'pixelgrade-docs:open-browse', onOpenBrowse );
+		window.addEventListener( 'pixelgrade-docs:close', onCloseEvent );
 
 		return () => {
 			docsArticleListeners = Math.max( 0, docsArticleListeners - 1 );
-			window.removeEventListener( 'pixelgrade-docs:open-article', handler );
+			window.removeEventListener( 'pixelgrade-docs:open-article', onOpenArticle );
+			window.removeEventListener( 'pixelgrade-docs:open-browse', onOpenBrowse );
+			window.removeEventListener( 'pixelgrade-docs:close', onCloseEvent );
 		};
 	}, [] );
 
 	// Fetch the requested article (cache-first, fresh retry on a miss, online fallback otherwise).
 	useEffect( () => {
 		if ( ! request ) {
+			return undefined;
+		}
+
+		// Browse mode has no single-article target — KbPanel fetches its own categories.
+		if ( request.browse && ! request.id && ! request.url && ! request.slug ) {
+			setLoading( false );
+			setNotFound( false );
+			setArticle( null );
+			setFeedback( {} );
+
 			return undefined;
 		}
 
@@ -947,10 +1015,22 @@ export function DocsArticleWindow() {
 		saveDocsWindowState( { left: position.left, top: position.top, minimized } );
 	}, [ position.left, position.top, minimized ] );
 
-	// Modeless focus: move focus into the panel on open (NOT trapped — the user can tab back out).
+	// Broadcast open/minimized state so the editor toolbar toggle can reflect it (pressed/active).
 	useEffect( () => {
-		if ( request && ! minimized && article && panelRef.current && panelRef.current.focus ) {
+		if ( 'undefined' === typeof window || ! window.CustomEvent ) {
+			return;
+		}
+
+		window.dispatchEvent( new window.CustomEvent( 'pixelgrade-docs:openstate', { detail: { open: !! request, minimized: !! minimized } } ) );
+	}, [ request, minimized ] );
+
+	// Modeless focus: move focus into the panel ONCE when it opens (NOT trapped — the user can tab
+	// back out, and we don't steal focus on every drill-down while browsing).
+	useEffect( () => {
+		const ready = !! request && ! minimized && ( !! request.browse || !! article );
+		if ( ready && justOpenedRef.current && panelRef.current && panelRef.current.focus ) {
 			panelRef.current.focus();
+			justOpenedRef.current = false;
 		}
 	}, [ request, article, minimized ] );
 
@@ -1055,9 +1135,20 @@ export function DocsArticleWindow() {
 		);
 	}
 
+	// Browse mode: the window IS the docs browser — KbPanel handles categories, search, drill-down,
+	// in-window article reading and escalation, all inside the same native chrome.
+	const browseMode = !! request.browse;
+
 	let body;
 
-	if ( loading ) {
+	if ( browseMode ) {
+		body = createElement( KbPanel, {
+			context: windowContext,
+			layout: 'compact',
+			EscalationSlot,
+			showEscalation: true,
+		} );
+	} else if ( loading ) {
 		body = createElement(
 			'div',
 			{ className: 'pixelgrade-docs__loading' },
