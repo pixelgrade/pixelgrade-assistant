@@ -1079,8 +1079,8 @@ class PixelgradeAssistant_Admin {
 
 	    // Anima (placeholder hash QBAXY) is now resolvable for get_config via its registered
 	    // pixelgrade.com product, disambiguated by the theme SKU sent in the request body below — so we
-	    // no longer skip the round-trip here. KB (get_htkb_categories) still guards on
-	    // is_unregistered_product_hash() until Anima KB content exists. See #59.
+	    // no longer skip the round-trip here. The KB (get_htkb_categories) likewise resolves by SKU now
+	    // that the Anima LT product's docs_article_groups are populated. See #59.
 
 	    $config = false;
 
