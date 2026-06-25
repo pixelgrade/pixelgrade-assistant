@@ -97,7 +97,7 @@ function DocsCommand( { label } ) {
 
 function DocsLaunchers() {
 	const data = getDocsData();
-	const title = data.copy && data.copy.title ? data.copy.title : __( 'Pixelgrade Docs', 'pixelgrade_assistant' );
+	const title = data.copy && data.copy.title ? data.copy.title : __( 'Pixelgrade Design Docs', 'pixelgrade_assistant' );
 	const menuLabel = data.copy && data.copy.menuLabel ? data.copy.menuLabel : title;
 
 	return createElement(

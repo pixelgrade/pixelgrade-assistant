@@ -448,9 +448,9 @@ class PixelgradeAssistant_Admin {
 
 		$wp_admin_bar->add_node( array(
 			'id'    => 'pixassist-docs',
-			'title' => '<span class="ab-icon dashicons dashicons-editor-help" aria-hidden="true" style="top:2px;"></span>' . esc_html__( 'Docs', '__plugin_txtd' ),
+			'title' => '<span class="ab-icon dashicons dashicons-art" aria-hidden="true" style="top:2px;"></span>' . esc_html__( 'Design Docs', '__plugin_txtd' ),
 			'href'  => esc_url( add_query_arg( 'pixassist_open_docs', '1' ) ),
-			'meta'  => array( 'title' => esc_attr__( 'Open Pixelgrade documentation', '__plugin_txtd' ) ),
+			'meta'  => array( 'title' => esc_attr__( 'Open Pixelgrade design &amp; site-building docs', '__plugin_txtd' ) ),
 		) );
 	}
 

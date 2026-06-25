@@ -543,7 +543,7 @@ function BaseEscalation( { context, allArticles, onOpenArticle, prefill } ) {
 	);
 }
 
-export function KbPanel( { context, layout, EscalationSlot, showEscalation = true } ) {
+export function KbPanel( { context, layout, EscalationSlot, showEscalation = true, initialArticleId = null, onActiveArticleChange } ) {
 	const mode = 'master-detail' === layout ? 'master-detail' : 'compact';
 	const [ categories, setCategories ] = useState( [] );
 	const [ loading, setLoading ] = useState( true );
@@ -555,6 +555,11 @@ export function KbPanel( { context, layout, EscalationSlot, showEscalation = tru
 	const [ expanded, setExpanded ] = useState( {} );
 	const [ escalationPrefill, setEscalationPrefill ] = useState( null );
 	const escalationRef = useRef( null );
+	const onActiveArticleChangeRef = useRef( onActiveArticleChange );
+	const restoredArticleRef = useRef( false );
+	// Freeze the to-restore id at first render so the report round-trip (which momentarily sets it null)
+	// can't clobber what we're about to restore.
+	const initialArticleIdRef = useRef( initialArticleId );
 
 	useEffect( () => {
 		let mounted = true;
@@ -592,6 +597,37 @@ export function KbPanel( { context, layout, EscalationSlot, showEscalation = tru
 		...context,
 		articleId: activeArticle ? activeArticle.id : null,
 	};
+
+	// Keep the reporting callback fresh without re-subscribing.
+	useEffect( () => {
+		onActiveArticleChangeRef.current = onActiveArticleChange;
+	} );
+
+	// Restore a persisted drill-down article once categories are in, so the floating window can follow
+	// the user back to the exact article they were reading (not just the browse root) across reloads.
+	// Uses the frozen ref + settles after the first category load so later drill-downs don't re-trigger.
+	useEffect( () => {
+		if ( restoredArticleRef.current || ! allArticles.length ) {
+			return;
+		}
+		const target = initialArticleIdRef.current;
+		if ( target ) {
+			const found = allArticles.find( ( item ) => String( item.id ) === String( target ) );
+			if ( found ) {
+				setActiveArticle( found );
+			}
+		}
+		restoredArticleRef.current = true;
+	}, [ allArticles ] );
+
+	// Report the current article up so the window persists it for the next page — but only AFTER the
+	// initial restore has settled, so the mount-time null (and the restore itself) don't wipe it.
+	useEffect( () => {
+		if ( ! restoredArticleRef.current || ! onActiveArticleChangeRef.current ) {
+			return;
+		}
+		onActiveArticleChangeRef.current( activeArticle );
+	}, [ activeArticle ] );
 
 	const onOpenArticle = ( article ) => {
 		// Leave the search term intact: the compact drill-down relies on "Back" returning the user to
@@ -831,6 +867,9 @@ export function DocsArticleWindow( props ) {
 		return null != saved.left && null != saved.top ? clampDocsWindowPosition( saved.left, saved.top ) : defaultDocsWindowPosition();
 	} );
 	const [ minimized, setMinimized ] = useState( () => !! loadDocsWindowState().minimized );
+	// The article the user drilled into while BROWSING (KbPanel-internal state we lift up so it persists
+	// across page reloads — otherwise navigating reopens the browse root, losing the article).
+	const [ browseArticleId, setBrowseArticleId ] = useState( () => loadDocsWindowState().browseArticleId || null );
 	const [ dragging, setDragging ] = useState( false );
 	const [ narrow, setNarrow ] = useState( () => 'undefined' !== typeof window && window.innerWidth < DOCS_WINDOW_NARROW );
 
@@ -856,6 +895,7 @@ export function DocsArticleWindow( props ) {
 		setArticle( null );
 		setNotFound( false );
 		setFeedback( {} );
+		setBrowseArticleId( null );
 		restoreFocus();
 	}, [ restoreFocus ] );
 
@@ -992,11 +1032,11 @@ export function DocsArticleWindow( props ) {
 	// Persist position + minimized + the open request so the window reopens where the user left it
 	// (and on the next admin page). The cookie must track `request` too, so it's a dependency.
 	useEffect( () => {
-		saveDocsWindowState( { left: position.left, top: position.top, minimized, request } );
+		saveDocsWindowState( { left: position.left, top: position.top, minimized, request, browseArticleId } );
 		// Mirror open/closed to a cookie so PHP enqueues the window bundle on the next admin page only
 		// while it's open — this is what makes it follow the user without loading anything when closed.
 		setDocsOpenCookie( !! request );
-	}, [ position.left, position.top, minimized, request ] );
+	}, [ position.left, position.top, minimized, request, browseArticleId ] );
 
 	// Broadcast open/minimized state so the editor toolbar toggle can reflect it (pressed/active).
 	useEffect( () => {
@@ -1092,7 +1132,7 @@ export function DocsArticleWindow( props ) {
 
 	const title = article
 		? article.title
-		: ( loading ? getCopy( 'articleLoading', __( 'Loading article…', 'pixelgrade_assistant' ) ) : getCopy( 'title', __( 'Pixelgrade Docs', 'pixelgrade_assistant' ) ) );
+		: ( loading ? getCopy( 'articleLoading', __( 'Loading article…', 'pixelgrade_assistant' ) ) : getCopy( 'title', __( 'Pixelgrade Design Docs', 'pixelgrade_assistant' ) ) );
 
 	// Minimized: a small chip docked bottom-left; click to restore, with its own close.
 	if ( minimized ) {
@@ -1130,6 +1170,9 @@ export function DocsArticleWindow( props ) {
 			layout: 'compact',
 			EscalationSlot,
 			showEscalation: true,
+			// Persist + restore the drilled-in article so the window follows the user to it across reloads.
+			initialArticleId: browseArticleId,
+			onActiveArticleChange: ( article ) => setBrowseArticleId( article ? article.id : null ),
 		} );
 	} else if ( loading ) {
 		body = createElement(
