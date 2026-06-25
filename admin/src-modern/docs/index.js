@@ -106,7 +106,7 @@ function DocsPlugin() {
 				title,
 				icon: 'book',
 			},
-			createElement( KbPanel, { context, EscalationSlot: SLOT_FILL.Slot } )
+			createElement( KbPanel, { context, layout: 'compact', EscalationSlot: SLOT_FILL.Slot } )
 		)
 	);
 }

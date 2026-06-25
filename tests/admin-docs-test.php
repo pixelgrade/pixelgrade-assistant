@@ -350,10 +350,12 @@ $ticket = pixassist_submit_docs_ticket(
 		'details' => '<b>The layout changed.</b>',
 		'topic'   => 'editor',
 		'context' => array(
-			'surface'    => 'post',
-			'postType'   => 'page',
-			'templateId' => 'anima//home',
-			'articleId'  => '55',
+			'surface'              => 'post',
+			'postType'             => 'page',
+			'templateId'           => 'anima//home',
+			'articleId'            => '55',
+			'suggested_ids'        => array( '169', '170', 'x', '169' ),
+			'unhelpful_article_id' => '171',
 		),
 	)
 );
@@ -370,6 +372,8 @@ assert_same( 'post', $captured_ticket['body']['surface'], 'Ticket must include s
 assert_same( 'page', $captured_ticket['body']['post_type'], 'Ticket must include sanitized post type context.' );
 assert_same( 'anima//home', $captured_ticket['body']['template_id'], 'Ticket must include sanitized template context.' );
 assert_same( '55', $captured_ticket['body']['article_id'], 'Ticket must include sanitized article context.' );
+assert_same( '169,170', $captured_ticket['body']['suggested_ids'], 'Ticket must include sanitized, deduped suggested article ids (deflection signal).' );
+assert_same( '171', $captured_ticket['body']['unhelpful_article_id'], 'Ticket must include the sanitized unhelpful article id.' );
 assert_same( 'theme-hash', $captured_ticket['body']['hash_id'], 'Ticket body must include the theme hash id for product routing.' );
 assert_true( ! array_key_exists( 'oauth_token', $captured_ticket['body'] ), 'Ticket body must never include oauth_token.' );
 assert_true( ! array_key_exists( 'oauth_token_secret', $captured_ticket['body'] ), 'Ticket body must never include oauth_token_secret.' );

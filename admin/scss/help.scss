@@ -1,0 +1,9 @@
+// Standalone stylesheet for the modern Help / KB panel (src-modern/docs/KbPanel.js).
+//
+// Compiled to admin/css/help.css and enqueued only on the Appearance -> Pixelgrade hub and the
+// editor docs sidebar. Kept separate from pixelgrade_assistant-admin.css so the hub never inherits
+// the legacy dashboard globals — everything here is scoped under .pixelgrade-docs.
+
+@import "settings";
+@import "tools/functions";
+@import "help-panel";

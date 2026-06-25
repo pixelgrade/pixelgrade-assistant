@@ -172,6 +172,13 @@ if ( ! function_exists( 'pixassist_get_docs_data' ) ) {
 				'ticketFailure'          => esc_html__( 'The request could not be sent. Please try again.', '__plugin_txtd' ),
 				'ticketSubjectHelp'      => esc_html__( 'Keep the subject under %d characters. Add extra context in Details.', '__plugin_txtd' ),
 				'ticketSubjectTooLong'   => esc_html__( 'The subject is too long. Shorten it and move the extra context to Details.', '__plugin_txtd' ),
+				'welcomeTitle'           => esc_html__( 'How can we help?', '__plugin_txtd' ),
+				'welcomeText'            => esc_html__( 'Search the documentation, or browse a topic to get started.', '__plugin_txtd' ),
+				'relatedTitle'           => esc_html__( 'Related articles', '__plugin_txtd' ),
+				'suggestionsTitle'       => esc_html__( 'These articles might already answer it:', '__plugin_txtd' ),
+				'feedbackNoPrompt'       => esc_html__( 'Sorry about that — what were you looking for?', '__plugin_txtd' ),
+				'feedbackNoPlaceholder'  => esc_html__( 'Tell us what you needed (optional). We will help.', '__plugin_txtd' ),
+				'feedbackSendToSupport'  => esc_html__( 'Send to support', '__plugin_txtd' ),
 			),
 		);
 	}
@@ -437,6 +444,36 @@ if ( ! function_exists( 'pixassist_record_docs_vote' ) ) {
 	}
 }
 
+if ( ! function_exists( 'pixassist_docs_sanitize_id_list' ) ) {
+	/**
+	 * Sanitizes a list of KB article ids (array or comma-separated string) to a capped,
+	 * comma-joined string of unique positive integers.
+	 *
+	 * @param mixed $value Raw id list.
+	 *
+	 * @return string
+	 */
+	function pixassist_docs_sanitize_id_list( $value ) {
+		if ( is_string( $value ) ) {
+			$value = explode( ',', $value );
+		}
+
+		if ( ! is_array( $value ) ) {
+			return '';
+		}
+
+		$ids = array();
+		foreach ( $value as $candidate ) {
+			$id = absint( $candidate );
+			if ( $id > 0 && ! in_array( $id, $ids, true ) ) {
+				$ids[] = $id;
+			}
+		}
+
+		return implode( ',', array_slice( $ids, 0, 10 ) );
+	}
+}
+
 if ( ! function_exists( 'pixassist_docs_ticket_context' ) ) {
 	/**
 	 * Sanitizes editor context for a support request.
@@ -451,11 +488,22 @@ if ( ! function_exists( 'pixassist_docs_ticket_context' ) ) {
 
 		$article_id = isset( $context['articleId'] ) ? absint( $context['articleId'] ) : absint( pixassist_docs_request_value( $request, 'article_id' ) );
 
+		$unhelpful = isset( $context['unhelpful_article_id'] )
+			? absint( $context['unhelpful_article_id'] )
+			: absint( pixassist_docs_request_value( $request, 'unhelpful_article_id' ) );
+
+		$suggested_raw = isset( $context['suggested_ids'] )
+			? $context['suggested_ids']
+			: pixassist_docs_request_value( $request, 'suggested_ids' );
+
 		return array(
-			'surface'     => pixassist_docs_sanitize_scalar( isset( $context['surface'] ) ? $context['surface'] : pixassist_docs_request_value( $request, 'surface' ) ),
-			'post_type'   => pixassist_docs_sanitize_scalar( isset( $context['postType'] ) ? $context['postType'] : pixassist_docs_request_value( $request, 'post_type' ) ),
-			'template_id' => pixassist_docs_sanitize_scalar( isset( $context['templateId'] ) ? $context['templateId'] : pixassist_docs_request_value( $request, 'template_id' ) ),
-			'article_id'  => 0 < $article_id ? (string) $article_id : '',
+			'surface'              => pixassist_docs_sanitize_scalar( isset( $context['surface'] ) ? $context['surface'] : pixassist_docs_request_value( $request, 'surface' ) ),
+			'post_type'            => pixassist_docs_sanitize_scalar( isset( $context['postType'] ) ? $context['postType'] : pixassist_docs_request_value( $request, 'post_type' ) ),
+			'template_id'          => pixassist_docs_sanitize_scalar( isset( $context['templateId'] ) ? $context['templateId'] : pixassist_docs_request_value( $request, 'template_id' ) ),
+			'article_id'           => 0 < $article_id ? (string) $article_id : '',
+			// Deflection signal for triage: KB articles the reader was shown / found unhelpful before asking.
+			'suggested_ids'        => pixassist_docs_sanitize_id_list( $suggested_raw ),
+			'unhelpful_article_id' => 0 < $unhelpful ? (string) $unhelpful : '',
 		);
 	}
 }

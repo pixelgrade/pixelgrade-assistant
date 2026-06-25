@@ -26,6 +26,6 @@ export function HelpTab() {
 	return createElement(
 		'div',
 		{ className: 'pixelgrade-help' },
-		createElement( KbPanel, { context, showEscalation: true } )
+		createElement( KbPanel, { context, layout: 'master-detail', showEscalation: true } )
 	);
 }

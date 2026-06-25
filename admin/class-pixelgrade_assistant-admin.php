@@ -310,8 +310,30 @@ class PixelgradeAssistant_Admin {
         if ( self::is_pixelgrade_admin_hub() ) {
             // The modern hub shell is built on @wordpress/components; load WP core's component styles.
             wp_enqueue_style( 'wp-components' );
+            // Self-contained Help/KB panel styles (master-detail layout, feedback, escalation).
+            self::enqueue_help_panel_style();
         }
     }
+
+	/**
+	 * Enqueue the self-contained Help/KB panel stylesheet.
+	 *
+	 * Scoped under .pixelgrade-docs and kept separate from the legacy admin CSS so neither the hub
+	 * nor the editor sidebar inherits the old dashboard globals. Used by the Help hub tab and the
+	 * contextual editor docs sidebar (both render src-modern/docs/KbPanel.js).
+	 */
+	public static function enqueue_help_panel_style() {
+		$relative = 'admin/css/help.css';
+		$path     = PIXELGRADE_ASSISTANT__PLUGIN_DIR . $relative;
+		$version  = file_exists( $path ) ? filemtime( $path ) : false;
+
+		wp_enqueue_style(
+			'pixelgrade-help',
+			plugin_dir_url( PIXELGRADE_ASSISTANT__PLUGIN_FILE ) . $relative,
+			array( 'wp-components' ),
+			$version
+		);
+	}
 
     /**
      * Register the JavaScript for the admin area.
@@ -369,6 +391,7 @@ class PixelgradeAssistant_Admin {
 		}
 
 		$handle = pixassist_enqueue_built_script( 'pixelgrade-docs', 'docs' );
+		self::enqueue_help_panel_style();
 		wp_localize_script( $handle, 'pixelgradeDocs', pixassist_get_docs_data() );
 		self::localize_js_data( $handle, true, 'editor' );
 	}

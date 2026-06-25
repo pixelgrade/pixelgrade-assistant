@@ -1,5 +1,5 @@
 /**
- * Shared KB data layer for the editor docs panel (#46) and the future Help hub tab (#47).
+ * Shared KB data layer for the editor docs panel (#46) and the Help hub tab (#47).
  */
 import apiFetch from '@wordpress/api-fetch';
 import { applyFilters } from '@wordpress/hooks';
@@ -76,7 +76,7 @@ function asList( value ) {
 	return [];
 }
 
-function mapArticle( article, categoryName ) {
+function mapArticle( article, categoryName, categoryId, categoryPath ) {
 	return {
 		id: String( article.ID || article.id || '' ),
 		title: decodeHtml( article.post_title || article.title || '' ),
@@ -84,37 +84,72 @@ function mapArticle( article, categoryName ) {
 		excerpt: decodeHtml( article.post_excerpt || article.excerpt || '' ),
 		url: article.external_url || article.url || article.guid || '',
 		category: categoryName || '',
+		categoryId: categoryId ? String( categoryId ) : '',
+		categoryPath: Array.isArray( categoryPath ) ? categoryPath : [],
 	};
 }
 
-function gatherArticles( category, categoryName ) {
-	let articles = asList( category.articles ).map( ( article ) => mapArticle( article, categoryName ) );
-	const children = category.children || category.subcategories || category.sub_categories;
+function childrenOf( category ) {
+	return category.children || category.subcategories || category.sub_categories;
+}
 
-	asList( children ).forEach( ( child ) => {
-		articles = articles.concat( gatherArticles( child, categoryName ) );
-	} );
+/**
+ * Recursively normalize a category and its sub-categories, preserving the tree.
+ *
+ * Each node keeps its DIRECT articles plus normalized `children`; every article carries
+ * the full `categoryPath` (root -> here) and its immediate `categoryId` so the panel can
+ * render breadcrumbs and same-category "related" lists without re-walking the tree.
+ */
+function normalizeCategoryNode( rawCategory, parentPath ) {
+	const name = decodeHtml( rawCategory.name || rawCategory.cat_name || '' );
+	const id = String( rawCategory.term_id || rawCategory.cat_ID || rawCategory.id || name );
+	const path = parentPath.concat( name );
 
-	return articles.filter( ( article ) => article.id && article.title );
+	const articles = asList( rawCategory.articles )
+		.map( ( article ) => mapArticle( article, name, id, path ) )
+		.filter( ( article ) => article.id && article.title );
+
+	const children = asList( childrenOf( rawCategory ) )
+		.map( ( child ) => normalizeCategoryNode( child, path ) )
+		.filter( ( child ) => child.articleCount > 0 );
+
+	const articleCount = articles.length + children.reduce( ( total, child ) => total + child.articleCount, 0 );
+
+	return { id, name, path, articles, children, articleCount };
 }
 
 export function normalizeCategories( rawCategories ) {
 	return asList( rawCategories )
-		.map( ( category ) => {
-			const name = decodeHtml( category.name || category.cat_name || '' );
-			const articles = gatherArticles( category, name );
-
-			return {
-				id: String( category.term_id || category.cat_ID || category.id || name ),
-				name,
-				articles,
-			};
-		} )
-		.filter( ( category ) => category.name && category.articles.length );
+		.map( ( category ) => normalizeCategoryNode( category, [] ) )
+		.filter( ( category ) => category.name && category.articleCount > 0 );
 }
 
+/**
+ * Flatten every article in a category forest (direct + all descendants).
+ *
+ * Used for global search and the landing state.
+ */
 export function flattenArticles( categories ) {
-	return ( categories || [] ).reduce( ( result, category ) => result.concat( category.articles || [] ), [] );
+	const result = [];
+
+	const walk = ( nodes ) => {
+		asList( nodes ).forEach( ( node ) => {
+			( node.articles || [] ).forEach( ( article ) => result.push( article ) );
+			walk( node.children );
+		} );
+	};
+
+	walk( categories );
+
+	return result;
+}
+
+/**
+ * Flatten one category subtree into a single article list (direct + descendants),
+ * preserving the legacy "a category view lists all of its articles" behavior.
+ */
+export function categoryArticles( category ) {
+	return category ? flattenArticles( [ category ] ) : [];
 }
 
 export function searchArticles( articles, term ) {
