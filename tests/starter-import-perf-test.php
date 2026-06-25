@@ -18,6 +18,7 @@
 
 define( 'ABSPATH', __DIR__ . '/' );
 define( 'HOUR_IN_SECONDS', 3600 );
+define( 'PIXELGRADE_ASSISTANT__API_BASE_DOMAIN', 'starter.pixelgrade.com' );
 
 $wp_includes = null;
 foreach ( array( dirname( __DIR__ ) . '/../../../wp-includes', '/Users/georgeolaru/Local Sites/style-manager/app/public/wp-includes' ) as $cand ) {
@@ -25,7 +26,7 @@ foreach ( array( dirname( __DIR__ ) . '/../../../wp-includes', '/Users/georgeola
 }
 if ( null === $wp_includes ) { fwrite( STDOUT, "starter-import-perf-test: SKIP (WP block parser not found)\n" ); exit( 0 ); }
 
-$GLOBALS['cnt'] = array( 'save_options' => 0, 'parse_blocks' => 0, 'img_src' => 0, 'request_multiple' => 0, 'remote_get' => 0 );
+$GLOBALS['cnt'] = array( 'save_options' => 0, 'parse_blocks' => 0, 'img_src' => 0, 'request_multiple' => 0, 'remote_get' => 0, 'download_url' => 0 );
 $GLOBALS['paf_filters'] = array();
 $GLOBALS['paf_pixassist_options'] = array();
 $GLOBALS['paf_next_post_id'] = 5000;
@@ -90,6 +91,11 @@ function wp_generate_attachment_metadata( $id, $f ) { return array(); }
 function wp_update_attachment_metadata( $id, $d ) { return true; }
 function update_post_meta( $id, $k, $v ) { return true; }
 function add_post_meta( $id, $k, $v ) { return true; }
+function wp_parse_url( $url, $component = -1 ) { return parse_url( $url, $component ); }
+function wp_basename( $path ) { return basename( $path ); }
+function wp_delete_file( $path ) { return true; }
+function download_url( $url, $timeout = 300 ) { $GLOBALS['cnt']['download_url']++; return '/tmp/paf-sideload-' . $GLOBALS['cnt']['download_url'] . '.jpg'; }
+function media_handle_sideload( $file_array, $post_id = 0 ) { return $GLOBALS['paf_next_attach_id']++; }
 
 function _flatten_blocks( &$blocks ) {
 	$all = array(); $q = array();
@@ -111,6 +117,7 @@ class PixelgradeAssistant_Admin {
 	public static function set_option( $k, $v ) { $GLOBALS['paf_pixassist_options'][ $k ] = $v; }
 	public static function save_options() { $GLOBALS['cnt']['save_options']++; return true; }
 	public static function is_development_url( $u ) { return false; }
+	public static function get_config() { return array(); }
 }
 
 require __DIR__ . '/../admin/class-pixelgrade_assistant-starter_content.php';
@@ -161,9 +168,24 @@ $media_phase_saves    = $GLOBALS['cnt']['save_options'];
 $media_phase_batches  = $GLOBALS['cnt']['request_multiple'];
 $media_phase_seqfetch = $GLOBALS['cnt']['remote_get'];
 
+// Media phase with source URLs: sideload direct URLs and do not hit the base64 /media endpoint.
+$GLOBALS['cnt']['save_options'] = 0;
+$GLOBALS['cnt']['request_multiple'] = 0;
+$GLOBALS['cnt']['remote_get'] = 0;
+$GLOBALS['cnt']['download_url'] = 0;
+$GLOBALS['paf_pixassist_options']['imported_starter_content'] = array();
+$source_urls = array();
+foreach ( range( 11, 30 ) as $remote_id ) { $source_urls[ $remote_id ] = 'https://starter.pixelgrade.com/anima-blog/wp-content/uploads/test-' . $remote_id . '.jpg'; }
+$mm->invoke( $sc, 'bench', 'https://starter.pixelgrade.com/anima-blog/wp-json/sce/v2/', array( 'placeholders' => array( 1 ), 'ignored' => range( 11, 30 ), 'source_urls' => $source_urls ), true );
+$source_media_saves     = $GLOBALS['cnt']['save_options'];
+$source_media_batches   = $GLOBALS['cnt']['request_multiple'];
+$source_media_seqfetch  = $GLOBALS['cnt']['remote_get'];
+$source_media_downloads = $GLOBALS['cnt']['download_url'];
+
 echo "=== starter import perf counts ===\n";
 echo "post phase: parse_blocks()=$post_phase_parse  wp_get_attachment_image_src()=$post_phase_imgsrc  (2 post types, 10 posts each, 20 media)\n";
 echo "media phase: save_options()=$media_phase_saves  request_multiple()=$media_phase_batches  wp_remote_get()=$media_phase_seqfetch  (20 media items, concurrency 8)\n";
+echo "media source-url phase: save_options()=$source_media_saves  request_multiple()=$source_media_batches  wp_remote_get()=$source_media_seqfetch  download_url()=$source_media_downloads  (20 media items)\n";
 
 $fail = 0;
 function check( &$fail, $cond, $msg ) { echo ( $cond ? '  OK   ' : '  FAIL ' ) . $msg . "\n"; if ( ! $cond ) { $fail++; } }
@@ -175,6 +197,8 @@ check( $fail, $post_phase_imgsrc <= 60, "#3 thumbnail URLs resolved once + memoi
 check( $fail, 1 === $media_phase_saves, "#1 media journal saved once per batch (==1, not 20)" );
 // #4: media fetched in concurrent batches (request_multiple), not 20 sequential GETs.
 check( $fail, $media_phase_batches >= 1 && $media_phase_seqfetch <= 1, "#4 media fetched concurrently (request_multiple used, not ~20 sequential GETs)" );
+// #5: direct source URLs sideload media without hitting SCE's per-id base64 /media endpoint.
+check( $fail, 20 === $source_media_downloads && 0 === $source_media_batches && 0 === $source_media_seqfetch && 1 === $source_media_saves, "#5 source_urls use download_url sideloads and skip base64 /media endpoint" );
 
 echo ( $fail ? "starter-import-perf-test: FAIL\n" : "starter-import-perf-test: OK\n" );
 exit( $fail ? 1 : 0 );

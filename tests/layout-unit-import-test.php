@@ -1418,6 +1418,18 @@ $units_response = $starter_content->list_layout_units(
 	'https://starter.test/wp-json/sce/v2/'
 );
 
+$data_discovery_requests = array_values(
+	array_filter(
+		$GLOBALS['paf_remote_requests'],
+		function ( $request ) {
+			$request_url = isset( $request[0] ) ? $request[0] : '';
+			return false !== strpos( $request_url, '/wp-json/sce/v2/data' );
+		}
+	)
+);
+assert_true( ! empty( $data_discovery_requests ), 'Legacy layout-unit discovery must fetch the source data manifest.' );
+assert_true( false !== strpos( $data_discovery_requests[0][0], 'media_urls=1' ), 'Source data discovery must opt in to direct media URLs.' );
+
 assert_same( 'success', $units_response['code'], 'Layout-unit listing must return a success code.' );
 assert_same(
 	array(

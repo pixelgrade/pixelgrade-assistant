@@ -3066,7 +3066,10 @@ class PixelgradeAssistant_StarterContent {
 				}
 
 				if ( ! empty( $source_data['media'] ) && is_array( $source_data['media'] ) ) {
-					$media_result = $this->import_starter_media( $demo_key, $base_url, $source_data['media'] );
+					$use_media_source_urls = ! empty( $source_data['features'] )
+						&& is_array( $source_data['features'] )
+						&& in_array( 'media_source_urls', $source_data['features'], true );
+					$media_result = $this->import_starter_media( $demo_key, $base_url, $source_data['media'], $use_media_source_urls );
 					if ( is_wp_error( $media_result ) ) {
 						return $this->layout_unit_error_response( $media_result );
 					}
@@ -3207,23 +3210,29 @@ class PixelgradeAssistant_StarterContent {
 		 *
 		 * @return int|WP_Error Number of imported media records.
 		 */
-		private function import_starter_media( $demo_key, $base_url, $media ) {
+		private function import_starter_media( $demo_key, $base_url, $media, $use_source_urls = false ) {
 			if ( empty( $media['placeholders'] ) || ! is_array( $media ) ) {
 				return 0;
 			}
+
+			$source_urls = $use_source_urls ? $this->normalize_starter_media_source_urls( $media ) : array();
 
 			// Flatten the per-group media ids into one fetch list. The 'placeholders' GROUP is the rotation
 			// pool, not media to import as-is, so it is skipped (unchanged behavior).
 			$items = array();
 			foreach ( $media as $group => $ids ) {
 				$group = sanitize_key( $group );
-				if ( 'placeholders' === $group || empty( $ids ) || ! is_array( $ids ) ) {
+				if ( 'placeholders' === $group || 'source_urls' === $group || empty( $ids ) || ! is_array( $ids ) ) {
 					continue;
 				}
 				foreach ( $ids as $remote_id ) {
 					$remote_id = absint( $remote_id );
 					if ( $remote_id ) {
-						$items[] = array( 'group' => $group, 'id' => $remote_id );
+						$item = array( 'group' => $group, 'id' => $remote_id );
+						if ( ! empty( $source_urls[ $remote_id ] ) ) {
+							$item['source_url'] = $source_urls[ $remote_id ];
+						}
+						$items[] = $item;
 					}
 				}
 			}
@@ -3262,6 +3271,32 @@ class PixelgradeAssistant_StarterContent {
 		}
 
 		/**
+		 * Normalize the optional SCE media source URL map.
+		 *
+		 * @param array $media Source media manifest.
+		 *
+		 * @return array Remote media ID => source URL.
+		 */
+		private function normalize_starter_media_source_urls( $media ) {
+			if ( empty( $media['source_urls'] ) || ! is_array( $media['source_urls'] ) ) {
+				return array();
+			}
+
+			$source_urls = array();
+			foreach ( $media['source_urls'] as $remote_id => $source_url ) {
+				$remote_id  = absint( $remote_id );
+				$source_url = esc_url_raw( $source_url );
+				if ( empty( $remote_id ) || empty( $source_url ) ) {
+					continue;
+				}
+
+				$source_urls[ $remote_id ] = $source_url;
+			}
+
+			return $source_urls;
+		}
+
+		/**
 		 * Download a batch of media files concurrently (via Requests::request_multiple), then insert each.
 		 * Falls back to the sequential path when the concurrent client is unavailable or the batch is
 		 * trivial, and retries any individually-failed download through the sequential path (which carries
@@ -3274,6 +3309,30 @@ class PixelgradeAssistant_StarterContent {
 		 * @return int|WP_Error Imported count, or the first hard error.
 		 */
 		private function import_starter_media_batch( $demo_key, $base_url, $items ) {
+			$imported     = 0;
+			$base64_items = array();
+
+			foreach ( $items as $item ) {
+				if ( empty( $item['source_url'] ) ) {
+					$base64_items[] = $item;
+					continue;
+				}
+
+				$result = $this->import_starter_media_source_url_item( $demo_key, $item['group'], $item['id'], $item['source_url'], true );
+				if ( is_wp_error( $result ) ) {
+					// Direct URLs are an optimization. If one fails, preserve the legacy base64 path.
+					$base64_items[] = $item;
+					continue;
+				}
+
+				$imported += (int) $result;
+			}
+
+			$items = $base64_items;
+			if ( empty( $items ) ) {
+				return $imported;
+			}
+
 			$requests_class = '';
 			if ( class_exists( 'WpOrg\\Requests\\Requests' ) ) {
 				$requests_class = 'WpOrg\\Requests\\Requests';
@@ -3283,7 +3342,6 @@ class PixelgradeAssistant_StarterContent {
 
 			// No concurrent client (or a trivial batch): keep the sequential path.
 			if ( empty( $requests_class ) || count( $items ) < 2 ) {
-				$imported = 0;
 				foreach ( $items as $item ) {
 					$result = $this->import_starter_media_item( $demo_key, $base_url, $item['group'], $item['id'], true );
 					if ( is_wp_error( $result ) ) {
@@ -3318,7 +3376,6 @@ class PixelgradeAssistant_StarterContent {
 				$responses = array();
 			}
 
-			$imported = 0;
 			foreach ( $items as $item ) {
 				$key      = (string) $item['id'];
 				$response = isset( $responses[ $key ] )
@@ -3339,6 +3396,66 @@ class PixelgradeAssistant_StarterContent {
 			}
 
 			return $imported;
+		}
+
+		/**
+		 * Sideload one source media URL and insert it locally.
+		 *
+		 * @param string $demo_key
+		 * @param string $group
+		 * @param int    $remote_id
+		 * @param string $source_url Public source media URL.
+		 * @param bool   $defer_save Whether to defer the journal save to the batch caller.
+		 *
+		 * @return int|WP_Error 1 when imported, WP_Error on failure.
+		 */
+		private function import_starter_media_source_url_item( $demo_key, $group, $remote_id, $source_url, $defer_save = false ) {
+			$source_url = esc_url_raw( $source_url );
+			if ( empty( $remote_id ) || empty( $source_url ) || ! $this->is_allowed_demo_url( $source_url ) ) {
+				return new WP_Error( 'starter_media_invalid_source_url', esc_html__( 'A starter media source URL is not allowed.', '__plugin_txtd' ) );
+			}
+
+			if ( ! function_exists( 'download_url' ) ) {
+				require_once ABSPATH . 'wp-admin/includes/file.php';
+			}
+			if ( ! function_exists( 'media_handle_sideload' ) ) {
+				require_once ABSPATH . 'wp-admin/includes/media.php';
+			}
+			if ( ! function_exists( 'wp_generate_attachment_metadata' ) ) {
+				require_once ABSPATH . 'wp-admin/includes/image.php';
+			}
+
+			$tmp = download_url( $source_url, 30 );
+			if ( is_wp_error( $tmp ) ) {
+				return $tmp;
+			}
+
+			$filename = wp_basename( (string) wp_parse_url( $source_url, PHP_URL_PATH ) );
+			if ( empty( $filename ) ) {
+				$filename = 'starter-media-' . absint( $remote_id );
+			}
+
+			$file_array = array(
+				'name'     => $filename,
+				'tmp_name' => $tmp,
+			);
+
+			$attachment_id = media_handle_sideload( $file_array, 0 );
+			if ( is_wp_error( $attachment_id ) ) {
+				wp_delete_file( $tmp );
+				return $attachment_id;
+			}
+
+			$this->record_imported_media_attachment( $demo_key, $group, $remote_id, $attachment_id, $defer_save );
+
+			$attachment_data = wp_get_attachment_metadata( $attachment_id );
+			if ( ! is_array( $attachment_data ) ) {
+				$attachment_data = array();
+			}
+			$attachment_data['imported_with_pixassist'] = true;
+			wp_update_attachment_metadata( $attachment_id, $attachment_data );
+
+			return 1;
 		}
 
 		/**
@@ -3565,6 +3682,49 @@ class PixelgradeAssistant_StarterContent {
 				);
 			}
 
+			$this->record_imported_media_attachment( $demo_key, $group, $remote_id, $attachment_id, $defer_save );
+
+			$attachment_data = array();
+			if ( $generate_metadata ) {
+				require_once( ABSPATH . 'wp-admin/includes/image.php' );
+				$attachment_data = wp_generate_attachment_metadata( $attachment_id, $upload_file['file'] );
+			} else {
+				$attachment_data = wp_get_attachment_metadata( $attachment_id );
+			}
+
+			if ( ! is_array( $attachment_data ) ) {
+				$attachment_data = array();
+			}
+			$attachment_data['imported_with_pixassist'] = true;
+
+			wp_update_attachment_metadata( $attachment_id, $attachment_data );
+
+			return array(
+				'code'    => 'success',
+				'message' => '',
+				'data'    => array(
+					'attachmentID' => $attachment_id,
+				),
+			);
+		}
+
+		/**
+		 * Record a source media ID to local attachment ID mapping in the starter journal.
+		 *
+		 * @param string $demo_key
+		 * @param string $group
+		 * @param int    $remote_id
+		 * @param int    $attachment_id
+		 * @param bool   $defer_save Whether to defer the journal save to the batch caller.
+		 *
+		 * @return void
+		 */
+		private function record_imported_media_attachment( $demo_key, $group, $remote_id, $attachment_id, $defer_save = false ) {
+			$demo_key      = sanitize_text_field( $demo_key );
+			$group         = sanitize_text_field( $group );
+			$remote_id     = absint( $remote_id );
+			$attachment_id = absint( $attachment_id );
+
 			$starter_content = PixelgradeAssistant_Admin::get_option( 'imported_starter_content' );
 			if ( null === $starter_content || ! is_array( $starter_content ) ) {
 				$starter_content = array();
@@ -3594,29 +3754,6 @@ class PixelgradeAssistant_StarterContent {
 			if ( ! $defer_save ) {
 				PixelgradeAssistant_Admin::save_options();
 			}
-
-			$attachment_data = array();
-			if ( $generate_metadata ) {
-				require_once( ABSPATH . 'wp-admin/includes/image.php' );
-				$attachment_data = wp_generate_attachment_metadata( $attachment_id, $upload_file['file'] );
-			} else {
-				$attachment_data = wp_get_attachment_metadata( $attachment_id );
-			}
-
-			if ( ! is_array( $attachment_data ) ) {
-				$attachment_data = array();
-			}
-			$attachment_data['imported_with_pixassist'] = true;
-
-			wp_update_attachment_metadata( $attachment_id, $attachment_data );
-
-			return array(
-				'code'    => 'success',
-				'message' => '',
-				'data'    => array(
-					'attachmentID' => $attachment_id,
-				),
-			);
 		}
 
 		/**
@@ -4066,7 +4203,7 @@ class PixelgradeAssistant_StarterContent {
 			}
 
 			if ( ! empty( $bundle['data'] ) && is_array( $bundle['data'] ) ) {
-				$this->set_cached_layout_source( array( 'data', $base_url ), $bundle['data'] );
+				$this->set_cached_layout_source( array( 'data', $base_url, 'media_urls' ), $bundle['data'] );
 			}
 
 			if ( ! empty( $bundle['posts'] ) && is_array( $bundle['posts'] ) ) {
@@ -4381,14 +4518,14 @@ class PixelgradeAssistant_StarterContent {
 		 */
 		private function fetch_layout_source_data( $base_url ) {
 			$base_url = trailingslashit( esc_url_raw( $base_url ) );
-			$cache    = array( 'data', $base_url );
+			$cache    = array( 'data', $base_url, 'media_urls' );
 			$cached   = $this->get_cached_layout_source( $cache );
 			if ( false !== $cached ) {
 				return $cached;
 			}
 
 			$response = wp_remote_get(
-				$base_url . 'data',
+				$base_url . 'data?media_urls=1',
 				array(
 					'timeout'   => 15,
 					'sslverify' => true,
