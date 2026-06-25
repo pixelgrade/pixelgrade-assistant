@@ -130,6 +130,27 @@
 }
 
 /* ==========================================================================
+   #ARTICLE POP-UP (companions -> window.pixelgradeAdminHub.docs.openArticle)
+   ========================================================================== */
+.components-modal__frame.pixelgrade-docs__modal {
+  max-width: 760px;
+  width: calc(100% - 32px);
+}
+
+.pixelgrade-docs--modal {
+  font-size: 15px;
+  line-height: 1.6;
+
+  .pixelgrade-docs__article-title {
+    margin-top: 0;
+  }
+
+  .pixelgrade-docs__article-content {
+    img, table, iframe { max-width: 100%; height: auto; }
+  }
+}
+
+/* ==========================================================================
    #MASTER-DETAIL (Help tab only)
    ========================================================================== */
 .pixelgrade-docs--master-detail {

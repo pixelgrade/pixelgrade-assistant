@@ -13,6 +13,7 @@ import { createElement, Fragment, useEffect, useMemo, useRef, useState } from '@
 import { __ } from '@wordpress/i18n';
 import {
 	Button,
+	Modal,
 	Notice,
 	SelectControl,
 	Spinner,
@@ -21,6 +22,7 @@ import {
 } from '@wordpress/components';
 import {
 	categoryArticles,
+	fetchArticle,
 	fetchCategories,
 	flattenArticles,
 	getDocsData,
@@ -292,21 +294,27 @@ function ArticleFeedback( { article, vote, context, onVote, onEscalate } ) {
 	}
 
 	if ( 'down' === vote ) {
+		// onEscalate is absent in the lightweight article pop-up; there we just record the down-vote
+		// and show the empathetic note without the (panel-only) "Send to support" hand-off.
 		return createElement(
 			'div',
 			{ className: 'pixelgrade-docs__feedback is-negative' },
 			createElement( 'p', null, '😕 ' + getCopy( 'feedbackNoPrompt', __( 'Sorry about that — what were you looking for?', 'pixelgrade_assistant' ) ) ),
-			createElement( TextareaControl, {
-				value: note,
-				onChange: setNote,
-				rows: 3,
-				placeholder: getCopy( 'feedbackNoPlaceholder', __( 'Tell us what you needed (optional). We will help.', 'pixelgrade_assistant' ) ),
-			} ),
-			createElement(
-				Button,
-				{ variant: 'primary', onClick: () => onEscalate( article, note ) },
-				getCopy( 'feedbackSendToSupport', __( 'Send to support', 'pixelgrade_assistant' ) )
-			)
+			onEscalate
+				? createElement( TextareaControl, {
+						value: note,
+						onChange: setNote,
+						rows: 3,
+						placeholder: getCopy( 'feedbackNoPlaceholder', __( 'Tell us what you needed (optional). We will help.', 'pixelgrade_assistant' ) ),
+				  } )
+				: null,
+			onEscalate
+				? createElement(
+						Button,
+						{ variant: 'primary', onClick: () => onEscalate( article, note ) },
+						getCopy( 'feedbackSendToSupport', __( 'Send to support', 'pixelgrade_assistant' ) )
+				  )
+				: null
 		);
 	}
 
@@ -331,7 +339,7 @@ function ArticleFeedback( { article, vote, context, onVote, onEscalate } ) {
 	);
 }
 
-function ArticleView( { article, allArticles, context, feedback, layout, onBack, onVote, onOpenArticle, onEscalate } ) {
+export function ArticleView( { article, allArticles, context, feedback, layout, onBack, onVote, onOpenArticle, onEscalate } ) {
 	return createElement(
 		'div',
 		{ className: 'pixelgrade-docs__article' },
@@ -726,5 +734,165 @@ export function KbPanel( { context, layout, EscalationSlot, showEscalation = tru
 		! activeArticle ? searchField( 'pixelgrade-docs__search' ) : null,
 		body,
 		escalation
+	);
+}
+
+/**
+ * Fire-and-forget opener for the contextual article pop-up. Any Pixelgrade surface (Style Manager,
+ * Nova Blocks, …) calls window.pixelgradeAdminHub.docs.openArticle({ url | id | slug }); the
+ * DocsArticleModal mounted in the editor catches it and shows the article over the current UI.
+ */
+// Number of mounted DocsArticleModal listeners. openDocsArticle() only claims a click (returns
+// truthy) when one is mounted, so callers (e.g. Style Manager) keep their external-link fallback
+// if the modal isn't present — the return value attests delivery, not just dispatch.
+let docsArticleListeners = 0;
+
+export function openDocsArticle( payload ) {
+	if ( 'undefined' === typeof window || ! window.CustomEvent || docsArticleListeners < 1 ) {
+		return false;
+	}
+
+	window.dispatchEvent( new window.CustomEvent( 'pixelgrade-docs:open-article', { detail: payload || {} } ) );
+
+	return true;
+}
+
+/**
+ * In-editor article pop-up. Listens for openDocsArticle(), fetches a single (fresh) article, and
+ * renders it in a Modal over whatever panel the user is in — no context switch, no new tab. Falls
+ * back to opening the online docs when the article can't be resolved in this product's KB.
+ */
+export function DocsArticleModal() {
+	const [ request, setRequest ] = useState( null );
+	const [ article, setArticle ] = useState( null );
+	const [ loading, setLoading ] = useState( false );
+	const [ notFound, setNotFound ] = useState( false );
+	const [ feedback, setFeedback ] = useState( {} );
+
+	useEffect( () => {
+		const handler = ( event ) => {
+			setRequest( ( event && event.detail ) || {} );
+		};
+
+		docsArticleListeners += 1;
+		window.addEventListener( 'pixelgrade-docs:open-article', handler );
+
+		return () => {
+			docsArticleListeners = Math.max( 0, docsArticleListeners - 1 );
+			window.removeEventListener( 'pixelgrade-docs:open-article', handler );
+		};
+	}, [] );
+
+	useEffect( () => {
+		if ( ! request ) {
+			return undefined;
+		}
+
+		let mounted = true;
+		setLoading( true );
+		setNotFound( false );
+		setArticle( null );
+		setFeedback( {} );
+
+		const openOnlineOrNotice = () => {
+			if ( ! mounted ) {
+				return;
+			}
+			if ( request.url && 'undefined' !== typeof window ) {
+				window.open( request.url, '_blank', 'noopener,noreferrer' );
+				setRequest( null );
+			} else {
+				setNotFound( true );
+			}
+			setLoading( false );
+		};
+
+		const show = ( found ) => {
+			if ( ! mounted ) {
+				return;
+			}
+			setArticle( found );
+			setLoading( false );
+		};
+
+		// Fast path: resolve from the cached KB. On a miss, retry once with a fresh fetch (covers
+		// newly-published articles) before falling back to the online docs — so common opens stay
+		// instant instead of re-downloading the whole tree on every click.
+		fetchArticle( { id: request.id, url: request.url, slug: request.slug } )
+			.then( ( found ) => {
+				if ( found ) {
+					show( found );
+
+					return null;
+				}
+
+				return fetchArticle( { id: request.id, url: request.url, slug: request.slug, skipCache: true } ).then( ( fresh ) => {
+					if ( fresh ) {
+						show( fresh );
+					} else {
+						openOnlineOrNotice();
+					}
+				} );
+			} )
+			.catch( () => {
+				openOnlineOrNotice();
+			} );
+
+		return () => {
+			mounted = false;
+		};
+	}, [ request ] );
+
+	if ( ! request ) {
+		return null;
+	}
+
+	const close = () => {
+		setRequest( null );
+		setArticle( null );
+		setNotFound( false );
+		setFeedback( {} );
+	};
+
+	const onVote = ( current, direction ) => {
+		setFeedback( ( prev ) => ( { ...prev, [ current.id ]: direction } ) );
+		voteArticle( current, direction, { surface: 'docs-modal', articleId: current.id } ).catch( () => {} );
+	};
+
+	let body;
+
+	if ( loading ) {
+		body = createElement(
+			'div',
+			{ className: 'pixelgrade-docs__loading' },
+			createElement( Spinner, null ),
+			createElement( 'span', null, getCopy( 'articleLoading', __( 'Loading article…', 'pixelgrade_assistant' ) ) )
+		);
+	} else if ( notFound ) {
+		body = createElement( DocsFallback, { message: getCopy( 'articleNotFound', __( 'We could not open that article here — try the online docs.', 'pixelgrade_assistant' ) ) } );
+	} else if ( article ) {
+		body = createElement( ArticleView, {
+			article,
+			allArticles: [],
+			context: { surface: 'docs-modal', articleId: article.id },
+			feedback,
+			layout: 'master-detail', // suppress the inline "Back" link; the Modal provides its own close
+			onBack: close,
+			onVote,
+			onOpenArticle: () => {},
+			onEscalate: null,
+		} );
+	} else {
+		body = null;
+	}
+
+	return createElement(
+		Modal,
+		{
+			title: getCopy( 'title', __( 'Pixelgrade Docs', 'pixelgrade_assistant' ) ),
+			onRequestClose: close,
+			className: 'pixelgrade-docs__modal',
+		},
+		createElement( 'div', { className: 'pixelgrade-docs pixelgrade-docs--modal' }, body )
 	);
 }

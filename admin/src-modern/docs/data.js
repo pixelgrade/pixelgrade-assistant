@@ -189,6 +189,41 @@ export function fetchCategories( options = {} ) {
 	} ).then( ( response ) => normalizeCategories( response && response.data ? response.data.categories : [] ) );
 }
 
+export function fetchArticle( options = {} ) {
+	const data = getDocsData();
+	const endpoint = data.endpoints && data.endpoints.article ? data.endpoints.article : {};
+	const path = addQueryArgs( endpoint.path || '/pixassist/v1/kb_article', {
+		pixassist_nonce: getPixassistNonce(),
+		id: options.id || '',
+		url: options.url || '',
+		slug: options.slug || '',
+		skip_cache: options.skipCache ? '1' : '',
+	} );
+
+	return apiFetch( {
+		path,
+		method: endpoint.method || 'GET',
+	} ).then( ( response ) => {
+		const article = response && response.data ? response.data.article : null;
+
+		if ( ! article ) {
+			return null;
+		}
+
+		const breadcrumbs = Array.isArray( article.breadcrumbs ) ? article.breadcrumbs.map( decodeHtml ) : [];
+
+		return {
+			id: String( article.id || '' ),
+			title: decodeHtml( article.title || '' ),
+			content: article.content || '',
+			url: article.url || '',
+			// ArticleView reads `categoryPath` for breadcrumbs; alias the server's `breadcrumbs`.
+			categoryPath: breadcrumbs,
+			breadcrumbs,
+		};
+	} );
+}
+
 export function voteArticle( article, direction, context ) {
 	const data = getDocsData();
 	const endpoint = data.endpoints && data.endpoints.vote ? data.endpoints.vote : {};

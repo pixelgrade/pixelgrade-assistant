@@ -68,6 +68,14 @@ class PixelgradeAssistant_AdminRestInterface {
 			'show_in_index'       => false, // We don't need others to know about this (API discovery)
 		) );
 
+		// Pixelgrade Docs: serve a single article (by id or slug) for the in-editor article pop-up.
+		register_rest_route( $namespace, '/kb_article', array(
+			'methods'             => WP_REST_Server::READABLE,
+			'callback'            => array( $this, 'get_kb_article' ),
+			'permission_callback' => array( $this, 'permission_docs_callback' ),
+			'show_in_index'       => false, // We don't need others to know about this (API discovery)
+		) );
+
 		register_rest_route( $namespace, '/kb_vote', array(
 			'methods'             => WP_REST_Server::CREATABLE,
 			'callback'            => array( $this, 'record_kb_vote' ),
@@ -147,6 +155,17 @@ class PixelgradeAssistant_AdminRestInterface {
 				'categories' => PixelgradeAssistant_Help::get_kb_categories( $skip_cache ),
 			),
 		) );
+	}
+
+	/**
+	 * Return a single documentation article (by id or slug/url) for the in-editor pop-up.
+	 *
+	 * @param WP_REST_Request $request
+	 *
+	 * @return WP_REST_Response
+	 */
+	public function get_kb_article( $request ) {
+		return rest_ensure_response( pixassist_get_docs_article( $request ) );
 	}
 
 	/**

@@ -130,6 +130,7 @@ if ( ! function_exists( 'pixassist_get_docs_data' ) ) {
 			),
 			'endpoints' => array(
 				'categories' => pixassist_docs_rest_endpoint( 'kb_categories', 'GET' ),
+				'article'    => pixassist_docs_rest_endpoint( 'kb_article', 'GET' ),
 				'vote'       => pixassist_docs_rest_endpoint( 'kb_vote', 'POST' ),
 				'ticket'     => pixassist_docs_rest_endpoint( 'docs_ticket', 'POST' ),
 			),
@@ -179,6 +180,8 @@ if ( ! function_exists( 'pixassist_get_docs_data' ) ) {
 				'feedbackNoPrompt'       => esc_html__( 'Sorry about that — what were you looking for?', '__plugin_txtd' ),
 				'feedbackNoPlaceholder'  => esc_html__( 'Tell us what you needed (optional). We will help.', '__plugin_txtd' ),
 				'feedbackSendToSupport'  => esc_html__( 'Send to support', '__plugin_txtd' ),
+				'articleLoading'         => esc_html__( 'Loading article…', '__plugin_txtd' ),
+				'articleNotFound'        => esc_html__( 'We could not open that article here — try the online docs.', '__plugin_txtd' ),
 			),
 		);
 	}
@@ -441,6 +444,137 @@ if ( ! function_exists( 'pixassist_record_docs_vote' ) ) {
 		}
 
 		return pixassist_docs_post_envelope( $endpoint, $body );
+	}
+}
+
+if ( ! function_exists( 'pixassist_docs_url_slug' ) ) {
+	/**
+	 * Extract the trailing article slug from a docs URL (or a bare slug), ignoring query/fragment.
+	 *
+	 * e.g. https://pixelgrade.com/docs/design-and-style/color-system/#manage -> "color-system".
+	 *
+	 * @param string $url Docs URL or slug.
+	 *
+	 * @return string
+	 */
+	function pixassist_docs_url_slug( $url ) {
+		$url = preg_replace( '/[?#].*$/', '', (string) $url );
+		$path = function_exists( 'wp_parse_url' ) ? wp_parse_url( $url, PHP_URL_PATH ) : parse_url( $url, PHP_URL_PATH );
+		if ( empty( $path ) ) {
+			$path = $url;
+		}
+
+		$segments = array_values( array_filter( explode( '/', (string) $path ) ) );
+
+		return empty( $segments ) ? '' : sanitize_title( (string) end( $segments ) );
+	}
+}
+
+if ( ! function_exists( 'pixassist_docs_find_article' ) ) {
+	/**
+	 * Find a single KB article by id or slug within the active product's documentation tree.
+	 *
+	 * Resolves against the same public categories payload Assistant already fetches
+	 * (`PixelgradeAssistant_Help::get_kb_categories`), so no extra remote endpoint is needed; pass
+	 * $skip_cache to re-fetch fresh. Returns a presentational article (no secrets) or null.
+	 *
+	 * @param array $args       { @type int $id Article id. @type string $slug Article slug. }
+	 * @param bool  $skip_cache Whether to bypass the categories cache.
+	 *
+	 * @return array|null { id, title, content, url, breadcrumbs[] } or null when not found.
+	 */
+	function pixassist_docs_find_article( $args, $skip_cache = false ) {
+		if ( ! class_exists( 'PixelgradeAssistant_Help' ) || ! method_exists( 'PixelgradeAssistant_Help', 'get_kb_categories' ) ) {
+			return null;
+		}
+
+		$want_id   = isset( $args['id'] ) ? absint( $args['id'] ) : 0;
+		$want_slug = isset( $args['slug'] ) ? sanitize_title( (string) $args['slug'] ) : '';
+
+		if ( 0 === $want_id && '' === $want_slug ) {
+			return null;
+		}
+
+		$found = null;
+
+		$walk = function ( $nodes, $trail ) use ( &$walk, &$found, $want_id, $want_slug ) {
+			if ( null !== $found || empty( $nodes ) ) {
+				return;
+			}
+
+			foreach ( (array) $nodes as $node ) {
+				$node   = (array) $node;
+				$name   = isset( $node['name'] ) ? (string) $node['name'] : ( isset( $node['cat_name'] ) ? (string) $node['cat_name'] : '' );
+				$crumbs = '' !== $name ? array_merge( $trail, array( $name ) ) : $trail;
+
+				$articles = isset( $node['articles'] ) ? (array) $node['articles'] : array();
+				foreach ( $articles as $article ) {
+					$article = (array) $article;
+					$id      = isset( $article['ID'] ) ? absint( $article['ID'] ) : ( isset( $article['id'] ) ? absint( $article['id'] ) : 0 );
+					$slug    = ( isset( $article['post_name'] ) && '' !== $article['post_name'] )
+						? sanitize_title( (string) $article['post_name'] )
+						: pixassist_docs_url_slug( isset( $article['external_url'] ) ? $article['external_url'] : ( isset( $article['guid'] ) ? $article['guid'] : '' ) );
+
+					if ( ( $want_id && $id === $want_id ) || ( '' !== $want_slug && $slug === $want_slug ) ) {
+						$url = '';
+						if ( ! empty( $article['external_url'] ) ) {
+							$url = esc_url_raw( (string) $article['external_url'] );
+						} elseif ( ! empty( $article['guid'] ) ) {
+							$url = esc_url_raw( (string) $article['guid'] );
+						}
+
+						$found = array(
+							'id'          => (string) $id,
+							'title'       => isset( $article['post_title'] ) ? (string) $article['post_title'] : '',
+							'content'     => isset( $article['post_content'] ) ? (string) $article['post_content'] : '',
+							'url'         => $url,
+							'breadcrumbs' => array_values( $crumbs ),
+						);
+
+						return;
+					}
+				}
+
+				if ( ! empty( $node['children'] ) ) {
+					$walk( $node['children'], $crumbs );
+				}
+			}
+		};
+
+		$walk( PixelgradeAssistant_Help::get_kb_categories( (bool) $skip_cache ), array() );
+
+		return $found;
+	}
+}
+
+if ( ! function_exists( 'pixassist_get_docs_article' ) ) {
+	/**
+	 * REST: return a single presentational KB article by id or slug/url for the in-editor pop-up.
+	 *
+	 * @param mixed $request Request data.
+	 *
+	 * @return array Response envelope with `data.article` (or null when not found).
+	 */
+	function pixassist_get_docs_article( $request ) {
+		if ( ! pixassist_docs_can_access() ) {
+			return pixassist_docs_response( 'denied', esc_html__( 'You are not allowed to read the documentation.', '__plugin_txtd' ), array( 'article' => null ) );
+		}
+
+		$id   = absint( pixassist_docs_request_value( $request, 'id' ) );
+		$slug = pixassist_docs_sanitize_scalar( pixassist_docs_request_value( $request, 'slug' ) );
+		if ( '' === $slug ) {
+			$slug = pixassist_docs_url_slug( pixassist_docs_request_value( $request, 'url' ) );
+		}
+
+		$skip_cache = ! empty( pixassist_docs_request_value( $request, 'skip_cache' ) );
+
+		$article = pixassist_docs_find_article( array( 'id' => $id, 'slug' => $slug ), $skip_cache );
+
+		if ( empty( $article ) ) {
+			return pixassist_docs_response( 'not_found', esc_html__( 'That article is not available here.', '__plugin_txtd' ), array( 'article' => null ) );
+		}
+
+		return pixassist_docs_response( 'success', '', array( 'article' => $article ) );
 	}
 }
 

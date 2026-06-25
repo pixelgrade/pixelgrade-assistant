@@ -63,6 +63,13 @@ function sanitize_email( $value ) {
 	return trim( (string) $value );
 }
 
+function sanitize_title( $value ) {
+	$value = strtolower( trim( (string) $value ) );
+	$value = preg_replace( '/[^a-z0-9_\-]+/', '-', $value );
+
+	return trim( $value, '-' );
+}
+
 function esc_url_raw( $value ) {
 	return (string) $value;
 }
@@ -145,6 +152,22 @@ function is_wp_error( $value ) {
 	return false;
 }
 
+function get_transient( $key ) {
+	return false;
+}
+
+function set_transient( $key, $value, $ttl = 0 ) {
+	return true;
+}
+
+function add_query_arg( $args, $url ) {
+	return $url . '?' . http_build_query( (array) $args );
+}
+
+function wp_remote_get( $url, $args = array() ) {
+	return array( 'body' => isset( $GLOBALS['paf_kb_body'] ) ? $GLOBALS['paf_kb_body'] : '' );
+}
+
 function wp_remote_request( $url, $args = array() ) {
 	$GLOBALS['paf_http_requests'][] = array(
 		'url'  => $url,
@@ -223,6 +246,10 @@ class PixelgradeAssistant_Admin {
 		return false;
 	}
 
+	public static function is_unregistered_product_hash( $hash ) {
+		return false;
+	}
+
 	public static function get_theme_activation_user() {
 		return (object) array(
 			'ID'           => 11,
@@ -269,6 +296,7 @@ assert_same( 'pixelgrade.docs.ticketRequest', $data['slotFill']['ticketRequestFi
 assert_same( '/pixassist/v1/kb_categories', $data['endpoints']['categories']['path'], 'Docs bundle must know the categories REST path.' );
 assert_same( '/pixassist/v1/kb_vote', $data['endpoints']['vote']['path'], 'Docs bundle must know the vote REST path.' );
 assert_same( '/pixassist/v1/docs_ticket', $data['endpoints']['ticket']['path'], 'Docs bundle must know the ticket REST path.' );
+assert_same( '/pixassist/v1/kb_article', $data['endpoints']['article']['path'], 'Docs bundle must know the single-article REST path.' );
 assert_same( true, $data['account']['is_connected'], 'Docs payload may expose identity connection state.' );
 assert_true( ! array_key_exists( 'oauth_token', $data['account'] ), 'Docs payload must never expose oauth_token.' );
 assert_true( ! array_key_exists( 'oauth_token_secret', $data['account'] ), 'Docs payload must never expose oauth_token_secret.' );
@@ -403,5 +431,76 @@ assert_same( array(), $captured_ticket, 'Too-long ticket subjects must not be si
 $GLOBALS['paf_denied_caps']['edit_theme_options'] = true;
 $denied = pixassist_submit_docs_ticket( array( 'subject' => 'Need help', 'details' => 'Details.' ) );
 assert_same( 'denied', $denied['code'], 'Users without the docs capability must be denied.' );
+
+// Article slug resolution for the in-editor pop-up: trailing segment, theme-agnostic, fragment-safe.
+assert_same( 'color-system', pixassist_docs_url_slug( 'https://pixelgrade.com/docs/design-and-style/color-system/' ), 'url_slug must take the trailing path segment.' );
+assert_same( 'color-system', pixassist_docs_url_slug( 'https://pixelgrade.com/docs/rosa-lt/design-and-style/color-system/#6-manage' ), 'url_slug must ignore the theme slug and fragment.' );
+assert_same( 'changing-fonts', pixassist_docs_url_slug( '/docs/design-and-style/changing-fonts/?ref=sm' ), 'url_slug must ignore the query string.' );
+assert_same( '', pixassist_docs_url_slug( '' ), 'url_slug of an empty value is empty.' );
+
+/*
+ * Single-article resolver + REST handler for the in-editor pop-up. A fake KB tree (served via the
+ * stubbed wp_remote_get) exercises id/slug matching, breadcrumb assembly, the secret-free payload,
+ * and the not_found / denied envelopes — the same convention the vote/ticket handlers are held to.
+ */
+paf_reset_runtime();
+$GLOBALS['paf_kb_body'] = wp_json_encode( array(
+	'code' => 'success',
+	'data' => array(
+		'htkb_categories' => array(
+			'29' => array(
+				'term_id'  => 29,
+				'name'     => 'Design and Style',
+				'articles' => array(
+					array( 'ID' => 501, 'post_name' => 'color-system', 'post_title' => 'Setting up the Color System', 'post_content' => '<p>Body</p>', 'external_url' => 'https://pixelgrade.com/docs/rosa-lt/design-and-style/color-system/' ),
+				),
+				'children' => array(
+					'30' => array(
+						'term_id'  => 30,
+						'name'     => 'Fonts',
+						// No post_name -> slug must be derived from external_url.
+						'articles' => array(
+							array( 'ID' => 502, 'post_title' => 'Changing Fonts', 'post_content' => '<p>Fonts</p>', 'external_url' => 'https://pixelgrade.com/docs/rosa-lt/design-and-style/changing-fonts/' ),
+						),
+					),
+				),
+			),
+		),
+	),
+) );
+
+$by_id = pixassist_docs_find_article( array( 'id' => 502 ) );
+assert_true( is_array( $by_id ), 'find_article resolves by id.' );
+assert_same( '502', $by_id['id'], 'find_article by id returns the matching article.' );
+assert_same( array( 'Design and Style', 'Fonts' ), $by_id['breadcrumbs'], 'find_article assembles the nested breadcrumb path.' );
+
+$by_slug = pixassist_docs_find_article( array( 'slug' => 'color-system' ) );
+assert_same( '501', $by_slug['id'], 'find_article matches by post_name slug.' );
+assert_same( 'Setting up the Color System', $by_slug['title'], 'find_article returns the article title.' );
+
+$by_url_slug = pixassist_docs_find_article( array( 'slug' => 'changing-fonts' ) );
+assert_same( '502', $by_url_slug['id'], 'find_article matches the slug derived from external_url when post_name is absent.' );
+
+$shape = array_keys( $by_slug );
+sort( $shape );
+assert_same( array( 'breadcrumbs', 'content', 'id', 'title', 'url' ), $shape, 'find_article returns exactly id/title/content/url/breadcrumbs (no extra/secret keys).' );
+
+assert_same( null, pixassist_docs_find_article( array( 'slug' => 'does-not-exist' ) ), 'find_article returns null on a miss.' );
+
+$ok = pixassist_get_docs_article( array( 'slug' => 'color-system' ) );
+assert_same( 'success', $ok['code'], 'get_docs_article returns success for a known slug.' );
+assert_same( '501', $ok['data']['article']['id'], 'get_docs_article returns the resolved article.' );
+
+$ok_url = pixassist_get_docs_article( array( 'url' => 'https://pixelgrade.com/docs/design-and-style/color-system/' ) );
+assert_same( 'success', $ok_url['code'], 'get_docs_article resolves a docs URL to its article via the trailing slug.' );
+
+$nf = pixassist_get_docs_article( array( 'slug' => 'nope' ) );
+assert_same( 'not_found', $nf['code'], 'get_docs_article returns not_found for a miss.' );
+assert_same( null, $nf['data']['article'], 'get_docs_article not_found carries a null article.' );
+
+$GLOBALS['paf_denied_caps']['edit_theme_options'] = true;
+$denied_article = pixassist_get_docs_article( array( 'slug' => 'color-system' ) );
+assert_same( 'denied', $denied_article['code'], 'get_docs_article denies users without the docs capability.' );
+$GLOBALS['paf_denied_caps'] = array();
 
 echo "Admin docs surface OK\n";

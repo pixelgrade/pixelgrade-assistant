@@ -11,7 +11,7 @@ import { __ } from '@wordpress/i18n';
 import { registerPlugin } from '@wordpress/plugins';
 import { PluginSidebar, PluginSidebarMoreMenuItem } from '@wordpress/editor';
 import { getDocsData } from './data';
-import { KbPanel } from './KbPanel';
+import { DocsArticleModal, KbPanel, openDocsArticle } from './KbPanel';
 
 const SLOT_FILL = createSlotFill( 'pixelgrade-docs' );
 
@@ -20,6 +20,9 @@ if ( 'undefined' !== typeof window ) {
 	window.pixelgradeAdminHub.docs = {
 		EscalationSlot: SLOT_FILL.Slot,
 		EscalationFill: SLOT_FILL.Fill,
+		// Curated host surface: companions (Style Manager, Nova Blocks, …) open a contextual article
+		// pop-up in-place via window.pixelgradeAdminHub.docs.openArticle({ url | id | slug }).
+		openArticle: openDocsArticle,
 	};
 }
 
@@ -107,7 +110,10 @@ function DocsPlugin() {
 				icon: 'book',
 			},
 			createElement( KbPanel, { context, layout: 'compact', EscalationSlot: SLOT_FILL.Slot } )
-		)
+		),
+		// Contextual article pop-up — opened by companions via openArticle(); overlays the editor
+		// without taking over the (single) plugin sidebar slot.
+		createElement( DocsArticleModal, null )
 	);
 }
 
