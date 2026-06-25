@@ -9,11 +9,10 @@
  * is never gated: it surfaces inline article suggestions as the user types (soft deflection), and a
  * "No, this didn't help" vote turns into a pre-filled support request.
  */
-import { createElement, Fragment, useEffect, useMemo, useRef, useState } from '@wordpress/element';
+import { createElement, createPortal, Fragment, useCallback, useEffect, useMemo, useRef, useState } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
 import {
 	Button,
-	Modal,
 	Notice,
 	SelectControl,
 	Spinner,
@@ -339,7 +338,7 @@ function ArticleFeedback( { article, vote, context, onVote, onEscalate } ) {
 	);
 }
 
-export function ArticleView( { article, allArticles, context, feedback, layout, onBack, onVote, onOpenArticle, onEscalate } ) {
+export function ArticleView( { article, allArticles, context, feedback, layout, onBack, onVote, onOpenArticle, onEscalate, showTitle = true, showReadOnline = true } ) {
 	return createElement(
 		'div',
 		{ className: 'pixelgrade-docs__article' },
@@ -347,12 +346,14 @@ export function ArticleView( { article, allArticles, context, feedback, layout, 
 			? createElement( Button, { variant: 'link', onClick: onBack }, getCopy( 'back', __( 'Back', 'pixelgrade_assistant' ) ) )
 			: null,
 		createElement( Breadcrumbs, { path: article.categoryPath } ),
-		createElement( 'h2', { className: 'pixelgrade-docs__article-title' }, article.title ),
+		false === showTitle
+			? null
+			: createElement( 'h2', { className: 'pixelgrade-docs__article-title' }, article.title ),
 		createElement( 'div', {
 			className: 'pixelgrade-docs__article-content entry-content',
 			dangerouslySetInnerHTML: { __html: article.content },
 		} ),
-		article.url
+		false !== showReadOnline && article.url
 			? createElement(
 					'p',
 					{ className: 'pixelgrade-docs__read-online' },
@@ -740,9 +741,9 @@ export function KbPanel( { context, layout, EscalationSlot, showEscalation = tru
 /**
  * Fire-and-forget opener for the contextual article pop-up. Any Pixelgrade surface (Style Manager,
  * Nova Blocks, …) calls window.pixelgradeAdminHub.docs.openArticle({ url | id | slug }); the
- * DocsArticleModal mounted in the editor catches it and shows the article over the current UI.
+ * DocsArticleWindow mounted in the editor catches it and shows the article in a modeless floating window.
  */
-// Number of mounted DocsArticleModal listeners. openDocsArticle() only claims a click (returns
+// Number of mounted DocsArticleWindow listeners. openDocsArticle() only claims a click (returns
 // truthy) when one is mounted, so callers (e.g. Style Manager) keep their external-link fallback
 // if the modal isn't present — the return value attests delivery, not just dispatch.
 let docsArticleListeners = 0;
@@ -757,21 +758,103 @@ export function openDocsArticle( payload ) {
 	return true;
 }
 
+const DOCS_WINDOW_STORAGE_KEY = 'pixassistDocsWindow';
+const DOCS_WINDOW_WIDTH = 360;
+const DOCS_WINDOW_MARGIN = 16;
+const DOCS_WINDOW_NARROW = 783; // below this, render as a full-width bottom sheet (no drag).
+
+function loadDocsWindowState() {
+	try {
+		const parsed = JSON.parse( window.localStorage.getItem( DOCS_WINDOW_STORAGE_KEY ) );
+
+		return parsed && 'object' === typeof parsed ? parsed : {};
+	} catch ( error ) {
+		return {};
+	}
+}
+
+function saveDocsWindowState( state ) {
+	try {
+		window.localStorage.setItem( DOCS_WINDOW_STORAGE_KEY, JSON.stringify( state ) );
+	} catch ( error ) {}
+}
+
+function clampDocsWindowPosition( left, top ) {
+	if ( 'undefined' === typeof window ) {
+		return { left, top };
+	}
+
+	const maxLeft = Math.max( DOCS_WINDOW_MARGIN, window.innerWidth - DOCS_WINDOW_WIDTH - DOCS_WINDOW_MARGIN );
+	const maxTop = Math.max( DOCS_WINDOW_MARGIN, window.innerHeight - 120 );
+
+	return {
+		left: Math.min( Math.max( DOCS_WINDOW_MARGIN, Math.round( left ) ), maxLeft ),
+		top: Math.min( Math.max( DOCS_WINDOW_MARGIN, Math.round( top ) ), maxTop ),
+	};
+}
+
+function defaultDocsWindowPosition() {
+	if ( 'undefined' === typeof window ) {
+		return { left: DOCS_WINDOW_MARGIN, top: 80 };
+	}
+
+	// Out of the way by default: lower-left of the viewport.
+	return clampDocsWindowPosition( DOCS_WINDOW_MARGIN, window.innerHeight - 560 );
+}
+
 /**
- * In-editor article pop-up. Listens for openDocsArticle(), fetches a single (fresh) article, and
- * renders it in a Modal over whatever panel the user is in — no context switch, no new tab. Falls
- * back to opening the online docs when the article can't be resolved in this product's KB.
+ * In-editor article pop-up — a MODELESS, draggable, minimizable floating window (not a blocking
+ * modal). Listens for openDocsArticle(), fetches a single (fresh) article, and shows it over the
+ * editor while the editor stays fully interactive, so the user can read a doc and act on it at the
+ * same time. Drag it out of the way, minimize it to a corner chip, and it reopens where it was left.
+ * Falls back to opening the online docs when the article can't be resolved in this product's KB.
  */
-export function DocsArticleModal() {
+export function DocsArticleWindow() {
 	const [ request, setRequest ] = useState( null );
 	const [ article, setArticle ] = useState( null );
 	const [ loading, setLoading ] = useState( false );
 	const [ notFound, setNotFound ] = useState( false );
 	const [ feedback, setFeedback ] = useState( {} );
 
+	const [ position, setPosition ] = useState( () => {
+		const saved = loadDocsWindowState();
+
+		return null != saved.left && null != saved.top ? clampDocsWindowPosition( saved.left, saved.top ) : defaultDocsWindowPosition();
+	} );
+	const [ minimized, setMinimized ] = useState( () => !! loadDocsWindowState().minimized );
+	const [ dragging, setDragging ] = useState( false );
+	const [ narrow, setNarrow ] = useState( () => 'undefined' !== typeof window && window.innerWidth < DOCS_WINDOW_NARROW );
+
+	const panelRef = useRef( null );
+	const dragRef = useRef( null );
+	const previousFocusRef = useRef( null );
+
+	// Return focus to whatever was focused when the window opened (a11y: a surface that programmatically
+	// takes focus must hand it back on dismiss). Best-effort; guard against the trigger leaving the DOM.
+	const restoreFocus = useCallback( () => {
+		const target = previousFocusRef.current;
+		if ( target && target.focus && 'undefined' !== typeof document && document.contains( target ) ) {
+			try {
+				target.focus();
+			} catch ( error ) {}
+		}
+	}, [] );
+
+	const close = useCallback( () => {
+		setRequest( null );
+		setArticle( null );
+		setNotFound( false );
+		setFeedback( {} );
+		restoreFocus();
+	}, [ restoreFocus ] );
+
+	// Register the open() listener; openDocsArticle() returns truthy only while one is mounted.
 	useEffect( () => {
 		const handler = ( event ) => {
+			// Remember the trigger so focus can return there on close/minimize.
+			previousFocusRef.current = 'undefined' !== typeof document ? document.activeElement : null;
 			setRequest( ( event && event.detail ) || {} );
+			setMinimized( false ); // a freshly-requested article always shows.
 		};
 
 		docsArticleListeners += 1;
@@ -783,6 +866,7 @@ export function DocsArticleModal() {
 		};
 	}, [] );
 
+	// Fetch the requested article (cache-first, fresh retry on a miss, online fallback otherwise).
 	useEffect( () => {
 		if ( ! request ) {
 			return undefined;
@@ -815,9 +899,6 @@ export function DocsArticleModal() {
 			setLoading( false );
 		};
 
-		// Fast path: resolve from the cached KB. On a miss, retry once with a fresh fetch (covers
-		// newly-published articles) before falling back to the online docs — so common opens stay
-		// instant instead of re-downloading the whole tree on every click.
 		fetchArticle( { id: request.id, url: request.url, slug: request.slug } )
 			.then( ( found ) => {
 				if ( found ) {
@@ -843,21 +924,132 @@ export function DocsArticleModal() {
 		};
 	}, [ request ] );
 
-	if ( ! request ) {
+	// Track viewport width (drag is desktop-only; narrow viewports get a bottom sheet) + re-clamp.
+	useEffect( () => {
+		if ( 'undefined' === typeof window ) {
+			return undefined;
+		}
+
+		const onResize = () => {
+			setNarrow( window.innerWidth < DOCS_WINDOW_NARROW );
+			setPosition( ( prev ) => clampDocsWindowPosition( prev.left, prev.top ) );
+		};
+
+		window.addEventListener( 'resize', onResize );
+
+		return () => window.removeEventListener( 'resize', onResize );
+	}, [] );
+
+	// Persist position + minimized so the window reopens where the user left it.
+	useEffect( () => {
+		saveDocsWindowState( { left: position.left, top: position.top, minimized } );
+	}, [ position.left, position.top, minimized ] );
+
+	// Modeless focus: move focus into the panel on open (NOT trapped — the user can tab back out).
+	useEffect( () => {
+		if ( request && ! minimized && article && panelRef.current && panelRef.current.focus ) {
+			panelRef.current.focus();
+		}
+	}, [ request, article, minimized ] );
+
+	// ESC closes (modeless, so we listen on the window rather than relying on a modal).
+	useEffect( () => {
+		if ( ! request ) {
+			return undefined;
+		}
+
+		const onKey = ( event ) => {
+			// Modeless: only self-close on an ESC that's "ours" — not one the editor already handled,
+			// and only when focus is inside the (non-minimized) window. Don't hijack the editor's
+			// global ESC (dismiss popover / exit block / clear selection).
+			if ( 'Escape' === event.key && ! event.defaultPrevented && ! minimized && panelRef.current && panelRef.current.contains( document.activeElement ) ) {
+				close();
+			}
+		};
+
+		window.addEventListener( 'keydown', onKey );
+
+		return () => window.removeEventListener( 'keydown', onKey );
+	}, [ request, minimized, close ] );
+
+	const onHeaderPointerDown = useCallback(
+		( event ) => {
+			// No drag on the bottom sheet, on non-primary buttons, or from the action buttons.
+			if ( narrow || ( event.button && 0 !== event.button ) || ( event.target && event.target.closest && event.target.closest( 'button, a' ) ) ) {
+				return;
+			}
+
+			const start = panelRef.current ? panelRef.current.getBoundingClientRect() : position;
+			dragRef.current = { pointerX: event.clientX, pointerY: event.clientY, left: start.left, top: start.top };
+			setDragging( true );
+			event.preventDefault();
+		},
+		[ narrow, position ]
+	);
+
+	// While dragging, a transparent full-window shield keeps pointer events flowing over the Site
+	// Editor canvas iframe (which would otherwise swallow them and stall the drag).
+	useEffect( () => {
+		if ( ! dragging ) {
+			return undefined;
+		}
+
+		const onMove = ( event ) => {
+			const drag = dragRef.current;
+			if ( ! drag ) {
+				return;
+			}
+			setPosition( clampDocsWindowPosition( drag.left + ( event.clientX - drag.pointerX ), drag.top + ( event.clientY - drag.pointerY ) ) );
+		};
+
+		const onUp = () => {
+			setDragging( false );
+			dragRef.current = null;
+		};
+
+		window.addEventListener( 'pointermove', onMove );
+		window.addEventListener( 'pointerup', onUp );
+
+		return () => {
+			window.removeEventListener( 'pointermove', onMove );
+			window.removeEventListener( 'pointerup', onUp );
+		};
+	}, [ dragging ] );
+
+	if ( ! request || 'undefined' === typeof document ) {
 		return null;
 	}
 
-	const close = () => {
-		setRequest( null );
-		setArticle( null );
-		setNotFound( false );
-		setFeedback( {} );
-	};
-
 	const onVote = ( current, direction ) => {
 		setFeedback( ( prev ) => ( { ...prev, [ current.id ]: direction } ) );
-		voteArticle( current, direction, { surface: 'docs-modal', articleId: current.id } ).catch( () => {} );
+		voteArticle( current, direction, { surface: 'docs-window', articleId: current.id } ).catch( () => {} );
 	};
+
+	const title = article
+		? article.title
+		: ( loading ? getCopy( 'articleLoading', __( 'Loading article…', 'pixelgrade_assistant' ) ) : getCopy( 'title', __( 'Pixelgrade Docs', 'pixelgrade_assistant' ) ) );
+
+	// Minimized: a small chip docked bottom-left; click to restore, with its own close.
+	if ( minimized ) {
+		return createPortal(
+			createElement(
+				'div',
+				{ className: 'pixelgrade-docs-window__chip' },
+				createElement(
+					Button,
+					{ className: 'pixelgrade-docs-window__chip-open', onClick: () => setMinimized( false ) },
+					createElement( 'span', { className: 'dashicons dashicons-book', 'aria-hidden': 'true' } ),
+					createElement( 'span', { className: 'pixelgrade-docs-window__chip-label' }, title )
+				),
+				createElement(
+					Button,
+					{ className: 'pixelgrade-docs-window__chip-close', 'aria-label': getCopy( 'close', __( 'Close', 'pixelgrade_assistant' ) ), onClick: close },
+					createElement( 'span', { className: 'dashicons dashicons-no-alt', 'aria-hidden': 'true' } )
+				)
+			),
+			document.body
+		);
+	}
 
 	let body;
 
@@ -874,25 +1066,85 @@ export function DocsArticleModal() {
 		body = createElement( ArticleView, {
 			article,
 			allArticles: [],
-			context: { surface: 'docs-modal', articleId: article.id },
+			context: { surface: 'docs-window', articleId: article.id },
 			feedback,
-			layout: 'master-detail', // suppress the inline "Back" link; the Modal provides its own close
+			layout: 'master-detail', // suppress the inline "Back" link; the window header has its own close
 			onBack: close,
 			onVote,
 			onOpenArticle: () => {},
 			onEscalate: null,
+			showTitle: false, // the article title lives in the window header
+			showReadOnline: false, // replaced by the "Open in new tab" header action
 		} );
 	} else {
 		body = null;
 	}
 
-	return createElement(
-		Modal,
-		{
-			title: getCopy( 'title', __( 'Pixelgrade Docs', 'pixelgrade_assistant' ) ),
-			onRequestClose: close,
-			className: 'pixelgrade-docs__modal',
-		},
-		createElement( 'div', { className: 'pixelgrade-docs pixelgrade-docs--modal' }, body )
+	const openExternal = article && article.url
+		? createElement(
+				Button,
+				{
+					className: 'pixelgrade-docs-window__btn pixelgrade-docs__open-external',
+					href: article.url,
+					target: '_blank',
+					rel: 'noreferrer noopener',
+					'aria-label': getCopy( 'openInNewTab', __( 'Open in new tab', 'pixelgrade_assistant' ) ),
+					title: getCopy( 'openInNewTab', __( 'Open in new tab', 'pixelgrade_assistant' ) ),
+				},
+				createElement( 'span', { className: 'dashicons dashicons-external', 'aria-hidden': 'true' } )
+		  )
+		: null;
+
+	const windowStyle = narrow
+		? undefined
+		: {
+				left: position.left + 'px',
+				top: position.top + 'px',
+				width: DOCS_WINDOW_WIDTH + 'px',
+				// Cap the height to the space below `top` so a tall article's body always fits + scrolls
+				// in view, even when the window is parked low.
+				maxHeight: 'calc(100vh - ' + ( position.top + DOCS_WINDOW_MARGIN ) + 'px)',
+		  };
+
+	return createPortal(
+		createElement(
+			Fragment,
+			null,
+			dragging ? createElement( 'div', { className: 'pixelgrade-docs-window__shield' } ) : null,
+			createElement(
+				'section',
+				{
+					className: 'pixelgrade-docs-window' + ( narrow ? ' is-bottom-sheet' : '' ) + ( dragging ? ' is-dragging' : '' ),
+					role: 'dialog',
+					'aria-modal': 'false',
+					'aria-label': title,
+					tabIndex: -1,
+					ref: panelRef,
+					style: windowStyle,
+				},
+				createElement(
+					'header',
+					{ className: 'pixelgrade-docs-window__header', onPointerDown: onHeaderPointerDown },
+					createElement( 'span', { className: 'pixelgrade-docs-window__title' }, title ),
+					createElement(
+						'div',
+						{ className: 'pixelgrade-docs-window__actions' },
+						openExternal,
+						narrow ? null : createElement(
+							Button,
+							{ className: 'pixelgrade-docs-window__btn', 'aria-label': getCopy( 'minimize', __( 'Minimize', 'pixelgrade_assistant' ) ), onClick: () => { setMinimized( true ); restoreFocus(); } },
+							createElement( 'span', { className: 'dashicons dashicons-minus', 'aria-hidden': 'true' } )
+						),
+						createElement(
+							Button,
+							{ className: 'pixelgrade-docs-window__btn', 'aria-label': getCopy( 'close', __( 'Close', 'pixelgrade_assistant' ) ), onClick: close },
+							createElement( 'span', { className: 'dashicons dashicons-no-alt', 'aria-hidden': 'true' } )
+						)
+					)
+				),
+				createElement( 'div', { className: 'pixelgrade-docs pixelgrade-docs--window' }, body )
+			)
+		),
+		document.body
 	);
 }

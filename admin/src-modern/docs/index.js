@@ -11,7 +11,7 @@ import { __ } from '@wordpress/i18n';
 import { registerPlugin } from '@wordpress/plugins';
 import { PluginSidebar, PluginSidebarMoreMenuItem } from '@wordpress/editor';
 import { getDocsData } from './data';
-import { DocsArticleModal, KbPanel, openDocsArticle } from './KbPanel';
+import { DocsArticleWindow, KbPanel, openDocsArticle } from './KbPanel';
 
 const SLOT_FILL = createSlotFill( 'pixelgrade-docs' );
 
@@ -111,9 +111,9 @@ function DocsPlugin() {
 			},
 			createElement( KbPanel, { context, layout: 'compact', EscalationSlot: SLOT_FILL.Slot } )
 		),
-		// Contextual article pop-up — opened by companions via openArticle(); overlays the editor
-		// without taking over the (single) plugin sidebar slot.
-		createElement( DocsArticleModal, null )
+		// Contextual article pop-up — opened by companions via openArticle(). A modeless floating
+		// window (not a blocking modal): the editor stays interactive while the user reads.
+		createElement( DocsArticleWindow, null )
 	);
 }
 

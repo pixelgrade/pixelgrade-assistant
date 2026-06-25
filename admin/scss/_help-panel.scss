@@ -47,10 +47,96 @@
     margin: 0 0 16px;
   }
 
-  &__article-content {
-    img, table, iframe { max-width: 100%; height: auto; }
+  // Article prose — a self-contained typography layer modelled on pixelgrade.com's /docs/ styling
+  // (type scale, vertical rhythm, element treatment), fonts excluded so it inherits the admin font.
+  // Applies in all three surfaces (modal, master-detail reading pane, compact sidebar). The
+  // `.entry-content` qualifier (the content div carries both classes) lifts specificity to 0,2,x and
+  // sizes are explicit per element, so they beat wp-admin/editor element rules (e.g. core `p {13px}`).
+  &__article-content.entry-content {
+    color: #2a2136;
+    font-size: 16px;
+    line-height: 1.65;
 
-    h1, h2, h3 { margin-top: 1.4em; }
+    > *:first-child { margin-top: 0; }
+    > *:last-child { margin-bottom: 0; }
+
+    p { font-size: 16px; line-height: 1.65; margin: 0 0 1.1em; }
+
+    h1, h2, h3, h4, h5, h6 {
+      color: #2a2136;
+      font-weight: 700;
+
+      &:first-child { margin-top: 0; }
+    }
+    // !important defeats the theme token rule `[class][class] .has-*-font-size { var(--current-font-size) }`
+    // (specificity 0,3,0) that the KB articles' Gutenberg heading blocks otherwise pick up — in the
+    // admin context that token resolves to ~14px and collapses the heading scale.
+    h1 { font-size: 30px !important; line-height: 1.25; margin: 1.6em 0 0.45em; }
+    h2 { font-size: 24px !important; line-height: 1.3;  margin: 1.6em 0 0.5em; }
+    h3 { font-size: 19px !important; line-height: 1.4;  margin: 1.5em 0 0.4em; }
+    h4, h5, h6 { font-size: 16px !important; line-height: 1.4; margin: 1.4em 0 0.4em; }
+
+    a {
+      // Use WordPress' core admin link color (theme variables), not the Pixelgrade brand purple.
+      color: var(--wp-admin-theme-color, #2271b1);
+      text-decoration: none;
+      font-weight: 500;
+
+      &:hover,
+      &:focus {
+        color: var(--wp-admin-theme-color-darker-10, #135e96);
+        text-decoration: underline;
+      }
+    }
+
+    strong, b { font-weight: 700; color: #2a2136; }
+    em, i { font-style: italic; }
+
+    ul, ol { margin: 0 0 1.2em; padding-left: 1.4em; }
+    li { font-size: 16px; line-height: 1.65; margin-bottom: 0.35em; }
+    ul { list-style: disc; }
+    ol { list-style: decimal; }
+    li > ul, li > ol { margin: 0.4em 0 0.6em; }
+
+    blockquote {
+      margin: 1.3em 0;
+      padding: 0.2em 0 0.2em 1em;
+      border-left: 3px solid var(--wp-admin-theme-color, #2271b1);
+      color: #665c73;
+      font-style: italic;
+
+      p:last-child { margin-bottom: 0; }
+    }
+
+    code {
+      font-size: 0.9em;
+      background: #f3f1f6;
+      padding: 0.12em 0.4em;
+      border-radius: 3px;
+    }
+    pre {
+      background: #f3f1f6;
+      padding: 14px 16px;
+      border-radius: 6px;
+      overflow: auto;
+
+      code { background: none; padding: 0; }
+    }
+
+    img { max-width: 100%; height: auto; border-radius: 4px; }
+    iframe { max-width: 100%; }
+    figure { margin: 1.3em 0; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 0 0 1.2em;
+
+      th, td { border: 1px solid $borders; padding: 8px 10px; text-align: left; }
+      th { background: $grey; font-weight: 700; }
+    }
+
+    hr { border: 0; border-top: 1px solid $borders; margin: 1.6em 0; }
   }
 
   &__read-online {
@@ -130,24 +216,161 @@
 }
 
 /* ==========================================================================
-   #ARTICLE POP-UP (companions -> window.pixelgradeAdminHub.docs.openArticle)
+   #ARTICLE POP-UP — modeless floating window (openArticle); portaled to <body>
    ========================================================================== */
-.components-modal__frame.pixelgrade-docs__modal {
-  max-width: 760px;
-  width: calc(100% - 32px);
+.pixelgrade-docs-window {
+  position: fixed;
+  z-index: 100000; // WP component-modal level; the editor's own dialogs (1000001) still sit above
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 32px);
+  box-sizing: border-box;
+  background: $white;
+  border: 1px solid $borders;
+  border-radius: 8px;
+  box-shadow: 0 4px 8px rgba(42, 54, 52, 0.10), 0 16px 40px rgba(42, 54, 52, 0.18);
+  overflow: hidden;
+  outline: none;
+
+  // The shell takes programmatic focus on open; show a ring for keyboard users (instead of nothing).
+  &:focus-visible {
+    box-shadow: 0 0 0 2px var(--wp-admin-theme-color, #2271b1), 0 4px 8px rgba(42, 54, 52, 0.10), 0 16px 40px rgba(42, 54, 52, 0.18);
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    transition: box-shadow 0.15s ease;
+  }
+
+  &.is-dragging {
+    box-shadow: 0 8px 16px rgba(42, 54, 52, 0.14), 0 24px 60px rgba(42, 54, 52, 0.26);
+    user-select: none;
+  }
+
+  &__header {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 7px 7px 14px;
+    border-bottom: 1px solid $borders;
+    background: $grey;
+    cursor: grab;
+
+    .pixelgrade-docs-window.is-dragging & { cursor: grabbing; }
+  }
+
+  &__title {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-weight: 600;
+    font-size: 13px;
+    color: $dark--light;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  &__actions {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 1px;
+  }
+
+  &__btn.components-button {
+    min-width: 28px;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    justify-content: center;
+    color: $dark--light;
+
+    .dashicons { font-size: 18px; width: 18px; height: 18px; line-height: 1; }
+
+    &:hover:not(:disabled) { color: $accent--purple; }
+  }
+
+  // The article body scrolls inside the window; the header stays put.
+  .pixelgrade-docs--window {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 16px 18px 18px;
+
+    .pixelgrade-docs__breadcrumbs { margin-top: 0; }
+  }
+
+  // Bottom-sheet fallback on narrow viewports (no drag).
+  &.is-bottom-sheet {
+    left: 0 !important;
+    right: 0;
+    top: auto !important;
+    bottom: 0;
+    width: auto !important;
+    max-height: 80vh;
+    border-radius: 12px 12px 0 0;
+
+    .pixelgrade-docs-window__header { cursor: default; }
+  }
 }
 
-.pixelgrade-docs--modal {
-  font-size: 15px;
+// Transparent shield so a drag survives the Site Editor canvas iframe (which swallows pointer moves).
+.pixelgrade-docs-window__shield {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  cursor: grabbing;
+}
+
+// Minimized: a chip docked bottom-left; click the label to restore, the × to close.
+.pixelgrade-docs-window__chip {
+  position: fixed;
+  left: 16px;
+  bottom: 16px;
+  z-index: 100000;
+  display: flex;
+  align-items: stretch;
+  max-width: 280px;
+  background: $dark--light;
+  border-radius: 20px;
+  box-shadow: 0 4px 14px rgba(42, 54, 52, 0.28);
+  overflow: hidden;
+
+  .components-button { color: $white; height: 38px; border-radius: 0; }
+  .components-button:hover:not(:disabled) { color: $white; background: rgba(255, 255, 255, 0.12); }
+
+  &-open {
+    min-width: 0;
+    padding: 0 6px 0 16px;
+
+    .dashicons { margin-right: 8px; flex: 0 0 auto; }
+  }
+  &-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 600;
+    font-size: 13px;
+  }
+  &-close {
+    min-width: 38px;
+    width: 38px;
+    justify-content: center;
+
+    .dashicons { font-size: 18px; }
+  }
+}
+
+// Compact-but-legible type for the narrow (360px) window — overrides the comfortable panel scale.
+.pixelgrade-docs--window .pixelgrade-docs__article-content.entry-content {
+  font-size: 14px;
   line-height: 1.6;
 
-  .pixelgrade-docs__article-title {
-    margin-top: 0;
-  }
-
-  .pixelgrade-docs__article-content {
-    img, table, iframe { max-width: 100%; height: auto; }
-  }
+  p, li { font-size: 14px; line-height: 1.6; }
+  h1 { font-size: 22px !important; }
+  h2 { font-size: 19px !important; }
+  h3 { font-size: 16px !important; }
+  h4, h5, h6 { font-size: 14px !important; }
 }
 
 /* ==========================================================================

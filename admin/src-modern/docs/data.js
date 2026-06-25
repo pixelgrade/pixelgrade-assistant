@@ -76,13 +76,27 @@ function asList( value ) {
 	return [];
 }
 
+function canonicalDocsUrl( url ) {
+	const data = getDocsData();
+	const sku = data.product && data.product.sku ? String( data.product.sku ) : '';
+
+	if ( ! url || ! sku ) {
+		return url;
+	}
+
+	// Product-scoped docs URLs 404 for some products (e.g. anima-lt has no public /docs/ section);
+	// the theme-agnostic /docs/<category>/<article>/ form resolves (redirects to the canonical page),
+	// so drop the product-slug segment the KB API bakes into external_url.
+	return url.replace( '/docs/' + sku + '/', '/docs/' );
+}
+
 function mapArticle( article, categoryName, categoryId, categoryPath ) {
 	return {
 		id: String( article.ID || article.id || '' ),
 		title: decodeHtml( article.post_title || article.title || '' ),
 		content: article.post_content || article.content || '',
 		excerpt: decodeHtml( article.post_excerpt || article.excerpt || '' ),
-		url: article.external_url || article.url || article.guid || '',
+		url: canonicalDocsUrl( article.external_url || article.url || article.guid || '' ),
 		category: categoryName || '',
 		categoryId: categoryId ? String( categoryId ) : '',
 		categoryPath: Array.isArray( categoryPath ) ? categoryPath : [],
@@ -216,7 +230,7 @@ export function fetchArticle( options = {} ) {
 			id: String( article.id || '' ),
 			title: decodeHtml( article.title || '' ),
 			content: article.content || '',
-			url: article.url || '',
+			url: canonicalDocsUrl( article.url || '' ),
 			// ArticleView reads `categoryPath` for breadcrumbs; alias the server's `breadcrumbs`.
 			categoryPath: breadcrumbs,
 			breadcrumbs,

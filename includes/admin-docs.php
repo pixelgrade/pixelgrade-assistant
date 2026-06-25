@@ -182,6 +182,9 @@ if ( ! function_exists( 'pixassist_get_docs_data' ) ) {
 				'feedbackSendToSupport'  => esc_html__( 'Send to support', '__plugin_txtd' ),
 				'articleLoading'         => esc_html__( 'Loading article…', '__plugin_txtd' ),
 				'articleNotFound'        => esc_html__( 'We could not open that article here — try the online docs.', '__plugin_txtd' ),
+				'openInNewTab'           => esc_html__( 'Open in new tab', '__plugin_txtd' ),
+				'minimize'               => esc_html__( 'Minimize', '__plugin_txtd' ),
+				'close'                  => esc_html__( 'Close', '__plugin_txtd' ),
 			),
 		);
 	}
