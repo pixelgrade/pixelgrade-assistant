@@ -13,12 +13,14 @@ import { createElement, createPortal, Fragment, useCallback, useEffect, useMemo,
 import { __ } from '@wordpress/i18n';
 import {
 	Button,
+	Icon,
 	Notice,
 	SelectControl,
 	Spinner,
 	TextControl,
 	TextareaControl,
 } from '@wordpress/components';
+import { close as closeIcon, dragHandle, external as externalIcon, help as helpIcon, lineSolid } from '@wordpress/icons';
 import {
 	categoryArticles,
 	fetchArticle,
@@ -1037,15 +1039,17 @@ export function DocsArticleWindow() {
 				{ className: 'pixelgrade-docs-window__chip' },
 				createElement(
 					Button,
-					{ className: 'pixelgrade-docs-window__chip-open', onClick: () => setMinimized( false ) },
-					createElement( 'span', { className: 'dashicons dashicons-book', 'aria-hidden': 'true' } ),
+					{ className: 'pixelgrade-docs-window__chip-open', icon: helpIcon, iconSize: 20, onClick: () => setMinimized( false ) },
 					createElement( 'span', { className: 'pixelgrade-docs-window__chip-label' }, title )
 				),
-				createElement(
-					Button,
-					{ className: 'pixelgrade-docs-window__chip-close', 'aria-label': getCopy( 'close', __( 'Close', 'pixelgrade_assistant' ) ), onClick: close },
-					createElement( 'span', { className: 'dashicons dashicons-no-alt', 'aria-hidden': 'true' } )
-				)
+				createElement( Button, {
+					className: 'pixelgrade-docs-window__chip-close',
+					icon: closeIcon,
+					iconSize: 18,
+					label: getCopy( 'close', __( 'Close', 'pixelgrade_assistant' ) ),
+					showTooltip: true,
+					onClick: close,
+				} )
 			),
 			document.body
 		);
@@ -1081,18 +1085,16 @@ export function DocsArticleWindow() {
 	}
 
 	const openExternal = article && article.url
-		? createElement(
-				Button,
-				{
-					className: 'pixelgrade-docs-window__btn pixelgrade-docs__open-external',
-					href: article.url,
-					target: '_blank',
-					rel: 'noreferrer noopener',
-					'aria-label': getCopy( 'openInNewTab', __( 'Open in new tab', 'pixelgrade_assistant' ) ),
-					title: getCopy( 'openInNewTab', __( 'Open in new tab', 'pixelgrade_assistant' ) ),
-				},
-				createElement( 'span', { className: 'dashicons dashicons-external', 'aria-hidden': 'true' } )
-		  )
+		? createElement( Button, {
+				className: 'pixelgrade-docs-window__btn',
+				icon: externalIcon,
+				iconSize: 20,
+				href: article.url,
+				target: '_blank',
+				rel: 'noreferrer noopener',
+				label: getCopy( 'openInNewTab', __( 'Open in new tab', 'pixelgrade_assistant' ) ),
+				showTooltip: true,
+		  } )
 		: null;
 
 	const windowStyle = narrow
@@ -1125,21 +1127,31 @@ export function DocsArticleWindow() {
 				createElement(
 					'header',
 					{ className: 'pixelgrade-docs-window__header', onPointerDown: onHeaderPointerDown },
+					narrow ? null : createElement( Icon, { className: 'pixelgrade-docs-window__grip', icon: dragHandle, size: 18 } ),
 					createElement( 'span', { className: 'pixelgrade-docs-window__title' }, title ),
 					createElement(
 						'div',
 						{ className: 'pixelgrade-docs-window__actions' },
 						openExternal,
-						narrow ? null : createElement(
-							Button,
-							{ className: 'pixelgrade-docs-window__btn', 'aria-label': getCopy( 'minimize', __( 'Minimize', 'pixelgrade_assistant' ) ), onClick: () => { setMinimized( true ); restoreFocus(); } },
-							createElement( 'span', { className: 'dashicons dashicons-minus', 'aria-hidden': 'true' } )
-						),
-						createElement(
-							Button,
-							{ className: 'pixelgrade-docs-window__btn', 'aria-label': getCopy( 'close', __( 'Close', 'pixelgrade_assistant' ) ), onClick: close },
-							createElement( 'span', { className: 'dashicons dashicons-no-alt', 'aria-hidden': 'true' } )
-						)
+						narrow ? null : createElement( Button, {
+							className: 'pixelgrade-docs-window__btn',
+							icon: lineSolid,
+							iconSize: 20,
+							label: getCopy( 'minimize', __( 'Minimize', 'pixelgrade_assistant' ) ),
+							showTooltip: true,
+							onClick: () => {
+								setMinimized( true );
+								restoreFocus();
+							},
+						} ),
+						createElement( Button, {
+							className: 'pixelgrade-docs-window__btn',
+							icon: closeIcon,
+							iconSize: 20,
+							label: getCopy( 'close', __( 'Close', 'pixelgrade_assistant' ) ),
+							showTooltip: true,
+							onClick: close,
+						} )
 					)
 				),
 				createElement( 'div', { className: 'pixelgrade-docs pixelgrade-docs--window' }, body )

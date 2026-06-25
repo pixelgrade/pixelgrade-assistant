@@ -246,25 +246,34 @@
     user-select: none;
   }
 
+  // Match the editor's complementary-area panel header: white, ~47px, hairline rule.
   &__header {
     flex: 0 0 auto;
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 7px 7px 7px 14px;
-    border-bottom: 1px solid $borders;
-    background: $grey;
+    gap: 4px;
+    min-height: 47px;
+    padding: 0 8px 0 10px;
+    border-bottom: 1px solid #ddd;
+    background: $white;
     cursor: grab;
 
     .pixelgrade-docs-window.is-dragging & { cursor: grabbing; }
   }
 
+  // The 6-dot drag affordance — the editor's own "this is draggable" cue.
+  &__grip {
+    flex: 0 0 auto;
+    color: #949494;
+    fill: currentColor;
+  }
+
   &__title {
     flex: 1 1 auto;
     min-width: 0;
-    font-weight: 600;
+    font-weight: 500;
     font-size: 13px;
-    color: $dark--light;
+    color: #1e1e1e;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -274,20 +283,18 @@
     flex: 0 0 auto;
     display: flex;
     align-items: center;
-    gap: 1px;
+    gap: 2px;
   }
 
+  // Native editor icon button: 32×32, 2px radius — let wp-components own the hover/active states.
   &__btn.components-button {
-    min-width: 28px;
-    width: 28px;
-    height: 28px;
+    min-width: 32px;
+    width: 32px;
+    height: 32px;
     padding: 0;
+    border-radius: 2px;
     justify-content: center;
-    color: $dark--light;
-
-    .dashicons { font-size: 18px; width: 18px; height: 18px; line-height: 1; }
-
-    &:hover:not(:disabled) { color: $accent--purple; }
+    color: #1e1e1e;
   }
 
   // The article body scrolls inside the window; the header stays put.
@@ -331,19 +338,19 @@
   display: flex;
   align-items: stretch;
   max-width: 280px;
-  background: $dark--light;
+  background: #1e1e1e;
   border-radius: 20px;
   box-shadow: 0 4px 14px rgba(42, 54, 52, 0.28);
   overflow: hidden;
 
   .components-button { color: $white; height: 38px; border-radius: 0; }
   .components-button:hover:not(:disabled) { color: $white; background: rgba(255, 255, 255, 0.12); }
+  .components-button svg { fill: currentColor; }
 
   &-open {
     min-width: 0;
-    padding: 0 6px 0 16px;
-
-    .dashicons { margin-right: 8px; flex: 0 0 auto; }
+    padding: 0 6px 0 14px;
+    gap: 8px;
   }
   &-label {
     overflow: hidden;
@@ -356,8 +363,6 @@
     min-width: 38px;
     width: 38px;
     justify-content: center;
-
-    .dashicons { font-size: 18px; }
   }
 }
 
