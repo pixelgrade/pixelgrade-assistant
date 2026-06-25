@@ -3215,27 +3215,7 @@ class PixelgradeAssistant_StarterContent {
 				return 0;
 			}
 
-			$source_urls = $use_source_urls ? $this->normalize_starter_media_source_urls( $media ) : array();
-
-			// Flatten the per-group media ids into one fetch list. The 'placeholders' GROUP is the rotation
-			// pool, not media to import as-is, so it is skipped (unchanged behavior).
-			$items = array();
-			foreach ( $media as $group => $ids ) {
-				$group = sanitize_key( $group );
-				if ( 'placeholders' === $group || 'source_urls' === $group || empty( $ids ) || ! is_array( $ids ) ) {
-					continue;
-				}
-				foreach ( $ids as $remote_id ) {
-					$remote_id = absint( $remote_id );
-					if ( $remote_id ) {
-						$item = array( 'group' => $group, 'id' => $remote_id );
-						if ( ! empty( $source_urls[ $remote_id ] ) ) {
-							$item['source_url'] = $source_urls[ $remote_id ];
-						}
-						$items[] = $item;
-					}
-				}
-			}
+			$items = $this->collect_starter_media_items( $demo_key, $media, $use_source_urls );
 
 			if ( empty( $items ) ) {
 				return 0;
@@ -3256,6 +3236,65 @@ class PixelgradeAssistant_StarterContent {
 			PixelgradeAssistant_Admin::save_options();
 
 			return $imported;
+		}
+
+		/**
+		 * Build the flat fetch list of source media to import, skipping anything already imported.
+		 *
+		 * The 'placeholders' GROUP is the rotation pool (not imported as-is) and the 'source_urls' entry is a
+		 * metadata map, so both are skipped. A source id already imported for this demo whose local attachment
+		 * still exists is skipped too: re-importing a starter must REUSE attachments, not duplicate them. The
+		 * journal records only the latest remote->local mapping, so a duplicate import would leave the original
+		 * orphaned in the media library (the 110 -> 220 doubling). If the mapped attachment is gone (deleted by
+		 * the user), the id is collected again so the content can be remapped to a live attachment.
+		 *
+		 * @param string $demo_key        Starter/demo key.
+		 * @param array  $media           Source media manifest.
+		 * @param bool   $use_source_urls Whether to attach direct source URLs for the fast download path.
+		 *
+		 * @return array List of array( 'group' => string, 'id' => int, 'source_url'? => string ).
+		 */
+		private function collect_starter_media_items( $demo_key, $media, $use_source_urls = false ) {
+			if ( ! is_array( $media ) ) {
+				return array();
+			}
+
+			$source_urls = $use_source_urls ? $this->normalize_starter_media_source_urls( $media ) : array();
+
+			$items = array();
+			foreach ( $media as $group => $ids ) {
+				$group = sanitize_key( $group );
+				if ( 'placeholders' === $group || 'source_urls' === $group || empty( $ids ) || ! is_array( $ids ) ) {
+					continue;
+				}
+				foreach ( $ids as $remote_id ) {
+					$remote_id = absint( $remote_id );
+					if ( ! $remote_id || $this->starter_media_already_imported( $demo_key, $remote_id ) ) {
+						continue;
+					}
+					$item = array( 'group' => $group, 'id' => $remote_id );
+					if ( ! empty( $source_urls[ $remote_id ] ) ) {
+						$item['source_url'] = $source_urls[ $remote_id ];
+					}
+					$items[] = $item;
+				}
+			}
+
+			return $items;
+		}
+
+		/**
+		 * Whether a source media ID was already imported for this demo and its local attachment still exists.
+		 *
+		 * @param string $demo_key  Starter/demo key.
+		 * @param int    $remote_id Source media ID.
+		 *
+		 * @return bool
+		 */
+		private function starter_media_already_imported( $demo_key, $remote_id ) {
+			$local_id = $this->get_imported_media_id( $demo_key, $remote_id );
+
+			return ! empty( $local_id ) && 'attachment' === get_post_type( $local_id );
 		}
 
 		/**
@@ -3635,12 +3674,30 @@ class PixelgradeAssistant_StarterContent {
 		 * @return array Response payload.
 		 */
 		private function import_media_file( $demo_key, $group, $remote_id, $title, $ext, $file_data, $generate_metadata = true, $defer_save = false ) {
-			add_filter( 'upload_mimes', array( $this, 'allow_svg_upload' ) );
-
 			$demo_key  = sanitize_text_field( $demo_key );
 			$group     = sanitize_text_field( $group );
-			$title     = sanitize_text_field( $title );
 			$remote_id = absint( $remote_id );
+
+			// Reuse an already-imported attachment for this (demo, source id) instead of inserting a duplicate.
+			// Importing media must be idempotent: replaying a starter import (or just its media step) must not
+			// create a second attachment and orphan the first — the journal records only the latest source->local
+			// mapping. This is the server-side backstop shared by every import path, notably the modern hub's
+			// client-driven per-media upload loop, which calls straight in here via /upload_media and never goes
+			// through import_starter()'s collector.
+			if ( $remote_id && $this->starter_media_already_imported( $demo_key, $remote_id ) ) {
+				return array(
+					'code'    => 'success',
+					'message' => '',
+					'data'    => array(
+						'attachmentID' => $this->get_imported_media_id( $demo_key, $remote_id ),
+						'reused'       => true,
+					),
+				);
+			}
+
+			add_filter( 'upload_mimes', array( $this, 'allow_svg_upload' ) );
+
+			$title     = sanitize_text_field( $title );
 			$filename  = $title . '.' . sanitize_text_field( $ext );
 			$file_data = $this->decode_chunk( $file_data );
 

@@ -23,6 +23,7 @@
             "php tests/layout-unit-import-test.php",
             "php tests/layout-unit-mix-and-match-test.php",
             "php tests/starter-content-reset-test.php",
+            "php tests/starter-media-reimport-dedup-test.php",
             "php tests/thumbnail-backfill-test.php",
             "php tests/admin-system-status-test.php",
             "php tests/admin-tools-test.php",
