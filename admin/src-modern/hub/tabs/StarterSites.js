@@ -827,6 +827,28 @@ function isStarterLocked( starter, plus ) {
 	return false;
 }
 
+// Media imported during THIS page session, keyed by demo -> { remoteId: true }. Re-applying a starter would
+// otherwise re-download every image: the server reuses the existing attachment (import_media_file dedups, so
+// no duplicate is created), but the download is wasted and the progress UI looks like it is re-importing. We
+// only skip media imported in this session — those attachments certainly still exist. Cross-reload re-imports
+// still go through the server, which stays the correctness backstop and re-imports any attachment the user
+// has since deleted, so skipping only what we just created keeps that recovery intact.
+const sessionImportedMedia = {};
+
+function markMediaImportedThisSession( demoKey, remoteId ) {
+	if ( ! demoKey || ! remoteId ) {
+		return;
+	}
+	if ( ! sessionImportedMedia[ demoKey ] ) {
+		sessionImportedMedia[ demoKey ] = {};
+	}
+	sessionImportedMedia[ demoKey ][ String( remoteId ) ] = true;
+}
+
+function isMediaImportedThisSession( demoKey, remoteId ) {
+	return Boolean( demoKey && sessionImportedMedia[ demoKey ] && sessionImportedMedia[ demoKey ][ String( remoteId ) ] );
+}
+
 function buildImportTasks( starter, config, data, setProgress, filters = {} ) {
 	const tasks = [];
 	const demoKey = starter.id;
@@ -887,6 +909,35 @@ function buildImportTasks( starter, config, data, setProgress, filters = {} ) {
 				const remoteId = config.media[ groupKey ][ itemKey ];
 				tasks.push( async () => {
 					const currentMediaIndex = ++mediaIndex;
+
+					// Already imported in this session: reuse it without re-downloading. Two progress
+					// advances keep the bar aligned with the download+upload step accounting.
+					if ( isMediaImportedThisSession( demoKey, remoteId ) ) {
+						setProgress(
+							{
+								phase: 'media',
+								message: sprintf(
+									__( 'Already imported %d of %d.', 'pixelgrade_assistant' ),
+									currentMediaIndex,
+									mediaTotal
+								),
+								details: sprintf( __( 'Remote attachment #%s', 'pixelgrade_assistant' ), remoteId ),
+							},
+							{ advance: true }
+						);
+						setProgress(
+							{
+								message: sprintf(
+									__( 'Skipped media upload %d of %d.', 'pixelgrade_assistant' ),
+									currentMediaIndex,
+									mediaTotal
+								),
+								details: __( 'Already in your media library.', 'pixelgrade_assistant' ),
+							},
+							{ advance: true }
+						);
+						return;
+					}
 
 					setProgress( {
 						phase: 'media',
@@ -982,6 +1033,7 @@ function buildImportTasks( starter, config, data, setProgress, filters = {} ) {
 						ext: media.ext,
 						group: groupKey,
 					} );
+					markMediaImportedThisSession( demoKey, remoteId );
 					setProgress(
 						{
 							message: sprintf(
