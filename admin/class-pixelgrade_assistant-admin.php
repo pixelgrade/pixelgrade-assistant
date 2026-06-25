@@ -256,6 +256,10 @@ class PixelgradeAssistant_Admin {
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_styles' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_scripts' ) );
 		add_action( 'enqueue_block_editor_assets', array( $this, 'enqueue_docs_editor_assets' ) );
+		// The docs window follows the user across all of wp-admin: enqueue it on any admin page while
+		// it's open (cookie) or when explicitly opened (?pixassist_open_docs), plus always in the editor.
+		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_docs_window' ) );
+		add_action( 'admin_bar_menu', array( $this, 'add_docs_admin_bar_node' ), 100 );
 
 		// We we will remember the theme version when the transient is updated
 		add_filter( 'pre_set_site_transient_update_themes', array(
@@ -394,6 +398,60 @@ class PixelgradeAssistant_Admin {
 		self::enqueue_help_panel_style();
 		wp_localize_script( $handle, 'pixelgradeDocs', pixassist_get_docs_data() );
 		self::localize_js_data( $handle, true, 'editor' );
+	}
+
+	/**
+	 * Enqueue the editor-agnostic docs WINDOW on any admin page so it can follow the user across
+	 * wp-admin. Loaded only when needed — in the block editor (always), or on a plain admin page while
+	 * the window is open (the `pixassist_docs_open` cookie) or explicitly opened (?pixassist_open_docs)
+	 * — so closed-docs pages pay zero cost. The window bundle has no editor dependencies.
+	 */
+	public function enqueue_docs_window() {
+		if ( ! function_exists( 'pixassist_docs_can_access' ) || ! pixassist_docs_can_access() ) {
+			return;
+		}
+
+		$screen     = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
+		$is_editor  = $screen && method_exists( $screen, 'is_block_editor' ) && $screen->is_block_editor();
+		$cookie_open = ! empty( $_COOKIE['pixassist_docs_open'] );
+		$param_open  = ! empty( $_GET['pixassist_open_docs'] ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only UI hint, no state change.
+
+		if ( ! $is_editor && ! $cookie_open && ! $param_open ) {
+			return;
+		}
+
+		$handle = pixassist_enqueue_built_script( 'pixelgrade-docs-window', 'docs-window' );
+		self::enqueue_help_panel_style();
+
+		$data = pixassist_get_docs_data();
+		if ( $param_open ) {
+			// Opened from the admin-bar link on a plain page: tell the window to open the browser.
+			$data['autoOpen'] = true;
+		}
+		wp_localize_script( $handle, 'pixelgradeDocs', $data );
+		self::localize_js_data( $handle, true, 'editor' );
+	}
+
+	/**
+	 * Admin-bar "Pixelgrade Docs" toggle — opens the floating docs window from any wp-admin page
+	 * (where there's no editor toolbar). It links to the current page with ?pixassist_open_docs=1;
+	 * once open, the cookie keeps it following the user. Closing it (the window's × ) clears the cookie.
+	 */
+	public function add_docs_admin_bar_node( $wp_admin_bar ) {
+		if ( ! is_admin() || ! is_admin_bar_showing() ) {
+			return;
+		}
+
+		if ( ! function_exists( 'pixassist_docs_can_access' ) || ! pixassist_docs_can_access() ) {
+			return;
+		}
+
+		$wp_admin_bar->add_node( array(
+			'id'    => 'pixassist-docs',
+			'title' => '<span class="ab-icon dashicons dashicons-editor-help" aria-hidden="true" style="top:2px;"></span>' . esc_html__( 'Docs', '__plugin_txtd' ),
+			'href'  => esc_url( add_query_arg( 'pixassist_open_docs', '1' ) ),
+			'meta'  => array( 'title' => esc_attr__( 'Open Pixelgrade documentation', '__plugin_txtd' ) ),
+		) );
 	}
 
     /**

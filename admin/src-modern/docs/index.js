@@ -1,16 +1,13 @@
 /**
- * Pixelgrade Docs editor entry point (#46).
+ * Pixelgrade Docs editor launchers (#46).
  *
- * Docs live in a single MODELESS floating window (DocsArticleWindow) that floats over the canvas
- * instead of a docked sidebar that eats the right rail — so it sits next to block settings / the
- * Style Manager sidebar rather than fighting them for the slot. The window hosts the full KB browser
- * (categories → search → article) AND the contextual single-article pop-up companions open via
- * openArticle(). Three entry points toggle it: a pinned toolbar button, the ⋮ Options menu, and the
- * command palette. No JSX: WordPress 5.9 is still supported.
+ * The docs window itself lives in the editor-agnostic `docs-window` bundle (./window-entry) so it can
+ * follow the user across all of wp-admin. THIS bundle adds only the editor-only ways to open it — a
+ * pinned toolbar button, a ⋮ Options-menu item, and a command-palette command — and drives the window
+ * through the ./events bus. No JSX: WordPress 5.9 is still supported.
  */
 import { createElement, Fragment, useEffect, useState } from '@wordpress/element';
-import { Button, createSlotFill } from '@wordpress/components';
-import { useSelect } from '@wordpress/data';
+import { Button } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
 import { registerPlugin } from '@wordpress/plugins';
 import { PluginMoreMenuItem } from '@wordpress/editor';
@@ -18,80 +15,9 @@ import { PinnedItems } from '@wordpress/interface';
 import { useCommand } from '@wordpress/commands';
 import { help as helpIcon } from '@wordpress/icons';
 import { getDocsData } from './data';
-import { DocsArticleWindow, closeDocsWindow, openDocsArticle, openDocsBrowse } from './KbPanel';
+import { DOCS_EVENT_OPENSTATE, closeDocsWindow, openDocsBrowse } from './events';
 
-const SLOT_FILL = createSlotFill( 'pixelgrade-docs' );
-
-if ( 'undefined' !== typeof window ) {
-	window.pixelgradeAdminHub = window.pixelgradeAdminHub || {};
-	window.pixelgradeAdminHub.docs = {
-		EscalationSlot: SLOT_FILL.Slot,
-		EscalationFill: SLOT_FILL.Fill,
-		// Curated host surface: companions (Style Manager, Nova Blocks, …) open a contextual article
-		// pop-up in-place via window.pixelgradeAdminHub.docs.openArticle({ url | id | slug }).
-		openArticle: openDocsArticle,
-	};
-}
-
-function detectSurface() {
-	if ( 'undefined' !== typeof document && document.body && document.body.classList.contains( 'site-editor-php' ) ) {
-		return 'site';
-	}
-
-	if ( 'undefined' !== typeof window && window.location && -1 !== window.location.pathname.indexOf( 'site-editor.php' ) ) {
-		return 'site';
-	}
-
-	return 'post';
-}
-
-function useEditorContext() {
-	const data = getDocsData();
-	const productSlug = data.product && data.product.sku ? data.product.sku : '';
-
-	return useSelect(
-		( select ) => {
-			let surface = detectSurface();
-			let postType = '';
-			let templateId = '';
-
-			try {
-				const editor = select( 'core/editor' );
-				if ( editor && typeof editor.getCurrentPostType === 'function' ) {
-					postType = editor.getCurrentPostType() || '';
-				}
-				if ( editor && typeof editor.getEditedPostAttribute === 'function' ) {
-					templateId = editor.getEditedPostAttribute( 'template' ) || '';
-				}
-			} catch ( error ) {}
-
-			try {
-				const editSite = select( 'core/edit-site' );
-				if ( editSite ) {
-					const editedType = typeof editSite.getEditedPostType === 'function' ? editSite.getEditedPostType() : '';
-					const editedId = typeof editSite.getEditedPostId === 'function' ? editSite.getEditedPostId() : '';
-
-					if ( editedType || editedId ) {
-						surface = 'site';
-						postType = editedType || postType;
-						templateId = editedId || templateId;
-					}
-				}
-			} catch ( error ) {}
-
-			return {
-				surface,
-				postType,
-				templateId,
-				productSlug,
-				articleId: null,
-			};
-		},
-		[ productSlug ]
-	);
-}
-
-// Track the window's open/minimized state (broadcast by DocsArticleWindow) so the toolbar toggle can
+// Track the window's open/minimized state (broadcast by the window bundle) so the toolbar toggle can
 // reflect it and toggle correctly: open (and not minimized) → close; otherwise open/restore.
 function useDocsWindowState() {
 	const [ state, setState ] = useState( { open: false, minimized: false } );
@@ -105,9 +31,9 @@ function useDocsWindowState() {
 			setState( ( event && event.detail ) || { open: false, minimized: false } );
 		};
 
-		window.addEventListener( 'pixelgrade-docs:openstate', onState );
+		window.addEventListener( DOCS_EVENT_OPENSTATE, onState );
 
-		return () => window.removeEventListener( 'pixelgrade-docs:openstate', onState );
+		return () => window.removeEventListener( DOCS_EVENT_OPENSTATE, onState );
 	}, [] );
 
 	return state;
@@ -169,9 +95,8 @@ function DocsCommand( { label } ) {
 	return null;
 }
 
-function DocsPlugin() {
+function DocsLaunchers() {
 	const data = getDocsData();
-	const context = useEditorContext();
 	const title = data.copy && data.copy.title ? data.copy.title : __( 'Pixelgrade Docs', 'pixelgrade_assistant' );
 	const menuLabel = data.copy && data.copy.menuLabel ? data.copy.menuLabel : title;
 
@@ -186,14 +111,11 @@ function DocsPlugin() {
 					{ icon: helpIcon, onClick: () => openDocsBrowse() },
 					menuLabel
 			  )
-			: null,
-		// The single docs surface: floating window hosting both the KB browser (default) and the
-		// contextual single-article pop-up. The editor stays interactive while the user reads.
-		createElement( DocsArticleWindow, { context, EscalationSlot: SLOT_FILL.Slot } )
+			: null
 	);
 }
 
 registerPlugin( 'pixelgrade-docs', {
-	render: DocsPlugin,
+	render: DocsLaunchers,
 	icon: helpIcon,
 } );

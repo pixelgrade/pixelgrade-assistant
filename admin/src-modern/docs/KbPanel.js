@@ -31,6 +31,15 @@ import {
 	submitTicket,
 	voteArticle,
 } from './data';
+import {
+	DOCS_EVENT_CLOSE,
+	DOCS_EVENT_OPEN_ARTICLE,
+	DOCS_EVENT_OPEN_BROWSE,
+	DOCS_EVENT_OPENSTATE,
+	registerDocsWindowListener,
+	setDocsOpenCookie,
+	unregisterDocsWindowListener,
+} from './events';
 
 function getCopy( key, fallback ) {
 	const data = getDocsData();
@@ -740,48 +749,8 @@ export function KbPanel( { context, layout, EscalationSlot, showEscalation = tru
 	);
 }
 
-/**
- * Fire-and-forget opener for the contextual article pop-up. Any Pixelgrade surface (Style Manager,
- * Nova Blocks, …) calls window.pixelgradeAdminHub.docs.openArticle({ url | id | slug }); the
- * DocsArticleWindow mounted in the editor catches it and shows the article in a modeless floating window.
- */
-// Number of mounted DocsArticleWindow listeners. openDocsArticle() only claims a click (returns
-// truthy) when one is mounted, so callers (e.g. Style Manager) keep their external-link fallback
-// if the modal isn't present — the return value attests delivery, not just dispatch.
-let docsArticleListeners = 0;
-
-export function openDocsArticle( payload ) {
-	if ( 'undefined' === typeof window || ! window.CustomEvent || docsArticleListeners < 1 ) {
-		return false;
-	}
-
-	window.dispatchEvent( new window.CustomEvent( 'pixelgrade-docs:open-article', { detail: payload || {} } ) );
-
-	return true;
-}
-
-/**
- * Open (or restore) the docs browser in the floating window. Used by the editor toolbar toggle.
- * Returns truthy only while a DocsArticleWindow is mounted (same delivery attestation as openArticle).
- */
-export function openDocsBrowse() {
-	if ( 'undefined' === typeof window || ! window.CustomEvent || docsArticleListeners < 1 ) {
-		return false;
-	}
-
-	window.dispatchEvent( new window.CustomEvent( 'pixelgrade-docs:open-browse', {} ) );
-
-	return true;
-}
-
-/** Close the docs window from outside (the editor toolbar toggle). */
-export function closeDocsWindow() {
-	if ( 'undefined' === typeof window || ! window.CustomEvent ) {
-		return;
-	}
-
-	window.dispatchEvent( new window.CustomEvent( 'pixelgrade-docs:close', {} ) );
-}
+// openDocsArticle / openDocsBrowse / closeDocsWindow + the cross-bundle listener counter live in
+// ./events (React-free) so the editor-launcher bundle and the editor-agnostic window bundle share them.
 
 const DOCS_WINDOW_STORAGE_KEY = 'pixassistDocsWindow';
 const DOCS_WINDOW_WIDTH = 360;
@@ -840,7 +809,17 @@ export function DocsArticleWindow( props ) {
 	const windowContext = ( props && props.context ) || {};
 	const EscalationSlot = props && props.EscalationSlot ? props.EscalationSlot : null;
 
-	const [ request, setRequest ] = useState( null );
+	// Hydrate the open request so the window FOLLOWS the user across full admin page reloads: if it was
+	// left open (persisted) we reopen to the same article/browse; ?pixassist_open_docs=1 (localized as
+	// autoOpen) opens the browser fresh from a plain admin page.
+	const [ request, setRequest ] = useState( () => {
+		const saved = loadDocsWindowState();
+		if ( saved && saved.request && 'object' === typeof saved.request ) {
+			return saved.request;
+		}
+		const data = getDocsData();
+		return data && data.autoOpen ? { browse: true } : null;
+	} );
 	const [ article, setArticle ] = useState( null );
 	const [ loading, setLoading ] = useState( false );
 	const [ notFound, setNotFound ] = useState( false );
@@ -913,16 +892,16 @@ export function DocsArticleWindow( props ) {
 			}
 		};
 
-		docsArticleListeners += 1;
-		window.addEventListener( 'pixelgrade-docs:open-article', onOpenArticle );
-		window.addEventListener( 'pixelgrade-docs:open-browse', onOpenBrowse );
-		window.addEventListener( 'pixelgrade-docs:close', onCloseEvent );
+		registerDocsWindowListener();
+		window.addEventListener( DOCS_EVENT_OPEN_ARTICLE, onOpenArticle );
+		window.addEventListener( DOCS_EVENT_OPEN_BROWSE, onOpenBrowse );
+		window.addEventListener( DOCS_EVENT_CLOSE, onCloseEvent );
 
 		return () => {
-			docsArticleListeners = Math.max( 0, docsArticleListeners - 1 );
-			window.removeEventListener( 'pixelgrade-docs:open-article', onOpenArticle );
-			window.removeEventListener( 'pixelgrade-docs:open-browse', onOpenBrowse );
-			window.removeEventListener( 'pixelgrade-docs:close', onCloseEvent );
+			unregisterDocsWindowListener();
+			window.removeEventListener( DOCS_EVENT_OPEN_ARTICLE, onOpenArticle );
+			window.removeEventListener( DOCS_EVENT_OPEN_BROWSE, onOpenBrowse );
+			window.removeEventListener( DOCS_EVENT_CLOSE, onCloseEvent );
 		};
 	}, [] );
 
@@ -1010,10 +989,14 @@ export function DocsArticleWindow( props ) {
 		return () => window.removeEventListener( 'resize', onResize );
 	}, [] );
 
-	// Persist position + minimized so the window reopens where the user left it.
+	// Persist position + minimized + the open request so the window reopens where the user left it
+	// (and on the next admin page). The cookie must track `request` too, so it's a dependency.
 	useEffect( () => {
-		saveDocsWindowState( { left: position.left, top: position.top, minimized } );
-	}, [ position.left, position.top, minimized ] );
+		saveDocsWindowState( { left: position.left, top: position.top, minimized, request } );
+		// Mirror open/closed to a cookie so PHP enqueues the window bundle on the next admin page only
+		// while it's open — this is what makes it follow the user without loading anything when closed.
+		setDocsOpenCookie( !! request );
+	}, [ position.left, position.top, minimized, request ] );
 
 	// Broadcast open/minimized state so the editor toolbar toggle can reflect it (pressed/active).
 	useEffect( () => {
@@ -1021,7 +1004,7 @@ export function DocsArticleWindow( props ) {
 			return;
 		}
 
-		window.dispatchEvent( new window.CustomEvent( 'pixelgrade-docs:openstate', { detail: { open: !! request, minimized: !! minimized } } ) );
+		window.dispatchEvent( new window.CustomEvent( DOCS_EVENT_OPENSTATE, { detail: { open: !! request, minimized: !! minimized } } ) );
 	}, [ request, minimized ] );
 
 	// Modeless focus: move focus into the panel ONCE when it opens (NOT trapped — the user can tab

@@ -20,7 +20,10 @@ module.exports = {
 	target: [ 'web', 'es2017' ],
 	entry: {
 		index: path.resolve( process.cwd(), 'admin/src-modern', 'index.js' ),
+		// Editor-only launchers (toolbar/menu/command); needs @wordpress/editor et al.
 		docs: path.resolve( process.cwd(), 'admin/src-modern/docs', 'index.js' ),
+		// Editor-agnostic floating window; loadable on ANY admin page (see PHP conditional enqueue).
+		'docs-window': path.resolve( process.cwd(), 'admin/src-modern/docs', 'window-entry.js' ),
 	},
 	output: {
 		...defaultConfig.output,
