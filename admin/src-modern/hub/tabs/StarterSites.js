@@ -5,9 +5,12 @@
  * be injected by Pixelgrade Plus through the PHP `pixelgrade/admin_hub/starters` filter and carry a
  * `gate` so this presentational tab can show an upsell without owning commercial state.
  */
-import { createElement, Fragment, useState } from '@wordpress/element';
+import { createElement, Fragment, useEffect, useState } from '@wordpress/element';
 import { __, sprintf } from '@wordpress/i18n';
 import { Button, Card, CardBody, CardHeader, CheckboxControl, Flex, FlexItem, Spinner } from '@wordpress/components';
+
+const STARTER_PROGRESS_TICK_INTERVAL = 1000;
+const STARTER_PROGRESS_HEARTBEAT_AFTER = 1500;
 
 const DEFAULT_STARTER_SITES = {
 	starters: [],
@@ -131,6 +134,181 @@ const LAYOUT_UNITS = {
 	portfolioArchive: { unit_type: 'wp_template', unit: 'archive-portfolio' },
 	portfolioSingle: { unit_type: 'wp_template', unit: 'single-portfolio' },
 };
+
+const STARTER_PROGRESS_PHASES = [
+	{
+		id: 'prepare',
+		label: __( 'Getting things ready', 'pixelgrade_assistant' ),
+		phases: [ 'manifest', 'prepare' ],
+	},
+	{
+		id: 'media',
+		label: __( 'Bringing in your images', 'pixelgrade_assistant' ),
+		phases: [ 'media' ],
+	},
+	{
+		id: 'content',
+		label: __( 'Adding your pages and posts', 'pixelgrade_assistant' ),
+		phases: [ 'taxonomies', 'content' ],
+	},
+	{
+		id: 'design',
+		label: __( 'Styling your site', 'pixelgrade_assistant' ),
+		phases: [ 'layouts', 'features', 'settings' ],
+	},
+	{
+		id: 'finish',
+		label: __( 'Wrapping up', 'pixelgrade_assistant' ),
+		phases: [ 'finish', 'done' ],
+	},
+];
+
+function createStarterProgressGroups( values = {} ) {
+	return STARTER_PROGRESS_PHASES.reduce( ( groups, phase ) => {
+		groups[ phase.id ] = Number( values[ phase.id ] || 0 );
+		return groups;
+	}, {} );
+}
+
+function combineStarterProgressGroups( ...groupSets ) {
+	return STARTER_PROGRESS_PHASES.reduce( ( totals, phase ) => {
+		totals[ phase.id ] = groupSets.reduce( ( sum, groups ) => {
+			return sum + Number( groups && groups[ phase.id ] ? groups[ phase.id ] : 0 );
+		}, 0 );
+		return totals;
+	}, {} );
+}
+
+function getStarterProgressGroupId( phase ) {
+	const normalized = phase || 'prepare';
+	const match = STARTER_PROGRESS_PHASES.find( ( group ) => group.phases.includes( normalized ) );
+	return match ? match.id : 'prepare';
+}
+
+function getStarterProgressGroupLabel( groupId ) {
+	const match = STARTER_PROGRESS_PHASES.find( ( group ) => group.id === groupId );
+	return match ? match.label : STARTER_PROGRESS_PHASES[0].label;
+}
+
+function getPostTypeProgressPhase( postType ) {
+	if ( [ 'nav_menu_item', 'wp_template', 'wp_template_part', 'wp_navigation', 'custom_css' ].includes( postType ) ) {
+		return 'layouts';
+	}
+
+	return 'content';
+}
+
+function getStarterProgressPhaseState( state ) {
+	const phaseTotals = state && state.phaseTotals ? state.phaseTotals : {};
+	const phaseCounts = state && state.phaseCounts ? state.phaseCounts : {};
+	const activeGroupId = getStarterProgressGroupId( state && state.phase );
+
+	const phases = STARTER_PROGRESS_PHASES.map( ( phase ) => {
+		const total = Number( phaseTotals[ phase.id ] || 0 );
+		const rawCount = Number( phaseCounts[ phase.id ] || 0 );
+		const count = total > 0 ? Math.min( rawCount, total ) : rawCount;
+		const status =
+			'success' === ( state && state.status )
+				? 'done'
+				: 'working' === ( state && state.status ) && phase.id === activeGroupId
+				? 'active'
+				: total > 0 && count >= total
+				? 'done'
+				: 'pending';
+
+		return {
+			...phase,
+			count,
+			total,
+			status,
+			countText: total > 0 ? count + ' of ' + total : '',
+		};
+	} );
+
+	if ( Number( ( state && state.total ) || 0 ) > 0 ) {
+		const visiblePhases = phases.filter( ( phase ) => phase.total > 0 || 'active' === phase.status );
+		return visiblePhases.length ? visiblePhases : phases.slice( 0, 1 );
+	}
+
+	return phases;
+}
+
+function estimateComposerOperationProgressGroups( operations ) {
+	const totals = createStarterProgressGroups();
+
+	operations.forEach( ( operation ) => {
+		if ( ! operation || 'full_demo' === operation.type || 'starter_parts' === operation.type ) {
+			totals.prepare += 1;
+			return;
+		}
+
+		if ( [ 'layout_only', 'layout_unit', 'feature' ].includes( operation.type ) ) {
+			totals.design += 1;
+			return;
+		}
+
+		totals.prepare += 1;
+	} );
+
+	return totals;
+}
+
+function estimateStarterImportWorkByGroup( config, filters = {} ) {
+	const totals = createStarterProgressGroups( { prepare: 1 } );
+	const includeSettings = ! Object.prototype.hasOwnProperty.call( filters, 'includeSettings' ) || Boolean( filters.includeSettings );
+	const includeMedia = ! Object.prototype.hasOwnProperty.call( filters, 'includeMedia' ) || Boolean( filters.includeMedia );
+	const includeTaxonomies = ! Object.prototype.hasOwnProperty.call( filters, 'includeTaxonomies' ) || Boolean( filters.includeTaxonomies );
+	const includeWidgets = ! Object.prototype.hasOwnProperty.call( filters, 'includeWidgets' ) || Boolean( filters.includeWidgets );
+	const includePostSettings = ! Object.prototype.hasOwnProperty.call( filters, 'includePostSettings' ) || Boolean( filters.includePostSettings );
+	const postTypes = Array.isArray( filters.postTypes ) ? filters.postTypes.filter( Boolean ) : null;
+
+	if ( includeSettings && config.pre_settings ) {
+		totals.design += 1;
+	}
+
+	if ( includeMedia ) {
+		totals.media += countMediaItems( config.media ) * 2;
+	}
+
+	if ( includeTaxonomies && config.taxonomies ) {
+		totals.content += valuesSortedByPriority( config.taxonomies ).length;
+	}
+
+	valuesSortedByPriority( config.post_types ).forEach( ( entry ) => {
+		if ( ! entry.name || ! entry.ids || ( postTypes && ! postTypes.includes( entry.name ) ) ) {
+			return;
+		}
+
+		totals[ getStarterProgressGroupId( getPostTypeProgressPhase( entry.name ) ) ] += 1;
+	} );
+
+	if ( includeWidgets && config.widgets ) {
+		totals.design += 1;
+	}
+
+	if ( includePostSettings && config.post_settings ) {
+		totals.finish += 2;
+	}
+
+	return totals;
+}
+
+function getLayoutUnitSlot( layoutId ) {
+	const unit = LAYOUT_UNITS[ layoutId ];
+	return unit ? unit.unit_type + ':' + unit.unit : '';
+}
+
+function getLayoutOperationLabel( operation, copy ) {
+	if ( operation && operation.label ) {
+		return operation.label;
+	}
+
+	if ( operation && operation.layoutId && copy.composer.parts[ operation.layoutId ] ) {
+		return copy.composer.parts[ operation.layoutId ];
+	}
+
+	return __( 'layout part', 'pixelgrade_assistant' );
+}
 
 export function getStarterSitesData() {
 	if ( typeof window !== 'undefined' && window.pixelgradeStarterSites ) {
@@ -259,9 +437,238 @@ async function fetchJson( url, options = {} ) {
 	return response.json();
 }
 
-async function restRequest( data, key, payload ) {
+function formatElapsed( milliseconds ) {
+	const seconds = Math.max( 0, Math.floor( milliseconds / 1000 ) );
+
+	if ( seconds < 60 ) {
+		return seconds + 's';
+	}
+
+	return Math.floor( seconds / 60 ) + 'm ' + ( seconds % 60 ) + 's';
+}
+
+function appendProgressLog( log, message, type = 'info', time = '' ) {
+	if ( ! message ) {
+		return Array.isArray( log ) ? log : [];
+	}
+
+	return ( Array.isArray( log ) ? log : [] )
+		.concat( {
+			message,
+			type,
+			time,
+		} )
+		.slice( -8 );
+}
+
+function buildProgressState( previous, update, options = {} ) {
+	const now = Date.now();
+	const incoming = 'string' === typeof update ? { message: update } : update || {};
+	const base = options.reset
+		? {
+				status: 'idle',
+				phase: '',
+				message: '',
+				details: '',
+				current: 0,
+				total: 0,
+				log: [],
+				warnings: [],
+				phaseCounts: createStarterProgressGroups(),
+				phaseTotals: createStarterProgressGroups(),
+				startedAt: null,
+				lastEventAt: null,
+				heartbeat: '',
+		  }
+		: previous || {};
+	const next = {
+		...base,
+		...incoming,
+	};
+
+	if ( 'working' === next.status && ! next.startedAt ) {
+		next.startedAt = now;
+	}
+
+	next.phaseCounts = {
+		...createStarterProgressGroups(),
+		...( base.phaseCounts || {} ),
+		...( incoming.phaseCounts || {} ),
+	};
+	next.phaseTotals = {
+		...createStarterProgressGroups(),
+		...( base.phaseTotals || {} ),
+		...( incoming.phaseTotals || {} ),
+	};
+	next.warnings = Array.isArray( incoming.warnings )
+		? incoming.warnings
+		: Array.isArray( base.warnings )
+		? base.warnings
+		: [];
+
+	if ( options.advance ) {
+		const total = Number( next.total || base.total || 0 );
+		const current = Number( base.current || 0 ) + 1;
+		const groupId = getStarterProgressGroupId( next.phase || base.phase );
+		const groupTotal = Number( next.phaseTotals[ groupId ] || 0 );
+		const nextGroupCount = Number( next.phaseCounts[ groupId ] || 0 ) + 1;
+
+		next.current = total > 0 ? Math.min( current, total ) : current;
+		next.phaseCounts[ groupId ] = groupTotal > 0 ? Math.min( nextGroupCount, groupTotal ) : nextGroupCount;
+	}
+
+	if ( options.log ) {
+		const time = next.startedAt ? formatElapsed( now - next.startedAt ) : '0s';
+		next.log = appendProgressLog( base.log, options.log, options.logType || 'info', time );
+
+		if ( 'warning' === options.logType ) {
+			next.warnings = appendProgressLog( next.warnings, options.log, 'warning', time ).slice( -3 );
+		}
+	}
+
+	if ( ! options.keepLastEventAt ) {
+		next.lastEventAt = now;
+		next.heartbeat = '';
+	}
+
+	return next;
+}
+
+function getStarterProgressHeartbeatMessage( state ) {
+	const messages = {
+		manifest: __( 'Still getting the starter details ready.', 'pixelgrade_assistant' ),
+		prepare: __( 'Still preparing the import queue.', 'pixelgrade_assistant' ),
+		media: __( 'Still importing — this file is larger than usual.', 'pixelgrade_assistant' ),
+		taxonomies: __( 'Still adding your content structure.', 'pixelgrade_assistant' ),
+		content: __( 'Still adding pages and posts. Larger batches can take a little longer.', 'pixelgrade_assistant' ),
+		layouts: __( 'Still styling your site with templates and menus.', 'pixelgrade_assistant' ),
+		features: __( 'Still adding the selected feature.', 'pixelgrade_assistant' ),
+		settings: __( 'Still applying design settings.', 'pixelgrade_assistant' ),
+		finish: __( 'Still wrapping up the final settings.', 'pixelgrade_assistant' ),
+	};
+
+	return messages[ state.phase ] || __( 'Still working. No action needed.', 'pixelgrade_assistant' );
+}
+
+function startStarterProgressHeartbeat( setStates ) {
+	if ( 'undefined' === typeof window || ! window.setInterval ) {
+		return null;
+	}
+
+	return window.setInterval( () => {
+		const now = Date.now();
+
+		setStates( ( current ) => {
+			let changed = false;
+			const nextStates = {};
+
+			Object.keys( current || {} ).forEach( ( starterId ) => {
+				const state = current[ starterId ];
+
+				if ( ! state || 'working' !== state.status ) {
+					nextStates[ starterId ] = state;
+					return;
+				}
+
+				// More than 3 seconds without progress should never feel idle.
+				const quietFor = state.lastEventAt ? now - state.lastEventAt : STARTER_PROGRESS_HEARTBEAT_AFTER;
+				nextStates[ starterId ] = buildProgressState(
+					state,
+					{
+						heartbeat: quietFor >= STARTER_PROGRESS_HEARTBEAT_AFTER ? getStarterProgressHeartbeatMessage( state ) : state.heartbeat,
+						heartbeatTick: Number( state.heartbeatTick || 0 ) + 1,
+					},
+					{ keepLastEventAt: true }
+				);
+				changed = true;
+			} );
+
+			return changed ? nextStates : current;
+		} );
+	}, STARTER_PROGRESS_TICK_INTERVAL );
+}
+
+function scrollStarterProgressIntoView( starterId ) {
+	if ( 'undefined' === typeof window || 'undefined' === typeof document || ! starterId ) {
+		return;
+	}
+
+	window.setTimeout( () => {
+		const progressNode = Array.from( document.querySelectorAll( '[data-starter-progress-id]' ) ).find(
+			( node ) => node.getAttribute( 'data-starter-progress-id' ) === starterId
+		);
+
+		if ( ! progressNode || 'function' !== typeof progressNode.scrollIntoView ) {
+			return;
+		}
+
+		const reduceMotion = window.matchMedia && window.matchMedia( '(prefers-reduced-motion: reduce)' ).matches;
+		progressNode.scrollIntoView( {
+			behavior: reduceMotion ? 'auto' : 'smooth',
+			block: 'start',
+			inline: 'nearest',
+		} );
+	}, 80 );
+}
+
+function countMediaItems( media ) {
+	if ( ! media || isEmptyObject( media.placeholders ) ) {
+		return 0;
+	}
+
+	return Object.keys( media ).reduce( ( count, groupKey ) => {
+		if ( 'placeholders' === groupKey || 'source_urls' === groupKey || ! media[ groupKey ] ) {
+			return count;
+		}
+
+		return count + Object.keys( media[ groupKey ] ).length;
+	}, 0 );
+}
+
+function estimateStarterImportWork( config, filters = {} ) {
+	let total = 1;
+	const includeSettings = ! Object.prototype.hasOwnProperty.call( filters, 'includeSettings' ) || Boolean( filters.includeSettings );
+	const includeMedia = ! Object.prototype.hasOwnProperty.call( filters, 'includeMedia' ) || Boolean( filters.includeMedia );
+	const includeTaxonomies = ! Object.prototype.hasOwnProperty.call( filters, 'includeTaxonomies' ) || Boolean( filters.includeTaxonomies );
+	const includeWidgets = ! Object.prototype.hasOwnProperty.call( filters, 'includeWidgets' ) || Boolean( filters.includeWidgets );
+	const includePostSettings = ! Object.prototype.hasOwnProperty.call( filters, 'includePostSettings' ) || Boolean( filters.includePostSettings );
+	const postTypes = Array.isArray( filters.postTypes ) ? filters.postTypes.filter( Boolean ) : null;
+
+	if ( includeSettings && config.pre_settings ) {
+		total += 1;
+	}
+
+	if ( includeMedia ) {
+		total += countMediaItems( config.media ) * 2;
+	}
+
+	if ( includeTaxonomies && config.taxonomies ) {
+		total += valuesSortedByPriority( config.taxonomies ).length;
+	}
+
+	valuesSortedByPriority( config.post_types ).forEach( ( entry ) => {
+		if ( ! entry.name || ! entry.ids || ( postTypes && ! postTypes.includes( entry.name ) ) ) {
+			return;
+		}
+
+		total += 1;
+	} );
+
+	if ( includeWidgets && config.widgets ) {
+		total += 1;
+	}
+
+	if ( includePostSettings && config.post_settings ) {
+		total += 2;
+	}
+
+	return Math.max( total, 1 );
+}
+
+async function restRequest( data, key, payload, options = {} ) {
 	const endpoint = getEndpoint( data, key );
 	const rest = getPixassistRest();
+	const allowCodes = Array.isArray( options.allowCodes ) ? options.allowCodes : [];
 
 	if ( ! endpoint.url ) {
 		throw new Error( 'missing_endpoint_' + key );
@@ -277,7 +684,7 @@ async function restRequest( data, key, payload ) {
 		} ),
 	} );
 
-	if ( response && response.code && 'success' !== response.code ) {
+	if ( response && response.code && 'success' !== response.code && ! allowCodes.includes( response.code ) ) {
 		throw new Error( response.message || response.code );
 	}
 
@@ -331,6 +738,16 @@ function getActionOptionDefaults( action ) {
 	};
 }
 
+function starterHasAppliedLayoutUnits( starter, applied ) {
+	const normalizedApplied = normalizeApplied( applied );
+	const requiredLayouts = getAvailableLayoutIds( starter ).filter( ( id ) => ! [ 'portfolioArchive', 'portfolioSingle' ].includes( id ) );
+
+	return requiredLayouts.length > 0 && requiredLayouts.every( ( id ) => {
+		const entry = normalizedApplied.layoutUnits[ getLayoutUnitSlot( id ) ];
+		return entry && entry.demoKey === starter.id;
+	} );
+}
+
 function getAppliedStatusLabels( starter, imported, applied ) {
 	const labels = [];
 	const normalizedApplied = normalizeApplied( applied );
@@ -346,6 +763,8 @@ function getAppliedStatusLabels( starter, imported, applied ) {
 
 	if ( recipe ) {
 		labels.push( recipe.isApplied ? __( 'Layouts applied', 'pixelgrade_assistant' ) : __( 'Layouts customized', 'pixelgrade_assistant' ) );
+	} else if ( starterHasAppliedLayoutUnits( starter, applied ) ) {
+		labels.push( __( 'Layouts applied', 'pixelgrade_assistant' ) );
 	}
 
 	if (
@@ -419,44 +838,142 @@ function buildImportTasks( starter, config, data, setProgress, filters = {} ) {
 	const includeWidgets = ! Object.prototype.hasOwnProperty.call( filters, 'includeWidgets' ) || Boolean( filters.includeWidgets );
 	const includePostSettings = ! Object.prototype.hasOwnProperty.call( filters, 'includePostSettings' ) || Boolean( filters.includePostSettings );
 
-	const addImportTask = ( label, type, args ) => {
+	const addImportTask = ( label, type, args, progress = {} ) => {
 		tasks.push( async () => {
-			setProgress( label );
+			setProgress( {
+				phase: progress.phase || 'content',
+				message: label,
+				details: progress.details || '',
+			} );
 			await restRequest( data, 'import', {
 				demo_key: demoKey,
 				type,
 				url: baseUrl,
 				args,
 			} );
+			setProgress(
+				{
+					message: progress.doneMessage || label,
+					details: progress.doneDetails || '',
+				},
+				{
+					advance: true,
+					log: progress.logMessage || progress.doneMessage || label,
+				}
+			);
 		} );
 	};
 
 	if ( includeSettings && config.pre_settings ) {
-		addImportTask( __( 'Preparing settings...', 'pixelgrade_assistant' ), 'pre_settings', { data: config.pre_settings } );
+		addImportTask( __( 'Preparing settings...', 'pixelgrade_assistant' ), 'pre_settings', { data: config.pre_settings }, {
+			phase: 'settings',
+			details: __( 'Applying initial theme settings.', 'pixelgrade_assistant' ),
+			doneMessage: __( 'Prepared theme settings.', 'pixelgrade_assistant' ),
+			logMessage: __( 'Imported pre_settings.', 'pixelgrade_assistant' ),
+		} );
 	}
 
 	if ( includeMedia && config.media && ! isEmptyObject( config.media.placeholders ) ) {
 		const mediaUrl = trailingslash( starter.baseRestUrl ) + 'media';
+		const mediaTotal = countMediaItems( config.media );
+		let mediaIndex = 0;
+
 		Object.keys( config.media ).forEach( ( groupKey ) => {
-			if ( 'placeholders' === groupKey || ! config.media[ groupKey ] ) {
+			if ( 'placeholders' === groupKey || 'source_urls' === groupKey || ! config.media[ groupKey ] ) {
 				return;
 			}
 
 			Object.keys( config.media[ groupKey ] ).forEach( ( itemKey ) => {
 				const remoteId = config.media[ groupKey ][ itemKey ];
 				tasks.push( async () => {
-					setProgress( __( 'Importing media...', 'pixelgrade_assistant' ) );
+					const currentMediaIndex = ++mediaIndex;
+
+					setProgress( {
+						phase: 'media',
+						message: sprintf(
+							__( 'Downloading media %d of %d.', 'pixelgrade_assistant' ),
+							currentMediaIndex,
+							mediaTotal
+						),
+						details: sprintf( __( 'Remote attachment #%s', 'pixelgrade_assistant' ), remoteId ),
+					} );
 					const attachment = await fetchJson( mediaUrl + '?id=' + encodeURIComponent( remoteId ), { method: 'GET' } );
 
 					if ( ! attachment || 'success' !== attachment.code || ! attachment.data || ! attachment.data.media ) {
+						setProgress(
+							{
+								message: sprintf(
+									__( 'Skipped media %d of %d.', 'pixelgrade_assistant' ),
+									currentMediaIndex,
+									mediaTotal
+								),
+								details: __( 'The starter source did not return a usable file.', 'pixelgrade_assistant' ),
+							},
+							{ advance: true, log: __( 'Skipped a media download.', 'pixelgrade_assistant' ), logType: 'warning' }
+						);
+						setProgress(
+							{
+								message: sprintf(
+									__( 'Skipped media upload %d of %d.', 'pixelgrade_assistant' ),
+									currentMediaIndex,
+									mediaTotal
+								),
+								details: __( 'No upload was attempted.', 'pixelgrade_assistant' ),
+							},
+							{ advance: true }
+						);
 						return;
 					}
 
 					const media = attachment.data.media;
 					if ( ! media.title || ! media.ext || ! media.data ) {
+						setProgress(
+							{
+								message: sprintf(
+									__( 'Skipped media %d of %d.', 'pixelgrade_assistant' ),
+									currentMediaIndex,
+									mediaTotal
+								),
+								details: __( 'The media response was incomplete.', 'pixelgrade_assistant' ),
+							},
+							{ advance: true, log: __( 'Skipped malformed media data.', 'pixelgrade_assistant' ), logType: 'warning' }
+						);
+						setProgress(
+							{
+								message: sprintf(
+									__( 'Skipped media upload %d of %d.', 'pixelgrade_assistant' ),
+									currentMediaIndex,
+									mediaTotal
+								),
+								details: __( 'No valid file metadata was returned.', 'pixelgrade_assistant' ),
+							},
+							{ advance: true }
+						);
 						return;
 					}
 
+					const filename = media.title + '.' + media.ext;
+
+					setProgress(
+						{
+							message: sprintf(
+								__( 'Downloaded media %d of %d.', 'pixelgrade_assistant' ),
+								currentMediaIndex,
+								mediaTotal
+							),
+							details: filename,
+						},
+						{ advance: true }
+					);
+					setProgress( {
+						phase: 'media',
+						message: sprintf(
+							__( 'Uploading media %d of %d.', 'pixelgrade_assistant' ),
+							currentMediaIndex,
+							mediaTotal
+						),
+						details: filename,
+					} );
 					await restRequest( data, 'uploadMedia', {
 						demo_key: demoKey,
 						title: media.title,
@@ -465,6 +982,17 @@ function buildImportTasks( starter, config, data, setProgress, filters = {} ) {
 						ext: media.ext,
 						group: groupKey,
 					} );
+					setProgress(
+						{
+							message: sprintf(
+								__( 'Uploaded media %d of %d.', 'pixelgrade_assistant' ),
+								currentMediaIndex,
+								mediaTotal
+							),
+							details: filename,
+						},
+						{ advance: true, log: sprintf( __( 'Imported media "%s".', 'pixelgrade_assistant' ), filename ) }
+					);
 				} );
 			} );
 		} );
@@ -476,10 +1004,20 @@ function buildImportTasks( starter, config, data, setProgress, filters = {} ) {
 				return;
 			}
 
-			addImportTask( __( 'Importing taxonomies...', 'pixelgrade_assistant' ), 'taxonomy', {
-				tax: entry.name,
-				ids: entry.ids,
-			} );
+			addImportTask(
+				__( 'Importing taxonomies...', 'pixelgrade_assistant' ),
+				'taxonomy',
+				{
+					tax: entry.name,
+					ids: entry.ids,
+				},
+				{
+					phase: 'taxonomies',
+					details: sprintf( __( '%d terms in %s.', 'pixelgrade_assistant' ), Object.keys( entry.ids || {} ).length, entry.name ),
+					doneMessage: sprintf( __( 'Imported taxonomy: %s.', 'pixelgrade_assistant' ), entry.name ),
+					logMessage: sprintf( __( 'Imported taxonomy "%s".', 'pixelgrade_assistant' ), entry.name ),
+				}
+			);
 		} );
 	}
 
@@ -492,22 +1030,50 @@ function buildImportTasks( starter, config, data, setProgress, filters = {} ) {
 			return;
 		}
 
-		addImportTask( __( 'Importing content...', 'pixelgrade_assistant' ), 'post_type', {
-			post_type: entry.name,
-			ids: entry.ids,
-		} );
+		const progressPhase = getPostTypeProgressPhase( entry.name );
+
+		addImportTask(
+			__( 'Importing content...', 'pixelgrade_assistant' ),
+			'post_type',
+			{
+				post_type: entry.name,
+				ids: entry.ids,
+			},
+			{
+				phase: progressPhase,
+				details: sprintf( __( '%d records in %s.', 'pixelgrade_assistant' ), Object.keys( entry.ids || {} ).length, entry.name ),
+				doneMessage: sprintf( __( 'Imported %s.', 'pixelgrade_assistant' ), entry.name ),
+				logMessage: sprintf( __( 'Imported post type "%s".', 'pixelgrade_assistant' ), entry.name ),
+			}
+		);
 	} );
 
 	if ( includeWidgets && config.widgets ) {
-		addImportTask( __( 'Importing widgets...', 'pixelgrade_assistant' ), 'parsed_widgets', { data: 'ok' } );
+		addImportTask( __( 'Importing widgets...', 'pixelgrade_assistant' ), 'parsed_widgets', { data: 'ok' }, {
+			phase: 'layouts',
+			details: __( 'Arranging widget areas.', 'pixelgrade_assistant' ),
+			doneMessage: __( 'Imported widgets.', 'pixelgrade_assistant' ),
+			logMessage: __( 'Imported widgets.', 'pixelgrade_assistant' ),
+		} );
 	}
 
 	if ( includePostSettings && config.post_settings ) {
 		tasks.push( async () => {
 			const adminUrl = getAdminUrl();
 			if ( adminUrl ) {
-				setProgress( __( 'Preparing the admin area...', 'pixelgrade_assistant' ) );
+				setProgress( {
+					phase: 'finish',
+					message: __( 'Preparing the admin area...', 'pixelgrade_assistant' ),
+					details: __( 'Refreshing WordPress before the final settings pass.', 'pixelgrade_assistant' ),
+				} );
 				await window.fetch( adminUrl, { credentials: 'same-origin' } ).catch( () => {} );
+				setProgress(
+					{
+						message: __( 'Refreshed the WordPress admin context.', 'pixelgrade_assistant' ),
+						details: __( 'Preparing the final settings pass.', 'pixelgrade_assistant' ),
+					},
+					{ advance: true }
+				);
 			}
 
 			if ( includeWidgets && config.widgets ) {
@@ -519,28 +1085,43 @@ function buildImportTasks( starter, config, data, setProgress, filters = {} ) {
 				} );
 			}
 		} );
-		addImportTask( __( 'Wrapping it up...', 'pixelgrade_assistant' ), 'post_settings', { data: config.post_settings } );
+		addImportTask( __( 'Wrapping it up...', 'pixelgrade_assistant' ), 'post_settings', { data: config.post_settings }, {
+			phase: 'finish',
+			details: __( 'Saving menus, homepage, and theme options.', 'pixelgrade_assistant' ),
+			doneMessage: __( 'Applied final settings.', 'pixelgrade_assistant' ),
+			logMessage: __( 'Imported post_settings.', 'pixelgrade_assistant' ),
+		} );
 	}
 
 	return tasks;
 }
 
 export async function importStarter( starter, data, copy, setProgress ) {
-	setProgress( copy.importing );
-
-	if ( getEndpoint( data, 'importStarter' ).url ) {
-		await restRequest( data, 'importStarter', {
-			demo_key: starter.id,
-			url: trailingslash( starter.baseRestUrl ),
-		} );
-		return;
-	}
+	setProgress( {
+		phase: 'manifest',
+		message: copy.importing,
+		details: __( 'Contacting the starter source.', 'pixelgrade_assistant' ),
+	} );
 
 	const config = await fetchJson( trailingslash( starter.baseRestUrl ) + 'data', { method: 'GET' } );
 
 	if ( ! config || 'success' !== config.code ) {
 		throw new Error( config && config.message ? config.message : copy.failed );
 	}
+
+	setProgress(
+		{
+			phase: 'manifest',
+			message: __( 'Content manifest received.', 'pixelgrade_assistant' ),
+			details: __( 'Preparing the import queue.', 'pixelgrade_assistant' ),
+			total: estimateStarterImportWork( config.data || {} ),
+			phaseTotals: estimateStarterImportWorkByGroup( config.data || {} ),
+		},
+		{
+			advance: true,
+			log: __( 'Found available starter content. Preparing import steps.', 'pixelgrade_assistant' ),
+		}
+	);
 
 	const tasks = buildImportTasks( starter, config.data || {}, data, setProgress );
 
@@ -549,14 +1130,34 @@ export async function importStarter( starter, data, copy, setProgress ) {
 	}
 }
 
-async function importStarterParts( starter, parts, data, copy, setProgress ) {
-	setProgress( copy.actions.applySelectedParts );
+async function importStarterParts( starter, parts, data, copy, setProgress, phaseTotalBase = null, progressTotalBase = 0 ) {
+	setProgress( {
+		phase: 'manifest',
+		message: copy.actions.applySelectedParts,
+		details: __( 'Reading the selected starter parts.', 'pixelgrade_assistant' ),
+	} );
 
 	const config = await fetchJson( trailingslash( starter.baseRestUrl ) + 'data', { method: 'GET' } );
 
 	if ( ! config || 'success' !== config.code ) {
 		throw new Error( config && config.message ? config.message : copy.failed );
 	}
+
+	setProgress(
+		{
+			phase: 'manifest',
+			message: __( 'Content manifest received.', 'pixelgrade_assistant' ),
+			details: __( 'Preparing the selected import steps.', 'pixelgrade_assistant' ),
+			total: Number( progressTotalBase || 0 ) + estimateStarterImportWork( config.data || {}, parts ),
+			phaseTotals: phaseTotalBase
+				? combineStarterProgressGroups( phaseTotalBase, estimateStarterImportWorkByGroup( config.data || {}, parts ) )
+				: estimateStarterImportWorkByGroup( config.data || {}, parts ),
+		},
+		{
+			advance: true,
+			log: __( 'Found available starter content. Preparing selected parts.', 'pixelgrade_assistant' ),
+		}
+	);
 
 	const tasks = buildImportTasks( starter, config.data || {}, data, setProgress, parts );
 
@@ -575,7 +1176,11 @@ async function applyStarterAction( starter, action, options, data, copy, setProg
 	};
 
 	if ( 'layout_only' === selectedAction.type ) {
-		setProgress( copy.actions.applyLayouts );
+		setProgress( {
+			phase: 'layouts',
+			message: copy.actions.applyLayouts,
+			details: __( 'Applying the starter layout recipe.', 'pixelgrade_assistant' ),
+		} );
 		return restRequest( data, 'applyRecipe', {
 			recipe_id: starter.id,
 			url: trailingslash( starter.baseRestUrl ),
@@ -585,7 +1190,11 @@ async function applyStarterAction( starter, action, options, data, copy, setProg
 	}
 
 	if ( 'feature' === selectedAction.type ) {
-		setProgress( copy.actions.addPortfolio );
+		setProgress( {
+			phase: 'features',
+			message: copy.actions.addPortfolio,
+			details: __( 'Adding the selected feature and templates.', 'pixelgrade_assistant' ),
+		} );
 		return restRequest( data, 'importUnit', {
 			demo_key: starter.id,
 			url: trailingslash( starter.baseRestUrl ),
@@ -596,17 +1205,32 @@ async function applyStarterAction( starter, action, options, data, copy, setProg
 	}
 
 	if ( 'layout_unit' === selectedAction.type ) {
-		setProgress( copy.actions.applySelectedParts );
+		const label = getLayoutOperationLabel( selectedAction, copy );
+		setProgress( {
+			phase: 'layouts',
+			message: sprintf( __( 'Applying %s.', 'pixelgrade_assistant' ), label ),
+			details: __( 'Applying one selected layout part.', 'pixelgrade_assistant' ),
+		} );
 		return restRequest( data, 'importUnit', {
 			demo_key: starter.id,
 			url: trailingslash( starter.baseRestUrl ),
 			unit_type: selectedAction.unitType,
 			unit: selectedAction.unit,
+		}, {
+			allowCodes: [ 'unit_not_found' ],
 		} );
 	}
 
 	if ( 'starter_parts' === selectedAction.type ) {
-		return importStarterParts( starter, selectedAction.parts || {}, data, copy, setProgress );
+		return importStarterParts(
+			starter,
+			selectedAction.parts || {},
+			data,
+			copy,
+			setProgress,
+			selectedOptions.phaseTotalBase || null,
+			selectedOptions.progressTotalBase || 0
+		);
 	}
 
 	return importStarter( starter, data, copy, setProgress );
@@ -793,6 +1417,18 @@ function normalizeSelectedPartIds( ids, starter, copy ) {
 	return allowed.filter( ( id ) => Array.isArray( ids ) && ids.includes( id ) );
 }
 
+function buildLayoutUnitOperations( layoutIds, copy ) {
+	return layoutIds
+		.filter( ( id ) => LAYOUT_UNITS[ id ] )
+		.map( ( id ) => ( {
+			type: 'layout_unit',
+			unitType: LAYOUT_UNITS[ id ].unit_type,
+			unit: LAYOUT_UNITS[ id ].unit,
+			layoutId: id,
+			label: copy.composer.parts[ id ] || id,
+		} ) );
+}
+
 function getComposerState( starter, storedStates, data, copy ) {
 	const stored = storedStates[ starter.id ];
 
@@ -902,7 +1538,7 @@ function buildComposerOperations( starter, copy, composerState ) {
 	}
 
 	if ( 'layoutsOnly' === composerState.presetId ) {
-		return [ { type: 'layout_only', includeLookDefault: false, includeSampleDefault: false } ];
+		return buildLayoutUnitOperations( getAvailableLayoutIds( starter ), copy );
 	}
 
 	if ( 'portfolioOnly' === composerState.presetId ) {
@@ -913,7 +1549,6 @@ function buildComposerOperations( starter, copy, composerState ) {
 	const layoutIds = getAvailableLayoutIds( starter ).filter( ( id ) => selected.has( id ) );
 	const selectedRegularLayouts = layoutIds.filter( ( id ) => ! [ 'portfolioArchive', 'portfolioSingle' ].includes( id ) );
 	const selectedPortfolioLayouts = layoutIds.filter( ( id ) => [ 'portfolioArchive', 'portfolioSingle' ].includes( id ) );
-	const allRegularLayoutIds = getAvailableLayoutIds( starter ).filter( ( id ) => ! [ 'portfolioArchive', 'portfolioSingle' ].includes( id ) );
 	const hasPortfolioFeature = selected.has( 'portfolio' );
 	const postTypes = Object.keys( CONTENT_POST_TYPES )
 		.filter( ( id ) => selected.has( id ) )
@@ -925,27 +1560,11 @@ function buildComposerOperations( starter, copy, composerState ) {
 	if ( hasPortfolioFeature ) {
 		operations.push( { type: 'feature', unitType: 'feature', unit: 'portfolio', includeSampleDefault: selected.has( 'projects' ) } );
 	} else {
-		selectedPortfolioLayouts.forEach( ( id ) => {
-			operations.push( {
-				type: 'layout_unit',
-				unitType: LAYOUT_UNITS[ id ].unit_type,
-				unit: LAYOUT_UNITS[ id ].unit,
-			} );
-		} );
+		operations.push( ...buildLayoutUnitOperations( selectedPortfolioLayouts, copy ) );
 	}
 
 	if ( selectedRegularLayouts.length ) {
-		if ( selectedOnlyIncludes( new Set( selectedRegularLayouts ), allRegularLayoutIds ) ) {
-			operations.push( { type: 'layout_only', includeLookDefault: false, includeSampleDefault: false } );
-		} else {
-			selectedRegularLayouts.forEach( ( id ) => {
-				operations.push( {
-					type: 'layout_unit',
-					unitType: LAYOUT_UNITS[ id ].unit_type,
-					unit: LAYOUT_UNITS[ id ].unit,
-				} );
-			} );
-		}
+		operations.push( ...buildLayoutUnitOperations( selectedRegularLayouts, copy ) );
 	}
 
 	if ( postTypes.length || includeSettings || includeMenus ) {
@@ -967,52 +1586,441 @@ function buildComposerOperations( starter, copy, composerState ) {
 	return operations;
 }
 
-function renderStatusNotice( state, copy ) {
+function renderProgressStageDot( phase ) {
+	const baseStyle = {
+		alignItems: 'center',
+		borderRadius: '50%',
+		boxSizing: 'border-box',
+		display: 'inline-flex',
+		flex: '0 0 16px',
+		height: '16px',
+		justifyContent: 'center',
+		width: '16px',
+	};
+
+	if ( 'done' === phase.status ) {
+		return createElement(
+			'span',
+			{
+				'aria-hidden': true,
+				className: 'progress__stage-dot progress__stage-dot--done',
+				style: {
+					...baseStyle,
+					background: '#1e5aa8',
+					border: '1px solid #1e5aa8',
+					color: '#fff',
+					fontSize: '11px',
+					fontWeight: 700,
+					lineHeight: 1,
+				},
+			},
+			'✓'
+		);
+	}
+
+	if ( 'active' === phase.status ) {
+		return createElement(
+			'span',
+			{
+				'aria-hidden': true,
+				className: 'progress__stage-dot progress__stage-dot--active',
+				style: {
+					...baseStyle,
+					background: '#fff',
+					border: '1px solid #1e5aa8',
+				},
+			},
+			createElement( Spinner, { style: { height: '16px', margin: 0, width: '16px' } } )
+		);
+	}
+
+	return createElement( 'span', {
+		'aria-hidden': true,
+		className: 'progress__stage-dot progress__stage-dot--pending',
+		style: {
+			...baseStyle,
+			background: '#fff',
+			border: '1px solid #9bbcea',
+		},
+	} );
+}
+
+function renderProgressTimeline( phases ) {
+	return createElement(
+		'ul',
+		{
+			className: 'progress__timeline',
+			style: {
+				display: 'grid',
+				gap: '5px',
+				listStyle: 'none',
+				margin: '12px 0 0',
+				padding: 0,
+			},
+		},
+		phases.map( ( phase ) =>
+			createElement(
+				'li',
+				{
+					className: 'progress__stage progress__stage--' + phase.status,
+					key: phase.id,
+					style: {
+						alignItems: 'center',
+						color: 'active' === phase.status ? '#1d2327' : '#4f637f',
+						display: 'flex',
+						fontSize: '12px',
+						fontWeight: 'active' === phase.status ? 600 : 400,
+						gap: '9px',
+						minHeight: '22px',
+					},
+				},
+				renderProgressStageDot( phase ),
+				createElement( 'span', { style: { flex: '1 1 auto', minWidth: 0 } }, phase.label ),
+				createElement(
+					'span',
+					{
+						style: {
+							color: '#647a99',
+							flex: '0 0 auto',
+							fontSize: '11px',
+							fontVariantNumeric: 'tabular-nums',
+						},
+					},
+					phase.countText
+				)
+			)
+		)
+	);
+}
+
+function renderProgressWarnings( warnings ) {
+	if ( ! Array.isArray( warnings ) || ! warnings.length ) {
+		return null;
+	}
+
+	return createElement(
+		'div',
+		{
+			className: 'progress__warning',
+			style: {
+				background: '#fff8e5',
+				border: '1px solid #f0d58a',
+				borderRadius: '4px',
+				color: '#7a4d00',
+				fontSize: '12px',
+				lineHeight: 1.45,
+				marginTop: '11px',
+				padding: '7px 9px',
+			},
+		},
+		warnings[ warnings.length - 1 ].message
+	);
+}
+
+function renderProgressLog( log ) {
+	const completed = ( Array.isArray( log ) ? log : [] ).slice( -5 ).reverse();
+
+	if ( ! completed.length ) {
+		return null;
+	}
+
+	return createElement(
+		'div',
+		{
+			className: 'progress__log',
+			style: {
+				borderTop: '1px solid rgba(30,90,168,0.16)',
+				marginTop: '11px',
+				paddingTop: '9px',
+			},
+		},
+		createElement(
+			'div',
+			{
+				style: {
+					color: '#4f637f',
+					fontSize: '11px',
+					fontWeight: 600,
+					marginBottom: '3px',
+				},
+			},
+			__( 'Last completed', 'pixelgrade_assistant' )
+		),
+		completed.map( ( entry, index ) =>
+			createElement(
+				'div',
+				{
+					className: 'progress__log-entry progress__log-entry--' + ( entry.type || 'info' ),
+					key: index,
+					style: {
+						alignItems: 'baseline',
+						color: 'warning' === entry.type ? '#7a4d00' : '#506987',
+						display: 'flex',
+						fontSize: '11px',
+						gap: '8px',
+						lineHeight: 1.55,
+						minWidth: 0,
+					},
+				},
+				createElement(
+					'span',
+					{
+						style: {
+							color: '#7890ae',
+							flex: '0 0 auto',
+							fontVariantNumeric: 'tabular-nums',
+						},
+					},
+					entry.time || '0s'
+				),
+				createElement( 'span', { style: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, entry.message )
+			)
+		)
+	);
+}
+
+function getProgressHeadline( state, activePhase ) {
+	if ( ! state || ! state.total || ! activePhase || ! activePhase.total ) {
+		return __( 'Preparing…', 'pixelgrade_assistant' );
+	}
+
+	return sprintf( __( '%1$s — %2$d of %3$d', 'pixelgrade_assistant' ), activePhase.label, activePhase.count, activePhase.total );
+}
+
+function renderStatusNotice( state, copy, starterId = '' ) {
 	if ( ! state || ! state.status || 'idle' === state.status ) {
 		return null;
 	}
 
+	const isWorking = 'working' === state.status;
+	const isSuccess = 'success' === state.status;
+	const isError = 'error' === state.status;
+	const isRequirements = 'requirements' === state.status;
 	const tone =
-		'error' === state.status
+		isError
 			? { background: '#fcf0f1', border: '#f0b8bd', color: '#8a2424' }
-			: 'success' === state.status
+			: isSuccess
 			? { background: '#edfaef', border: '#b8e6c2', color: '#0a7a28' }
-			: 'requirements' === state.status
+			: isRequirements
 			? { background: '#fff8e5', border: '#f0d58a', color: '#7a4d00' }
 			: { background: '#eef5ff', border: '#b8d4fb', color: '#1e5aa8' };
-
-	const isRequirements = 'requirements' === state.status;
 	const requirementsCopy = ( copy && copy.requirements ) || {};
 	const pluginsTabUrl = copy && copy.pluginsTabUrl;
 	const manageLabel = ( copy && copy.actions && copy.actions.managePlugins ) || __( 'Install required plugins', 'pixelgrade_assistant' );
+	const total = Number( state.total || 0 );
+	const current = Number( state.current || 0 );
+	const ratio = total > 0 ? Math.max( 0, Math.min( 1, current / total ) ) : 0;
+	const percent = Math.round( ratio * 100 );
+	const elapsed = state.startedAt ? formatElapsed( Date.now() - state.startedAt ) : '';
+	const phaseStates = getStarterProgressPhaseState( state );
+	const activePhase = phaseStates.find( ( phase ) => 'active' === phase.status ) || phaseStates.find( ( phase ) => 'pending' === phase.status ) || phaseStates[0];
+	const headline = getProgressHeadline( state, activePhase );
+	const progressText = total
+		? sprintf( __( '%1$d of %2$d steps', 'pixelgrade_assistant' ), current, total )
+		: __( 'Preparing…', 'pixelgrade_assistant' );
+	const percentText = total ? percent + '%' : '';
+	const elapsedText = elapsed || '0s';
+	const ariaValueText = total
+		? sprintf( __( '%1$s, %2$d of %3$d steps, %4$d percent complete', 'pixelgrade_assistant' ), activePhase.label, current, total, percent )
+		: __( 'Preparing import steps', 'pixelgrade_assistant' );
 
 	return createElement(
 		'div',
 		{
 			role: 'status',
+			'data-starter-progress-id': starterId || undefined,
+			'aria-live': isWorking ? 'polite' : undefined,
+			'aria-atomic': isWorking ? false : undefined,
 			style: {
-				alignItems: isRequirements ? 'flex-start' : 'center',
 				background: tone.background,
 				border: '1px solid ' + tone.border,
-				color: tone.color,
-				display: 'flex',
-				flexDirection: isRequirements ? 'column' : 'row',
+				borderRadius: '4px',
+				boxSizing: 'border-box',
+				color: isWorking ? '#1d2327' : tone.color,
 				fontSize: '13px',
-				gap: '8px',
 				lineHeight: 1.4,
 				margin: '12px 0 0',
-				padding: '8px 10px',
+				maxWidth: '100%',
+				minWidth: 0,
+				padding: '14px 16px',
+				scrollMarginTop: '96px',
+				width: '100%',
 			},
 		},
-		'working' === state.status ? createElement( Spinner, { style: { margin: 0 } } ) : null,
-		isRequirements && requirementsCopy.heading
-			? createElement( 'strong', { style: { display: 'block' } }, requirementsCopy.heading )
-			: null,
-		createElement( 'span', null, state.message ),
+		isSuccess
+			? createElement(
+					Fragment,
+					null,
+					createElement(
+						'div',
+						{ style: { alignItems: 'center', display: 'flex', gap: '10px' } },
+						createElement(
+							'span',
+							{
+								'aria-hidden': true,
+								style: {
+									alignItems: 'center',
+									background: '#0a7a28',
+									borderRadius: '50%',
+									color: '#fff',
+									display: 'inline-flex',
+									flex: '0 0 18px',
+									fontSize: '12px',
+									fontWeight: 700,
+									height: '18px',
+									justifyContent: 'center',
+									width: '18px',
+								},
+							},
+							'✓'
+						),
+						createElement(
+							'strong',
+							{
+								style: {
+									color: '#0a7a28',
+									fontSize: '13px',
+								},
+							},
+							__( 'All done — your site is ready.', 'pixelgrade_assistant' )
+						)
+					),
+					createElement(
+						'p',
+						{
+							style: {
+								color: '#2f6b3f',
+								fontSize: '12px',
+								margin: '7px 0 0',
+							},
+						},
+						total
+							? sprintf( __( 'Finished %1$d steps in %2$s.', 'pixelgrade_assistant' ), current || total, elapsedText )
+							: __( 'The selected starter parts are in place.', 'pixelgrade_assistant' )
+					),
+					renderProgressWarnings( state.warnings )
+			  )
+			: isWorking
+			? createElement(
+					Fragment,
+					null,
+					createElement(
+						'div',
+						{ style: { alignItems: 'center', display: 'flex', gap: '9px' } },
+						createElement( Spinner, { style: { flex: '0 0 auto', margin: 0 } } ),
+						createElement(
+							'strong',
+							{ style: { color: '#1d3a73', flex: '1 1 auto', fontSize: '13px', minWidth: 0 } },
+							headline
+						),
+						createElement(
+							'span',
+							{
+								style: {
+									color: '#3b5b97',
+									flex: '0 0 auto',
+									fontSize: '12px',
+									fontVariantNumeric: 'tabular-nums',
+									fontWeight: 600,
+								},
+							},
+							percentText
+						)
+					),
+					createElement(
+						'div',
+						{
+							className: 'progress__bar',
+							role: 'progressbar',
+							'aria-valuemin': 0,
+							'aria-valuemax': total || 100,
+							'aria-valuenow': total ? current : percent,
+							'aria-valuetext': ariaValueText,
+							style: {
+								background: 'rgba(30,90,168,0.18)',
+								borderRadius: '999px',
+								boxSizing: 'border-box',
+								height: '6px',
+								marginTop: '11px',
+								overflow: 'hidden',
+								width: '100%',
+							},
+						},
+						createElement( 'div', {
+							className: 'progress__bar-fill',
+							style: {
+								background: '#1e5aa8',
+								height: '100%',
+								transition: 'width 180ms ease',
+								width: percent + '%',
+							},
+						} )
+					),
+					createElement(
+						'div',
+						{
+							style: {
+								alignItems: 'center',
+								color: '#526b8c',
+								display: 'flex',
+								flexWrap: 'wrap',
+								fontSize: '12px',
+								gap: '8px 12px',
+								justifyContent: 'space-between',
+								marginTop: '8px',
+							},
+						},
+						createElement( 'span', null, progressText ),
+						createElement( 'span', { style: { fontVariantNumeric: 'tabular-nums' } }, elapsedText )
+					),
+					renderProgressTimeline( phaseStates ),
+					state.heartbeat
+						? createElement(
+								'div',
+								{
+									className: 'progress__heartbeat',
+									style: {
+										alignItems: 'center',
+										color: '#3b5b97',
+										display: 'flex',
+										fontSize: '12px',
+										gap: '7px',
+										lineHeight: 1.5,
+										marginTop: '9px',
+									},
+								},
+								createElement( Spinner, { style: { height: '14px', margin: 0, width: '14px' } } ),
+								state.heartbeat
+						  )
+						: null,
+					renderProgressWarnings( state.warnings ),
+					renderProgressLog( state.log )
+			  )
+			: createElement(
+					Fragment,
+					null,
+					isRequirements && requirementsCopy.heading
+						? createElement( 'strong', { style: { display: 'block', marginBottom: '4px' } }, requirementsCopy.heading )
+						: null,
+					createElement( 'span', null, state.message ),
+					isError && state.details
+							? createElement(
+									'p',
+									{
+										style: {
+											fontSize: '12px',
+											lineHeight: 1.5,
+											margin: '6px 0 0',
+										},
+									},
+									state.details
+							  )
+						: null
+			  ),
 		isRequirements && pluginsTabUrl
 			? createElement(
 					Button,
-					{ href: pluginsTabUrl, variant: 'primary' },
+					{ href: pluginsTabUrl, style: { marginTop: '10px' }, variant: 'primary' },
 					manageLabel
 			  )
 			: null
@@ -1185,7 +2193,7 @@ function renderStarterCard( starter, context ) {
 					: null,
 			),
 			importedStatus,
-			renderStatusNotice( state, copy )
+			renderStatusNotice( state, copy, starter.id )
 		)
 	);
 }
@@ -1422,13 +2430,12 @@ function renderComposerView( starter, context ) {
 							Button,
 							{
 								variant: 'secondary',
-								disabled: isWorking,
 								onClick: onBack,
 							},
 							copy.actions.cancel
 						)
 					),
-					renderStatusNotice( state, copy )
+					renderStatusNotice( state, copy, starter.id )
 				)
 			)
 		)
@@ -1452,10 +2459,24 @@ export function StarterSites() {
 			...current,
 			[ id ]: {
 				...( current[ id ] || {} ),
-				...nextState,
+				...( 'function' === typeof nextState ? nextState( current[ id ] || {} ) : nextState ),
 			},
 		} ) );
 	};
+
+	const setStarterProgress = ( id, update, options = {} ) => {
+		setStarterState( id, ( previous ) => buildProgressState( previous, update, options ) );
+	};
+
+	useEffect( () => {
+		const heartbeat = startStarterProgressHeartbeat( setStates );
+
+		return () => {
+			if ( heartbeat && window.clearInterval ) {
+				window.clearInterval( heartbeat );
+			}
+		};
+	}, [] );
 
 	const storeComposerState = ( starter, nextState ) => {
 		setComposerStates( ( current ) => ( {
@@ -1559,11 +2580,39 @@ export function StarterSites() {
 		}
 
 		try {
-			setStarterState( starter.id, { status: 'working', message: copy.actions.working } );
+			setStarterProgress(
+				starter.id,
+				{
+					status: 'working',
+					phase: 'prepare',
+					message: copy.actions.working,
+					details: __( 'Preparing the selected starter parts.', 'pixelgrade_assistant' ),
+					current: 0,
+					total: Math.max( operations.length, 1 ),
+					log: [],
+					warnings: [],
+					phaseCounts: createStarterProgressGroups(),
+					phaseTotals: estimateComposerOperationProgressGroups( operations ),
+					startedAt: Date.now(),
+				},
+				{
+					reset: true,
+					log: sprintf( __( 'Started applying %s.', 'pixelgrade_assistant' ), starter.title || starter.id ),
+				}
+			);
+			scrollStarterProgressIntoView( starter.id );
 
-			for ( const operation of operations ) {
-				const response = await applyStarterAction( starter, operation, {}, data, copy, ( message ) => {
-					setStarterState( starter.id, { status: 'working', message } );
+			for ( const [ index, operation ] of operations.entries() ) {
+				const baseOperations = operations.filter( ( candidate, candidateIndex ) => candidateIndex !== index );
+				const phaseTotalBase = 'starter_parts' === operation.type
+					? estimateComposerOperationProgressGroups( baseOperations )
+					: null;
+				const progressTotalBase = 'starter_parts' === operation.type ? baseOperations.length : 0;
+				const response = await applyStarterAction( starter, operation, { phaseTotalBase, progressTotalBase }, data, copy, ( message, options = {} ) => {
+					setStarterProgress( starter.id, {
+						status: 'working',
+						...( 'string' === typeof message ? { message } : message ),
+					}, options );
 				} );
 
 				if ( 'full_demo' === operation.type ) {
@@ -1590,14 +2639,45 @@ export function StarterSites() {
 				}
 
 				updateAppliedFromResponse( response );
+
+				if ( ! [ 'full_demo', 'starter_parts' ].includes( operation.type ) ) {
+					const skippedLayoutUnit = 'layout_unit' === operation.type && response && 'unit_not_found' === response.code;
+					const appliedOperationMessage =
+						skippedLayoutUnit
+							? sprintf( __( 'Skipped %s.', 'pixelgrade_assistant' ), getLayoutOperationLabel( operation, copy ) )
+							: 'layout_unit' === operation.type
+							? sprintf( __( 'Applied %s.', 'pixelgrade_assistant' ), getLayoutOperationLabel( operation, copy ) )
+							: __( 'Applied selected operation.', 'pixelgrade_assistant' );
+
+					setStarterProgress(
+						starter.id,
+						{
+							message: appliedOperationMessage,
+							details: skippedLayoutUnit && response.message ? response.message : '',
+						},
+						{
+							advance: true,
+							log: appliedOperationMessage,
+							logType: skippedLayoutUnit ? 'warning' : 'info',
+						}
+					);
+				}
 			}
 
-			setStarterState( starter.id, { status: 'success', message: copy.success } );
-		} catch ( error ) {
-			setStarterState( starter.id, {
-				status: 'error',
-				message: error && error.message ? error.message : copy.error,
+			setStarterProgress( starter.id, {
+				status: 'success',
+				phase: 'done',
+				message: copy.success,
+				details: __( 'The selected starter parts are in place.', 'pixelgrade_assistant' ),
+				heartbeat: '',
 			} );
+		} catch ( error ) {
+			setStarterProgress( starter.id, {
+				status: 'error',
+				phase: 'error',
+				message: error && error.message ? error.message : copy.error,
+				details: __( 'The apply process stopped before all selected parts finished.', 'pixelgrade_assistant' ),
+			}, { log: error && error.message ? error.message : copy.error, logType: 'error' } );
 		}
 	};
 

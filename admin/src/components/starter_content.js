@@ -5,7 +5,6 @@ import 'whatwg-fetch'; // Required for browser compatibility.
 import Helpers from '../helpers';
 import ProgressBar from "./ProgressBar/ProgressBar";
 import Radio from '@material-ui/core/Radio';
-import TextField from '@material-ui/core/TextField';
 import _ from 'lodash';
 
 const mapStateToProps = (state) => {
@@ -85,6 +84,7 @@ class StarterContentContainer extends React.Component {
 			importing: false,
 			demoClass: 'box--neutral',
 			log: [],
+			progress: this.getInitialProgressState(),
 		}
 
 		if (_.size(this.state.demos)) {
@@ -101,6 +101,11 @@ class StarterContentContainer extends React.Component {
 		this.onImportStopClick = this.onImportStopClick.bind(this);
 		this.addLogEntry = this.addLogEntry.bind(this);
 		this.handleFetchErrors = this.handleFetchErrors.bind(this);
+		this.updateProgress = this.updateProgress.bind(this);
+		this.advanceProgress = this.advanceProgress.bind(this);
+		this.startProgressHeartbeat = this.startProgressHeartbeat.bind(this);
+		this.stopProgressHeartbeat = this.stopProgressHeartbeat.bind(this);
+		this.estimateTotalWork = this.estimateTotalWork.bind(this);
 
 		this.importMedia = this.importMedia.bind(this);
 		this.importPosts = this.importPosts.bind(this);
@@ -112,6 +117,7 @@ class StarterContentContainer extends React.Component {
 
 		// A reference to the DOM element of the log.
 		this.logInput = React.createRef();
+		this.progressHeartbeat = null;
 	}
 
 	render() {
@@ -132,28 +138,14 @@ class StarterContentContainer extends React.Component {
 
 		installingClass += '  ' + component.state.demoClass;
 
-			let logValue = _.join(component.state.log, "\n");
-
 			return (
 				<div className="demos starter_content single-item">
-			<ProgressBar installingClass={installingClass} title={progressTitle} description={description} />
-					{ logValue
-						? <TextField
-							id="outlined-textarea"
-							label="Log"
-							multiline
-							rows="2"
-							rowsMax="4"
-							value={logValue}
-							className="starter-content-log"
-							margin="normal"
-							variant="outlined"
-							InputProps={{
-								readOnly: true,
-							}}
-							inputRef={this.logInput}
-						/> : ''
-					}
+					<ProgressBar
+						installingClass={installingClass}
+						title={progressTitle}
+						description={description}
+						progress={component.state.progress}
+					/>
 					{ component.props.enable_actions && ! (component.props.session.is_sc_errored || component.props.session.is_sc_installing || component.props.session.is_sc_done)
 						? <a className="btn btn--action import--action " href="#" disabled={ component.props.session.is_sc_installing || component.props.session.is_sc_done } onClick={this.onImportClick}>
 							{component.props.session.is_sc_done ? Helpers.decodeHtml(_.get(pixassist, 'themeConfig.starterContent.l10n.imported', '')) : Helpers.decodeHtml(_.get(pixassist, 'themeConfig.starterContent.l10n.import', '')) }
@@ -292,6 +284,7 @@ class StarterContentContainer extends React.Component {
 	componentWillUnmount() {
 		let component = this;
 
+		component.stopProgressHeartbeat();
 		window.removeEventListener( 'localizedChanged', component.setupDemosFromLocalized )
 	}
 
@@ -331,14 +324,175 @@ class StarterContentContainer extends React.Component {
 		}
 	}
 
-	addLogEntry( message ) {
+	getInitialProgressState() {
+		return {
+			status: 'idle',
+			phase: '',
+			message: '',
+			details: '',
+			current: 0,
+			total: 0,
+			log: [],
+			startedAt: null,
+			lastEventAt: null,
+			heartbeat: '',
+		};
+	}
+
+	updateProgress( update, options = {} ) {
+		let component = this,
+			now = Date.now();
+
+		component.setState(function (prevState) {
+			let progress = Object.assign({}, prevState.progress || component.getInitialProgressState(), update || {});
+
+			if ( 'working' === progress.status && ! progress.startedAt ) {
+				progress.startedAt = now;
+			}
+
+			if ( ! options.keepLastEventAt ) {
+				progress.lastEventAt = now;
+				progress.heartbeat = '';
+			}
+
+			return { progress: progress };
+		});
+	}
+
+	advanceProgress( message, details = '' ) {
+		let component = this;
+
+		component.setState(function (prevState) {
+			let progress = Object.assign({}, prevState.progress || component.getInitialProgressState()),
+				total = _.toNumber(progress.total) || 0,
+				current = (_.toNumber(progress.current) || 0) + 1;
+
+			if ( total > 0 ) {
+				current = Math.min(current, total);
+			}
+
+			progress.status = 'working';
+			progress.current = current;
+			progress.message = message || progress.message;
+			progress.details = details;
+			progress.lastEventAt = Date.now();
+			progress.heartbeat = '';
+
+			return {
+				description: progress.message,
+				progress: progress,
+			};
+		});
+	}
+
+	startProgressHeartbeat() {
+		let component = this;
+
+		component.stopProgressHeartbeat();
+
+		component.progressHeartbeat = setInterval(function () {
+			let progress = component.state.progress || {};
+
+			if ( 'working' !== progress.status || component.props.session.is_sc_stopped ) {
+				return;
+			}
+
+			// More than 3 seconds without progress should never feel idle.
+			if ( progress.lastEventAt && Date.now() - progress.lastEventAt < 2500 ) {
+				return;
+			}
+
+			component.updateProgress(
+				{
+					heartbeat: component.getProgressHeartbeatMessage(progress),
+				},
+				{ keepLastEventAt: true }
+			);
+		}, 2500);
+	}
+
+	stopProgressHeartbeat() {
+		if ( this.progressHeartbeat ) {
+			clearInterval(this.progressHeartbeat);
+			this.progressHeartbeat = null;
+		}
+	}
+
+	getProgressHeartbeatMessage(progress) {
+		let messages = {
+			data: 'Still reading the starter manifest.',
+			media: 'Still processing images and local attachment metadata.',
+			taxonomies: 'Still creating categories, tags, and menu groups.',
+			posts: 'Still importing content. Larger post batches can take a little longer.',
+			widgets: 'Still arranging widgets and sidebars.',
+			settings: 'Still applying site settings and theme options.',
+			finish: 'Still wrapping up the import.',
+		};
+
+		return messages[progress.phase] || 'Still working. No action needed.';
+	}
+
+	estimateTotalWork(data) {
+		let total = 1;
+
+		if ( !_.isUndefined(data.pre_settings) && !_.isEmpty(data.pre_settings) ) {
+			total += 1;
+		}
+
+		if ( !_.isUndefined(data.media) && !_.isEmpty(data.media.placeholders) ) {
+			Object.keys(data.media).map(function (group_i) {
+				if ( 'source_urls' === group_i || _.isEmpty(data.media[group_i]) ) {
+					return;
+				}
+
+				total += _.size(data.media[group_i]) * 2;
+			});
+		}
+
+		if ( !_.isUndefined(data.taxonomies) && !_.isEmpty(data.taxonomies) ) {
+			total += _.size(data.taxonomies);
+		}
+
+		if ( !_.isUndefined(data.post_types) && !_.isEmpty(data.post_types) ) {
+			total += _.size(data.post_types);
+		}
+
+		if ( !_.isUndefined(data.widgets) && !_.isEmpty(data.widgets) ) {
+			total += 1;
+		}
+
+		if ( !_.isUndefined(data.post_settings) && !_.isEmpty(data.post_settings) ) {
+			total += 2;
+		}
+
+		return Math.max(total, 1);
+	}
+
+	addLogEntry( message, type = 'info' ) {
 		let component = this;
 
 		if ( !message ) {
 			return;
 		}
 
-		component.setState({ log: component.state.log.concat(message)});
+		component.setState(function (prevState) {
+			let progress = Object.assign({}, prevState.progress || component.getInitialProgressState()),
+				progressLog = progress.log || [];
+
+			progressLog = progressLog.concat({
+				message: message,
+				type: type,
+			}).slice(-8);
+
+			progress.log = progressLog;
+			progress.lastEventAt = Date.now();
+			progress.heartbeat = '';
+
+			return {
+				log: prevState.log.concat(message),
+				progress: progress,
+			};
+		});
 	}
 
 	onImportClick(e) {
@@ -367,6 +521,17 @@ class StarterContentContainer extends React.Component {
 
 		// Enable the import animation
 		component.setState({demoClass: 'box--plugin-invalidated box--plugin-installing', description: Helpers.decodeHtml(_.get(pixassist, 'themeConfig.starterContent.l10n.importingData', ''))});
+		component.updateProgress({
+			status: 'working',
+			phase: 'data',
+			message: Helpers.decodeHtml(_.get(pixassist, 'themeConfig.starterContent.l10n.importingData', '')),
+			details: 'Contacting the starter source.',
+			current: 0,
+			total: 1,
+			log: [],
+			startedAt: Date.now(),
+		});
+		component.startProgressHeartbeat();
 
 		// Log
 		component.addLogEntry('Starting the import of starter content from: ' + component.state.demos[component.state.selectedDemoKey].url );
@@ -382,9 +547,21 @@ class StarterContentContainer extends React.Component {
 			.then((config) => {
 				if ( config.code !== 'success' ) {
 					component.setState({demoClass: 'box--error', description: Helpers.decodeHtml(_.get(pixassist, 'themeConfig.starterContent.l10n.somethingWrong', ''))+"\n"+config.message });
+					component.updateProgress({
+						status: 'error',
+						message: Helpers.decodeHtml(_.get(pixassist, 'themeConfig.starterContent.l10n.somethingWrong', '')),
+						details: config.message,
+					});
+					component.stopProgressHeartbeat();
 					component.props.onStarterContentErrored();
 					component.props.onReady();
 				} else {
+					component.updateProgress({
+						phase: 'data',
+						total: component.estimateTotalWork(config.data),
+					});
+					component.advanceProgress('Content manifest received.', 'Preparing the import queue.');
+					component.addLogEntry('Found available starter content. Preparing import steps.');
 					/**
 					 * Now that we have the available data, let's import it in a few steps
 					 * the Queue will be managed inside these methods
@@ -423,8 +600,14 @@ class StarterContentContainer extends React.Component {
 			})
 			.catch(function(ex) {
 				console.log( ex );
-				component.addLogEntry( 'Error: ' + ex.message );
+				component.addLogEntry( 'Error: ' + ex.message, 'error' );
 				component.setState({demoClass: 'box--error', description: Helpers.decodeHtml(_.get(pixassist, 'themeConfig.starterContent.l10n.errorMessage', '')) });
+				component.updateProgress({
+					status: 'error',
+					message: Helpers.decodeHtml(_.get(pixassist, 'themeConfig.starterContent.l10n.errorMessage', '')),
+					details: ex.message,
+				});
+				component.stopProgressHeartbeat();
 				component.props.onStarterContentErrored();
 				component.props.onReady();
 			})
@@ -439,6 +622,12 @@ class StarterContentContainer extends React.Component {
 			component.queue.next();
 
 			component.addLogEntry('Import resumed.');
+			component.updateProgress({
+				status: 'working',
+				message: 'Import resumed.',
+				details: 'Continuing with the next queued step.',
+			});
+			component.startProgressHeartbeat();
 
 			// Trigger a starter_content_resume action
 			component.props.onStarterContentResume();
@@ -447,6 +636,12 @@ class StarterContentContainer extends React.Component {
 
 			component.setState({description: Helpers.decodeHtml(_.get(pixassist, 'themeConfig.starterContent.l10n.stoppedMessage', '')) });
 			component.addLogEntry('Import stopped.');
+			component.updateProgress({
+				status: 'paused',
+				message: Helpers.decodeHtml(_.get(pixassist, 'themeConfig.starterContent.l10n.stoppedMessage', '')),
+				details: 'The import queue is paused.',
+			});
+			component.stopProgressHeartbeat();
 
 			// Trigger a starter_content_stop action
 			component.props.onStarterContentStop();
@@ -462,18 +657,35 @@ class StarterContentContainer extends React.Component {
 			return;
 		}
 
-		let mediaUrl = Helpers.trailingslashit( component.state.demos[component.state.selectedDemoKey].baseRestUrl ) + 'media';
+		let mediaUrl = Helpers.trailingslashit( component.state.demos[component.state.selectedDemoKey].baseRestUrl ) + 'media',
+			mediaTotal = 0,
+			mediaIndex = 0;
+
+		Object.keys(data).map(function (group_i) {
+			if ( 'source_urls' === group_i || _.isEmpty(data[group_i]) ) {
+				return;
+			}
+
+			mediaTotal += _.size(data[group_i]);
+		});
 
 		{Object.keys(data).map(function (group_i) {
 			var group = data[group_i];
 
-			if (_.isEmpty(group)) {
+			if ('source_urls' === group_i || _.isEmpty(group)) {
 				return;
 			}
 
 			{Object.keys(group).map(function (i) {
 				component.queue.add(function () {
-					var attach_id = group[i];
+					var attach_id = group[i],
+						currentMediaIndex = ++mediaIndex;
+
+					component.updateProgress({
+						phase: 'media',
+						message: 'Downloading media ' + currentMediaIndex + ' of ' + mediaTotal + '.',
+						details: 'Remote attachment #' + attach_id,
+					});
 
 					fetch(mediaUrl + "?id=" + attach_id, {method: 'GET'})
 						.then( component.handleFetchErrors )
@@ -482,15 +694,21 @@ class StarterContentContainer extends React.Component {
 						})
 						.then((attachment) => {
 							if ( attachment.code !== 'success' ) {
-								component.addLogEntry('Failed to get media with id '+ attach_id + ' (error message: '+attachment.message+'). Continuing...');
+								component.addLogEntry('Failed to get media with id '+ attach_id + ' (error message: '+attachment.message+'). Continuing...', 'error');
+								component.advanceProgress('Skipped media ' + currentMediaIndex + ' of ' + mediaTotal + '.', attachment.message);
+								component.advanceProgress('Skipped media upload ' + currentMediaIndex + ' of ' + mediaTotal + '.', 'No file was returned by the starter source.');
 								component.queue.next();
 							} else {
 
 								if ( !attachment.data.media.title || !attachment.data.media.ext || !attachment.data.media.mime_type ) {
-									component.addLogEntry('Got back malformed data for media with id '+ attach_id + '. Continuing...');
+									component.addLogEntry('Got back malformed data for media with id '+ attach_id + '. Continuing...', 'error');
+									component.advanceProgress('Skipped media ' + currentMediaIndex + ' of ' + mediaTotal + '.', 'Malformed media response.');
+									component.advanceProgress('Skipped media upload ' + currentMediaIndex + ' of ' + mediaTotal + '.', 'No valid file metadata was returned.');
 									component.queue.next();
 									return;
 								}
+
+								component.advanceProgress('Downloaded media ' + currentMediaIndex + ' of ' + mediaTotal + '.', attachment.data.media.title + '.' + attachment.data.media.ext);
 
 								Helpers.$ajax(
 									pixassist.wpRest.endpoint.uploadMedia.url,
@@ -506,27 +724,43 @@ class StarterContentContainer extends React.Component {
 									function (response) {
 										if ( !_.isUndefined( response.code ) && 'success' === response.code) {
 											component.addLogEntry('Imported media "' + attachment.data.media.title + '.' + attachment.data.media.ext + '" (#' + response.data.attachmentID + ').');
+											component.advanceProgress('Uploaded media ' + currentMediaIndex + ' of ' + mediaTotal + '.', attachment.data.media.title + '.' + attachment.data.media.ext);
 										} else {
-											component.addLogEntry('Failed to import media "' + attachment.data.media.title + '.' + attachment.data.media.ext + '". Response: ' + response.responseText );
+											component.addLogEntry('Failed to import media "' + attachment.data.media.title + '.' + attachment.data.media.ext + '". Response: ' + response.responseText, 'error' );
+											component.advanceProgress('Media upload failed ' + currentMediaIndex + ' of ' + mediaTotal + '.', attachment.data.media.title + '.' + attachment.data.media.ext);
 											console.log(response);
 										}
 
 										component.queue.next();
 									},
 									function (err) {
-										component.addLogEntry('Failed to import media "' + attachment.data.media.title + '.' + attachment.data.media.ext + '". Response: ' + err.responseText );
+										component.addLogEntry('Failed to import media "' + attachment.data.media.title + '.' + attachment.data.media.ext + '". Response: ' + err.responseText, 'error' );
+										component.advanceProgress('Media upload failed ' + currentMediaIndex + ' of ' + mediaTotal + '.', attachment.data.media.title + '.' + attachment.data.media.ext);
 										console.log(err);
 										component.queue.next();
 									},
 									function (xhr) {
+										let uploadMessage = 'Uploading media ' + currentMediaIndex + ' of ' + mediaTotal + '.';
+
 										component.setState({
-											description: Helpers.decodeHtml(_.get(pixassist, 'themeConfig.starterContent.l10n.mediaImporting', '')) + attachment.data.media.title + '.' + attachment.data.media.ext
+											description: uploadMessage
+										});
+										component.updateProgress({
+											phase: 'media',
+											message: uploadMessage,
+											details: attachment.data.media.title + '.' + attachment.data.media.ext,
 										});
 
 										xhr.setRequestHeader('X-WP-Nonce', pixassist.wpRest.nonce);
 									}
 								)
 							}
+						})
+						.catch(function(ex) {
+							component.addLogEntry('Failed to download media with id '+ attach_id + '. Response: ' + ex.message, 'error');
+							component.advanceProgress('Skipped media ' + currentMediaIndex + ' of ' + mediaTotal + '.', ex.message);
+							component.advanceProgress('Skipped media upload ' + currentMediaIndex + ' of ' + mediaTotal + '.', 'Download failed.');
+							component.queue.next();
 						});
 				});
 			})}
@@ -576,16 +810,25 @@ class StarterContentContainer extends React.Component {
 					function (response) { // success callback
 						console.log(response);
 						component.addLogEntry('Imported post type "' + entry.name + '" (' + _.size(entry.ids) + ' posts).');
+						component.advanceProgress('Imported ' + post_type + '.', _.size(entry.ids) + ' posts processed.');
 						// @todo we should properly handle the response code
 						component.queue.next();
 					},
 					function (err) {// error callback
 						console.log(err);
-						component.addLogEntry('Failed to import post type "' + entry.name + '". Response: ' + err.responseText );
+						component.addLogEntry('Failed to import post type "' + entry.name + '". Response: ' + err.responseText, 'error' );
+						component.advanceProgress('Post type import failed: ' + post_type + '.', err.responseText);
 						component.queue.next();
 					},
 					function (xhr) { // beforeSendCallback
-						component.setState({description: Helpers.decodeHtml(_.get(pixassist, 'themeConfig.starterContent.l10n.postImporting', '')) + post_type + '...'});
+						let message = Helpers.decodeHtml(_.get(pixassist, 'themeConfig.starterContent.l10n.postImporting', '')) + post_type + '...';
+
+						component.setState({description: message});
+						component.updateProgress({
+							phase: 'posts',
+							message: message,
+							details: _.size(entry.ids) + ' posts in this batch.',
+						});
 
 						xhr.setRequestHeader('X-WP-Nonce', pixassist.wpRest.nonce);
 					}
@@ -637,17 +880,26 @@ class StarterContentContainer extends React.Component {
 					function (response) {
 						console.log(response);
 						component.addLogEntry('Imported taxonomy "' + tax + '" (' + _.size(entry.ids) + ' terms).');
+						component.advanceProgress('Imported taxonomy: ' + tax + '.', _.size(entry.ids) + ' terms processed.');
 						component.queue.next();
 					},
 					function (err) {
 						console.log(err);
-						component.addLogEntry('Failed to import taxonomy "' + tax + '". Response: ' + err.responseText );
+						component.addLogEntry('Failed to import taxonomy "' + tax + '". Response: ' + err.responseText, 'error' );
+						component.advanceProgress('Taxonomy import failed: ' + tax + '.', err.responseText);
 						component.queue.next();
 					},
 					function (xhr) {
 						xhr.setRequestHeader('X-WP-Nonce', pixassist.wpRest.nonce);
 
-						component.setState({description: Helpers.decodeHtml(_.get(pixassist, 'themeConfig.starterContent.l10n.taxonomyImporting', '')) + tax + '...'});
+						let message = Helpers.decodeHtml(_.get(pixassist, 'themeConfig.starterContent.l10n.taxonomyImporting', '')) + tax + '...';
+
+						component.setState({description: message});
+						component.updateProgress({
+							phase: 'taxonomies',
+							message: message,
+							details: _.size(entry.ids) + ' terms in this batch.',
+						});
 					}
 				)
 			});
@@ -681,16 +933,26 @@ class StarterContentContainer extends React.Component {
 				},
 				function (response) {
 					console.log(response);
+					component.addLogEntry('Imported widgets.');
+					component.advanceProgress('Imported widgets.', 'Sidebars and widget areas were updated.');
 					component.queue.next();
 				},
 				function (err) {
 					console.log(err);
-					component.addLogEntry('Failed to import widgets. Response: ' + err.responseText );
+					component.addLogEntry('Failed to import widgets. Response: ' + err.responseText, 'error' );
+					component.advanceProgress('Widget import failed.', err.responseText);
 					component.queue.next();
 				},
 				function (xhr) {
 					if ( show_label ) {
-						component.setState({description: Helpers.decodeHtml(_.get(pixassist, 'themeConfig.starterContent.l10n.widgetsImporting', ''))});
+						let message = Helpers.decodeHtml(_.get(pixassist, 'themeConfig.starterContent.l10n.widgetsImporting', ''));
+
+						component.setState({description: message});
+						component.updateProgress({
+							phase: 'widgets',
+							message: message,
+							details: 'Arranging widget areas.',
+						});
 					}
 
 					xhr.setRequestHeader('X-WP-Nonce', pixassist.wpRest.nonce);
@@ -727,15 +989,24 @@ class StarterContentContainer extends React.Component {
 				function (response) {
 					console.log(response);
 					component.addLogEntry('Imported pre_settings.');
+					component.advanceProgress('Prepared theme settings.', 'Initial theme settings were applied.');
 					component.queue.next();
 				},
 				function (err) {
 					console.log(err);
-					component.addLogEntry('Failed to import pre_settings. Response: ' + err.responseText );
+					component.addLogEntry('Failed to import pre_settings. Response: ' + err.responseText, 'error' );
+					component.advanceProgress('Preparing theme settings failed.', err.responseText);
 					component.queue.next();
 				},
 				function (xhr) {
-					component.setState({description: Helpers.decodeHtml(_.get(pixassist, 'themeConfig.starterContent.l10n.importingPreSettings', ''))});
+					let message = Helpers.decodeHtml(_.get(pixassist, 'themeConfig.starterContent.l10n.importingPreSettings', ''));
+
+					component.setState({description: message});
+					component.updateProgress({
+						phase: 'settings',
+						message: message,
+						details: 'Applying initial theme settings.',
+					});
 
 					xhr.setRequestHeader('X-WP-Nonce', pixassist.wpRest.nonce);
 				}
@@ -767,11 +1038,19 @@ class StarterContentContainer extends React.Component {
 					setTimeout(function () {
 						component.importWidgets(false);
 					}, 1000 );
+					component.advanceProgress('Refreshed the WordPress admin context.', 'Preparing the final settings pass.');
 					component.queue.next();
 				},
 				null,
 				function (xhr) {
-					component.setState({description: Helpers.decodeHtml(_.get(pixassist, 'themeConfig.starterContent.l10n.importingPostSettings', ''))});
+					let message = Helpers.decodeHtml(_.get(pixassist, 'themeConfig.starterContent.l10n.importingPostSettings', ''));
+
+					component.setState({description: message});
+					component.updateProgress({
+						phase: 'finish',
+						message: message,
+						details: 'Refreshing WordPress before the final settings pass.',
+					});
 
 					xhr.setRequestHeader('X-WP-Nonce', pixassist.wpRest.nonce);
 				}
@@ -795,21 +1074,47 @@ class StarterContentContainer extends React.Component {
 				function (response) {
 					console.log(response);
 					component.addLogEntry('Imported post_settings.');
+					component.advanceProgress('Applied final settings.', 'Menus, homepage, and theme options are in place.');
 
 					component.queue.next();
 					component.props.onReady();
 					component.setState({demoClass: 'box--plugin-validated', description: Helpers.decodeHtml(_.get(pixassist, 'themeConfig.starterContent.l10n.importSuccessful', ''))});
+					component.updateProgress({
+						status: 'done',
+						phase: 'done',
+						message: Helpers.decodeHtml(_.get(pixassist, 'themeConfig.starterContent.l10n.importSuccessful', '')),
+						details: 'The starter content import is complete.',
+						current: component.state.progress.total || component.state.progress.current,
+						heartbeat: '',
+					});
+					component.stopProgressHeartbeat();
 					component.addLogEntry('Finished!');
 					// Trigger a finished importing starter content action
 					component.props.onStarterContentFinished();
 				},
 				function (err) {
 					console.log(err);
-					component.addLogEntry('Failed to post_settings. Response: ' + err.responseText );
+					component.addLogEntry('Failed to post_settings. Response: ' + err.responseText, 'error' );
 					component.setState({demoClass: 'box--warning', description: 'error'});
+					component.updateProgress({
+						status: 'error',
+						phase: 'finish',
+						message: 'The final settings step failed.',
+						details: err.responseText,
+					});
+					component.stopProgressHeartbeat();
 					component.props.onStarterContentErrored();
 					component.props.onReady();
 					component.queue.next();
+				},
+				function (xhr) {
+					component.updateProgress({
+						phase: 'finish',
+						message: Helpers.decodeHtml(_.get(pixassist, 'themeConfig.starterContent.l10n.importingPostSettings', '')),
+						details: 'Saving final starter settings.',
+					});
+
+					xhr.setRequestHeader('X-WP-Nonce', pixassist.wpRest.nonce);
 				}
 			)
 		});
