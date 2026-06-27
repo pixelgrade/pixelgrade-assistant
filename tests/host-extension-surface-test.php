@@ -115,10 +115,10 @@ add_filter(
 	function () {
 		return array(
 			array( 'id' => 'starter', 'label' => 'Starter Sites', 'component' => 'starterSites', 'gate' => 'plus_licensed', 'order' => 30 ),
-			array( 'id' => 'overview', 'label' => 'Overview', 'component' => 'overview', 'badge' => '<strong>PLUS</strong>', 'order' => 10 ),
+			array( 'id' => 'overview', 'label' => 'Overview', 'component' => 'overview', 'badge' => '<strong>PLUS</strong>', 'badgeTone' => 'plus-active', 'order' => 10 ),
 			array( 'id' => 'help', 'label' => 'Help', 'component' => 'ignored', 'url' => 'https://example.test/help', 'order' => 20 ),
 			array( 'id' => 'tools', 'label' => 'Tools', 'component' => 'tools', 'group' => 'secondary', 'order' => 1 ),
-			array( 'id' => 'bad-group', 'label' => 'Bad Group', 'component' => 'badGroup', 'group' => 'tertiary', 'order' => 25 ),
+			array( 'id' => 'bad-group', 'label' => 'Bad Group', 'component' => 'badGroup', 'group' => 'tertiary', 'badgeTone' => 'neon', 'order' => 25 ),
 			array( 'id' => 'overview', 'label' => 'Duplicate', 'component' => 'dupe', 'order' => 99 ), // dup id -> dropped
 			array( 'label' => 'No id here', 'component' => 'x' ), // no id -> dropped
 			'not-an-array', // -> dropped
@@ -137,7 +137,7 @@ $ids  = array_map(
 
 assert_same( array( 'overview', 'help', 'bad-group', 'starter', 'tools' ), $ids, 'Tabs must be deduped, capability-gated, and sorted by group then order.' );
 
-$expected_keys = array( 'badge', 'capability', 'component', 'gate', 'group', 'icon', 'id', 'label', 'order', 'url' );
+$expected_keys = array( 'badge', 'badgeTone', 'capability', 'component', 'gate', 'group', 'icon', 'id', 'label', 'order', 'url' );
 foreach ( $tabs as $tab ) {
 	$keys = array_keys( $tab );
 	sort( $keys );
@@ -151,6 +151,7 @@ foreach ( $tabs as $tab ) {
 
 assert_same( 'manage_options', $by_id['overview']['capability'], 'Missing capability must default to manage_options.' );
 assert_same( 'PLUS', $by_id['overview']['badge'], 'Tab badges must be sanitized display text.' );
+assert_same( 'plus-active', $by_id['overview']['badgeTone'], 'Recognized tab badge tones must pass through.' );
 assert_same( 'primary', $by_id['overview']['group'], 'Missing group must default to primary.' );
 assert_same( '', $by_id['overview']['url'], 'A component tab must have an empty url.' );
 assert_same( 'overview', $by_id['overview']['component'], 'A component tab must keep its component key.' );
@@ -158,7 +159,13 @@ assert_same( 'https://example.test/help', $by_id['help']['url'], 'A link tab mus
 assert_same( '', $by_id['help']['component'], 'A link tab (non-empty url) must clear its component.' );
 assert_same( 'plus_licensed', $by_id['starter']['gate'], 'A tab gate must pass through (sanitized).' );
 assert_same( 'primary', $by_id['bad-group']['group'], 'An unsupported group must fall back to primary.' );
+assert_same( '', $by_id['bad-group']['badgeTone'], 'Unsupported badge tones must be dropped.' );
 assert_same( 'secondary', $by_id['tools']['group'], 'A secondary tab group must pass through.' );
+
+$tab_bar_js = file_get_contents( __DIR__ . '/../admin/src-modern/hub/TabBar.js' );
+assert_true( false !== strpos( $tab_bar_js, 'pixelgrade-admin-hub__tab-badge--' ), 'TabBar must expose badge tone classes for visual styling.' );
+assert_true( false !== strpos( $tab_bar_js, 'plus-active' ), 'TabBar must render an active Plus badge tone.' );
+assert_true( false !== strpos( $tab_bar_js, 'Pixelgrade purple' ), 'TabBar must reserve Pixelgrade purple for active Plus badges.' );
 
 /* ============================ Host account accessors ============================ */
 

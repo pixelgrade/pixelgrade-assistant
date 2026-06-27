@@ -48,6 +48,7 @@ if ( ! function_exists( 'pixassist_get_admin_hub_tabs' ) ) {
 	 *   - gate (string): cosmetic entitlement hint for upsell rendering — recognized: '' (free),
 	 *     'plus', 'plus_licensed'. NOT access control (capability is).
 	 *   - badge (string): optional short display badge rendered beside the tab label.
+	 *   - badgeTone (string): optional badge presentation tone — recognized: '', 'plus', 'plus-active'.
 	 *   - component (string): JS component key the hub registry resolves to a React component.
 	 *   - url (string): if non-empty, the tab is a plain link-out and `component` is cleared.
 	 *   - icon (string): optional dashicon/url for the tab.
@@ -92,12 +93,18 @@ if ( ! function_exists( 'pixassist_get_admin_hub_tabs' ) ) {
 				$group = 'primary';
 			}
 
+			$badge_tone = isset( $tab['badgeTone'] ) ? sanitize_key( $tab['badgeTone'] ) : '';
+			if ( ! in_array( $badge_tone, array( '', 'plus', 'plus-active' ), true ) ) {
+				$badge_tone = '';
+			}
+
 			$normalized[ $id ] = array(
 				'id'         => $id,
 				'label'      => isset( $tab['label'] ) ? (string) $tab['label'] : '',
 				'capability' => $capability,
 				'gate'       => isset( $tab['gate'] ) ? sanitize_key( $tab['gate'] ) : '',
 				'badge'      => isset( $tab['badge'] ) ? sanitize_text_field( $tab['badge'] ) : '',
+				'badgeTone'  => $badge_tone,
 				'component'  => $component,
 				'url'        => $url,
 				'icon'       => isset( $tab['icon'] ) ? (string) $tab['icon'] : '',

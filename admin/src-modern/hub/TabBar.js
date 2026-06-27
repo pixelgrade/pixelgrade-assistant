@@ -21,22 +21,33 @@ export function TabBar( { tabs, activeId, onSelect } ) {
 			return null;
 		}
 
+		const tone = 'plus-active' === tab.badgeTone ? 'plus-active' : ( 'plus' === tab.badgeTone ? 'plus' : '' );
+		const isActivePlus = 'plus-active' === tone;
+		const badgeStyle = {
+			background: '#f0f0f1',
+			border: '1px solid #dcdcde',
+			borderRadius: '999px',
+			color: '#50575e',
+			display: 'inline-flex',
+			fontSize: '10px',
+			fontWeight: 600,
+			lineHeight: 1,
+			padding: '3px 6px',
+			textTransform: 'uppercase',
+		};
+
+		if ( isActivePlus ) {
+			// Pixelgrade purple is reserved for an active Plus license, not mere plugin presence.
+			badgeStyle.background = '#8b5fbf';
+			badgeStyle.border = '1px solid #8b5fbf';
+			badgeStyle.color = '#fff';
+		}
+
 		return createElement(
 			'span',
 			{
-				className: 'pixelgrade-admin-hub__tab-badge',
-				style: {
-					background: '#f0f0f1',
-					border: '1px solid #dcdcde',
-					borderRadius: '999px',
-					color: '#50575e',
-					display: 'inline-flex',
-					fontSize: '10px',
-					fontWeight: 600,
-					lineHeight: 1,
-					padding: '3px 6px',
-					textTransform: 'uppercase',
-				},
+				className: 'pixelgrade-admin-hub__tab-badge' + ( tone ? ' pixelgrade-admin-hub__tab-badge--' + tone : '' ),
+				style: badgeStyle,
 			},
 			tab.badge
 		);
