@@ -2407,14 +2407,42 @@ HTML;
 				if ( $post_id ) {
 					return array( 'url' => add_query_arg( 'p', $post_id, $demo_base ), 'focus' => 'full' );
 				}
+			} elseif ( 'single-portfolio' === $unit ) {
+				$portfolio_type = $this->demo_portfolio_post_type( $base_url );
+				$post_id        = $portfolio_type ? $this->demo_first_post_id( $base_url, $portfolio_type ) : 0;
+				if ( $post_id ) {
+					return array( 'url' => add_query_arg( array( 'p' => $post_id, 'post_type' => $portfolio_type ), $demo_base ), 'focus' => 'full' );
+				}
+			} elseif ( 'archive-portfolio' === $unit ) {
+				$portfolio_type = $this->demo_portfolio_post_type( $base_url );
+				if ( $portfolio_type ) {
+					return array( 'url' => add_query_arg( 'post_type', $portfolio_type, $demo_base ), 'focus' => 'full' );
+				}
 			} elseif ( 'archive' === $unit ) {
 				return array( 'url' => add_query_arg( 'cat', 1, $demo_base ), 'focus' => 'full' );
 			} elseif ( 'search' === $unit ) {
 				return array( 'url' => add_query_arg( 's', 'a', $demo_base ), 'focus' => 'full' );
 			}
 
-			// home / front-page / index / portfolio / fallbacks → the demo home.
+			// home / front-page / index / fallbacks → the demo home.
 			return array( 'url' => $demo_base, 'focus' => 'full' );
+		}
+
+		/**
+		 * Detect the demo's portfolio-like post type (the first candidate that actually has posts).
+		 *
+		 * @param string $base_url Source SCE REST base.
+		 *
+		 * @return string Empty when the demo has no portfolio CPT.
+		 */
+		private function demo_portfolio_post_type( $base_url ) {
+			foreach ( array( 'portfolio', 'jetpack-portfolio', 'project' ) as $type ) {
+				if ( $this->demo_first_post_id( $base_url, $type ) ) {
+					return $type;
+				}
+			}
+
+			return '';
 		}
 
 		/**
