@@ -2084,7 +2084,7 @@ class PixelgradeAssistant_StarterContent {
 			// rendering the unit against the (possibly incomplete) local content.
 			$mode = isset( $_GET['mode'] ) ? sanitize_key( wp_unslash( $_GET['mode'] ) ) : 'site';
 			if ( 'demo' === $mode ) {
-				$this->render_layout_unit_demo_preview( $base_url );
+				$this->render_layout_unit_demo_preview( $base_url, $unit_type, $unit );
 				exit;
 			}
 
@@ -2231,11 +2231,71 @@ class PixelgradeAssistant_StarterContent {
 			window.parent.postMessage( { pixassistPreview: true, height: h, empty: isEmpty }, '*' );
 		}
 	}
-	function run() { neutralizeFixed(); placeholderImages(); reportHeight(); }
+	function isolateFocus() {
+		var focus = window.__pixassistPreviewFocus || 'full';
+		if ( 'header' !== focus && 'footer' !== focus ) {
+			return;
+		}
+		var sel = 'header' === focus
+			? 'header, .nb-header--main, .nb-header, [class*="site-header"]'
+			: 'footer, .nb-footer, [class*="site-footer"]';
+		var matches = document.querySelectorAll( sel );
+		var target = null;
+		for ( var i = 0; i < matches.length; i++ ) {
+			var r = matches[ i ].getBoundingClientRect();
+			if ( r.width > 0 && r.height > 0 ) { target = matches[ i ]; break; }
+		}
+		if ( ! target ) {
+			return;
+		}
+		// Hide every sibling along the ancestry chain so only this part remains (handles body > wrapper > part).
+		var node = target;
+		while ( node && node !== document.body && node.parentElement ) {
+			var siblings = node.parentElement.children;
+			for ( var j = 0; j < siblings.length; j++ ) {
+				if ( siblings[ j ] !== node ) { siblings[ j ].style.display = 'none'; }
+			}
+			node = node.parentElement;
+		}
+		target.style.position = 'static';
+	}
+	function reportBandHeight() {
+		// Header focus: many headers are transparent overlays on the hero (white text), so we can't isolate
+		// them — instead crop to the header strip over a slice of what's behind it. Don't disturb positioning.
+		var sel = 'header, .nb-header--main, .nb-header, [class*="site-header"]';
+		var matches = document.querySelectorAll( sel );
+		var band = 0;
+		for ( var i = 0; i < matches.length; i++ ) {
+			var r = matches[ i ].getBoundingClientRect();
+			if ( r.width > 0 && r.height > 0 ) { band = Math.ceil( r.bottom + ( window.pageYOffset || 0 ) ); break; }
+		}
+		if ( band <= 0 ) { band = 200; }
+		band = Math.min( 360, Math.max( band + 48, 96 ) );
+		if ( window.parent ) {
+			window.parent.postMessage( { pixassistPreview: true, height: band, empty: false }, '*' );
+		}
+	}
+	function run() {
+		var focus = window.__pixassistPreviewFocus || 'full';
+		if ( 'header' === focus ) {
+			placeholderImages();
+			reportBandHeight();
+			return;
+		}
+		if ( 'footer' === focus ) {
+			isolateFocus();
+		}
+		neutralizeFixed();
+		placeholderImages();
+		reportHeight();
+	}
+	function report() {
+		if ( 'header' === ( window.__pixassistPreviewFocus || 'full' ) ) { reportBandHeight(); } else { reportHeight(); }
+	}
 	if ( 'loading' !== document.readyState ) { run(); } else { document.addEventListener( 'DOMContentLoaded', run ); }
-	window.addEventListener( 'load', function () { run(); window.setTimeout( reportHeight, 350 ); } );
+	window.addEventListener( 'load', function () { run(); window.setTimeout( report, 350 ); } );
 	if ( window.ResizeObserver && document.body ) {
-		try { new window.ResizeObserver( reportHeight ).observe( document.body ); } catch ( e ) {}
+		try { new window.ResizeObserver( report ).observe( document.body ); } catch ( e ) {}
 	}
 } )();
 </script>
@@ -2251,21 +2311,30 @@ HTML;
 		 * shared runtime script injected. This is an admin-gated, allow-listed, read-only PROXY used purely
 		 * as a preview — never user content. (Per-unit demo URLs + cropping are a possible refinement.)
 		 *
-		 * @param string $base_url Source SCE REST base.
+		 * Unit-aware (Phase 3): each unit loads a demo URL that exercises THAT template (single → a demo
+		 * post, archive → a category, …), and header/footer parts are cropped to just that part (so a
+		 * header card shows the demo header, not the home hero).
+		 *
+		 * @param string $base_url  Source SCE REST base.
+		 * @param string $unit_type wp_template_part | wp_template.
+		 * @param string $unit      Unit slug.
 		 *
 		 * @return void
 		 */
-		private function render_layout_unit_demo_preview( $base_url ) {
+		private function render_layout_unit_demo_preview( $base_url, $unit_type, $unit ) {
 			// The demo's public front end = the SCE base with the wp-json/sce/vN suffix stripped.
 			$demo_base = trailingslashit( preg_replace( '#wp-json/sce/v[0-9]+/?$#i', '', trailingslashit( $base_url ) ) );
 
-			// Every unit of a source proxies the SAME demo page, and a composer screen opens many at once.
-			// Cache the prepared HTML per demo so we hit the remote demo once, not once-per-card.
-			$cache_key = 'pixassist_demo_prev_' . md5( $demo_base );
+			$target     = $this->demo_preview_target( $base_url, $demo_base, $unit_type, $unit );
+			$target_url = $target['url'];
+			$focus      = $target['focus'];
+
+			// Cache the prepared HTML per (demo URL + focus) — many cards open at once and share pages.
+			$cache_key = 'pixassist_demo_prev_' . md5( $target_url . '|' . $focus );
 			$html      = get_transient( $cache_key );
 
 			if ( false === $html ) {
-				$response = wp_remote_get( $demo_base, array( 'timeout' => 15, 'redirection' => 3, 'sslverify' => true ) );
+				$response = wp_remote_get( $target_url, array( 'timeout' => 15, 'redirection' => 3, 'sslverify' => true ) );
 				if ( is_wp_error( $response ) || 200 !== (int) wp_remote_retrieve_response_code( $response ) ) {
 					status_header( 502 );
 					exit;
@@ -2277,6 +2346,7 @@ HTML;
 					exit;
 				}
 
+				// <base> keeps the demo's relative assets resolving to the demo root even on a deep URL.
 				$head_inject = '<base href="' . esc_url( $demo_base ) . '">'
 					. '<style>*{animation:none!important;transition:none!important;scroll-behavior:auto!important}</style>';
 				$html = preg_replace_callback(
@@ -2288,7 +2358,9 @@ HTML;
 					1
 				);
 
-				$html = str_ireplace( '</body>', $this->layout_preview_runtime_script() . '</body>', $html );
+				// Tell the runtime script which part to isolate (header/footer), if any.
+				$focus_script = '<script>window.__pixassistPreviewFocus=' . wp_json_encode( $focus ) . ';</script>';
+				$html         = str_ireplace( '</body>', $focus_script . $this->layout_preview_runtime_script() . '</body>', $html );
 
 				set_transient( $cache_key, $html, 10 * MINUTE_IN_SECONDS );
 			}
@@ -2301,6 +2373,65 @@ HTML;
 			header( 'Cache-Control: private, max-age=300' );
 			echo $html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- proxied allow-listed demo HTML for an admin-only iframe preview.
 			exit;
+		}
+
+		/**
+		 * Pick the demo front-end URL + crop focus that best represents a unit in demo mode.
+		 *
+		 * @param string $base_url  Source SCE REST base.
+		 * @param string $demo_base Demo front-end base URL.
+		 * @param string $unit_type wp_template_part | wp_template.
+		 * @param string $unit      Unit slug.
+		 *
+		 * @return array { @type string $url, @type string $focus ('header'|'footer'|'full') }
+		 */
+		private function demo_preview_target( $base_url, $demo_base, $unit_type, $unit ) {
+			$unit = sanitize_title( $unit );
+
+			// Template parts live on the home page; crop to just the part so a header card isn't the hero.
+			if ( 'wp_template_part' === $unit_type ) {
+				return array(
+					'url'   => $demo_base,
+					'focus' => ( false !== strpos( $unit, 'footer' ) ) ? 'footer' : 'header',
+				);
+			}
+
+			// Templates: load a demo URL that actually renders that template.
+			if ( in_array( $unit, array( 'single', 'single-split-header' ), true ) ) {
+				$post_id = $this->demo_first_post_id( $base_url, 'post' );
+				if ( $post_id ) {
+					return array( 'url' => add_query_arg( 'p', $post_id, $demo_base ), 'focus' => 'full' );
+				}
+			} elseif ( 'archive' === $unit ) {
+				return array( 'url' => add_query_arg( 'cat', 1, $demo_base ), 'focus' => 'full' );
+			} elseif ( 'search' === $unit ) {
+				return array( 'url' => add_query_arg( 's', 'a', $demo_base ), 'focus' => 'full' );
+			}
+
+			// home / front-page / index / portfolio / fallbacks → the demo home.
+			return array( 'url' => $demo_base, 'focus' => 'full' );
+		}
+
+		/**
+		 * The id of a representative published post of a given type from the demo, for single previews.
+		 *
+		 * @param string $base_url  Source SCE REST base.
+		 * @param string $post_type Source post type.
+		 *
+		 * @return int 0 when none found.
+		 */
+		private function demo_first_post_id( $base_url, $post_type ) {
+			$posts = $this->fetch_layout_source_posts( $base_url, sanitize_key( $post_type ) );
+			if ( is_wp_error( $posts ) ) {
+				return 0;
+			}
+			foreach ( (array) $posts as $post ) {
+				if ( ! empty( $post['ID'] ) && ( empty( $post['post_status'] ) || 'publish' === $post['post_status'] ) ) {
+					return (int) $post['ID'];
+				}
+			}
+
+			return 0;
 		}
 
 		/**
