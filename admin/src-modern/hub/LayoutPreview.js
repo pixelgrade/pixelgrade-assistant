@@ -21,6 +21,68 @@ const LOAD_TIMEOUT_MS = 8000;
 const PREVIEW_MODE_STORAGE_KEY = 'pixassist_preview_mode';
 
 /*
+ * Module-level load gate (concurrency cap).
+ *
+ * The Layouts tab can show ~28 preview cards at once. Each card's <iframe> renders a HEAVY
+ * server-side route (~180-250KB). Letting them all load simultaneously stampedes the server and the
+ * browser, so several previews miss the LOAD_TIMEOUT_MS height handshake and wrongly fall back to
+ * "No preview".
+ *
+ * This semaphore lets at most MAX_CONCURRENT_PREVIEWS iframes LOAD at once; the rest wait in a FIFO
+ * queue and start as slots free up. A slot is held only for the duration of the load — it is freed
+ * the moment the preview resolves (ready / error / final timeout / src change / unmount), so a
+ * loaded card never keeps a slot from a queued one.
+ */
+const MAX_CONCURRENT_PREVIEWS = 4;
+let activePreviewSlots = 0;
+const previewSlotQueue = []; // FIFO of pending grant callbacks.
+
+function pumpPreviewSlots() {
+	while ( activePreviewSlots < MAX_CONCURRENT_PREVIEWS && previewSlotQueue.length > 0 ) {
+		const grant = previewSlotQueue.shift();
+		activePreviewSlots += 1;
+		grant();
+	}
+}
+
+/**
+ * Request a preview load slot.
+ *
+ * @param {Function} onGrant Invoked (asynchronously, in FIFO order) once a slot is free.
+ * @return {Function} An idempotent release that frees the held slot (or drops the still-queued
+ *                    request) exactly once, then pumps the next waiter.
+ */
+function acquirePreviewSlot( onGrant ) {
+	let state = 'queued'; // queued | granted | released
+	const grant = () => {
+		if ( 'queued' !== state ) {
+			return;
+		}
+		state = 'granted';
+		onGrant();
+	};
+	previewSlotQueue.push( grant );
+	pumpPreviewSlots();
+	return function releasePreviewSlot() {
+		if ( 'released' === state ) {
+			return;
+		}
+		if ( 'granted' === state ) {
+			state = 'released';
+			activePreviewSlots -= 1;
+			pumpPreviewSlots();
+			return;
+		}
+		// Still queued — drop it so it is never granted.
+		state = 'released';
+		const idx = previewSlotQueue.indexOf( grant );
+		if ( -1 !== idx ) {
+			previewSlotQueue.splice( idx, 1 );
+		}
+	};
+}
+
+/*
  * Shared preview-source mode (EXPERIMENT, Phase 2.5).
  *
  * 'site' = render the unit against the local site (accurate to the user's theme + tokens, but uses
@@ -240,6 +302,8 @@ export function LayoutPreview( props ) {
 	const [ frameHeight, setFrameHeight ] = useState( 0 );
 	const [ status, setStatus ] = useState( 'idle' ); // idle | loading | ready | error
 	const [ reloadTick, setReloadTick ] = useState( 0 );
+	const [ granted, setGranted ] = useState( false ); // a load slot has been granted for the current source
+	const releaseSlotRef = useRef( null ); // idempotent release for the currently-held slot (null when none)
 
 	// `_r` is ignored by the route but forces an iframe reload — used to retry demo-mode cold-cache 502s.
 	const src = baseSrc && reloadTick ? baseSrc + '&_r=' + reloadTick : baseSrc;
@@ -271,6 +335,33 @@ export function LayoutPreview( props ) {
 		return () => io.disconnect();
 	}, [] );
 
+	// Concurrency gate: once in view, queue for a load slot. The iframe stays a skeleton until a slot
+	// is GRANTED, so at most MAX_CONCURRENT_PREVIEWS heavy iframes load at once. Keyed on baseSrc (NOT
+	// src) so a demo-retry reload (reloadTick → &_r=) reuses the SAME slot; only a real source change
+	// (My-site/Demo toggle) or unmount releases it and queues for a fresh one.
+	useEffect( () => {
+		if ( ! inView || ! baseSrc ) {
+			return undefined;
+		}
+		setGranted( false );
+		const release = acquirePreviewSlot( () => setGranted( true ) );
+		releaseSlotRef.current = release;
+		return () => {
+			release(); // idempotent: src change or unmount
+			releaseSlotRef.current = null;
+			setGranted( false );
+		};
+	}, [ inView, baseSrc ] );
+
+	// Free the slot the moment the preview resolves (valid height → 'ready', or final failure →
+	// 'error'), so a loaded/failed card never starves the queued ones. A demo-retry timeout keeps
+	// status at 'loading' (same slot reused), so it does not release here.
+	useEffect( () => {
+		if ( ( 'ready' === status || 'error' === status ) && releaseSlotRef.current ) {
+			releaseSlotRef.current();
+		}
+	}, [ status ] );
+
 	// Track the container width → scale factor.
 	useEffect( () => {
 		const el = hostRef.current;
@@ -286,8 +377,10 @@ export function LayoutPreview( props ) {
 	}, [ vw ] );
 
 	// Receive the rendered height from the iframe document (same-origin postMessage).
+	// Runs only once a load slot is GRANTED, so the LOAD_TIMEOUT_MS clock starts when the iframe
+	// actually begins loading — time spent waiting in the queue never counts against the timeout.
 	useEffect( () => {
-		if ( ! inView || ! src ) {
+		if ( ! granted || ! src ) {
 			return undefined;
 		}
 		setStatus( ( current ) => ( 'idle' === current ? 'loading' : current ) );
@@ -331,7 +424,7 @@ export function LayoutPreview( props ) {
 			window.removeEventListener( 'message', onMessage );
 			window.clearTimeout( timer );
 		};
-	}, [ inView, src ] );
+	}, [ granted, src ] );
 
 	if ( ! src ) {
 		return fallback || renderDefaultFallback();
@@ -361,7 +454,7 @@ export function LayoutPreview( props ) {
 	return createElement(
 		'div',
 		{ ref: hostRef, className: 'pixassist-layout-preview', style: hostStyle },
-		inView
+		granted
 			? createElement( 'iframe', {
 					ref: frameRef,
 					src,
