@@ -67,6 +67,9 @@ class PixelgradeAssistant_StarterContent {
 
 		add_action( 'rest_api_init', array( $this, 'add_rest_routes_api' ) );
 
+		// Front-end render route for layout-unit visual previews (see .ai/layout-previews).
+		add_action( 'template_redirect', array( $this, 'maybe_render_layout_unit_preview' ) );
+
 		// Add some data to the localized data
 		add_filter( 'pixassist_localized_data', array( $this, 'localize_js_data' ) );
 
@@ -2018,6 +2021,266 @@ class PixelgradeAssistant_StarterContent {
 				'message' => esc_html__( 'WooCommerce layouts require WooCommerce to be active and the Pixelgrade Plus WooCommerce integration.', '__plugin_txtd' ),
 				'data'    => array( 'segment' => 'commerce' ),
 			);
+		}
+
+		/**
+		 * PHASE 0 SPIKE (.ai/layout-previews) — front-end render route for layout-unit previews.
+		 *
+		 * Renders ONE layout unit's blocks through the active theme's real front-end pipeline so the
+		 * preview inherits theme.json + Style Manager tokens + connected fonts automatically (wp_head()
+		 * fires wp_enqueue_scripts at priority 1). Designed to be loaded inside a scaled <iframe> by the
+		 * hub UI. Phase 0 is capability-gated (admins only); Phase 1 will add a per-request nonce and
+		 * server-side caching.
+		 *
+		 * URL shape:
+		 *   home_url('/?pixassist_layout_preview=1&url=<baseRestUrl>&unit_type=wp_template_part&unit=header')
+		 *
+		 * @return void
+		 */
+		public function maybe_render_layout_unit_preview() {
+			if ( empty( $_GET['pixassist_layout_preview'] ) ) {
+				return;
+			}
+
+			// Access control — capability + nonce, same bar as importing a layout.
+			$nonce = isset( $_GET['_pixprev'] ) ? sanitize_text_field( wp_unslash( $_GET['_pixprev'] ) ) : '';
+			if ( ! current_user_can( 'edit_theme_options' ) || ! wp_verify_nonce( $nonce, 'pixassist_layout_preview' ) ) {
+				status_header( 403 );
+				exit;
+			}
+
+			$base_url  = isset( $_GET['url'] ) ? esc_url_raw( wp_unslash( $_GET['url'] ) ) : '';
+			$unit_type = isset( $_GET['unit_type'] ) ? sanitize_key( wp_unslash( $_GET['unit_type'] ) ) : '';
+			$unit      = isset( $_GET['unit'] ) ? sanitize_text_field( wp_unslash( $_GET['unit'] ) ) : '';
+
+			if ( empty( $base_url ) || empty( $unit_type ) || empty( $unit ) || ! $this->is_allowed_demo_url( $base_url ) ) {
+				status_header( 400 );
+				exit;
+			}
+
+			// Commerce gate parity with import — never leak premium markup to non-entitled users.
+			if ( null !== $this->maybe_block_commerce_unit( $unit_type, $unit ) ) {
+				$this->render_layout_unit_preview_document(
+					'<div style="padding:80px 24px;text-align:center;font-family:sans-serif;color:#50575e;">'
+					. esc_html__( 'Premium layout — preview unavailable.', '__plugin_txtd' ) . '</div>'
+				);
+				exit;
+			}
+
+			// EXPERIMENT (Phase 2.5): demo mode previews the starter's polished public demo page instead of
+			// rendering the unit against the (possibly incomplete) local content.
+			$mode = isset( $_GET['mode'] ) ? sanitize_key( wp_unslash( $_GET['mode'] ) ) : 'site';
+			if ( 'demo' === $mode ) {
+				$this->render_layout_unit_demo_preview( $base_url );
+				exit;
+			}
+
+			$posts = $this->fetch_layout_source_posts( $base_url, $unit_type );
+			if ( is_wp_error( $posts ) ) {
+				status_header( 502 );
+				exit;
+			}
+
+			$post = $this->find_layout_unit_post( $posts, $unit );
+			if ( empty( $post['post_content'] ) ) {
+				status_header( 404 );
+				exit;
+			}
+
+			$this->render_layout_unit_preview_document( $post['post_content'] );
+			exit;
+		}
+
+		/**
+		 * Output a minimal front-end document containing only the given block markup.
+		 *
+		 * Calls wp_head()/wp_footer() so the active theme + Style Manager + Nova Blocks styles and fonts
+		 * are emitted exactly as on the real front end. Deliberately does NOT load the theme's
+		 * header.php/footer.php — only the unit's blocks render in the body.
+		 *
+		 * @param string $markup Block markup (or ready HTML) to render in the body.
+		 *
+		 * @return void
+		 */
+		private function render_layout_unit_preview_document( $markup ) {
+			// We are emitting a full front-end document; keep the admin bar and its chrome out of it.
+			show_admin_bar( false );
+
+			header( 'Content-Type: text/html; charset=' . get_bloginfo( 'charset' ) );
+			header( 'X-Robots-Tag: noindex, nofollow', true );
+			// Short PRIVATE browser cache so re-scrolling / re-opening the tab is instant. Kept brief so a
+			// theme/Style-Manager design change surfaces quickly (a server-side render cache was considered
+			// but deferred — SM's Site-Editor save path may not fire the Customizer hooks, risking stale
+			// previews; see .ai/layout-previews/plan.md Phase 3).
+			header( 'Cache-Control: private, max-age=180' );
+
+			?><!DOCTYPE html>
+<html <?php language_attributes(); ?>>
+<head>
+<meta charset="<?php echo esc_attr( get_bloginfo( 'charset' ) ); ?>">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<?php wp_head(); ?>
+<style>
+	html, body { margin: 0; padding: 0; background: var(--sm-current-bg-color, #ffffff); }
+	.pixassist-layout-preview-canvas { width: 1200px; max-width: none; margin: 0 auto; }
+	/* Static capture: kill intro animations/transitions so nothing renders mid-reveal. */
+	.pixassist-layout-preview-canvas, .pixassist-layout-preview-canvas * { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+	/* Neutral placeholder for media that cannot resolve before import (see .ai/layout-previews phase-0). */
+	.pixassist-layout-preview-canvas img.pixassist-broken-media {
+		background: repeating-linear-gradient( 45deg, #ececef, #ececef 12px, #f5f5f7 12px, #f5f5f7 24px ) !important;
+		min-height: 140px; object-fit: cover;
+	}
+</style>
+</head>
+<body <?php body_class( 'pixassist-layout-preview' ); ?>>
+<div class="wp-site-blocks pixassist-layout-preview-canvas">
+<?php
+			// do_blocks() renders the parsed block markup to front-end HTML.
+			echo do_blocks( $markup ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- block-rendered HTML.
+?>
+</div>
+<?php wp_footer(); ?>
+<?php echo $this->layout_preview_runtime_script(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- static inline JS. ?>
+</body>
+</html>
+<?php
+		}
+
+		/**
+		 * The shared in-iframe runtime for a preview document (site mode) or proxied demo page (demo mode).
+		 *
+		 * Targets the unit canvas when present, else the whole <body> (demo mode). It neutralizes
+		 * fixed/sticky positioning (so positioned headers/footers contribute height and show fully),
+		 * placeholders unresolved media, and postMessages the rendered height + an `empty` flag to the host.
+		 *
+		 * @return string A <script> element.
+		 */
+		private function layout_preview_runtime_script() {
+			return <<<'HTML'
+<script>
+( function () {
+	var el = document.querySelector( '.pixassist-layout-preview-canvas' ) || document.body;
+	function neutralizeFixed() {
+		var nodes = el.querySelectorAll( '*' );
+		for ( var i = 0; i < nodes.length; i++ ) {
+			var pos = window.getComputedStyle( nodes[ i ] ).position;
+			if ( 'fixed' === pos || 'sticky' === pos ) {
+				nodes[ i ].style.position = 'static';
+			}
+		}
+	}
+	function markBroken( img ) {
+		if ( img.complete && 0 === img.naturalWidth ) {
+			img.classList.add( 'pixassist-broken-media' );
+			img.removeAttribute( 'src' );
+			img.removeAttribute( 'srcset' );
+		}
+	}
+	function placeholderImages() {
+		var imgs = el.querySelectorAll( 'img' );
+		for ( var i = 0; i < imgs.length; i++ ) {
+			var img = imgs[ i ];
+			if ( img.complete ) {
+				markBroken( img );
+			} else {
+				img.addEventListener( 'error', function () { markBroken( this ); } );
+				img.addEventListener( 'load', function () { markBroken( this ); } );
+			}
+		}
+	}
+	function reportHeight() {
+		var h = Math.max( el.scrollHeight, el.offsetHeight );
+		// Positioned headers/footers collapse scrollHeight — fall back to the bottom-most rendered extent.
+		var nodes = el.querySelectorAll( '*' );
+		var limit = Math.min( nodes.length, 2500 );
+		var bottom = 0;
+		for ( var i = 0; i < limit; i++ ) {
+			var r = nodes[ i ].getBoundingClientRect();
+			if ( r.width > 0 && r.height > 0 && r.bottom > bottom ) {
+				bottom = r.bottom;
+			}
+		}
+		bottom = Math.ceil( bottom + ( window.pageYOffset || 0 ) );
+		if ( bottom > h ) {
+			h = bottom;
+		}
+		// Units that render nothing standalone signal "empty" so the host shows its fallback at once.
+		var hasText = el.innerText && el.innerText.replace( /\s+/g, '' ).length > 0;
+		var isEmpty = ! hasText && h < 20;
+		if ( window.parent ) {
+			window.parent.postMessage( { pixassistPreview: true, height: h, empty: isEmpty }, '*' );
+		}
+	}
+	function run() { neutralizeFixed(); placeholderImages(); reportHeight(); }
+	if ( 'loading' !== document.readyState ) { run(); } else { document.addEventListener( 'DOMContentLoaded', run ); }
+	window.addEventListener( 'load', function () { run(); window.setTimeout( reportHeight, 350 ); } );
+	if ( window.ResizeObserver && document.body ) {
+		try { new window.ResizeObserver( reportHeight ).observe( document.body ); } catch ( e ) {}
+	}
+} )();
+</script>
+HTML;
+		}
+
+		/**
+		 * EXPERIMENT (Phase 2.5) — demo-content preview: proxy the starter's polished public demo page.
+		 *
+		 * The site-mode render uses the LOCAL site's content (menus/posts/media), which may be incomplete.
+		 * Demo mode instead serves the demo's real front-end page same-origin (so the host can size + scale
+		 * it and assets aren't frame-blocked), with a <base> so the demo's relative assets load and the
+		 * shared runtime script injected. This is an admin-gated, allow-listed, read-only PROXY used purely
+		 * as a preview — never user content. (Per-unit demo URLs + cropping are a possible refinement.)
+		 *
+		 * @param string $base_url Source SCE REST base.
+		 *
+		 * @return void
+		 */
+		private function render_layout_unit_demo_preview( $base_url ) {
+			// The demo's public front end = the SCE base with the wp-json/sce/vN suffix stripped.
+			$demo_base = trailingslashit( preg_replace( '#wp-json/sce/v[0-9]+/?$#i', '', trailingslashit( $base_url ) ) );
+
+			// Every unit of a source proxies the SAME demo page, and a composer screen opens many at once.
+			// Cache the prepared HTML per demo so we hit the remote demo once, not once-per-card.
+			$cache_key = 'pixassist_demo_prev_' . md5( $demo_base );
+			$html      = get_transient( $cache_key );
+
+			if ( false === $html ) {
+				$response = wp_remote_get( $demo_base, array( 'timeout' => 15, 'redirection' => 3, 'sslverify' => true ) );
+				if ( is_wp_error( $response ) || 200 !== (int) wp_remote_retrieve_response_code( $response ) ) {
+					status_header( 502 );
+					exit;
+				}
+
+				$html = wp_remote_retrieve_body( $response );
+				if ( '' === trim( $html ) ) {
+					status_header( 502 );
+					exit;
+				}
+
+				$head_inject = '<base href="' . esc_url( $demo_base ) . '">'
+					. '<style>*{animation:none!important;transition:none!important;scroll-behavior:auto!important}</style>';
+				$html = preg_replace_callback(
+					'/<head[^>]*>/i',
+					function ( $matches ) use ( $head_inject ) {
+						return $matches[0] . $head_inject;
+					},
+					$html,
+					1
+				);
+
+				$html = str_ireplace( '</body>', $this->layout_preview_runtime_script() . '</body>', $html );
+
+				set_transient( $cache_key, $html, 10 * MINUTE_IN_SECONDS );
+			}
+
+			show_admin_bar( false );
+			header( 'Content-Type: text/html; charset=' . get_bloginfo( 'charset' ) );
+			header( 'X-Robots-Tag: noindex, nofollow', true );
+			// Demo pages change rarely; a slightly longer private browser cache on top of the per-demo
+			// server transient keeps the composer (many cards, same demo) snappy.
+			header( 'Cache-Control: private, max-age=300' );
+			echo $html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- proxied allow-listed demo HTML for an admin-only iframe preview.
+			exit;
 		}
 
 		/**

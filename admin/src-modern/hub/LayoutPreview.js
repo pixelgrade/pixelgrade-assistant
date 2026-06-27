@@ -1,0 +1,406 @@
+/**
+ * Shared visual preview for layout units (headers, footers, templates).
+ *
+ * Loads the PHP front-end preview route (see
+ * PixelgradeAssistant_StarterContent::maybe_render_layout_unit_preview) in a NON-interactive,
+ * lazily-mounted <iframe>, scaled to the container with BlockPreview-style
+ * `transform: scale(containerWidth / viewportWidth)`. The route renders the unit's blocks
+ * through the active theme + Style Manager + fonts, so the preview matches the real front end.
+ *
+ * Deliberately NO @wordpress/block-editor dependency — this is a plain iframe scaler.
+ *
+ * Used by the Layouts tab (LayoutUnits.js) and the Starter Sites composer (StarterSites.js).
+ */
+
+import { createElement, useEffect, useRef, useState } from '@wordpress/element';
+import { Button } from '@wordpress/components';
+import { __ } from '@wordpress/i18n';
+
+const DEFAULT_VW = 1200;
+const LOAD_TIMEOUT_MS = 8000;
+const PREVIEW_MODE_STORAGE_KEY = 'pixassist_preview_mode';
+
+/*
+ * Shared preview-source mode (EXPERIMENT, Phase 2.5).
+ *
+ * 'site' = render the unit against the local site (accurate to the user's theme + tokens, but uses
+ *          whatever local content exists — a missing menu shows an empty nav).
+ * 'demo' = proxy the starter's polished public demo page (real menus/content, but the demo's design).
+ *
+ * Module-level so a single <PreviewModeToggle> drives every mounted <LayoutPreview> across tabs.
+ */
+let currentPreviewMode = 'site';
+try {
+	const stored = window.localStorage.getItem( PREVIEW_MODE_STORAGE_KEY );
+	if ( 'demo' === stored || 'site' === stored ) {
+		currentPreviewMode = stored;
+	}
+} catch ( e ) {} // eslint-disable-line no-empty
+const previewModeListeners = new Set();
+
+export function setPreviewMode( mode ) {
+	if ( 'demo' !== mode && 'site' !== mode ) {
+		return;
+	}
+	currentPreviewMode = mode;
+	try {
+		window.localStorage.setItem( PREVIEW_MODE_STORAGE_KEY, mode );
+	} catch ( e ) {} // eslint-disable-line no-empty
+	previewModeListeners.forEach( ( fn ) => fn( mode ) );
+}
+
+export function usePreviewMode() {
+	const [ mode, setMode ] = useState( currentPreviewMode );
+	useEffect( () => {
+		const listener = ( next ) => setMode( next );
+		previewModeListeners.add( listener );
+		return () => previewModeListeners.delete( listener );
+	}, [] );
+	return mode;
+}
+
+/**
+ * Segmented "My site / Demo" preview-source toggle.
+ */
+export function PreviewModeToggle() {
+	const mode = usePreviewMode();
+	return createElement(
+		'div',
+		{ style: { alignItems: 'center', display: 'inline-flex', gap: '6px' } },
+		createElement( 'span', { style: { color: '#646970', fontSize: '12px' } }, __( 'Preview:', 'pixelgrade_assistant' ) ),
+		createElement(
+			'div',
+			{ style: { display: 'inline-flex', gap: '2px' } },
+			createElement(
+				Button,
+				{
+					variant: 'site' === mode ? 'primary' : 'secondary',
+					size: 'small',
+					onClick: () => setPreviewMode( 'site' ),
+					title: __( 'Render each layout on your site, in your colors and fonts (uses your current content).', 'pixelgrade_assistant' ),
+				},
+				__( 'My site', 'pixelgrade_assistant' )
+			),
+			createElement(
+				Button,
+				{
+					variant: 'demo' === mode ? 'primary' : 'secondary',
+					size: 'small',
+					onClick: () => setPreviewMode( 'demo' ),
+					title: __( "Show the starter's polished demo — real menus & images, but the demo's design.", 'pixelgrade_assistant' ),
+				},
+				__( 'Demo', 'pixelgrade_assistant' )
+			)
+		)
+	);
+}
+
+/**
+ * Neutral fallback shown when a unit has no preview (no source, 404, or renders empty).
+ *
+ * @return {Object} A React element.
+ */
+function renderDefaultFallback() {
+	return createElement(
+		'div',
+		{
+			style: {
+				display: 'flex',
+				alignItems: 'center',
+				justifyContent: 'center',
+				width: '100%',
+				aspectRatio: '16 / 10',
+				background: '#f6f7f7',
+				border: '1px solid #f0f0f1',
+				borderRadius: '3px',
+				color: '#a7aaad',
+				fontSize: '12px',
+			},
+		},
+		__( 'No preview', 'pixelgrade_assistant' )
+	);
+}
+
+let keyframesInjected = false;
+
+function ensureKeyframes() {
+	if ( keyframesInjected || typeof document === 'undefined' ) {
+		return;
+	}
+	keyframesInjected = true;
+	const style = document.createElement( 'style' );
+	style.textContent =
+		'@keyframes pixassist-preview-shimmer{0%{background-position:100% 0}100%{background-position:-100% 0}}' +
+		'@media (prefers-reduced-motion: reduce){.pixassist-layout-preview__skeleton{animation:none!important}}';
+	document.head.appendChild( style );
+}
+
+/**
+ * Resolve the localized preview config (base URL + nonce + viewport width).
+ *
+ * @return {Object|null} { base, param, nonce, vw } or null when unavailable.
+ */
+export function getLayoutPreviewConfig() {
+	if ( typeof window === 'undefined' ) {
+		return null;
+	}
+	const lu = window.pixelgradeLayoutUnits;
+	if ( lu && lu.preview && lu.preview.base ) {
+		return lu.preview;
+	}
+	const ss = window.pixelgradeStarterSites;
+	if ( ss && ss.preview && ss.preview.base ) {
+		return ss.preview;
+	}
+	return null;
+}
+
+/**
+ * Build the front-end preview route URL for one unit.
+ *
+ * @param {Object} args               Descriptor.
+ * @param {string} args.baseRestUrl   Source SCE REST base.
+ * @param {string} [args.demoKey]     Starter/demo key.
+ * @param {string} args.unitType      wp_template_part | wp_template | feature.
+ * @param {string} args.unit          Unit slug (or id).
+ * @param {Object} [args.config]      Override for the localized config.
+ *
+ * @return {string} The preview URL, or '' when it cannot be built.
+ */
+export function getLayoutPreviewUrl( { baseRestUrl, demoKey, unitType, unit, config, mode } ) {
+	const cfg = config || getLayoutPreviewConfig();
+	if ( ! cfg || ! cfg.base || ! baseRestUrl || ! unitType || ! unit ) {
+		return '';
+	}
+
+	let url;
+	try {
+		url = new URL( cfg.base, typeof window !== 'undefined' ? window.location.origin : undefined );
+	} catch ( e ) {
+		return '';
+	}
+
+	url.searchParams.set( cfg.param || 'pixassist_layout_preview', '1' );
+	url.searchParams.set( 'url', baseRestUrl );
+	if ( demoKey ) {
+		url.searchParams.set( 'demo_key', demoKey );
+	}
+	url.searchParams.set( 'unit_type', unitType );
+	url.searchParams.set( 'unit', unit );
+	if ( 'demo' === mode ) {
+		url.searchParams.set( 'mode', 'demo' );
+	}
+	if ( cfg.nonce ) {
+		url.searchParams.set( '_pixprev', cfg.nonce );
+	}
+
+	return url.toString();
+}
+
+/**
+ * A scaled, non-interactive preview of one layout unit.
+ *
+ * @param {Object}        props
+ * @param {string}        props.baseRestUrl   Source SCE REST base.
+ * @param {string}        [props.demoKey]     Starter/demo key.
+ * @param {string}        props.unitType      Unit type.
+ * @param {string}        props.unit          Unit slug.
+ * @param {number}        [props.viewportWidth] Desktop width to render at (default 1200).
+ * @param {string}        [props.aspectRatio] CSS aspect-ratio while measuring (default '16 / 10').
+ * @param {number}        [props.maxHeight]   Cap the rendered preview height (px); content clips.
+ * @param {string}        [props.title]       Accessible title.
+ * @param {*}             [props.fallback]    Rendered when there is no src or on error.
+ * @param {Object}        [props.config]      Override for the localized config.
+ */
+export function LayoutPreview( props ) {
+	const {
+		baseRestUrl,
+		demoKey,
+		unitType,
+		unit,
+		viewportWidth,
+		aspectRatio = '16 / 10',
+		maxHeight = 0,
+		title = '',
+		fallback = null,
+		config,
+	} = props;
+
+	ensureKeyframes();
+
+	const mode = usePreviewMode();
+	const cfg = config || getLayoutPreviewConfig();
+	const vw = viewportWidth || ( cfg && cfg.vw ) || DEFAULT_VW;
+	const baseSrc = getLayoutPreviewUrl( { baseRestUrl, demoKey, unitType, unit, config: cfg, mode } );
+
+	const hostRef = useRef( null );
+	const frameRef = useRef( null );
+	const [ inView, setInView ] = useState( false );
+	const [ scale, setScale ] = useState( 0.2 );
+	const [ frameHeight, setFrameHeight ] = useState( 0 );
+	const [ status, setStatus ] = useState( 'idle' ); // idle | loading | ready | error
+	const [ reloadTick, setReloadTick ] = useState( 0 );
+
+	// `_r` is ignored by the route but forces an iframe reload — used to retry demo-mode cold-cache 502s.
+	const src = baseSrc && reloadTick ? baseSrc + '&_r=' + reloadTick : baseSrc;
+
+	// Reset when the underlying source changes (e.g. the My-site/Demo toggle flips the URL).
+	useEffect( () => {
+		setFrameHeight( 0 );
+		setStatus( 'idle' );
+		setReloadTick( 0 );
+	}, [ baseSrc ] );
+
+	// Lazy mount: only load the iframe once the card scrolls near the viewport.
+	useEffect( () => {
+		const el = hostRef.current;
+		if ( ! el || typeof IntersectionObserver === 'undefined' ) {
+			setInView( true );
+			return undefined;
+		}
+		const io = new IntersectionObserver(
+			( entries ) => {
+				if ( entries.some( ( entry ) => entry.isIntersecting ) ) {
+					setInView( true );
+					io.disconnect();
+				}
+			},
+			{ rootMargin: '300px' }
+		);
+		io.observe( el );
+		return () => io.disconnect();
+	}, [] );
+
+	// Track the container width → scale factor.
+	useEffect( () => {
+		const el = hostRef.current;
+		if ( ! el || typeof ResizeObserver === 'undefined' ) {
+			return undefined;
+		}
+		const ro = new ResizeObserver( () => {
+			const width = el.clientWidth || 1;
+			setScale( width / vw );
+		} );
+		ro.observe( el );
+		return () => ro.disconnect();
+	}, [ vw ] );
+
+	// Receive the rendered height from the iframe document (same-origin postMessage).
+	useEffect( () => {
+		if ( ! inView || ! src ) {
+			return undefined;
+		}
+		setStatus( ( current ) => ( 'idle' === current ? 'loading' : current ) );
+
+		const onMessage = ( event ) => {
+			const frame = frameRef.current;
+			if ( ! frame || event.source !== frame.contentWindow ) {
+				return;
+			}
+			const payload = event.data;
+			if ( ! payload || ! payload.pixassistPreview ) {
+				return;
+			}
+			if ( payload.empty ) {
+				setStatus( 'error' ); // nothing renders standalone — show the fallback
+				return;
+			}
+			if ( 'number' === typeof payload.height && payload.height >= 20 ) {
+				setFrameHeight( payload.height );
+				setStatus( 'ready' );
+			}
+		};
+		window.addEventListener( 'message', onMessage );
+
+		const timer = window.setTimeout( () => {
+			setStatus( ( current ) => {
+				if ( 'ready' === current ) {
+					return current;
+				}
+				// Demo mode opens many cards that proxy the same page; a cold cache can 502 a few.
+				// Retry up to twice — by then the per-demo transient is warm.
+				if ( 'demo' === mode && reloadTick < 2 ) {
+					setReloadTick( ( tick ) => tick + 1 );
+					return 'loading';
+				}
+				return 'error';
+			} );
+		}, LOAD_TIMEOUT_MS );
+
+		return () => {
+			window.removeEventListener( 'message', onMessage );
+			window.clearTimeout( timer );
+		};
+	}, [ inView, src ] );
+
+	if ( ! src ) {
+		return fallback || renderDefaultFallback();
+	}
+
+	if ( 'error' === status ) {
+		return fallback || renderDefaultFallback();
+	}
+
+	const scaledHeight = frameHeight ? Math.round( frameHeight * scale ) : 0;
+	const hostStyle = {
+		position: 'relative',
+		width: '100%',
+		overflow: 'hidden',
+		background: '#f0f0f1',
+		borderRadius: '3px',
+	};
+	if ( scaledHeight ) {
+		hostStyle.height = ( maxHeight ? Math.min( scaledHeight, maxHeight ) : scaledHeight ) + 'px';
+	} else {
+		hostStyle.aspectRatio = aspectRatio;
+		if ( maxHeight ) {
+			hostStyle.maxHeight = maxHeight + 'px';
+		}
+	}
+
+	return createElement(
+		'div',
+		{ ref: hostRef, className: 'pixassist-layout-preview', style: hostStyle },
+		inView
+			? createElement( 'iframe', {
+					ref: frameRef,
+					src,
+					title: title || 'Layout preview',
+					scrolling: 'no',
+					tabIndex: -1,
+					'aria-hidden': 'true',
+					loading: 'lazy',
+					onError: () => setStatus( 'error' ),
+					style: {
+						position: 'absolute',
+						top: 0,
+						left: 0,
+						width: vw + 'px',
+						height: ( frameHeight || Math.round( vw * 0.62 ) ) + 'px',
+						border: 0,
+						background: '#ffffff',
+						pointerEvents: 'none',
+						transform: 'scale(' + scale + ')',
+						transformOrigin: 'top left',
+					},
+			  } )
+			: null,
+		'ready' !== status
+			? createElement( 'div', {
+					className: 'pixassist-layout-preview__skeleton',
+					style: {
+						position: 'absolute',
+						top: 0,
+						right: 0,
+						bottom: 0,
+						left: 0,
+						background: 'linear-gradient(90deg,#f0f0f1 25%,#e7e7ea 37%,#f0f0f1 63%)',
+						backgroundSize: '400% 100%',
+						animation: 'pixassist-preview-shimmer 1.4s ease infinite',
+					},
+			  } )
+			: null
+	);
+}
+
+export default LayoutPreview;

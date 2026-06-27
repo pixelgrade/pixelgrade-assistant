@@ -8,6 +8,7 @@
 import { createElement, Fragment, useEffect, useState } from '@wordpress/element';
 import { __, sprintf } from '@wordpress/i18n';
 import { Button, Card, CardBody, CardHeader, CheckboxControl, Flex, FlexItem, Spinner } from '@wordpress/components';
+import { LayoutPreview, PreviewModeToggle } from '../LayoutPreview';
 
 const STARTER_PROGRESS_TICK_INTERVAL = 1000;
 const STARTER_PROGRESS_HEARTBEAT_AFTER = 1500;
@@ -2256,6 +2257,11 @@ function renderComposerPartGroups( starter, copy, composerState, isWorking, onTo
 	return createElement(
 		'div',
 		{ style: { display: 'grid', gap: '18px' } },
+		createElement(
+			'div',
+			{ style: { display: 'flex', justifyContent: 'flex-end' } },
+			createElement( PreviewModeToggle, null )
+		),
 		getComposerParts( starter, copy ).map( ( group ) =>
 			createElement(
 				'section',
@@ -2284,6 +2290,22 @@ function renderComposerPartGroups( starter, copy, composerState, isWorking, onTo
 					},
 					group.parts.map( ( part ) => {
 						const isSelected = selected.has( part.id );
+						const mapping = 'layouts' === group.id ? LAYOUT_UNITS[ part.id ] : null;
+						const previewNode =
+							mapping && starter.baseRestUrl
+								? createElement(
+										'div',
+										{ style: { marginBottom: '8px' } },
+										createElement( LayoutPreview, {
+											baseRestUrl: starter.baseRestUrl,
+											demoKey: starter.id,
+											unitType: mapping.unit_type,
+											unit: mapping.unit,
+											maxHeight: 150,
+											title: part.label,
+										} )
+								  )
+								: null;
 
 						return createElement(
 							'div',
@@ -2297,6 +2319,7 @@ function renderComposerPartGroups( starter, copy, composerState, isWorking, onTo
 									padding: '9px 10px',
 								},
 							},
+							previewNode,
 							createElement( CheckboxControl, {
 								checked: isSelected,
 								disabled: isWorking,

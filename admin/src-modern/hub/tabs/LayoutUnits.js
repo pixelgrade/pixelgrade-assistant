@@ -7,6 +7,7 @@
 import { createElement, Fragment, useMemo, useRef, useState } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
 import { Button, Card, CardBody, CardHeader, CheckboxControl, Flex, FlexItem, Notice } from '@wordpress/components';
+import { LayoutPreview, PreviewModeToggle } from '../LayoutPreview';
 
 const DEFAULT_LAYOUT_UNITS = {
 	copy: {
@@ -360,7 +361,7 @@ function isOperationButtonBusy( operation, key ) {
 	return Boolean( operation && operation.key === key && getActiveOperationStep( operation ) );
 }
 
-function UnitList( { title, units, applied, busyKey, copy, featureSamples, operation, onFeatureSampleChange, onImport } ) {
+function UnitList( { title, units, applied, busyKey, copy, featureSamples, operation, previewConfig, onFeatureSampleChange, onImport } ) {
 	if ( ! units.length ) {
 		return null;
 	}
@@ -385,6 +386,7 @@ function UnitList( { title, units, applied, busyKey, copy, featureSamples, opera
 					const source = unit.source || {};
 					const sampleKey = slot + ':' + source.id;
 					const isFeature = 'feature' === unit.type;
+					const isPreviewable = 'wp_template_part' === unit.type || 'wp_template' === unit.type;
 					const includeSample = isFeature
 						? Object.prototype.hasOwnProperty.call( featureSamples, sampleKey )
 							? Boolean( featureSamples[ sampleKey ] )
@@ -415,7 +417,29 @@ function UnitList( { title, units, applied, busyKey, copy, featureSamples, opera
 									minWidth: 0,
 								},
 							},
-							preview
+							isPreviewable
+								? createElement(
+										'div',
+										{ style: { flex: '0 0 220px', width: '220px' } },
+										createElement( LayoutPreview, {
+											baseRestUrl: source.baseRestUrl,
+											demoKey: source.id,
+											unitType: unit.type,
+											unit: unit.slug || String( unit.id ),
+											viewportWidth: previewConfig && previewConfig.vw ? previewConfig.vw : 1200,
+											maxHeight: 220,
+											title: unit.title || unit.slug,
+											config: previewConfig,
+											fallback: preview
+												? createElement( 'img', {
+														alt: '',
+														src: preview,
+														style: { aspectRatio: '4 / 3', background: '#f0f0f1', objectFit: 'cover', width: '100%', display: 'block' },
+												  } )
+												: undefined,
+										} )
+								  )
+								: preview
 								? createElement( 'img', {
 										alt: '',
 										src: preview,
@@ -487,6 +511,7 @@ export function LayoutUnits() {
 	const data = getLayoutUnitsData();
 	const copy = mergeCopy( data.copy );
 	const sources = Array.isArray( data.sources ) ? data.sources : [];
+	const previewConfig = data.preview || null;
 	const [ units, setUnits ] = useState( [] );
 	const [ loaded, setLoaded ] = useState( false );
 	const [ loading, setLoading ] = useState( false );
@@ -901,7 +926,10 @@ export function LayoutUnits() {
 					},
 					loadButtonLabel
 				)
-			)
+			),
+			loaded
+				? createElement( FlexItem, { style: { marginLeft: 'auto' } }, createElement( PreviewModeToggle, null ) )
+				: null
 		),
 		createElement( AppliedLayouts, {
 			applied,
@@ -921,6 +949,7 @@ export function LayoutUnits() {
 				copy,
 				featureSamples,
 				operation,
+				previewConfig,
 				onFeatureSampleChange: setFeatureSample,
 				onImport: importUnit,
 			} ),
@@ -932,6 +961,7 @@ export function LayoutUnits() {
 				copy,
 				featureSamples,
 				operation,
+				previewConfig,
 				onFeatureSampleChange: setFeatureSample,
 				onImport: importUnit,
 			} ),
@@ -943,6 +973,7 @@ export function LayoutUnits() {
 				copy,
 				featureSamples,
 				operation,
+				previewConfig,
 				onFeatureSampleChange: setFeatureSample,
 				onImport: importUnit,
 			} ),
@@ -954,6 +985,7 @@ export function LayoutUnits() {
 				copy,
 				featureSamples,
 				operation,
+				previewConfig,
 				onFeatureSampleChange: setFeatureSample,
 				onImport: importUnit,
 			} ),
@@ -965,6 +997,7 @@ export function LayoutUnits() {
 				copy,
 				featureSamples,
 				operation,
+				previewConfig,
 				onFeatureSampleChange: setFeatureSample,
 				onImport: importUnit,
 			} )

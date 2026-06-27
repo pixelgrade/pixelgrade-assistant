@@ -55,6 +55,27 @@ if ( ! function_exists( 'pixassist_get_layout_units_data' ) ) {
 			'sources'   => pixassist_get_layout_units_sources(),
 			'endpoints' => pixassist_get_layout_units_endpoints(),
 			'applied'   => pixassist_get_layout_units_applied(),
+			'preview'   => pixassist_get_layout_units_preview(),
+		);
+	}
+}
+
+if ( ! function_exists( 'pixassist_get_layout_units_preview' ) ) {
+	/**
+	 * Config the shared <LayoutPreview> iframe + the front-end preview route consume.
+	 *
+	 * `base` is the site front-end URL; the JS appends the unit descriptor + nonce and loads the
+	 * result in a scaled, non-interactive iframe. See
+	 * PixelgradeAssistant_StarterContent::maybe_render_layout_unit_preview().
+	 *
+	 * @return array
+	 */
+	function pixassist_get_layout_units_preview() {
+		return array(
+			'base'  => function_exists( 'home_url' ) ? esc_url_raw( home_url( '/' ) ) : '/',
+			'param' => 'pixassist_layout_preview',
+			'nonce' => function_exists( 'wp_create_nonce' ) ? wp_create_nonce( 'pixassist_layout_preview' ) : '',
+			'vw'    => 1200,
 		);
 	}
 }
