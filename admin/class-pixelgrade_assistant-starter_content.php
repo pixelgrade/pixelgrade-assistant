@@ -51,6 +51,19 @@ class PixelgradeAssistant_StarterContent {
 	private $media_url_map_cache = array();
 
 	/**
+	 * EXPERIMENT (Phase 2.5+): request-local state for the site-mode preview menu injector — the source
+	 * base whose demo menus may fill empty nav locations, and the lazily-built slug => items[] map.
+	 *
+	 * @var string
+	 */
+	private $preview_demo_menu_base = '';
+
+	/**
+	 * @var array|null Lazily-built demo nav-menu map ( location-slug => items[] ), or null until needed.
+	 */
+	private $preview_demo_menu_map = null;
+
+	/**
 	 * The only instance.
 	 * @var     PixelgradeAssistant_StarterContent
 	 * @access  protected
@@ -2087,6 +2100,13 @@ class PixelgradeAssistant_StarterContent {
 				exit;
 			}
 
+			// EXPERIMENT (best-of-both): fill any EMPTY nav-menu location with the starter's demo menu, so a
+			// unit whose menu hasn't been imported locally still previews complete — in the user's own design.
+			// The user's own menu always wins when a location already has one. See inject_demo_nav_menu().
+			$this->preview_demo_menu_base = $base_url;
+			$this->preview_demo_menu_map  = null;
+			add_filter( 'pre_wp_nav_menu', array( $this, 'inject_demo_nav_menu' ), 10, 2 );
+
 			$this->render_layout_unit_preview_document( $post['post_content'] );
 			exit;
 		}
@@ -2281,6 +2301,246 @@ HTML;
 			header( 'Cache-Control: private, max-age=300' );
 			echo $html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- proxied allow-listed demo HTML for an admin-only iframe preview.
 			exit;
+		}
+
+		/**
+		 * EXPERIMENT — fill an EMPTY nav-menu location with the starter's demo menu during a site preview.
+		 *
+		 * Hooked on `pre_wp_nav_menu`. Nova's navigation block renders `wp_nav_menu(theme_location=slug)`;
+		 * when that location has no (non-empty) local menu, we return menu markup built from the demo's
+		 * exported nav items so the preview isn't missing its navigation — while still rendering in the
+		 * user's own theme + Style Manager design. The user's OWN menu always wins when present. The demo
+		 * menu map is fetched lazily the first time a fillable location renders.
+		 *
+		 * @param string|null $output Short-circuit output (null = let wp_nav_menu render normally).
+		 * @param object      $args   wp_nav_menu args.
+		 *
+		 * @return string|null
+		 */
+		public function inject_demo_nav_menu( $output, $args ) {
+			if ( null !== $output || empty( $this->preview_demo_menu_base ) ) {
+				return $output;
+			}
+
+			$location = isset( $args->theme_location ) ? (string) $args->theme_location : '';
+			if ( '' === $location ) {
+				return $output;
+			}
+
+			// The user's own menu wins whenever the location already has a non-empty menu assigned.
+			$locations = get_nav_menu_locations();
+			if ( ! empty( $locations[ $location ] ) ) {
+				$menu = wp_get_nav_menu_object( $locations[ $location ] );
+				if ( $menu && (int) $menu->count > 0 ) {
+					return $output;
+				}
+			}
+
+			if ( null === $this->preview_demo_menu_map ) {
+				$this->preview_demo_menu_map = $this->build_demo_nav_menu_map( $this->preview_demo_menu_base );
+			}
+
+			if ( empty( $this->preview_demo_menu_map[ $location ] ) ) {
+				return $output;
+			}
+
+			return $this->render_demo_nav_menu_html( $this->preview_demo_menu_map[ $location ] );
+		}
+
+		/**
+		 * Build a demo nav-menu map ( theme-location slug => ordered items[] ) from the source exports.
+		 *
+		 * @param string $base_url Source SCE REST base.
+		 *
+		 * @return array
+		 */
+		private function build_demo_nav_menu_map( $base_url ) {
+			$data = $this->fetch_layout_source_data( $base_url );
+			if ( is_wp_error( $data ) || empty( $data['post_settings']['mods']['nav_menu_locations'] ) ) {
+				return array();
+			}
+
+			$locations = $data['post_settings']['mods']['nav_menu_locations']; // slug => source term id.
+			$term_ids  = array_values( array_unique( array_map( 'absint', (array) $locations ) ) );
+			if ( empty( $term_ids ) ) {
+				return array();
+			}
+
+			$terms = $this->fetch_layout_source_terms( $base_url, 'nav_menu', $term_ids );
+			if ( is_wp_error( $terms ) ) {
+				return array();
+			}
+
+			// Map source term name => location slug (items reference their menu by name in the export).
+			$id_to_name = array();
+			foreach ( (array) $terms as $term ) {
+				if ( isset( $term['term_id'], $term['name'] ) ) {
+					$id_to_name[ (int) $term['term_id'] ] = $term['name'];
+				}
+			}
+			$name_to_slug = array();
+			foreach ( $locations as $slug => $term_id ) {
+				$name = isset( $id_to_name[ (int) $term_id ] ) ? $id_to_name[ (int) $term_id ] : '';
+				if ( '' !== $name ) {
+					$name_to_slug[ $name ] = sanitize_key( $slug );
+				}
+			}
+			if ( empty( $name_to_slug ) ) {
+				return array();
+			}
+
+			$items = $this->fetch_layout_source_posts( $base_url, 'nav_menu_item' );
+			if ( is_wp_error( $items ) ) {
+				return array();
+			}
+
+			// Most exported items carry an empty post_title (they inherit the linked page/post title), so
+			// fetch the referenced object types once to resolve those labels.
+			$object_titles = $this->collect_demo_menu_object_titles( $base_url, $items );
+
+			$by_slug = array();
+			foreach ( (array) $items as $item ) {
+				if ( empty( $item['ID'] ) ) {
+					continue;
+				}
+				$label = $this->resolve_demo_menu_item_label( $item, $object_titles );
+				if ( '' === $label ) {
+					continue; // skip items we cannot label (e.g. unresolved custom/social items)
+				}
+				$menu_names = isset( $item['taxonomies']['nav_menu'] ) ? (array) $item['taxonomies']['nav_menu'] : array();
+				foreach ( $menu_names as $menu_name ) {
+					if ( ! isset( $name_to_slug[ $menu_name ] ) ) {
+						continue;
+					}
+					$slug               = $name_to_slug[ $menu_name ];
+					$by_slug[ $slug ][] = array(
+						'id'     => (int) $item['ID'],
+						'parent' => isset( $item['meta']['_menu_item_menu_item_parent'][0] ) ? (int) $item['meta']['_menu_item_menu_item_parent'][0] : 0,
+						'order'  => isset( $item['menu_order'] ) ? (int) $item['menu_order'] : 0,
+						'label'  => $label,
+					);
+				}
+			}
+
+			foreach ( $by_slug as $slug => $list ) {
+				usort( $list, function ( $a, $b ) {
+					return $a['order'] <=> $b['order'];
+				} );
+				$by_slug[ $slug ] = $list;
+			}
+
+			return $by_slug;
+		}
+
+		/**
+		 * Fetch titles of the objects (pages/posts) referenced by menu items that lack an explicit label.
+		 *
+		 * @param string $base_url Source SCE REST base.
+		 * @param array  $items    Source nav_menu_item posts.
+		 *
+		 * @return array Map of "object_type:object_id" => title.
+		 */
+		private function collect_demo_menu_object_titles( $base_url, $items ) {
+			$needed = array();
+			foreach ( (array) $items as $item ) {
+				$title = isset( $item['post_title'] ) ? trim( $item['post_title'] ) : '';
+				if ( '' !== $title ) {
+					continue;
+				}
+				$object = isset( $item['meta']['_menu_item_object'][0] ) ? sanitize_key( $item['meta']['_menu_item_object'][0] ) : '';
+				if ( in_array( $object, array( 'page', 'post' ), true ) ) {
+					$needed[ $object ] = true;
+				}
+			}
+
+			$titles = array();
+			foreach ( array_keys( $needed ) as $type ) {
+				$objects = $this->fetch_layout_source_posts( $base_url, $type );
+				if ( is_wp_error( $objects ) ) {
+					continue;
+				}
+				foreach ( (array) $objects as $object ) {
+					if ( ! empty( $object['ID'] ) ) {
+						$titles[ $type . ':' . (int) $object['ID'] ] = isset( $object['post_title'] ) ? $object['post_title'] : '';
+					}
+				}
+			}
+
+			return $titles;
+		}
+
+		/**
+		 * Resolve a menu item's display label (its own title, else the linked object's title).
+		 *
+		 * @param array $item          Source nav_menu_item post.
+		 * @param array $object_titles "type:id" => title map.
+		 *
+		 * @return string
+		 */
+		private function resolve_demo_menu_item_label( $item, $object_titles ) {
+			$label = isset( $item['post_title'] ) ? trim( $item['post_title'] ) : '';
+			if ( '' === $label ) {
+				$object    = isset( $item['meta']['_menu_item_object'][0] ) ? sanitize_key( $item['meta']['_menu_item_object'][0] ) : '';
+				$object_id = isset( $item['meta']['_menu_item_object_id'][0] ) ? (int) $item['meta']['_menu_item_object_id'][0] : 0;
+				$key       = $object . ':' . $object_id;
+				$label     = isset( $object_titles[ $key ] ) ? trim( $object_titles[ $key ] ) : '';
+			}
+
+			return $this->normalize_demo_menu_label( $label );
+		}
+
+		/**
+		 * Clean a demo menu label: undo a leaked JSON "&" escape and decode HTML entities to UTF-8.
+		 *
+		 * @param string $label Raw label.
+		 *
+		 * @return string
+		 */
+		private function normalize_demo_menu_label( $label ) {
+			if ( '' === $label ) {
+				return '';
+			}
+			// Some exports leak the JSON unicode escape for "&" (&, sometimes with the backslash dropped).
+			$label = str_replace( array( '\\u0026', 'u0026' ), '&', $label );
+			$label = html_entity_decode( $label, ENT_QUOTES, 'UTF-8' );
+
+			return trim( wp_strip_all_tags( $label ) );
+		}
+
+		/**
+		 * Render demo nav items as wp_nav_menu-compatible markup (a `<ul class="menu">` tree).
+		 *
+		 * @param array $items Flat item list ( id, parent, order, label ).
+		 *
+		 * @return string
+		 */
+		private function render_demo_nav_menu_html( $items ) {
+			$children = array();
+			foreach ( $items as $item ) {
+				$children[ (int) $item['parent'] ][] = $item;
+			}
+
+			$render_level = function ( $parent_id, $is_sub ) use ( &$render_level, $children ) {
+				if ( empty( $children[ $parent_id ] ) ) {
+					return '';
+				}
+				$out = '<ul class="' . ( $is_sub ? 'sub-menu' : 'menu' ) . '">';
+				foreach ( $children[ $parent_id ] as $item ) {
+					$has_children = ! empty( $children[ (int) $item['id'] ] );
+					$classes      = 'menu-item menu-item-type-custom' . ( $has_children ? ' menu-item-has-children' : '' );
+					$out         .= '<li class="' . esc_attr( $classes ) . '">';
+					$out         .= '<a href="#">' . esc_html( (string) $item['label'] ) . '</a>';
+					if ( $has_children ) {
+						$out .= $render_level( (int) $item['id'], true );
+					}
+					$out .= '</li>';
+				}
+				$out .= '</ul>';
+
+				return $out;
+			};
+
+			return $render_level( 0, false );
 		}
 
 		/**
