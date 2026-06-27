@@ -274,6 +274,48 @@ assert_same(
 );
 
 /*
+ * Pixelgrade Care coexistence: when Care owns a user's pixelgrade.com identity (its own
+ * `pixcare_oauth_token` is present), Assistant must NOT claim that shared global identity as its own
+ * connection, expose its credentials, or overwrite/delete the shared identity meta. The meta is
+ * global on multisite, so trampling it would corrupt Care's connection on the Care sites.
+ */
+paf_reset_runtime();
+// Care owns both the theme-activation user (11) and the current admin (7) — a multisite-shared admin.
+update_user_meta( 11, 'pixcare_oauth_token', 'care-token' );
+update_user_meta( 11, 'pixelgrade_user_login', 'care-login' );
+update_user_meta( 11, 'pixelgrade_user_email', 'care@example.com' );
+update_user_meta( 7, 'pixcare_oauth_token', 'care-token' );
+update_user_meta( 7, 'pixelgrade_user_login', 'care-login' );
+
+$account = pixassist_get_account();
+assert_same( false, $account['is_connected'], 'Care-owned shared identity must not read as an Assistant connection.' );
+assert_same( null, pixassist_get_account_credentials(), 'Care-owned identity must not expose Assistant credentials.' );
+
+// A modern Assistant connect (current user 7) succeeds via per-site storage, leaving Care's shared meta intact.
+pixassist_save_account_connection(
+	array(
+		'pixelgrade_user_id' => '77',
+		'email'              => 'plus@example.com',
+		'display_name'       => 'Plus Account',
+		'user_login'         => 'plus-login',
+		'oauth_token'        => 'plus-token',
+		'oauth_token_secret' => 'plus-secret',
+	)
+);
+$account = pixassist_get_account();
+assert_same( true, $account['is_connected'], 'Modern per-site connection still reports connected over Care-owned legacy meta.' );
+assert_same( 'plus-login', $account['user_login'], 'Modern per-site identity wins.' );
+assert_same( 'plus-token', pixassist_get_account_credentials()['token'], 'Modern per-site credentials are available for Plus.' );
+assert_same( 'plus-token', get_user_meta( 7, 'pixassist_oauth_token', true ), 'Assistant token meta is still mirrored to the connecting user.' );
+assert_same( 'care-login', get_user_meta( 7, 'pixelgrade_user_login', true ), 'Care-owned shared login must be preserved, not overwritten by connect.' );
+
+// Disconnect clears Assistant's own state but must never delete Care's shared identity.
+pixassist_delete_account_connection();
+assert_same( '', get_user_meta( 7, 'pixassist_oauth_token', true ), 'Disconnect clears Assistant token meta.' );
+assert_same( 'care-login', get_user_meta( 7, 'pixelgrade_user_login', true ), 'Disconnect must NOT delete Care-owned shared login (current user).' );
+assert_same( 'care-login', get_user_meta( 11, 'pixelgrade_user_login', true ), 'Disconnect must NOT delete Care-owned shared login (activation user).' );
+
+/*
  * OAuth client: request-token, authorize URL, and access-token exchange remain independently
  * testable through the Assistant-specific pre-response seam.
  */

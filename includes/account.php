@@ -181,6 +181,31 @@ if ( ! function_exists( 'pixassist_account_current_wp_user_id' ) ) {
 	}
 }
 
+if ( ! function_exists( 'pixassist_account_care_owns_identity' ) ) {
+	/**
+	 * Whether Pixelgrade Care owns this user's pixelgrade.com identity.
+	 *
+	 * Care and Assistant share the global `pixelgrade_user_login` / `_email` / `_display_name` user
+	 * meta, but Care stores its OWN OAuth token under `pixcare_oauth_token`. On a multisite where
+	 * Care runs on some sites and Assistant on others, that shared identity belongs to Care: Assistant
+	 * must neither claim it as its own connection nor overwrite/delete it (the meta is global, so a
+	 * write from an Assistant site would corrupt Care's connection on the Care sites). The presence of
+	 * a non-empty `pixcare_oauth_token` is the precise, network-wide ownership signal.
+	 *
+	 * @param int $user_id Local WordPress user id.
+	 *
+	 * @return bool True when Care owns the identity and Assistant must leave it untouched.
+	 */
+	function pixassist_account_care_owns_identity( $user_id ) {
+		$user_id = (int) $user_id;
+		if ( 0 >= $user_id || ! function_exists( 'get_user_meta' ) ) {
+			return false;
+		}
+
+		return '' !== (string) get_user_meta( $user_id, 'pixcare_oauth_token', true );
+	}
+}
+
 if ( ! function_exists( 'pixassist_save_account_connection' ) ) {
 	/**
 	 * Saves a modern host account connection and mirrors legacy user meta for compatibility.
@@ -209,12 +234,18 @@ if ( ! function_exists( 'pixassist_save_account_connection' ) ) {
 		$saved              = pixassist_account_update_options( $options );
 
 		if ( 0 < $wp_user_id && function_exists( 'update_user_meta' ) ) {
+			// Assistant's OWN keys — always safe to mirror (Pixelgrade Care does not use these).
 			update_user_meta( $wp_user_id, 'pixassist_oauth_token', $connection['oauth_token'] );
 			update_user_meta( $wp_user_id, 'pixassist_oauth_token_secret', $connection['oauth_token_secret'] );
 			update_user_meta( $wp_user_id, 'pixassist_user_ID', $connection['pixelgrade_user_id'] );
-			update_user_meta( $wp_user_id, 'pixelgrade_user_login', $connection['user_login'] );
-			update_user_meta( $wp_user_id, 'pixelgrade_user_email', $connection['email'] );
-			update_user_meta( $wp_user_id, 'pixelgrade_display_name', $connection['display_name'] );
+
+			// The legacy identity keys are SHARED with Pixelgrade Care. Mirror them only when Care does
+			// not own this user's identity; otherwise the (global) write would corrupt Care's connection.
+			if ( ! pixassist_account_care_owns_identity( $wp_user_id ) ) {
+				update_user_meta( $wp_user_id, 'pixelgrade_user_login', $connection['user_login'] );
+				update_user_meta( $wp_user_id, 'pixelgrade_user_email', $connection['email'] );
+				update_user_meta( $wp_user_id, 'pixelgrade_display_name', $connection['display_name'] );
+			}
 		}
 
 		return $saved;
@@ -273,13 +304,19 @@ if ( ! function_exists( 'pixassist_delete_account_connection' ) ) {
 
 		if ( function_exists( 'delete_user_meta' ) ) {
 			foreach ( $user_ids as $user_id ) {
+				// Assistant's OWN keys — always safe to clear.
 				delete_user_meta( $user_id, 'pixassist_oauth_token' );
 				delete_user_meta( $user_id, 'pixassist_oauth_token_secret' );
 				delete_user_meta( $user_id, 'pixassist_oauth_verifier' );
 				delete_user_meta( $user_id, 'pixassist_user_ID' );
-				delete_user_meta( $user_id, 'pixelgrade_user_login' );
-				delete_user_meta( $user_id, 'pixelgrade_user_email' );
-				delete_user_meta( $user_id, 'pixelgrade_display_name' );
+
+				// Don't clear the SHARED legacy identity keys when Care owns this user's connection —
+				// the meta is global, so deleting it would disconnect Care on the Care sites.
+				if ( ! pixassist_account_care_owns_identity( $user_id ) ) {
+					delete_user_meta( $user_id, 'pixelgrade_user_login' );
+					delete_user_meta( $user_id, 'pixelgrade_user_email' );
+					delete_user_meta( $user_id, 'pixelgrade_display_name' );
+				}
 			}
 		}
 
@@ -357,7 +394,10 @@ if ( ! function_exists( 'pixassist_get_account_credentials' ) ) {
 
 		if ( function_exists( 'get_user_meta' ) ) {
 			$user_id = pixassist_account_legacy_user_id();
-			if ( 0 < $user_id ) {
+			// Skip the legacy fallback when Care owns this user's identity: the global `pixassist_oauth_token`
+			// may have leaked from another site's connect, and surfacing it here would falsely credential a
+			// site that was never explicitly connected (the reader reports it disconnected, so must this).
+			if ( 0 < $user_id && ! pixassist_account_care_owns_identity( $user_id ) ) {
 				$token = (string) get_user_meta( $user_id, 'pixassist_oauth_token', true );
 				if ( '' !== $token ) {
 					return array(

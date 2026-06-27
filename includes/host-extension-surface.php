@@ -132,6 +132,31 @@ if ( ! function_exists( 'pixassist_get_admin_hub_tabs' ) ) {
 	}
 }
 
+if ( ! function_exists( 'pixassist_account_care_owns_identity' ) ) {
+	/**
+	 * Whether Pixelgrade Care owns this user's pixelgrade.com identity.
+	 *
+	 * Care and Assistant share the global `pixelgrade_user_login` / `_email` / `_display_name` user
+	 * meta, but Care stores its OWN OAuth token under `pixcare_oauth_token`. On a multisite where
+	 * Care runs on some sites and Assistant on others, that shared identity belongs to Care: Assistant
+	 * must neither claim it as its own connection nor overwrite/delete it (the meta is global, so a
+	 * write from an Assistant site would corrupt Care's connection on the Care sites). The presence of
+	 * a non-empty `pixcare_oauth_token` is the precise, network-wide ownership signal.
+	 *
+	 * @param int $user_id Local WordPress user id.
+	 *
+	 * @return bool True when Care owns the identity and Assistant must leave it untouched.
+	 */
+	function pixassist_account_care_owns_identity( $user_id ) {
+		$user_id = (int) $user_id;
+		if ( 0 >= $user_id || ! function_exists( 'get_user_meta' ) ) {
+			return false;
+		}
+
+		return '' !== (string) get_user_meta( $user_id, 'pixcare_oauth_token', true );
+	}
+}
+
 if ( ! function_exists( 'pixassist_read_host_account_identity' ) ) {
 	/**
 	 * Best-effort read of the current host pixelgrade.com connection from legacy storage.
@@ -154,6 +179,12 @@ if ( ! function_exists( 'pixassist_read_host_account_identity' ) ) {
 
 		$user = PixelgradeAssistant_Admin::get_theme_activation_user();
 		if ( empty( $user ) || empty( $user->ID ) ) {
+			return null;
+		}
+
+		// The shared global `pixelgrade_user_login` identity may belong to Pixelgrade Care (its own
+		// `pixcare_oauth_token` is present), not Assistant. Don't claim Care's connection as our own.
+		if ( pixassist_account_care_owns_identity( $user->ID ) ) {
 			return null;
 		}
 
