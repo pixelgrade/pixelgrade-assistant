@@ -83,11 +83,10 @@ function acquirePreviewSlot( onGrant ) {
 }
 
 /*
- * Shared preview-source mode (EXPERIMENT, Phase 2.5).
+ * Shared preview-source mode.
  *
- * 'site' = render the unit against the local site (accurate to the user's theme + tokens, but uses
- *          whatever local content exists — a missing menu shows an empty nav).
- * 'demo' = proxy the starter's polished public demo page (real menus/content, but the demo's design).
+ * 'site' = render the unit against the active site — the user's theme + Style Manager tokens.
+ * 'demo' = proxy the starter's polished public demo page (the demo's own design + content).
  *
  * Module-level so a single <PreviewModeToggle> drives every mounted <LayoutPreview> across tabs.
  */

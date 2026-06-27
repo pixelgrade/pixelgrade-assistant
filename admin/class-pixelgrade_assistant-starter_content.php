@@ -51,8 +51,8 @@ class PixelgradeAssistant_StarterContent {
 	private $media_url_map_cache = array();
 
 	/**
-	 * EXPERIMENT (Phase 2.5+): request-local state for the site-mode preview menu injector — the source
-	 * base whose demo menus may fill empty nav locations, and the lazily-built slug => items[] map.
+	 * Request-local state for the site-mode preview menu injector — the source base whose demo menus the
+	 * preview renders for nav locations, and the lazily-built slug => items[] map.
 	 *
 	 * @var string
 	 */
@@ -2037,13 +2037,12 @@ class PixelgradeAssistant_StarterContent {
 		}
 
 		/**
-		 * PHASE 0 SPIKE (.ai/layout-previews) — front-end render route for layout-unit previews.
+		 * Front-end render route for layout-unit previews (Layouts tab + Starter Sites composer).
 		 *
 		 * Renders ONE layout unit's blocks through the active theme's real front-end pipeline so the
 		 * preview inherits theme.json + Style Manager tokens + connected fonts automatically (wp_head()
-		 * fires wp_enqueue_scripts at priority 1). Designed to be loaded inside a scaled <iframe> by the
-		 * hub UI. Phase 0 is capability-gated (admins only); Phase 1 will add a per-request nonce and
-		 * server-side caching.
+		 * fires wp_enqueue_scripts at priority 1). Loaded inside a scaled <iframe> by the hub UI.
+		 * Capability + nonce gated; `mode=demo` proxies the starter's polished demo instead (see below).
 		 *
 		 * URL shape:
 		 *   home_url('/?pixassist_layout_preview=1&url=<baseRestUrl>&unit_type=wp_template_part&unit=header')
@@ -2080,8 +2079,8 @@ class PixelgradeAssistant_StarterContent {
 				exit;
 			}
 
-			// EXPERIMENT (Phase 2.5): demo mode previews the starter's polished public demo page instead of
-			// rendering the unit against the (possibly incomplete) local content.
+			// Demo mode previews the starter's polished public demo page instead of rendering the unit
+			// against the (possibly incomplete) local content.
 			$mode = isset( $_GET['mode'] ) ? sanitize_key( wp_unslash( $_GET['mode'] ) ) : 'site';
 			if ( 'demo' === $mode ) {
 				$this->render_layout_unit_demo_preview( $base_url, $unit_type, $unit );
@@ -2100,9 +2099,9 @@ class PixelgradeAssistant_StarterContent {
 				exit;
 			}
 
-			// EXPERIMENT (best-of-both): fill any EMPTY nav-menu location with the starter's demo menu, so a
-			// unit whose menu hasn't been imported locally still previews complete — in the user's own design.
-			// The user's own menu always wins when a location already has one. See inject_demo_nav_menu().
+			// Render nav locations with the starter's intended demo menu, in the user's own design, so a
+			// unit previews complete regardless of the local site's menus (falls back to local where the
+			// demo has none). See inject_demo_nav_menu().
 			$this->preview_demo_menu_base = $base_url;
 			$this->preview_demo_menu_map  = null;
 			add_filter( 'pre_wp_nav_menu', array( $this, 'inject_demo_nav_menu' ), 10, 2 );
@@ -2134,9 +2133,8 @@ class PixelgradeAssistant_StarterContent {
 			header( 'Content-Type: text/html; charset=' . get_bloginfo( 'charset' ) );
 			header( 'X-Robots-Tag: noindex, nofollow', true );
 			// Short PRIVATE browser cache so re-scrolling / re-opening the tab is instant. Kept brief so a
-			// theme/Style-Manager design change surfaces quickly (a server-side render cache was considered
-			// but deferred — SM's Site-Editor save path may not fire the Customizer hooks, risking stale
-			// previews; see .ai/layout-previews/plan.md Phase 3).
+			// theme/Style-Manager design change surfaces quickly (a server-side render cache was deliberately
+			// avoided — SM's Site-Editor save path may not fire the Customizer hooks, risking stale previews).
 			header( 'Cache-Control: private, max-age=180' );
 
 			?><!DOCTYPE html>
@@ -2308,17 +2306,17 @@ HTML;
 		}
 
 		/**
-		 * EXPERIMENT (Phase 2.5) — demo-content preview: proxy the starter's polished public demo page.
+		 * Demo-content preview: proxy the starter's polished public demo page.
 		 *
 		 * The site-mode render uses the LOCAL site's content (menus/posts/media), which may be incomplete.
 		 * Demo mode instead serves the demo's real front-end page same-origin (so the host can size + scale
 		 * it and assets aren't frame-blocked), with a <base> so the demo's relative assets load and the
 		 * shared runtime script injected. This is an admin-gated, allow-listed, read-only PROXY used purely
-		 * as a preview — never user content. (Per-unit demo URLs + cropping are a possible refinement.)
+		 * as a preview — never user content.
 		 *
-		 * Unit-aware (Phase 3): each unit loads a demo URL that exercises THAT template (single → a demo
-		 * post, archive → a category, …), and header/footer parts are cropped to just that part (so a
-		 * header card shows the demo header, not the home hero).
+		 * Unit-aware: each unit loads a demo URL that exercises THAT template (single → a demo post,
+		 * archive → a category, …), and header/footer parts are cropped to just that part (so a header
+		 * card shows the demo header, not the home hero).
 		 *
 		 * @param string $base_url  Source SCE REST base.
 		 * @param string $unit_type wp_template_part | wp_template.
@@ -2614,13 +2612,13 @@ HTML;
 		}
 
 		/**
-		 * EXPERIMENT — fill an EMPTY nav-menu location with the starter's demo menu during a site preview.
+		 * Render the starter's demo menu for a nav location during a preview, in the user's own design.
 		 *
 		 * Hooked on `pre_wp_nav_menu`. Nova's navigation block renders `wp_nav_menu(theme_location=slug)`;
-		 * when that location has no (non-empty) local menu, we return menu markup built from the demo's
-		 * exported nav items so the preview isn't missing its navigation — while still rendering in the
-		 * user's own theme + Style Manager design. The user's OWN menu always wins when present. The demo
-		 * menu map is fetched lazily the first time a fillable location renders.
+		 * we return menu markup built from the demo's exported nav items so the preview shows the layout's
+		 * INTENDED navigation (rendered in the active theme + Style Manager design), regardless of whatever
+		 * menu the local site happens to have at that location. Falls back to the local menu only where the
+		 * demo has none. The demo menu map is fetched lazily the first time a nav location renders.
 		 *
 		 * @param string|null $output Short-circuit output (null = let wp_nav_menu render normally).
 		 * @param object      $args   wp_nav_menu args.
@@ -2637,19 +2635,11 @@ HTML;
 				return $output;
 			}
 
-			// The user's own menu wins whenever the location already has a non-empty menu assigned.
-			$locations = get_nav_menu_locations();
-			if ( ! empty( $locations[ $location ] ) ) {
-				$menu = wp_get_nav_menu_object( $locations[ $location ] );
-				if ( $menu && (int) $menu->count > 0 ) {
-					return $output;
-				}
-			}
-
 			if ( null === $this->preview_demo_menu_map ) {
 				$this->preview_demo_menu_map = $this->build_demo_nav_menu_map( $this->preview_demo_menu_base );
 			}
 
+			// No demo menu for this location → fall back to whatever the local site renders there.
 			if ( empty( $this->preview_demo_menu_map[ $location ] ) ) {
 				return $output;
 			}
