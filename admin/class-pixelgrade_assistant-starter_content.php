@@ -2107,6 +2107,11 @@ class PixelgradeAssistant_StarterContent {
 			$this->preview_demo_menu_map  = null;
 			add_filter( 'pre_wp_nav_menu', array( $this, 'inject_demo_nav_menu' ), 10, 2 );
 
+			// Render templates against a representative query context from the LOCAL site (a real post for
+			// single, an archive query for archive, …) so post-title/content/featured-image blocks resolve
+			// instead of rendering against the front-page query. Parts (header/footer) need nothing.
+			$this->setup_preview_query_context( $unit_type, $unit );
+
 			$this->render_layout_unit_preview_document( $post['post_content'] );
 			exit;
 		}
@@ -2432,6 +2437,152 @@ HTML;
 			}
 
 			return 0;
+		}
+
+		/**
+		 * Set up a representative query context (from the LOCAL site) so a template preview renders like the
+		 * real template instead of the front-page query. No-op for parts and home/front-page/index.
+		 *
+		 * @param string $unit_type wp_template_part | wp_template.
+		 * @param string $unit      Unit slug.
+		 *
+		 * @return void
+		 */
+		private function setup_preview_query_context( $unit_type, $unit ) {
+			if ( 'wp_template' !== $unit_type ) {
+				return;
+			}
+			$unit = sanitize_title( $unit );
+
+			if ( in_array( $unit, array( 'single', 'single-split-header' ), true ) ) {
+				$post = $this->first_local_post( 'post' );
+				if ( $post ) {
+					$this->set_single_query_context( $post );
+				}
+			} elseif ( 'single-portfolio' === $unit ) {
+				$post = $this->first_local_post( $this->local_portfolio_post_type() );
+				if ( $post ) {
+					$this->set_single_query_context( $post );
+				}
+			} elseif ( 'archive' === $unit ) {
+				$this->set_archive_query_context( 'post' );
+			} elseif ( 'archive-portfolio' === $unit ) {
+				$this->set_archive_query_context( $this->local_portfolio_post_type() );
+			} elseif ( 'search' === $unit ) {
+				$this->set_search_query_context();
+			}
+		}
+
+		/**
+		 * The most recent published local post of a type, for single previews.
+		 *
+		 * @param string $post_type Post type.
+		 *
+		 * @return WP_Post|null
+		 */
+		private function first_local_post( $post_type ) {
+			if ( ! post_type_exists( $post_type ) ) {
+				return null;
+			}
+			$posts = get_posts( array(
+				'post_type'        => $post_type,
+				'post_status'      => 'publish',
+				'numberposts'      => 1,
+				'orderby'          => 'date',
+				'order'            => 'DESC',
+				'suppress_filters' => true,
+			) );
+
+			return empty( $posts ) ? null : $posts[0];
+		}
+
+		/**
+		 * The local site's portfolio-like post type, if any (else 'post').
+		 *
+		 * @return string
+		 */
+		private function local_portfolio_post_type() {
+			foreach ( array( 'jetpack-portfolio', 'portfolio', 'project' ) as $type ) {
+				if ( post_type_exists( $type ) ) {
+					return $type;
+				}
+			}
+
+			return 'post';
+		}
+
+		/**
+		 * Make the global query a single-post query for the given post, and inject its id into block context.
+		 *
+		 * post-title / post-content / post-featured-image blocks render '' without a `postId` block context,
+		 * so the query swap alone is not enough — `render_block_context` provides it.
+		 *
+		 * @param WP_Post $post Local post.
+		 *
+		 * @return void
+		 */
+		private function set_single_query_context( $post ) {
+			$query = new WP_Query( array(
+				'p'              => $post->ID,
+				'post_type'      => $post->post_type,
+				'posts_per_page' => 1,
+			) );
+			$GLOBALS['wp_query']     = $query;
+			$GLOBALS['wp_the_query'] = $query;
+			if ( $query->have_posts() ) {
+				$query->the_post();
+			}
+
+			add_filter(
+				'render_block_context',
+				function ( $context ) use ( $post ) {
+					if ( empty( $context['postId'] ) ) {
+						$context['postId']   = $post->ID;
+						$context['postType'] = $post->post_type;
+					}
+
+					return $context;
+				}
+			);
+		}
+
+		/**
+		 * Make the global query an archive query for a post type so the archive template's loop renders.
+		 *
+		 * @param string $post_type Post type.
+		 *
+		 * @return void
+		 */
+		private function set_archive_query_context( $post_type ) {
+			$post_type = post_type_exists( $post_type ) ? $post_type : 'post';
+			$query     = new WP_Query( array(
+				'post_type'      => $post_type,
+				'post_status'    => 'publish',
+				'posts_per_page' => 12,
+			) );
+			$query->is_home    = false;
+			$query->is_archive = true;
+			if ( 'post' !== $post_type ) {
+				$query->is_post_type_archive = true;
+			}
+			$GLOBALS['wp_query']     = $query;
+			$GLOBALS['wp_the_query'] = $query;
+		}
+
+		/**
+		 * Make the global query a search query so the search template renders results.
+		 *
+		 * @return void
+		 */
+		private function set_search_query_context() {
+			$query = new WP_Query( array(
+				'post_status'    => 'publish',
+				'posts_per_page' => 12,
+			) );
+			$query->is_home          = false;
+			$query->is_search        = true;
+			$GLOBALS['wp_query']     = $query;
+			$GLOBALS['wp_the_query'] = $query;
 		}
 
 		/**
