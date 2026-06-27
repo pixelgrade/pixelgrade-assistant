@@ -2263,17 +2263,21 @@ class PixelgradeAssistant_StarterContent {
 		target.style.position = 'static';
 	}
 	function reportBandHeight() {
-		// Header focus: many headers are transparent overlays on the hero (white text), so we can't isolate
-		// them — instead crop to the header strip over a slice of what's behind it. Don't disturb positioning.
+		// Header focus: show the FULL header (all logo + nav rows), but not the hero/content below. Headers
+		// render as several stacked elements (a thin top bar + the main header), and the outer <header> is
+		// often 0-height because its rows are positioned out of flow — so band to the LOWEST bottom across
+		// ALL header elements, not just the first match. Transparent overlay headers stay over their hero.
 		var sel = 'header, .nb-header--main, .nb-header, [class*="site-header"]';
 		var matches = document.querySelectorAll( sel );
-		var band = 0;
+		var bottom = 0;
 		for ( var i = 0; i < matches.length; i++ ) {
 			var r = matches[ i ].getBoundingClientRect();
-			if ( r.width > 0 && r.height > 0 ) { band = Math.ceil( r.bottom + ( window.pageYOffset || 0 ) ); break; }
+			if ( r.width > 0 && r.height > 0 && ( r.bottom + ( window.pageYOffset || 0 ) ) > bottom ) {
+				bottom = r.bottom + ( window.pageYOffset || 0 );
+			}
 		}
-		if ( band <= 0 ) { band = 200; }
-		band = Math.min( 360, Math.max( band + 48, 96 ) );
+		var band = bottom > 0 ? Math.ceil( bottom ) : 200;
+		band = Math.min( 520, Math.max( band + 16, 96 ) );
 		if ( window.parent ) {
 			window.parent.postMessage( { pixassistPreview: true, height: band, empty: false }, '*' );
 		}
@@ -2332,8 +2336,10 @@ HTML;
 			$target_url = $target['url'];
 			$focus      = $target['focus'];
 
-			// Cache the prepared HTML per (demo URL + focus) — many cards open at once and share pages.
-			$cache_key = 'pixassist_demo_prev_' . md5( $target_url . '|' . $focus );
+			// Cache the fetched demo PAGE per URL (not the focus/runtime scripts — those are injected fresh
+			// below, so script changes take effect immediately and one cached page serves any focus). The
+			// `v2` prefix drops older cache entries that baked the script in.
+			$cache_key = 'pixassist_demo_prev_v2_' . md5( $target_url );
 			$html      = get_transient( $cache_key );
 
 			if ( false === $html ) {
@@ -2361,12 +2367,13 @@ HTML;
 					1
 				);
 
-				// Tell the runtime script which part to isolate (header/footer), if any.
-				$focus_script = '<script>window.__pixassistPreviewFocus=' . wp_json_encode( $focus ) . ';</script>';
-				$html         = str_ireplace( '</body>', $focus_script . $this->layout_preview_runtime_script() . '</body>', $html );
-
 				set_transient( $cache_key, $html, 10 * MINUTE_IN_SECONDS );
 			}
+
+			// Inject the focus hint (which part to crop to) + the shared runtime script FRESH on every
+			// request — so changes to either ship immediately, and the same cached page serves any focus.
+			$focus_script = '<script>window.__pixassistPreviewFocus=' . wp_json_encode( $focus ) . ';</script>';
+			$html         = str_ireplace( '</body>', $focus_script . $this->layout_preview_runtime_script() . '</body>', $html );
 
 			show_admin_bar( false );
 			header( 'Content-Type: text/html; charset=' . get_bloginfo( 'charset' ) );
