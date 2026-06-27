@@ -121,7 +121,7 @@ export function usePreviewMode() {
 }
 
 /**
- * Segmented "My site / Demo" preview-source toggle.
+ * Segmented "My site / Demo site" preview-source toggle.
  *
  * Styled to match the grid/list view toggle in the Layouts toolbar — a bordered segmented control
  * using `isPressed` (subtle), not the heavier primary/secondary fill.
@@ -151,7 +151,7 @@ export function PreviewModeToggle() {
 					onClick: () => setPreviewMode( 'demo' ),
 					title: __( "Show the starter's polished demo — real menus & images, but the demo's design.", 'pixelgrade_assistant' ),
 				},
-				__( 'Demo', 'pixelgrade_assistant' )
+				__( 'Demo site', 'pixelgrade_assistant' )
 			)
 		)
 	);
