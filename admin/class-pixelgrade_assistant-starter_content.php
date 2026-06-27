@@ -3918,6 +3918,15 @@ HTML;
 						continue;
 					}
 
+					// A starter may declare a taxonomy this site does not register — e.g. a recipe blog's
+					// wprm_* taxonomies when WP Recipe Maker is absent. Skip it gracefully instead of
+					// aborting the whole import (import_taxonomy returns a missing_tax response that halts
+					// the run). The related posts still import (as orphan rows for an inactive CPT), and the
+					// terms light up if the companion plugin is installed later.
+					if ( ! taxonomy_exists( sanitize_key( $entry['name'] ) ) ) {
+						continue;
+					}
+
 					$result = $this->import_taxonomy( $demo_key, $base_url, array(
 						'tax' => sanitize_key( $entry['name'] ),
 						'ids' => $entry['ids'],
