@@ -122,21 +122,23 @@ export function usePreviewMode() {
 
 /**
  * Segmented "My site / Demo" preview-source toggle.
+ *
+ * Styled to match the grid/list view toggle in the Layouts toolbar — a bordered segmented control
+ * using `isPressed` (subtle), not the heavier primary/secondary fill.
  */
 export function PreviewModeToggle() {
 	const mode = usePreviewMode();
 	return createElement(
 		'div',
-		{ style: { alignItems: 'center', display: 'inline-flex', gap: '6px' } },
-		createElement( 'span', { style: { color: '#646970', fontSize: '12px' } }, __( 'Preview:', 'pixelgrade_assistant' ) ),
+		{ style: { alignItems: 'center', display: 'inline-flex', gap: '8px' } },
+		createElement( 'span', { style: { color: '#646970', fontSize: '13px' } }, __( 'Preview:', 'pixelgrade_assistant' ) ),
 		createElement(
 			'div',
-			{ style: { display: 'inline-flex', gap: '2px' } },
+			{ style: { display: 'inline-flex', border: '1px solid #dcdcde', borderRadius: '4px' } },
 			createElement(
 				Button,
 				{
-					variant: 'site' === mode ? 'primary' : 'secondary',
-					size: 'small',
+					isPressed: 'site' === mode,
 					onClick: () => setPreviewMode( 'site' ),
 					title: __( 'Render each layout on your site, in your colors and fonts (uses your current content).', 'pixelgrade_assistant' ),
 				},
@@ -145,8 +147,7 @@ export function PreviewModeToggle() {
 			createElement(
 				Button,
 				{
-					variant: 'demo' === mode ? 'primary' : 'secondary',
-					size: 'small',
+					isPressed: 'demo' === mode,
 					onClick: () => setPreviewMode( 'demo' ),
 					title: __( "Show the starter's polished demo — real menus & images, but the demo's design.", 'pixelgrade_assistant' ),
 				},
@@ -409,9 +410,11 @@ export function LayoutPreview( props ) {
 				if ( 'ready' === current ) {
 					return current;
 				}
-				// Demo mode opens many cards that proxy the same page; a cold cache can 502 a few.
-				// Retry up to twice — by then the per-demo transient is warm.
-				if ( 'demo' === mode && reloadTick < 2 ) {
+				// A cold render can miss the first handshake under load — the demo proxy's shared
+				// page, or a heavy site-mode template (e.g. opened in the full-height overlay while
+				// the grid is still loading). Retry up to twice before giving up. The `empty` signal
+				// is separate (it errors immediately), so genuinely-empty units still fast-fall back.
+				if ( reloadTick < 2 ) {
 					setReloadTick( ( tick ) => tick + 1 );
 					return 'loading';
 				}

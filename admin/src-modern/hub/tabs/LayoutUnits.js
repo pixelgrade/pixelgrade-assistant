@@ -6,7 +6,8 @@
  */
 import { createElement, Fragment, useMemo, useRef, useState } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
-import { Button, Card, CardBody, CardHeader, CheckboxControl, Flex, FlexItem, Notice } from '@wordpress/components';
+import { Button, Card, CardBody, CardHeader, CheckboxControl, Dropdown, Flex, FlexItem, Modal, Notice, RangeControl, SearchControl, SelectControl } from '@wordpress/components';
+import { fullscreen, grid, listView, settings } from '@wordpress/icons';
 import { LayoutPreview, PreviewModeToggle } from '../LayoutPreview';
 
 const DEFAULT_LAYOUT_UNITS = {
@@ -50,6 +51,9 @@ const DEFAULT_LAYOUT_UNITS = {
 		sourceHeading: __( 'Source', 'pixelgrade_assistant' ),
 		premiumLabel: __( 'Premium', 'pixelgrade_assistant' ),
 		freeLabel: __( 'Free', 'pixelgrade_assistant' ),
+		previewLabel: __( 'Preview', 'pixelgrade_assistant' ),
+		previewFull: __( 'Preview at full height', 'pixelgrade_assistant' ),
+		previewModeNote: __( 'Showing your site. Switch the toolbar to “Demo” to see the starter’s own design.', 'pixelgrade_assistant' ),
 	},
 	sources: [],
 	endpoints: {},
@@ -202,27 +206,64 @@ function getGroupKey( unit ) {
 	return 'templateParts';
 }
 
-function groupUnits( units ) {
-	return units.reduce(
-		( groups, unit ) => {
-			const key = getGroupKey( unit );
+// Display order for the unified browse grid (and for the Type filter dropdown).
+const GROUP_ORDER = [ 'headers', 'footers', 'templates', 'features', 'templateParts' ];
 
-			if ( ! groups[ key ] ) {
-				groups[ key ] = [];
-			}
-
-			groups[ key ].push( unit );
-
-			return groups;
-		},
-		{
-			headers: [],
-			footers: [],
-			templates: [],
-			templateParts: [],
-			features: [],
+/**
+ * Flatten the units into a single list ordered headers -> footers -> templates -> features ->
+ * template parts, then alphabetically by source within each group.
+ *
+ * @param {Array} units Raw unit descriptors (each carries a `.source`).
+ * @return {Array} A new, ordered array.
+ */
+function orderedUnits( units ) {
+	return units.slice().sort( ( a, b ) => {
+		const ga = GROUP_ORDER.indexOf( getGroupKey( a ) );
+		const gb = GROUP_ORDER.indexOf( getGroupKey( b ) );
+		if ( ga !== gb ) {
+			return ga - gb;
 		}
-	);
+		const sa = ( a.source && a.source.title ) || '';
+		const sb = ( b.source && b.source.title ) || '';
+		return sa.localeCompare( sb );
+	} );
+}
+
+/**
+ * Apply the toolbar filters (free-text search + type + source) to the unit list.
+ *
+ * @param {Array}  units   Ordered unit descriptors.
+ * @param {Object} filters { search, typeFilter, sourceFilter }.
+ * @return {Array} The matching subset, in the same order.
+ */
+function filterUnits( units, { search, typeFilter, sourceFilter } ) {
+	const query = ( search || '' ).trim().toLowerCase();
+
+	return units.filter( ( unit ) => {
+		if ( typeFilter && 'all' !== typeFilter && getGroupKey( unit ) !== typeFilter ) {
+			return false;
+		}
+
+		const sourceId = unit.source && unit.source.id ? unit.source.id : '';
+		if ( sourceFilter && 'all' !== sourceFilter && sourceId !== sourceFilter ) {
+			return false;
+		}
+
+		if ( query ) {
+			const haystack = (
+				( unit.title || '' ) +
+				' ' +
+				( unit.slug || '' ) +
+				' ' +
+				( unit.source && unit.source.title ? unit.source.title : '' )
+			).toLowerCase();
+			if ( ! haystack.includes( query ) ) {
+				return false;
+			}
+		}
+
+		return true;
+	} );
 }
 
 function getPrewarmableUnits( units ) {
@@ -283,6 +324,25 @@ function renderSourceBadge( source, copy ) {
 			},
 		},
 		source.gate ? copy.premiumLabel : copy.freeLabel
+	);
+}
+
+function renderTypeBadge( unit, copy ) {
+	return createElement(
+		'span',
+		{
+			style: {
+				background: '#f0f0f1',
+				borderRadius: '2px',
+				color: '#1e1e1e',
+				display: 'inline-block',
+				fontSize: '11px',
+				fontWeight: 500,
+				lineHeight: '16px',
+				padding: '0 6px',
+			},
+		},
+		getSlotTypeLabel( unit, copy )
 	);
 }
 
@@ -361,148 +421,369 @@ function isOperationButtonBusy( operation, key ) {
 	return Boolean( operation && operation.key === key && getActiveOperationStep( operation ) );
 }
 
-function UnitList( { title, units, applied, busyKey, copy, featureSamples, operation, previewConfig, onFeatureSampleChange, onImport } ) {
-	if ( ! units.length ) {
-		return null;
+function UnitCard( { unit, viewMode, applied, busyKey, copy, featureSamples, operation, previewConfig, onFeatureSampleChange, onImport, onPreview } ) {
+	const slot = getSlotKey( unit );
+	const source = unit.source || {};
+	const appliedUnit = applied[ slot ];
+	const isCurrent = Boolean( appliedUnit && appliedUnit.demoKey === source.id && appliedUnit.slug === unit.slug );
+	const isBusy = busyKey === 'import:' + slot + ':' + source.id;
+	const operationKey = 'import:' + slot + ':' + source.id;
+	const preview = getPreviewUrl( unit );
+	const sampleKey = slot + ':' + source.id;
+	const isFeature = 'feature' === unit.type;
+	const isPreviewable = 'wp_template_part' === unit.type || 'wp_template' === unit.type;
+	const isList = 'list' === viewMode;
+	const typeLabel = getSlotTypeLabel( unit, copy );
+	const titleText = unit.title || unit.slug || '';
+	// Headers/footers carry a generic "Header"/"Footer" title that just repeats the type badge;
+	// for those, surface the source as the card title and drop the now-redundant source line.
+	const isGenericTitle = titleText.toLowerCase() === typeLabel.toLowerCase();
+	const primaryText = isGenericTitle ? source.title : titleText;
+	const includeSample = isFeature
+		? Object.prototype.hasOwnProperty.call( featureSamples, sampleKey )
+			? Boolean( featureSamples[ sampleKey ] )
+			: Boolean( unit.sampleDefault )
+		: false;
+
+	const applyButton = createElement(
+		Button,
+		{
+			variant: isCurrent ? 'secondary' : 'primary',
+			isBusy,
+			disabled: Boolean( busyKey ) || isCurrent,
+			onClick: () => onImport( unit, { includeSample } ),
+			style: { flexShrink: 0, minWidth: '104px' },
+		},
+		isBusy
+			? getOperationButtonLabel( operation, operationKey, copy.importing )
+			: isCurrent
+			? copy.appliedButton
+			: appliedUnit
+			? copy.replaceLabel
+			: copy.importLabel
+	);
+
+	// "Preview" opens the full-height overlay — most useful for tall templates the card crops.
+	const previewButton = isPreviewable && onPreview
+		? createElement(
+				Button,
+				{
+					variant: 'tertiary',
+					icon: fullscreen,
+					onClick: () => onPreview( unit ),
+					label: copy.previewFull,
+					showTooltip: true,
+					style: { flexShrink: 0 },
+				},
+				copy.previewLabel
+		  )
+		: null;
+
+	const appliedNote = appliedUnit
+		? createElement(
+				'span',
+				{ style: { color: '#646970', fontSize: '12px' } },
+				copy.appliedLabel + ': ' + ( appliedUnit.sourceTitle || appliedUnit.demoKey || '' )
+		  )
+		: null;
+
+	const featureToggle = isFeature
+		? createElement( CheckboxControl, {
+				__nextHasNoMarginBottom: true,
+				checked: includeSample,
+				disabled: Boolean( busyKey ) || isCurrent,
+				label: copy.sampleLabel,
+				onChange: ( nextValue ) => onFeatureSampleChange( sampleKey, nextValue ),
+		  } )
+		: null;
+
+	// Compact list row: no live preview, just the essentials on one line.
+	if ( isList ) {
+		return createElement(
+			'div',
+			{
+				style: {
+					alignItems: 'center',
+					background: '#fff',
+					border: '1px solid #dcdcde',
+					borderRadius: '4px',
+					display: 'flex',
+					flexWrap: 'wrap',
+					gap: '12px',
+					padding: '10px 14px',
+				},
+			},
+			createElement(
+				'div',
+				{ style: { display: 'flex', flex: '1 1 240px', flexDirection: 'column', gap: '2px', minWidth: 0 } },
+				createElement(
+					'div',
+					{ style: { alignItems: 'center', display: 'flex', flexWrap: 'wrap', gap: '8px' } },
+					renderTypeBadge( unit, copy ),
+					createElement( 'strong', { style: { fontSize: '13px' } }, primaryText )
+				),
+				isGenericTitle
+					? null
+					: createElement(
+							'div',
+							{ style: { color: '#646970', fontSize: '12px' } },
+							copy.sourceHeading + ': ' + source.title
+					  )
+			),
+			featureToggle,
+			createElement(
+				'div',
+				{ style: { alignItems: 'center', display: 'flex', gap: '8px', marginLeft: 'auto' } },
+				renderSourceBadge( source, copy ),
+				appliedNote,
+				previewButton,
+				applyButton
+			)
+		);
 	}
 
-	return createElement(
-		Card,
-		{ style: { marginTop: '16px' } },
-		createElement( CardHeader, null, createElement( 'h2', { style: { margin: 0 } }, title ) ),
-		createElement(
-			CardBody,
-			null,
-			createElement(
-				'ul',
-				{ style: { margin: 0 } },
-				units.map( ( unit ) => {
-					const slot = getSlotKey( unit );
-					const appliedUnit = applied[ slot ];
-					const isCurrent = Boolean( appliedUnit && appliedUnit.demoKey === unit.source.id && appliedUnit.slug === unit.slug );
-					const isBusy = busyKey === 'import:' + slot + ':' + unit.source.id;
-					const operationKey = 'import:' + slot + ':' + unit.source.id;
-					const preview = getPreviewUrl( unit );
-					const source = unit.source || {};
-					const sampleKey = slot + ':' + source.id;
-					const isFeature = 'feature' === unit.type;
-					const isPreviewable = 'wp_template_part' === unit.type || 'wp_template' === unit.type;
-					const includeSample = isFeature
-						? Object.prototype.hasOwnProperty.call( featureSamples, sampleKey )
-							? Boolean( featureSamples[ sampleKey ] )
-							: Boolean( unit.sampleDefault )
-						: false;
+	// Grid card: live preview on top, meta below.
+	const previewEl = isPreviewable
+		? createElement( LayoutPreview, {
+				baseRestUrl: source.baseRestUrl,
+				demoKey: source.id,
+				unitType: unit.type,
+				unit: unit.slug || String( unit.id ),
+				viewportWidth: previewConfig && previewConfig.vw ? previewConfig.vw : 1200,
+				maxHeight: 360,
+				title: unit.title || unit.slug,
+				config: previewConfig,
+				fallback: preview
+					? createElement( 'img', {
+							alt: '',
+							src: preview,
+							style: { aspectRatio: '16 / 10', background: '#f0f0f1', objectFit: 'cover', width: '100%', display: 'block' },
+					  } )
+					: undefined,
+		  } )
+		: preview
+		? createElement( 'img', {
+				alt: '',
+				src: preview,
+				style: { aspectRatio: '16 / 10', background: '#f0f0f1', objectFit: 'cover', width: '100%', display: 'block' },
+		  } )
+		: createElement( 'div', { style: { aspectRatio: '16 / 10', background: '#f0f0f1' } } );
 
-					return createElement(
-						'li',
-						{
-							key: slot + ':' + source.id,
-							style: {
-								alignItems: 'center',
-								borderTop: '1px solid #ddd',
-								display: 'flex',
-								gap: '12px',
-								justifyContent: 'space-between',
-								margin: 0,
-								padding: '12px 0',
-							},
-						},
-						createElement(
-							'div',
-							{
-								style: {
-									alignItems: 'center',
-									display: 'flex',
-									gap: '12px',
-									minWidth: 0,
-								},
-							},
-							isPreviewable
-								? createElement(
-										'div',
-										{ style: { flex: '0 0 220px', width: '220px' } },
-										createElement( LayoutPreview, {
-											baseRestUrl: source.baseRestUrl,
-											demoKey: source.id,
-											unitType: unit.type,
-											unit: unit.slug || String( unit.id ),
-											viewportWidth: previewConfig && previewConfig.vw ? previewConfig.vw : 1200,
-											maxHeight: 220,
-											title: unit.title || unit.slug,
-											config: previewConfig,
-											fallback: preview
-												? createElement( 'img', {
-														alt: '',
-														src: preview,
-														style: { aspectRatio: '4 / 3', background: '#f0f0f1', objectFit: 'cover', width: '100%', display: 'block' },
-												  } )
-												: undefined,
-										} )
-								  )
-								: preview
-								? createElement( 'img', {
-										alt: '',
-										src: preview,
-										style: {
-											aspectRatio: '4 / 3',
-											background: '#f0f0f1',
-											objectFit: 'cover',
-											width: '96px',
-										},
-								  } )
-								: null,
+	return createElement(
+		'div',
+		{
+			style: {
+				background: '#fff',
+				border: '1px solid #dcdcde',
+				borderRadius: '4px',
+				display: 'flex',
+				flexDirection: 'column',
+				overflow: 'hidden',
+			},
+		},
+		previewEl,
+		createElement(
+			'div',
+			{ style: { display: 'flex', flex: 1, flexDirection: 'column', gap: '6px', padding: '12px 14px' } },
+			createElement(
+				'div',
+				{ style: { alignItems: 'center', display: 'flex', flexWrap: 'wrap', gap: '8px' } },
+				renderTypeBadge( unit, copy ),
+				createElement( 'strong', { style: { fontSize: '14px' } }, primaryText )
+			),
+			isGenericTitle
+				? null
+				: createElement(
+						'div',
+						{ style: { color: '#646970', fontSize: '13px' } },
+						copy.sourceHeading + ': ' + source.title
+				  ),
+			featureToggle,
+			createElement(
+				'div',
+				{ style: { alignItems: 'center', display: 'flex', gap: '8px', justifyContent: 'space-between', marginTop: 'auto', paddingTop: '4px' } },
+				createElement(
+					'div',
+					{ style: { alignItems: 'center', display: 'flex', flexWrap: 'wrap', gap: '8px' } },
+					renderSourceBadge( source, copy ),
+					appliedNote
+				),
+				createElement(
+					'div',
+					{ style: { alignItems: 'center', display: 'flex', flexShrink: 0, gap: '6px' } },
+					previewButton,
+					applyButton
+				)
+			)
+		)
+	);
+}
+
+/**
+ * Full-height preview overlay for one unit.
+ *
+ * The card previews are capped (so tall templates crop); this Modal shows the WHOLE template,
+ * scaled to the modal width and scrolled vertically. Reuses the same front-end preview route via
+ * <LayoutPreview> with NO maxHeight, and carries the My-site/Demo toggle so the source can be
+ * switched while viewing.
+ */
+function UnitPreviewModal( { unit, previewConfig, copy, onClose } ) {
+	const source = unit.source || {};
+	const typeLabel = getSlotTypeLabel( unit, copy );
+	const titleText = unit.title || unit.slug || '';
+	const displayName = titleText && titleText.toLowerCase() !== typeLabel.toLowerCase() ? titleText : typeLabel;
+	const heading = source.title ? displayName + ' — ' + source.title : displayName;
+
+	return createElement(
+		Modal,
+		{
+			title: heading,
+			onRequestClose: onClose,
+			size: 'large',
+			className: 'pixassist-unit-preview-modal',
+		},
+		createElement(
+			'div',
+			{ style: { alignItems: 'center', display: 'flex', justifyContent: 'flex-end', marginBottom: '10px' } },
+			createElement( PreviewModeToggle, null )
+		),
+		createElement(
+			'div',
+			{ style: { maxHeight: '74vh', overflow: 'auto', background: '#f0f0f1', borderRadius: '4px' } },
+			createElement( LayoutPreview, {
+				baseRestUrl: source.baseRestUrl,
+				demoKey: source.id,
+				unitType: unit.type,
+				unit: unit.slug || String( unit.id ),
+				viewportWidth: previewConfig && previewConfig.vw ? previewConfig.vw : 1200,
+				title: titleText,
+				config: previewConfig,
+			} )
+		)
+	);
+}
+
+// Preview-size slider steps map (right = larger previews = fewer columns), default 2 columns.
+const PREVIEW_SIZE_MAX = 4;
+const PREVIEW_SIZE_DEFAULT_COLUMNS = 2;
+
+function LayoutToolbar( { search, onSearch, typeFilter, onTypeFilter, sourceFilter, onSourceFilter, viewMode, onViewMode, columns, onColumns, sources, copy } ) {
+	const typeOptions = [
+		{ label: __( 'All types', 'pixelgrade_assistant' ), value: 'all' },
+		{ label: copy.headers, value: 'headers' },
+		{ label: copy.footers, value: 'footers' },
+		{ label: copy.templatesType, value: 'templates' },
+		{ label: copy.features, value: 'features' },
+		{ label: copy.templateParts, value: 'templateParts' },
+	];
+	const sourceOptions = [ { label: __( 'All starters', 'pixelgrade_assistant' ), value: 'all' } ].concat(
+		sources.map( ( source ) => ( { label: source.title, value: source.id } ) )
+	);
+
+	return createElement(
+		'div',
+		{
+			style: {
+				alignItems: 'center',
+				display: 'flex',
+				flexWrap: 'wrap',
+				gap: '12px',
+				margin: '16px 0',
+			},
+		},
+		createElement(
+			'div',
+			{ style: { flex: '1 1 220px', minWidth: '180px' } },
+			createElement( SearchControl, {
+				__nextHasNoMarginBottom: true,
+				value: search,
+				onChange: onSearch,
+				label: __( 'Search layouts', 'pixelgrade_assistant' ),
+				placeholder: __( 'Search layouts', 'pixelgrade_assistant' ),
+				hideLabelFromVision: true,
+			} )
+		),
+		createElement(
+			'div',
+			{ style: { alignItems: 'center', display: 'flex', flexWrap: 'wrap', gap: '8px', marginLeft: 'auto' } },
+			createElement(
+				'div',
+				{ style: { minWidth: '150px' } },
+				createElement( SelectControl, {
+					__next40pxDefaultSize: true,
+					__nextHasNoMarginBottom: true,
+					hideLabelFromVision: true,
+					label: __( 'Filter by type', 'pixelgrade_assistant' ),
+					value: typeFilter,
+					options: typeOptions,
+					onChange: onTypeFilter,
+				} )
+			),
+			createElement(
+				'div',
+				{ style: { minWidth: '150px' } },
+				createElement( SelectControl, {
+					__next40pxDefaultSize: true,
+					__nextHasNoMarginBottom: true,
+					hideLabelFromVision: true,
+					label: __( 'Filter by starter', 'pixelgrade_assistant' ),
+					value: sourceFilter,
+					options: sourceOptions,
+					onChange: onSourceFilter,
+				} )
+			),
+			createElement(
+				'div',
+				{ style: { display: 'inline-flex', border: '1px solid #dcdcde', borderRadius: '4px' } },
+				createElement( Button, {
+					icon: grid,
+					isPressed: 'grid' === viewMode,
+					label: __( 'Grid view', 'pixelgrade_assistant' ),
+					showTooltip: true,
+					onClick: () => onViewMode( 'grid' ),
+				} ),
+				createElement( Button, {
+					icon: listView,
+					isPressed: 'list' === viewMode,
+					label: __( 'List view', 'pixelgrade_assistant' ),
+					showTooltip: true,
+					onClick: () => onViewMode( 'list' ),
+				} )
+			),
+			'grid' === viewMode
+				? createElement( Dropdown, {
+						popoverProps: { placement: 'bottom-end' },
+						renderToggle: ( { isOpen, onToggle } ) =>
+							createElement( Button, {
+								icon: settings,
+								isPressed: isOpen,
+								'aria-expanded': isOpen,
+								label: __( 'Preview size', 'pixelgrade_assistant' ),
+								showTooltip: true,
+								onClick: onToggle,
+							} ),
+						renderContent: () =>
 							createElement(
 								'div',
-								null,
-								createElement( 'strong', null, unit.title || unit.slug ),
-								createElement(
-									'div',
-									{ style: { color: '#646970', marginTop: '2px' } },
-									copy.sourceHeading + ': ' + source.title
-								),
-								isFeature
-									? createElement( CheckboxControl, {
-											checked: includeSample,
-											disabled: Boolean( busyKey ) || isCurrent,
-											label: copy.sampleLabel,
-											onChange: ( nextValue ) => onFeatureSampleChange( sampleKey, nextValue ),
-											style: { marginTop: '8px' },
-									  } )
-									: null,
-								createElement(
-									'div',
-									{ style: { alignItems: 'center', display: 'flex', gap: '8px', marginTop: '6px' } },
-									renderSourceBadge( source, copy ),
-									appliedUnit
-										? createElement(
-												'span',
-												{ style: { color: '#646970', fontSize: '12px' } },
-												copy.appliedLabel + ': ' + ( appliedUnit.sourceTitle || appliedUnit.demoKey || '' )
-										  )
-										: null
-								)
-							)
-						),
-						createElement(
-							Button,
-							{
-								variant: isCurrent ? 'secondary' : 'primary',
-								isBusy,
-								disabled: Boolean( busyKey ) || isCurrent,
-								onClick: () => onImport( unit, { includeSample } ),
-								style: { minWidth: '104px' },
-							},
-							isBusy
-								? getOperationButtonLabel( operation, operationKey, copy.importing )
-								: isCurrent
-								? copy.appliedButton
-								: appliedUnit
-								? copy.replaceLabel
-								: copy.importLabel
-						)
-					);
-				} )
-			)
+								{ style: { minWidth: '220px', padding: '4px 8px 0' } },
+								createElement( RangeControl, {
+									__nextHasNoMarginBottom: true,
+									__next40pxDefaultSize: true,
+									label: __( 'Preview size', 'pixelgrade_assistant' ),
+									value: PREVIEW_SIZE_MAX + 1 - columns,
+									onChange: ( value ) =>
+										onColumns( PREVIEW_SIZE_MAX + 1 - ( value || PREVIEW_SIZE_MAX + 1 - PREVIEW_SIZE_DEFAULT_COLUMNS ) ),
+									min: 1,
+									max: PREVIEW_SIZE_MAX,
+									step: 1,
+									marks: true,
+									withInputField: false,
+									showTooltip: false,
+								} )
+							),
+				  } )
+				: null,
+			'grid' === viewMode ? createElement( PreviewModeToggle, null ) : null
 		)
 	);
 }
@@ -521,10 +802,20 @@ export function LayoutUnits() {
 	const [ featureSamples, setFeatureSamples ] = useState( {} );
 	const [ prewarmedJobs, setPrewarmedJobs ] = useState( {} );
 	const [ operation, setOperation ] = useState( { key: '', operationSteps: [] } );
+	const [ search, setSearch ] = useState( '' );
+	const [ typeFilter, setTypeFilter ] = useState( 'all' );
+	const [ sourceFilter, setSourceFilter ] = useState( 'all' );
+	const [ viewMode, setViewMode ] = useState( 'grid' );
+	const [ columns, setColumns ] = useState( PREVIEW_SIZE_DEFAULT_COLUMNS );
+	const [ previewUnit, setPreviewUnit ] = useState( null );
 	const prewarmedJobsRef = useRef( prewarmedJobs );
 	const operationIdRef = useRef( 0 );
 
-	const grouped = useMemo( () => groupUnits( units ), [ units ] );
+	const ordered = useMemo( () => orderedUnits( units ), [ units ] );
+	const filtered = useMemo(
+		() => filterUnits( ordered, { search, typeFilter, sourceFilter } ),
+		[ ordered, search, typeFilter, sourceFilter ]
+	);
 
 	const startOperationSteps = ( key, steps ) => {
 		const operationId = operationIdRef.current + 1;
@@ -926,10 +1217,7 @@ export function LayoutUnits() {
 					},
 					loadButtonLabel
 				)
-			),
-			loaded
-				? createElement( FlexItem, { style: { marginLeft: 'auto' } }, createElement( PreviewModeToggle, null ) )
-				: null
+			)
 		),
 		createElement( AppliedLayouts, {
 			applied,
@@ -938,69 +1226,64 @@ export function LayoutUnits() {
 			onUndo: undoUnit,
 		} ),
 		loaded && ! units.length ? createElement( 'p', null, copy.empty ) : null,
-		createElement(
-			Fragment,
-			null,
-			createElement( UnitList, {
-				title: copy.headers,
-				units: grouped.headers,
-				applied,
-				busyKey,
-				copy,
-				featureSamples,
-				operation,
-				previewConfig,
-				onFeatureSampleChange: setFeatureSample,
-				onImport: importUnit,
-			} ),
-			createElement( UnitList, {
-				title: copy.footers,
-				units: grouped.footers,
-				applied,
-				busyKey,
-				copy,
-				featureSamples,
-				operation,
-				previewConfig,
-				onFeatureSampleChange: setFeatureSample,
-				onImport: importUnit,
-			} ),
-			createElement( UnitList, {
-				title: copy.templatesType,
-				units: grouped.templates,
-				applied,
-				busyKey,
-				copy,
-				featureSamples,
-				operation,
-				previewConfig,
-				onFeatureSampleChange: setFeatureSample,
-				onImport: importUnit,
-			} ),
-			createElement( UnitList, {
-				title: copy.features,
-				units: grouped.features,
-				applied,
-				busyKey,
-				copy,
-				featureSamples,
-				operation,
-				previewConfig,
-				onFeatureSampleChange: setFeatureSample,
-				onImport: importUnit,
-			} ),
-			createElement( UnitList, {
-				title: __( 'Template parts', 'pixelgrade_assistant' ),
-				units: grouped.templateParts,
-				applied,
-				busyKey,
-				copy,
-				featureSamples,
-				operation,
-				previewConfig,
-				onFeatureSampleChange: setFeatureSample,
-				onImport: importUnit,
-			} )
-		)
+		loaded && units.length
+			? createElement(
+					Fragment,
+					null,
+					createElement( LayoutToolbar, {
+						search,
+						onSearch: setSearch,
+						typeFilter,
+						onTypeFilter: setTypeFilter,
+						sourceFilter,
+						onSourceFilter: setSourceFilter,
+						viewMode,
+						onViewMode: setViewMode,
+						columns,
+						onColumns: setColumns,
+						sources,
+						copy,
+					} ),
+					filtered.length
+						? createElement(
+								'div',
+								{
+									style:
+										'list' === viewMode
+											? { display: 'flex', flexDirection: 'column', gap: '8px' }
+											: { display: 'grid', gap: '16px', gridTemplateColumns: 'repeat(' + columns + ', minmax(0, 1fr))' },
+								},
+								filtered.map( ( unit ) =>
+									createElement( UnitCard, {
+										key: getSlotKey( unit ) + ':' + ( unit.source && unit.source.id ? unit.source.id : '' ),
+										unit,
+										viewMode,
+										applied,
+										busyKey,
+										copy,
+										featureSamples,
+										operation,
+										previewConfig,
+										onFeatureSampleChange: setFeatureSample,
+										onImport: importUnit,
+										onPreview: setPreviewUnit,
+									} )
+								)
+						  )
+						: createElement(
+								'p',
+								{ style: { color: '#646970' } },
+								__( 'No layouts match your filters.', 'pixelgrade_assistant' )
+						  )
+			  )
+			: null,
+		previewUnit
+			? createElement( UnitPreviewModal, {
+					unit: previewUnit,
+					previewConfig,
+					copy,
+					onClose: () => setPreviewUnit( null ),
+			  } )
+			: null
 	);
 }
