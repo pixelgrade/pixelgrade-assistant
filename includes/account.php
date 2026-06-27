@@ -1187,7 +1187,7 @@ if ( ! function_exists( 'pixassist_register_account_tab' ) ) {
 			'capability' => pixassist_account_capability(),
 			'component'  => 'account',
 			'gate'       => '',
-			'badge'      => 'PLUS',
+			'badge'      => '',
 			'order'      => 10,
 		);
 
@@ -1256,6 +1256,310 @@ if ( ! function_exists( 'pixassist_get_account_notice' ) ) {
 	}
 }
 
+if ( ! function_exists( 'pixassist_get_account_help_url' ) ) {
+	/**
+	 * Builds the Help tab URL for Account-tab next actions.
+	 *
+	 * @return string
+	 */
+	function pixassist_get_account_help_url() {
+		return admin_url( 'themes.php?page=pixelgrade&tab=help' );
+	}
+}
+
+if ( ! function_exists( 'pixassist_get_account_docs_url' ) ) {
+	/**
+	 * Retrieves the public documentation URL for Account-tab value copy.
+	 *
+	 * @return string
+	 */
+	function pixassist_get_account_docs_url() {
+		if ( function_exists( 'pixassist_docs_online_url' ) ) {
+			return pixassist_docs_online_url();
+		}
+
+		return defined( 'PIXELGRADE_ASSISTANT__SHOP_BASE' )
+			? trailingslashit( PIXELGRADE_ASSISTANT__SHOP_BASE ) . 'docs'
+			: '';
+	}
+}
+
+if ( ! function_exists( 'pixassist_get_account_theme_name' ) ) {
+	/**
+	 * Retrieves the active theme name for Account-tab site context.
+	 *
+	 * @return string
+	 */
+	function pixassist_get_account_theme_name() {
+		if ( class_exists( 'PixelgradeAssistant_Admin' ) && method_exists( 'PixelgradeAssistant_Admin', 'get_original_theme_name' ) ) {
+			$name = PixelgradeAssistant_Admin::get_original_theme_name();
+			if ( is_scalar( $name ) && '' !== (string) $name ) {
+				return (string) $name;
+			}
+		}
+
+		if ( function_exists( 'wp_get_theme' ) ) {
+			$theme = wp_get_theme();
+			if ( is_object( $theme ) && method_exists( $theme, 'get' ) ) {
+				return (string) $theme->get( 'Name' );
+			}
+		}
+
+		return '';
+	}
+}
+
+if ( ! function_exists( 'pixassist_get_account_product_sku' ) ) {
+	/**
+	 * Retrieves the product/docs SKU for Account-tab site context.
+	 *
+	 * @return string
+	 */
+	function pixassist_get_account_product_sku() {
+		if ( function_exists( 'pixassist_docs_product_sku' ) ) {
+			return (string) pixassist_docs_product_sku();
+		}
+
+		if ( class_exists( 'PixelgradeAssistant_Help' ) && method_exists( 'PixelgradeAssistant_Help', 'get_kb_product_sku' ) ) {
+			return (string) PixelgradeAssistant_Help::get_kb_product_sku();
+		}
+
+		if ( function_exists( 'get_stylesheet' ) ) {
+			return (string) get_stylesheet();
+		}
+
+		return '';
+	}
+}
+
+if ( ! function_exists( 'pixassist_get_account_site_context' ) ) {
+	/**
+	 * Builds the secret-free site/product context displayed by the Account cockpit.
+	 *
+	 * @return array
+	 */
+	function pixassist_get_account_site_context() {
+		return array(
+			'themeName'  => pixassist_get_account_theme_name(),
+			'productSku' => pixassist_get_account_product_sku(),
+			'siteUrl'    => function_exists( 'home_url' ) ? home_url( '/' ) : '',
+			'helpUrl'    => pixassist_get_account_help_url(),
+			'docsUrl'    => pixassist_get_account_docs_url(),
+		);
+	}
+}
+
+if ( ! function_exists( 'pixassist_get_account_products_summary' ) ) {
+	/**
+	 * Builds a secret-free products and licenses summary for the Account cockpit.
+	 *
+	 * Assistant only reads Plus's public status contract here. License hashes, entitlement internals,
+	 * package URLs, and account credentials remain Plus-owned and server-side.
+	 *
+	 * @param array $site Secret-free site context.
+	 *
+	 * @return array
+	 */
+	function pixassist_get_account_products_summary( $site ) {
+		$site       = is_array( $site ) ? $site : array();
+		$theme_name = ! empty( $site['themeName'] ) ? (string) $site['themeName'] : '';
+		$product    = ! empty( $site['productSku'] ) ? (string) $site['productSku'] : '';
+
+		$plus_status = function_exists( 'pixassist_get_plus_status' ) ? pixassist_get_plus_status() : array();
+		$plus_active = ! empty( $plus_status['is_plus_active'] );
+		$plus_label  = ! empty( $plus_status['plus_product_label'] ) && is_scalar( $plus_status['plus_product_label'] )
+			? pixassist_account_sanitize_string( $plus_status['plus_product_label'] )
+			: 'Pixelgrade Plus';
+		$plus_url    = ! empty( $plus_status['plus_settings_url'] ) && is_scalar( $plus_status['plus_settings_url'] )
+			? ( function_exists( 'esc_url_raw' ) ? esc_url_raw( (string) $plus_status['plus_settings_url'] ) : (string) $plus_status['plus_settings_url'] )
+			: '';
+
+		$labels = array_filter( array( $theme_name ? $theme_name : $product ) );
+		if ( $plus_active ) {
+			$labels[] = $plus_label;
+		}
+
+		$summary = array(
+			'state'       => 'available',
+			'statusLabel' => esc_html__( 'Available', '__plugin_txtd' ),
+			'label'       => implode( ' + ', array_filter( $labels ) ),
+			'description' => esc_html__( 'This account can use the free Pixelgrade support and documentation available for the active theme.', '__plugin_txtd' ),
+			'plusLabel'   => $plus_active ? $plus_label : '',
+			'url'         => '',
+		);
+
+		if ( '' === $summary['label'] ) {
+			$summary['label'] = esc_html__( 'Pixelgrade products', '__plugin_txtd' );
+		}
+
+		if ( $plus_active ) {
+			$summary['url'] = $plus_url;
+
+			if ( ! empty( $plus_status['is_plus_licensed'] ) ) {
+				$summary['state']       = 'licensed';
+				$summary['statusLabel'] = esc_html__( 'Licensed', '__plugin_txtd' );
+				/* translators: %s: Pixelgrade Plus product label. */
+				$summary['description'] = sprintf( esc_html__( '%s license is active. The Plus panel shows entitlement and add-on details.', '__plugin_txtd' ), $plus_label );
+			} else {
+				$summary['state']       = 'needs_license';
+				$summary['statusLabel'] = esc_html__( 'Needs license', '__plugin_txtd' );
+				/* translators: %s: Pixelgrade Plus product label. */
+				$summary['description'] = sprintf( esc_html__( '%s is installed. Use the Plus panel to activate any eligible license found on this account.', '__plugin_txtd' ), $plus_label );
+			}
+		}
+
+		return $summary;
+	}
+}
+
+if ( ! function_exists( 'pixassist_format_account_connected_date' ) ) {
+	/**
+	 * Formats the stored connection timestamp as a date-only support detail.
+	 *
+	 * @param string $connected_at Stored connection timestamp.
+	 *
+	 * @return string
+	 */
+	function pixassist_format_account_connected_date( $connected_at ) {
+		$connected_at = pixassist_account_sanitize_string( $connected_at );
+		if ( '' === $connected_at ) {
+			return '';
+		}
+
+		$timestamp = strtotime( $connected_at );
+		if ( false === $timestamp ) {
+			return '';
+		}
+
+		if ( function_exists( 'date_i18n' ) ) {
+			$date_format = function_exists( 'get_option' ) ? (string) get_option( 'date_format', 'Y-m-d' ) : 'Y-m-d';
+
+			return date_i18n( $date_format, $timestamp );
+		}
+
+		return gmdate( 'Y-m-d', $timestamp );
+	}
+}
+
+if ( ! function_exists( 'pixassist_get_account_details_summary' ) ) {
+	/**
+	 * Builds support-facing account details kept out of the identity hero.
+	 *
+	 * @param array $account Identity-only account payload.
+	 *
+	 * @return array
+	 */
+	function pixassist_get_account_details_summary( $account ) {
+		$account = is_array( $account ) ? $account : array();
+
+		if ( empty( $account['is_connected'] ) ) {
+			return array();
+		}
+
+		$pixelgrade_id = ! empty( $account['pixelgrade_user_id'] ) ? absint( $account['pixelgrade_user_id'] ) : 0;
+		$connected_on = ! empty( $account['connected_at'] ) ? pixassist_format_account_connected_date( (string) $account['connected_at'] ) : '';
+
+		if ( 0 >= $pixelgrade_id && '' === $connected_on ) {
+			return array();
+		}
+
+		$description = '';
+		if ( '' !== $connected_on ) {
+			/* translators: %s: account connection date. */
+			$description = sprintf( esc_html__( 'Connected %s.', '__plugin_txtd' ), $connected_on );
+		}
+
+		$label = esc_html__( 'Connected account', '__plugin_txtd' );
+		if ( 0 < $pixelgrade_id ) {
+			/* translators: %d: pixelgrade.com user id. */
+			$label = sprintf( esc_html__( 'Pixelgrade ID %d', '__plugin_txtd' ), $pixelgrade_id );
+		}
+
+		return array(
+			'label'       => $label,
+			'description' => $description,
+			'state'       => 'available',
+			'statusLabel' => esc_html__( 'Ready', '__plugin_txtd' ),
+		);
+	}
+}
+
+if ( ! function_exists( 'pixassist_get_account_value_data' ) ) {
+	/**
+	 * Builds the value-cockpit payload for the host-owned Account tab.
+	 *
+	 * This is UI-only and secret-free. It does not change pixassist_get_account() and never exposes
+	 * OAuth credentials or Plus-owned license/entitlement data.
+	 *
+	 * @param array $account Identity-only account payload.
+	 *
+	 * @return array
+	 */
+	function pixassist_get_account_value_data( $account ) {
+		$connected  = ! empty( $account['is_connected'] );
+		$help_url   = pixassist_get_account_help_url();
+		$docs_url   = pixassist_get_account_docs_url();
+		$site       = pixassist_get_account_site_context();
+		$can_oauth  = pixassist_account_oauth_is_configured();
+		$support    = array(
+			'state'       => $connected ? 'available' : 'connect_required',
+			'label'       => $connected ? esc_html__( 'Support access is ready', '__plugin_txtd' ) : esc_html__( 'Support access needs a connection', '__plugin_txtd' ),
+			'description' => $connected
+				? esc_html__( 'You can send support requests with your site context and Pixelgrade identity attached.', '__plugin_txtd' )
+				: esc_html__( 'Connect a free pixelgrade.com account to send support requests from this dashboard. Documentation stays available without connecting.', '__plugin_txtd' ),
+		);
+
+		$next_action = $connected
+			? array(
+				'id'      => 'get_help',
+				'type'    => 'link',
+				'label'   => esc_html__( 'Get help', '__plugin_txtd' ),
+				'url'     => $help_url,
+				'variant' => 'primary',
+			)
+			: array(
+				'id'      => $can_oauth ? 'connect_account' : 'browse_docs',
+				'type'    => 'link',
+				'label'   => $can_oauth ? esc_html__( 'Connect account', '__plugin_txtd' ) : esc_html__( 'Browse documentation', '__plugin_txtd' ),
+				'url'     => $can_oauth ? pixassist_get_account_connect_url() : $docs_url,
+				'variant' => 'primary',
+			);
+
+		return array(
+			'support'        => $support,
+			'site'           => $site,
+			'products'       => pixassist_get_account_products_summary( $site ),
+			'accountDetails' => pixassist_get_account_details_summary( $account ),
+			'enablements'    => array(
+				array(
+					'id'          => 'support',
+					'label'       => esc_html__( 'Dashboard support', '__plugin_txtd' ),
+					'state'       => $connected ? 'available' : 'connect_required',
+					'description' => $connected
+						? esc_html__( 'Support requests can include the active theme and account identity.', '__plugin_txtd' )
+						: esc_html__( 'Connect once to send support requests without leaving WordPress.', '__plugin_txtd' ),
+				),
+				array(
+					'id'          => 'docs',
+					'label'       => esc_html__( 'Product documentation', '__plugin_txtd' ),
+					'state'       => 'available',
+					'description' => esc_html__( 'Browse product guidance for the active Pixelgrade theme anytime.', '__plugin_txtd' ),
+					'url'         => $docs_url,
+				),
+				array(
+					'id'          => 'account',
+					'label'       => esc_html__( 'Account identity', '__plugin_txtd' ),
+					'state'       => $connected ? 'available' : 'optional',
+					'description' => $connected
+						? esc_html__( 'Your pixelgrade.com identity is available to trusted server-side actions.', '__plugin_txtd' )
+						: esc_html__( 'The connection is optional and can be disconnected from this page.', '__plugin_txtd' ),
+				),
+			),
+			'nextAction'  => $next_action,
+		);
+	}
+}
+
 if ( ! function_exists( 'pixassist_get_account_data' ) ) {
 	/**
 	 * Builds the Account tab bootstrap payload.
@@ -1263,24 +1567,28 @@ if ( ! function_exists( 'pixassist_get_account_data' ) ) {
 	 * @return array
 	 */
 	function pixassist_get_account_data() {
+		$account = function_exists( 'pixassist_get_account' ) ? pixassist_get_account() : array( 'is_connected' => false );
+
 		return array(
-			'account' => function_exists( 'pixassist_get_account' ) ? pixassist_get_account() : array( 'is_connected' => false ),
-			'actions' => array(
+			'account'      => $account,
+			'accountValue' => pixassist_get_account_value_data( $account ),
+			'actions'      => array(
 				'connectUrl'       => pixassist_get_account_connect_url(),
 				'disconnectUrl'    => admin_url( 'admin-post.php' ),
 				'disconnectAction' => 'pixassist_account_disconnect',
 				'disconnectNonce'  => function_exists( 'wp_create_nonce' ) ? wp_create_nonce( pixassist_account_nonce_action() ) : '',
 			),
-			'notice'  => pixassist_get_account_notice(),
-			'oauth'   => array(
+			'notice'       => pixassist_get_account_notice(),
+			'oauth'        => array(
 				'isConfigured' => pixassist_account_oauth_is_configured(),
 			),
-			'copy'    => array(
+			'copy'         => array(
 				'title'                  => esc_html__( 'Pixelgrade account', '__plugin_txtd' ),
-				'connectedDescription'   => esc_html__( 'Your pixelgrade.com account is connected. You can send support requests right from this dashboard.', '__plugin_txtd' ),
+				'connectedStatusLabel'   => esc_html__( 'Site connected. Everything is ready.', '__plugin_txtd' ),
+				'connectedDescription'   => esc_html__( 'Your site is securely connected to your pixelgrade.com account. Support requests and account-aware tools can use this identity.', '__plugin_txtd' ),
 				'disconnectedDescription' => esc_html__( 'Connect a free pixelgrade.com account to send support requests and get help right from your dashboard. It is free for everyone and always optional.', '__plugin_txtd' ),
 				'connectLabel'           => esc_html__( 'Connect account', '__plugin_txtd' ),
-				'disconnectLabel'        => esc_html__( 'Disconnect', '__plugin_txtd' ),
+				'disconnectLabel'        => esc_html__( 'Disconnect account', '__plugin_txtd' ),
 				'notConfiguredLabel'     => esc_html__( 'Account connection is not configured.', '__plugin_txtd' ),
 			),
 		);

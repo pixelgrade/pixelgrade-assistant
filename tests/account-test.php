@@ -10,6 +10,7 @@
 define( 'ABSPATH', __DIR__ . '/' );
 define( 'MINUTE_IN_SECONDS', 60 );
 define( 'PIXELGRADE_ASSISTANT__API_BASE', 'https://pixelgrade.test/' );
+define( 'PIXELGRADE_ASSISTANT__SHOP_BASE', 'https://pixelgrade.test/' );
 
 $GLOBALS['paf_filters']      = array();
 $GLOBALS['paf_options']      = array();
@@ -17,6 +18,8 @@ $GLOBALS['paf_user_meta']    = array();
 $GLOBALS['paf_transients']   = array();
 $GLOBALS['paf_denied_caps']  = array();
 $GLOBALS['paf_current_user'] = 7;
+$GLOBALS['paf_theme_name']   = 'Anima LT';
+$GLOBALS['paf_product_sku']  = 'anima-lt';
 
 function add_filter( $hook, $callback, $priority = 10, $args = 1 ) {
 	$GLOBALS['paf_filters'][ $hook ][] = $callback;
@@ -76,6 +79,14 @@ function get_option( $key, $default = false ) {
 	return array_key_exists( $key, $GLOBALS['paf_options'] ) ? $GLOBALS['paf_options'][ $key ] : $default;
 }
 
+function get_site_option( $key, $default = false ) {
+	return $default;
+}
+
+function is_multisite() {
+	return false;
+}
+
 function update_option( $key, $value ) {
 	$GLOBALS['paf_options'][ $key ] = $value;
 
@@ -116,6 +127,10 @@ function delete_site_transient( $key ) {
 
 function admin_url( $path = '' ) {
 	return 'https://example.test/wp-admin/' . ltrim( (string) $path, '/' );
+}
+
+function home_url( $path = '' ) {
+	return 'https://example.test/' . ltrim( (string) $path, '/' );
 }
 
 function add_query_arg( $args, $url = '' ) {
@@ -190,6 +205,10 @@ function assert_true( $condition, $message ) {
 }
 
 class PixelgradeAssistant_Admin {
+	public static function get_original_theme_name() {
+		return $GLOBALS['paf_theme_name'];
+	}
+
 	public static function get_theme_activation_user() {
 		return (object) array(
 			'ID'           => 11,
@@ -200,6 +219,13 @@ class PixelgradeAssistant_Admin {
 	}
 }
 
+class PixelgradeAssistant_Help {
+	public static function get_kb_product_sku() {
+		return $GLOBALS['paf_product_sku'];
+	}
+}
+
+require __DIR__ . '/../includes/capabilities.php';
 require __DIR__ . '/../includes/host-extension-surface.php';
 require __DIR__ . '/../includes/account.php';
 
@@ -453,14 +479,14 @@ assert_same( 'Account', $registered[0]['label'], 'Account tab label must be `Acc
 assert_same( 'manage_options', $registered[0]['capability'], 'Account tab must require manage_options.' );
 assert_same( 'account', $registered[0]['component'], 'Account tab must bind the `account` JS component.' );
 assert_same( '', $registered[0]['gate'], 'Account tab is free — no upsell gate.' );
-assert_same( 'PLUS', $registered[0]['badge'], 'Account tab must carry the PLUS badge for the right-side service cluster.' );
+assert_same( '', $registered[0]['badge'], 'Assistant must leave the Account badge empty unless Plus annotates it.' );
 assert_same( 10, $registered[0]['order'], 'Account tab must sort after Overview.' );
 
 $_GET['pixassist_account'] = 'connected';
 $payload                   = pixassist_get_account_data();
 $payload_keys              = array_keys( $payload );
 sort( $payload_keys );
-assert_same( array( 'account', 'actions', 'copy', 'notice', 'oauth' ), $payload_keys, 'Account payload must expose exactly account/actions/copy/notice/oauth.' );
+assert_same( array( 'account', 'accountValue', 'actions', 'copy', 'notice', 'oauth' ), $payload_keys, 'Account payload must expose exactly account/accountValue/actions/copy/notice/oauth.' );
 assert_true( false !== strpos( $payload['actions']['connectUrl'], 'admin-post.php' ), 'Connect URL must target admin-post.php.' );
 assert_true( false !== strpos( $payload['actions']['connectUrl'], 'action=pixassist_account_connect_init' ), 'Connect URL must carry the connect action.' );
 assert_same( 'pixassist_account_disconnect', $payload['actions']['disconnectAction'], 'Disconnect action must be explicit.' );
@@ -469,7 +495,80 @@ assert_same( 'connected', $payload['notice']['status'], 'Notice status must come
 assert_same( 'success', $payload['notice']['type'], 'Connected notice must be success.' );
 assert_same( true, $payload['oauth']['isConfigured'], 'The shipped build reports OAuth configured out of the box.' );
 assert_same( 'Pixelgrade account', $payload['copy']['title'], 'Account tab copy must live in PHP.' );
+assert_same( 'Disconnect account', $payload['copy']['disconnectLabel'], 'Disconnect copy should describe the quiet account-detail action.' );
+assert_same( 'connect_required', $payload['accountValue']['support']['state'], 'Disconnected users should see support access as connection-required, not absent.' );
+assert_same( 'Anima LT', $payload['accountValue']['site']['themeName'], 'Account value site context should expose the active theme name.' );
+assert_same( 'anima-lt', $payload['accountValue']['site']['productSku'], 'Account value site context should expose the docs/support product SKU.' );
+assert_same( 'https://example.test/wp-admin/themes.php?page=pixelgrade&tab=help', $payload['accountValue']['site']['helpUrl'], 'Account value site context should deep-link to the Help tab.' );
+assert_same( 'available', $payload['accountValue']['products']['state'], 'Free installs should still show a products/licenses summary.' );
+assert_same( 'Anima LT', $payload['accountValue']['products']['label'], 'The products/licenses summary should start with the active Pixelgrade product.' );
+assert_same( 'connect_account', $payload['accountValue']['nextAction']['id'], 'Disconnected users should get account connection as the next best action.' );
+assert_same( $payload['actions']['connectUrl'], $payload['accountValue']['nextAction']['url'], 'Disconnected next action should reuse the safe connect URL.' );
+assert_true( 3 <= count( $payload['accountValue']['enablements'] ), 'Account value should list what the connection enables.' );
+assert_same( false, false !== strpos( (string) json_encode( $payload ), 'acc-secret' ), 'Account payload must not leak OAuth token secrets.' );
 unset( $_GET['pixassist_account'] );
+
+paf_reset_runtime();
+add_filter(
+	'pixelgrade_assistant_plus_status',
+	function ( $status ) {
+		return array_merge(
+			$status,
+			array(
+				'is_plus_active'     => true,
+				'is_plus_licensed'   => false,
+				'plus_settings_url'  => 'https://example.test/wp-admin/themes.php?page=pixelgrade&tab=account&section=plus',
+				'plus_product_label' => 'Pixelgrade Plus',
+			)
+		);
+	}
+);
+$plus_payload = pixassist_get_account_data();
+assert_same( 'needs_license', $plus_payload['accountValue']['products']['state'], 'Installed but unlicensed Plus should be visible in the products/licenses summary.' );
+assert_same( 'Pixelgrade Plus', $plus_payload['accountValue']['products']['plusLabel'], 'The products/licenses summary should expose the safe Plus product label.' );
+assert_true( false !== strpos( $plus_payload['accountValue']['products']['label'], 'Pixelgrade Plus' ), 'The products/licenses summary should include Plus when it is active.' );
+assert_true( false !== strpos( $plus_payload['accountValue']['products']['description'], 'eligible license' ), 'Unlicensed Plus copy should point users at eligible license activation.' );
+assert_same( false, false !== strpos( (string) json_encode( $plus_payload ), 'license_hash' ), 'The products/licenses summary must not expose license internals.' );
+
+paf_reset_runtime();
+add_filter(
+	'pixelgrade_assistant_plus_status',
+	function ( $status ) {
+		return array_merge(
+			$status,
+			array(
+				'is_plus_active'     => true,
+				'is_plus_licensed'   => true,
+				'plus_settings_url'  => 'https://example.test/wp-admin/themes.php?page=pixelgrade&tab=account&section=plus',
+				'plus_product_label' => 'Pixelgrade Plus',
+			)
+		);
+	}
+);
+$licensed_plus_payload = pixassist_get_account_data();
+assert_same( 'licensed', $licensed_plus_payload['accountValue']['products']['state'], 'Licensed Plus should be visible in the products/licenses summary.' );
+assert_same( 'Licensed', $licensed_plus_payload['accountValue']['products']['statusLabel'], 'Licensed Plus should use a human-readable status label.' );
+
+paf_reset_runtime();
+pixassist_save_account_connection(
+	array(
+		'pixelgrade_user_id'  => 42,
+		'email'               => 'customer@example.com',
+		'display_name'        => 'Customer',
+		'user_login'          => 'customer-login',
+		'oauth_token'         => 'acc-token',
+		'oauth_token_secret'  => 'acc-secret',
+	)
+);
+$connected_payload = pixassist_get_account_data();
+assert_same( 'available', $connected_payload['accountValue']['support']['state'], 'Connected users should see support access as available.' );
+assert_same( 'Pixelgrade ID 42', $connected_payload['accountValue']['accountDetails']['label'], 'Connected users should keep support-facing account details out of the hero.' );
+assert_true( false !== strpos( $connected_payload['accountValue']['accountDetails']['description'], '2026-06-16' ), 'Connected account details should use a date-only connected value.' );
+assert_same( false, false !== strpos( $connected_payload['accountValue']['accountDetails']['description'], '10:00:00' ), 'Connected account details should not show the full timestamp.' );
+assert_same( 'get_help', $connected_payload['accountValue']['nextAction']['id'], 'Connected users should get Help as the next best action.' );
+assert_same( 'https://example.test/wp-admin/themes.php?page=pixelgrade&tab=help', $connected_payload['accountValue']['nextAction']['url'], 'Connected next action should point to the Help tab.' );
+assert_same( 'Site connected. Everything is ready.', $connected_payload['copy']['connectedStatusLabel'], 'Connected account copy should keep the Care-inspired site-connected reassurance.' );
+assert_same( false, false !== strpos( (string) json_encode( $connected_payload ), 'acc-token' ), 'Connected Account payload must not expose OAuth tokens.' );
 
 $account_js = file_get_contents( __DIR__ . '/../admin/src-modern/hub/tabs/Account.js' );
 assert_true( false !== strpos( $account_js, 'pixelgrade.adminHub.accountPanels' ), 'The Account tab must expose a JS filter for contributed account panels.' );
@@ -478,6 +577,14 @@ assert_true( false !== strpos( $account_js, 'pixelgrade-account-panel--' ), 'The
 assert_true( false !== strpos( $account_js, 'scrollIntoView' ), 'The Account tab must scroll linked sections such as section=plus into view.' );
 assert_true( false !== strpos( $account_js, "params.get( 'tab' )" ), 'The Account tab must inspect legacy tab routes before router canonicalization.' );
 assert_true( false !== strpos( $account_js, 'account-license' ), 'The Account tab must treat legacy account-license routes as the Plus section.' );
+assert_true( false !== strpos( $account_js, 'pixelgrade-account-value' ), 'The Account tab must render the value cockpit shell.' );
+assert_true( false !== strpos( $account_js, 'renderAccountValuePanel' ), 'The Account tab must condense value into one operations panel.' );
+assert_true( false !== strpos( $account_js, 'pixelgrade-account-value--operations' ), 'The Account value panel must use the dense operations layout class.' );
+assert_true( false !== strpos( $account_js, 'renderStatusText' ), 'The Account tab must render minimal dot-and-label status text.' );
+assert_true( false !== strpos( $account_js, 'Products & licenses' ), 'The Account value panel must show the products/licenses summary.' );
+assert_true( false !== strpos( $account_js, 'renderAccountDetailsRow' ), 'The Account tab must render account details through a dedicated row.' );
+assert_true( false !== strpos( $account_js, "copy.disconnectLabel, 'link'" ), 'The Account disconnect action should be visually demoted to a link-style control.' );
+assert_same( false, false !== strpos( $account_js, 'renderDisconnectForm( actions, copy.disconnectLabel )' ), 'The connected identity hero must not render the disconnect form.' );
 
 /*
  * OAuth consumer resolution: the consumer key + secret resolve together, as a pair. The shipped build

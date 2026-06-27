@@ -7,7 +7,7 @@
  * No JSX; keep externals compatible with WordPress 5.9.
  */
 import { createElement, Fragment, useEffect } from '@wordpress/element';
-import { __, sprintf } from '@wordpress/i18n';
+import { __ } from '@wordpress/i18n';
 import { Card, CardHeader, CardBody, Button, Notice, Flex, FlexItem } from '@wordpress/components';
 import { applyFilters } from '@wordpress/hooks';
 import { renderAvatar } from '../avatar';
@@ -97,49 +97,27 @@ function renderNotice( notice ) {
 
 function renderAccountMeta( account ) {
 	const name = account.display_name || account.user_login || account.email || __( 'Connected account', 'pixelgrade_assistant' );
-	const rows = [
-		account.email || '',
-		account.user_login
-			? sprintf(
-					/* translators: %s: pixelgrade.com user login. */
-					__( '@%s', 'pixelgrade_assistant' ),
-					account.user_login
-			  )
-			: '',
-		account.pixelgrade_user_id
-			? sprintf(
-					/* translators: %d: pixelgrade.com user id. */
-					__( 'Pixelgrade ID %d', 'pixelgrade_assistant' ),
-					account.pixelgrade_user_id
-			  )
-			: '',
-		account.connected_at
-			? sprintf(
-					/* translators: %s: account connection date. */
-					__( 'Connected %s', 'pixelgrade_assistant' ),
-					account.connected_at
-			  )
-			: '',
-	].filter( Boolean );
+	const textStyle = { overflowWrap: 'anywhere', wordBreak: 'break-word' };
+	const rows = [ account.email || '' ].filter( Boolean );
 
 	return createElement(
 		'div',
 		null,
-		createElement( 'h2', { style: { margin: 0 } }, name ),
+		createElement( 'h2', { style: { margin: 0, ...textStyle } }, name ),
 		rows.map( ( row, index ) =>
-			createElement( 'p', { key: index, style: { margin: '4px 0 0', color: '#757575' } }, row )
+			createElement( 'p', { key: index, style: { margin: '4px 0 0', color: '#757575', ...textStyle } }, row )
 		)
 	);
 }
 
-function renderDisconnectForm( actions, label ) {
+function renderDisconnectForm( actions, label, variant = 'secondary' ) {
 	if ( ! actions.disconnectUrl || ! actions.disconnectAction || ! actions.disconnectNonce ) {
 		return null;
 	}
 
 	return createElement(
 		'form',
-		{ method: 'post', action: actions.disconnectUrl, style: { marginTop: '16px' } },
+		{ method: 'post', action: actions.disconnectUrl, style: { margin: 0 } },
 		createElement( 'input', {
 			type: 'hidden',
 			name: 'action',
@@ -154,10 +132,10 @@ function renderDisconnectForm( actions, label ) {
 			Button,
 			{
 				type: 'submit',
-				variant: 'secondary',
+				variant,
 				isDestructive: true,
 			},
-			label || __( 'Disconnect', 'pixelgrade_assistant' )
+			label || __( 'Disconnect account', 'pixelgrade_assistant' )
 		)
 	);
 }
@@ -165,33 +143,46 @@ function renderDisconnectForm( actions, label ) {
 function renderConnected( data ) {
 	const account = data.account || {};
 	const copy = data.copy || {};
-	const actions = data.actions || {};
 	const avatar = renderAvatar( account, 48 );
 
 	return createElement(
 		Card,
-		{ className: 'pixelgrade-account pixelgrade-account--connected' },
-		createElement( CardHeader, null, createElement( 'h2', { style: { margin: 0 } }, copy.title || __( 'Pixelgrade account', 'pixelgrade_assistant' ) ) ),
+		{ className: 'pixelgrade-account pixelgrade-account--connected pixelgrade-account--operations' },
+		createElement( CardHeader, null, createElement( 'h2', { style: { fontSize: '15px', margin: 0 } }, copy.title || __( 'Pixelgrade account', 'pixelgrade_assistant' ) ) ),
 		createElement(
 			CardBody,
 			null,
 			createElement(
-				Flex,
-				{ align: 'flex-start', gap: 4, justify: 'space-between' },
+				'div',
+				{
+					style: {
+						alignItems: 'flex-start',
+						display: 'flex',
+						flexWrap: 'wrap',
+						gap: '16px',
+						justifyContent: 'space-between',
+					},
+				},
 				createElement(
-					FlexItem,
-					null,
+					'div',
+					{ style: { flex: '1 1 420px', minWidth: 0 } },
 					createElement(
 						Flex,
 						{ align: 'flex-start', gap: 3, expanded: false },
 						avatar ? createElement( FlexItem, null, avatar ) : null,
 						createElement( FlexItem, null, renderAccountMeta( account ) )
 					)
-				),
-				createElement( FlexItem, null, renderDisconnectForm( actions, copy.disconnectLabel ) )
+				)
 			),
+			copy.connectedStatusLabel
+				? createElement(
+						'div',
+						{ style: { borderTop: '1px solid #f0f0f1', marginTop: '12px', paddingTop: '10px' } },
+						renderStatusText( 'available', copy.connectedStatusLabel )
+				  )
+				: null,
 			copy.connectedDescription
-				? createElement( 'p', { style: { margin: '16px 0 0', color: '#555' } }, copy.connectedDescription )
+				? createElement( 'p', { style: { margin: copy.connectedStatusLabel ? '6px 0 0' : '12px 0 0', color: '#50575e' } }, copy.connectedDescription )
 				: null
 		)
 	);
@@ -205,8 +196,8 @@ function renderDisconnected( data ) {
 
 	return createElement(
 		Card,
-		{ className: 'pixelgrade-account pixelgrade-account--disconnected' },
-		createElement( CardHeader, null, createElement( 'h2', { style: { margin: 0 } }, copy.title || __( 'Pixelgrade account', 'pixelgrade_assistant' ) ) ),
+		{ className: 'pixelgrade-account pixelgrade-account--disconnected pixelgrade-account--operations' },
+		createElement( CardHeader, null, createElement( 'h2', { style: { fontSize: '15px', margin: 0 } }, copy.title || __( 'Pixelgrade account', 'pixelgrade_assistant' ) ) ),
 		createElement(
 			CardBody,
 			null,
@@ -242,6 +233,212 @@ function renderDisconnected( data ) {
 							copy.connectLabel || __( 'Connect account', 'pixelgrade_assistant' )
 						)
 				  )
+		)
+	);
+}
+
+function getStatusTone( state ) {
+	if ( 'available' === state || 'active' === state || 'licensed' === state ) {
+		return '#0a7a28';
+	}
+	if ( 'connect_required' === state || 'needs_account' === state || 'needs_license' === state || 'locked' === state ) {
+		return '#996800';
+	}
+
+	return '#646970';
+}
+
+function renderStatusText( state, label ) {
+	const labelMap = {
+		available: __( 'Available', 'pixelgrade_assistant' ),
+		licensed: __( 'Licensed', 'pixelgrade_assistant' ),
+		active: __( 'Active', 'pixelgrade_assistant' ),
+		needs_license: __( 'Needs license', 'pixelgrade_assistant' ),
+		connect_required: __( 'Connect account', 'pixelgrade_assistant' ),
+		optional: __( 'Optional', 'pixelgrade_assistant' ),
+	};
+	const color = getStatusTone( state );
+
+	return createElement(
+		'span',
+		{
+			className: 'pixelgrade-account-status-text pixelgrade-account-status-text--' + ( state || 'ready' ),
+			style: {
+				alignItems: 'center',
+				color: '#50575e',
+				display: 'inline-flex',
+				fontSize: '12px',
+				fontWeight: 600,
+				gap: '6px',
+				lineHeight: '18px',
+				whiteSpace: 'nowrap',
+			},
+		},
+		createElement( 'span', {
+			'aria-hidden': true,
+			style: {
+				background: color,
+				borderRadius: '50%',
+				display: 'inline-block',
+				height: '7px',
+				width: '7px',
+			},
+		} ),
+		label || labelMap[ state ] || state || __( 'Ready', 'pixelgrade_assistant' )
+	);
+}
+
+function renderNextAction( action ) {
+	if ( ! action || ! action.url || ! action.label ) {
+		return null;
+	}
+
+	return createElement(
+		Button,
+		{
+			href: action.url,
+			variant: action.variant || 'primary',
+		},
+		action.label
+	);
+}
+
+function renderValueRow( { id, label, value, description, status, statusLabel, action, url } ) {
+	if ( ! label || ( ! value && ! description && ! status && ! action ) ) {
+		return null;
+	}
+
+	return createElement(
+		'div',
+		{
+			key: id || label,
+			className: 'pixelgrade-account-value__row',
+			style: {
+				borderTop: '1px solid #f0f0f1',
+				display: 'grid',
+				gap: '8px 12px',
+				gridTemplateColumns: 'minmax(84px, 120px) minmax(0, 1fr)',
+				padding: '10px 0',
+			},
+		},
+		createElement( 'strong', { style: { color: '#1d2327', fontSize: '13px' } }, label ),
+		createElement(
+			'div',
+			{
+				style: {
+					alignItems: 'flex-start',
+					display: 'flex',
+					flexWrap: 'wrap',
+					gap: '8px 12px',
+					justifyContent: 'space-between',
+					minWidth: 0,
+				},
+			},
+			createElement(
+				'div',
+				{ style: { color: '#50575e', flex: '1 1 14rem', minWidth: 0 } },
+				value
+					? createElement(
+							'p',
+							{ style: { margin: 0, overflowWrap: 'anywhere', wordBreak: 'break-word' } },
+							url ? createElement( 'a', { href: url, target: '_blank', rel: 'noreferrer' }, value ) : value
+					  )
+					: null,
+				description ? createElement( 'p', { style: { margin: value ? '3px 0 0' : 0 } }, description ) : null
+			),
+			createElement(
+				'div',
+				{ style: { alignItems: 'center', display: 'flex', flex: '1 1 12rem', flexWrap: 'wrap', gap: '8px', justifyContent: 'flex-start', maxWidth: '100%', minWidth: 0 } },
+				status ? renderStatusText( status, statusLabel ) : null,
+				action
+			)
+		)
+	);
+}
+
+function renderAccountDetailsRow( accountDetails, data ) {
+	const details = accountDetails || {};
+	if ( ! details.label && ! details.description ) {
+		return null;
+	}
+
+	const actions = data.actions || {};
+	const copy = data.copy || {};
+
+	return renderValueRow( {
+		id: 'account-details',
+		label: __( 'Account details', 'pixelgrade_assistant' ),
+		value: details.label,
+		description: details.description,
+		status: details.state,
+		statusLabel: details.statusLabel,
+		action: renderDisconnectForm( actions, copy.disconnectLabel, 'link' ),
+	} );
+}
+
+function renderAccountValuePanel( data ) {
+	const value = data.accountValue || {};
+	const support = value.support || {};
+	const site = value.site || {};
+	const products = value.products || {};
+	const accountDetails = value.accountDetails || {};
+	const enablements = Array.isArray( value.enablements ) ? value.enablements : [];
+
+	if ( ! support.label && ! site.themeName && ! products.label && ! accountDetails.label && ! enablements.length ) {
+		return null;
+	}
+
+	return createElement(
+		Card,
+		{ className: 'pixelgrade-account-value pixelgrade-account-value--operations', style: { marginTop: '12px' } },
+		createElement( CardHeader, null, createElement( 'h2', { style: { fontSize: '15px', margin: 0 } }, __( 'Account value', 'pixelgrade_assistant' ) ) ),
+		createElement(
+			CardBody,
+			null,
+			renderValueRow( {
+				id: 'support',
+				label: __( 'Support', 'pixelgrade_assistant' ),
+				value: support.label || __( 'Support access', 'pixelgrade_assistant' ),
+				description: support.description,
+				status: support.state,
+				action: renderNextAction( value.nextAction ),
+			} ),
+			renderValueRow( {
+				id: 'products',
+				label: __( 'Products & licenses', 'pixelgrade_assistant' ),
+				value: products.label,
+				description: products.description,
+				status: products.state,
+				statusLabel: products.statusLabel,
+				action: products.url ? createElement( Button, { href: products.url, variant: 'secondary' }, __( 'Review Plus', 'pixelgrade_assistant' ) ) : null,
+			} ),
+			renderValueRow( {
+				id: 'theme',
+				label: __( 'Theme', 'pixelgrade_assistant' ),
+				value: site.themeName,
+			} ),
+			renderValueRow( {
+				id: 'site',
+				label: __( 'Site', 'pixelgrade_assistant' ),
+				value: site.siteUrl,
+				url: site.siteUrl,
+				action: site.helpUrl ? createElement( Button, { href: site.helpUrl, variant: 'secondary' }, __( 'Open Help', 'pixelgrade_assistant' ) ) : null,
+			} ),
+			renderAccountDetailsRow( accountDetails, data ),
+			enablements.length
+				? createElement(
+						'div',
+						{ className: 'pixelgrade-account-value__enablements', style: { marginTop: '2px' } },
+						enablements.map( ( item ) =>
+							renderValueRow( {
+								id: item.id || item.label,
+								label: item.label,
+								description: item.description,
+								status: item.state,
+							} )
+						)
+				  )
+				: null
 		)
 	);
 }
@@ -293,6 +490,7 @@ export function Account() {
 		null,
 		renderNotice( data.notice ),
 		account.is_connected ? renderConnected( data ) : renderDisconnected( data ),
+		renderAccountValuePanel( data ),
 		renderAccountPanels( data )
 	);
 }
