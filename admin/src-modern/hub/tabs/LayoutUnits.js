@@ -178,11 +178,46 @@ function normalizeApplied( applied ) {
 	return applied;
 }
 
+/**
+ * The catalog "type group" (slot key) for a wp_template unit — the server sends `unit.type_group`.
+ * Variant siblings (`single`, `single-magazine`) share a type_group; CPT families (`single-portfolio`)
+ * stay their own. Falls back to the raw slug so the grid still works against an un-upgraded source.
+ * Non-template units (parts/features) have no type_group.
+ *
+ * @param {Object} unit Unit descriptor.
+ * @return {string} The type_group for templates, otherwise ''.
+ */
+function getTypeGroup( unit ) {
+	if ( unit && 'wp_template' === unit.type ) {
+		return unit.type_group || unit.slug || '';
+	}
+
+	return '';
+}
+
+// The slot a unit occupies. Mirrors PHP get_layout_unit_slot_key(): templates key on their
+// type_group (so applying one variant replaces its siblings — "one frame per type"); parts/features
+// key on their slug. ALL slot-key reconstruction must route through here so JS and PHP cannot drift.
 function getSlotKey( unit ) {
 	const type = unit && unit.type ? unit.type : '';
 	const slug = unit && unit.slug ? unit.slug : '';
 
+	if ( 'wp_template' === type ) {
+		const group = getTypeGroup( unit );
+
+		return group ? 'wp_template:' + group : '';
+	}
+
 	return type && slug ? type + ':' + slug : '';
+}
+
+// Per-CARD identity: unique per variant (slug), unlike getSlotKey which is group-level (type_group)
+// so siblings share one applied slot. Used for React keys + the busy/operation indicator so two
+// variant cards from the same source don't alias each other.
+function getCardKey( unit, sourceId ) {
+	const slug = unit && ( unit.slug || unit.id ) ? unit.slug || unit.id : '';
+	const src = sourceId || ( unit && unit.source && unit.source.id ? unit.source.id : '' );
+	return ( unit && unit.type ? unit.type : '' ) + ':' + slug + ':' + src;
 }
 
 /**
@@ -317,8 +352,8 @@ function filterUnits( units, { search, typeFilter, sourceFilter } ) {
 const SINGLE_SLOT_GROUPS = [ 'headers', 'footers' ];
 const TEMPLATE_SECTION_PREFIX = 'template:';
 
-// Friendly names for the common WordPress template slugs; unknown slugs fall back to a title-cased
-// slug (e.g. `archive-portfolio` -> "Archive Portfolio").
+// Friendly names for the common WordPress template type_groups; unknown groups fall back to the
+// starter's authored title and then a title-cased slug (e.g. `landing` -> "Landing").
 const TEMPLATE_SLUG_LABELS = {
 	'front-page': __( 'Front Page', 'pixelgrade_assistant' ),
 	home: __( 'Blog Home', 'pixelgrade_assistant' ),
@@ -330,11 +365,15 @@ const TEMPLATE_SLUG_LABELS = {
 	search: __( 'Search', 'pixelgrade_assistant' ),
 	'404': __( '404', 'pixelgrade_assistant' ),
 	'privacy-policy': __( 'Privacy Policy', 'pixelgrade_assistant' ),
+	// CPT-bound template families (kept separate from the core single/archive slots).
+	'single-portfolio': __( 'Single Project', 'pixelgrade_assistant' ),
+	'archive-portfolio': __( 'Projects Archive', 'pixelgrade_assistant' ),
+	'taxonomy-portfolio_type': __( 'Project Types', 'pixelgrade_assistant' ),
 };
 
-// The order template sub-sections appear in (most-used first); slugs outside this list sort after,
-// alphabetically.
-const TEMPLATE_SLUG_ORDER = [ 'front-page', 'home', 'index', 'archive', 'single', 'singular', 'page', 'search', '404', 'privacy-policy' ];
+// The order template sub-sections appear in (most-used first); type_groups outside this list sort
+// after, alphabetically. CPT families sit beside their core counterpart.
+const TEMPLATE_SLUG_ORDER = [ 'front-page', 'home', 'index', 'archive', 'archive-portfolio', 'taxonomy-portfolio_type', 'single', 'single-portfolio', 'singular', 'page', 'search', '404', 'privacy-policy' ];
 
 function titleCaseSlug( slug ) {
 	return ( slug || '' )
@@ -344,11 +383,11 @@ function titleCaseSlug( slug ) {
 		.join( ' ' );
 }
 
-// The browse-section key. Templates split one section per slug (each slug is its own slot); every
-// other type keeps its coarse getGroupKey() bucket.
+// The browse-section key. Templates split one section per type_group (variant siblings share a
+// section; CPT families stay their own); every other type keeps its coarse getGroupKey() bucket.
 function getSectionKey( unit ) {
 	if ( 'wp_template' === unit.type ) {
-		return TEMPLATE_SECTION_PREFIX + ( unit.slug || '' );
+		return TEMPLATE_SECTION_PREFIX + getTypeGroup( unit );
 	}
 
 	return getGroupKey( unit );
@@ -378,25 +417,33 @@ function getGroupLabel( groupKey, copy ) {
 }
 
 /**
- * Map of template slug -> the starter's human-authored title, used to name custom (non-core)
- * template sections like `single-split-header` -> "Single Post (Split Header)". Only titles that add
- * information beyond the raw slug are kept; the first such title per slug wins.
+ * Map of template type_group -> the starter's human-authored title, used to name custom (non-core)
+ * template sections — e.g. an unknown `landing` family takes its first informative card title as the
+ * section heading. Keyed by type_group (not raw slug) so a custom family with several variant slugs
+ * still resolves to one section name. Only titles that add information beyond the group key are kept;
+ * the first such title per type_group wins.
  *
  * @param {Array} units Loaded unit descriptors.
- * @return {Object} slug -> title.
+ * @return {Object} type_group -> title.
  */
 function buildTemplateTitles( units ) {
 	const map = {};
 
 	units.forEach( ( unit ) => {
-		if ( 'wp_template' !== unit.type || ! unit.slug || map[ unit.slug ] ) {
+		if ( 'wp_template' !== unit.type ) {
+			return;
+		}
+
+		const group = getTypeGroup( unit );
+
+		if ( ! group || map[ group ] ) {
 			return;
 		}
 
 		const title = unit.title || '';
 
-		if ( title && title.toLowerCase() !== unit.slug.toLowerCase() ) {
-			map[ unit.slug ] = title;
+		if ( title && title.toLowerCase() !== group.toLowerCase() ) {
+			map[ group ] = title;
 		}
 	} );
 
@@ -609,16 +656,21 @@ function UnitCard( { unit, viewMode, applied, busyKey, copy, featureSamples, ope
 	const source = unit.source || {};
 	const appliedUnit = applied[ slot ];
 	const isCurrent = isUnitCurrent( unit, applied );
-	const isBusy = busyKey === 'import:' + slot + ':' + source.id;
+	const cardKey = getCardKey( unit, source.id );
+	const isBusy = busyKey === 'import:' + cardKey;
 	const undoBusy = busyKey === 'undo:' + slot;
-	const operationKey = 'import:' + slot + ':' + source.id;
+	const operationKey = 'import:' + cardKey;
 	const preview = getPreviewUrl( unit );
 	const sampleKey = slot + ':' + source.id;
 	const isFeature = 'feature' === unit.type;
 	const isPreviewable = 'wp_template_part' === unit.type || 'wp_template' === unit.type;
 	const isList = 'list' === viewMode;
 	const typeLabel = getSlotTypeLabel( unit, copy );
-	const titleText = unit.title || unit.slug || '';
+	// For templates, name the card by its variant (e.g. "Magazine", "Split Header") so siblings in one
+	// section are distinguishable; the server sends `variant_label`, with title/slug as fallbacks.
+	const titleText = 'wp_template' === unit.type
+		? unit.variant_label || unit.title || titleCaseSlug( unit.slug )
+		: unit.title || unit.slug || '';
 	// Headers/footers carry a generic "Header"/"Footer" title that just repeats the type badge;
 	// for those, surface the source as the card title and drop the now-redundant source line.
 	const isGenericTitle = titleText.toLowerCase() === typeLabel.toLowerCase();
@@ -1071,7 +1123,7 @@ function LayoutSection( { groupKey, units, applied, viewMode, columns, busyKey, 
 			},
 			units.map( ( unit ) =>
 				createElement( UnitCard, {
-					key: getSlotKey( unit ) + ':' + ( unit.source && unit.source.id ? unit.source.id : '' ),
+					key: getCardKey( unit ),
 					unit,
 					viewMode,
 					applied,
@@ -1441,7 +1493,6 @@ export function LayoutUnits() {
 			return;
 		}
 
-		const slot = getSlotKey( unit );
 		const payload = {
 			demo_key: unit.source.id,
 			url: unit.source.baseRestUrl,
@@ -1451,7 +1502,7 @@ export function LayoutUnits() {
 		};
 		const supportsQueuedImport = Boolean( getEndpoint( data, 'queueUnit' ).url && getEndpoint( data, 'unitJobStatus' ).url );
 		const prewarmedJob = supportsQueuedImport ? getPrewarmedJob( unit ) : null;
-		const operationKey = 'import:' + slot + ':' + unit.source.id;
+		const operationKey = 'import:' + getCardKey( unit, unit.source.id );
 		const queueStep = supportsQueuedImport
 			? {
 					id: 'queue',

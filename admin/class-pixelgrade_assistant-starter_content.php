@@ -1507,6 +1507,9 @@ class PixelgradeAssistant_StarterContent {
 				$units = array_merge( $units, $this->list_layout_feature_units( $source_data, $posts_by_type ) );
 			}
 
+			list( $known_cpts, $known_tax ) = $this->known_source_content_types( ( isset( $source_data ) && ! is_wp_error( $source_data ) ) ? $source_data : array() );
+			$units = $this->decorate_layout_units_with_type_group( $units, $known_cpts, $known_tax );
+
 		return array(
 			'code'    => 'success',
 			'message' => '',
@@ -1660,6 +1663,167 @@ class PixelgradeAssistant_StarterContent {
 		}
 
 		return $units;
+	}
+
+	/**
+	 * Derive the catalog "type group" (slot key) for a wp_template slug. CPT/taxonomy-bound templates
+	 * stay their own family; variants of a core slug collapse to that core. Slug+CPT derivation only —
+	 * native post_types is a later enhancement.
+	 *
+	 * @param string $slug             Template slug (post_name).
+	 * @param array  $known_cpts       CPT slugs that exist for this source.
+	 * @param array  $known_taxonomies Taxonomy slugs that exist for this source.
+	 *
+	 * @return string Type-group key (e.g. `single`, `single-portfolio`, `archive`, `page`).
+	 */
+	public function layout_unit_type_group( $slug, $known_cpts = array(), $known_taxonomies = array() ) {
+		$slug = sanitize_key( $slug );
+		if ( '' === $slug ) {
+			return '';
+		}
+
+		$core = array( 'front-page', 'home', 'index', 'archive', 'single', 'singular', 'page', 'search', '404', 'privacy-policy' );
+		if ( in_array( $slug, $core, true ) ) {
+			return $slug;
+		}
+
+		foreach ( array( 'single', 'archive' ) as $prefix ) {
+			if ( 0 === strpos( $slug, $prefix . '-' ) ) {
+				$rest = substr( $slug, strlen( $prefix ) + 1 );
+				$cpt  = $this->match_known_token( $rest, $known_cpts );
+				if ( '' !== $cpt ) {
+					return $prefix . '-' . $cpt; // CPT family, e.g. single-portfolio.
+				}
+
+				return $prefix; // A variant of the core single / archive.
+			}
+		}
+
+		if ( 0 === strpos( $slug, 'taxonomy-' ) ) {
+			$tax = $this->match_known_token( substr( $slug, strlen( 'taxonomy-' ) ), $known_taxonomies );
+
+			return '' !== $tax ? 'taxonomy-' . $tax : 'taxonomy';
+		}
+
+		if ( 0 === strpos( $slug, 'page-' ) ) {
+			return 'page';
+		}
+
+		return $slug; // Unknown custom template — its own family.
+	}
+
+	/**
+	 * Longest known token that `$rest` equals or begins with (token or "token-..."). Longest wins so
+	 * `portfolio_type` matches before `portfolio`.
+	 *
+	 * @param string $rest   The slug remainder after the prefix.
+	 * @param array  $tokens Known CPT / taxonomy slugs to match against.
+	 *
+	 * @return string The matched token, or '' when none match.
+	 */
+	private function match_known_token( $rest, $tokens ) {
+		$rest  = sanitize_key( $rest );
+		$match = '';
+		foreach ( (array) $tokens as $token ) {
+			$token = sanitize_key( $token );
+			if ( '' === $token ) {
+				continue;
+			}
+			if ( $rest === $token || 0 === strpos( $rest, $token . '-' ) ) {
+				if ( strlen( $token ) > strlen( $match ) ) {
+					$match = $token;
+				}
+			}
+		}
+
+		return $match;
+	}
+
+	/**
+	 * Human label for a template variant card. The authored title when it adds info beyond the slug,
+	 * else a title-cased slug.
+	 *
+	 * @param string $slug  Template slug (post_name).
+	 * @param string $title Authored template title.
+	 *
+	 * @return string
+	 */
+	public function layout_unit_variant_label( $slug, $title ) {
+		$slug  = sanitize_key( $slug );
+		$title = wp_strip_all_tags( (string) $title );
+		if ( '' !== $title && strtolower( $title ) !== strtolower( str_replace( array( '-', '_' ), ' ', $slug ) ) && strtolower( $title ) !== strtolower( $slug ) ) {
+			return $title;
+		}
+
+		return ucwords( str_replace( array( '-', '_' ), ' ', $slug ) );
+	}
+
+	/**
+	 * Add `type_group` + `variant_label` to every wp_template unit descriptor.
+	 *
+	 * wp_template_part and feature units pass through unchanged (they are grouped client-side by
+	 * their own keys and have no template type-group concept).
+	 *
+	 * @param array $units            Layout unit descriptors.
+	 * @param array $known_cpts       CPT slugs that exist for this source.
+	 * @param array $known_taxonomies Taxonomy slugs that exist for this source.
+	 *
+	 * @return array The descriptors with template units decorated.
+	 */
+	public function decorate_layout_units_with_type_group( $units, $known_cpts = array(), $known_taxonomies = array() ) {
+		foreach ( (array) $units as $i => $unit ) {
+			if ( empty( $unit['type'] ) || 'wp_template' !== $unit['type'] || empty( $unit['slug'] ) ) {
+				continue;
+			}
+
+			$units[ $i ]['type_group']    = $this->layout_unit_type_group( $unit['slug'], $known_cpts, $known_taxonomies );
+			$units[ $i ]['variant_label'] = $this->layout_unit_variant_label( $unit['slug'], isset( $unit['title'] ) ? $unit['title'] : '' );
+		}
+
+		return $units;
+	}
+
+	/**
+	 * Resolve the known CPT + taxonomy slugs for a source, used to keep CPT/taxonomy-bound templates
+	 * in their own type-group family.
+	 *
+	 * Both lists are populated genuinely: CPT slugs come from the feature definitions' `post_type`
+	 * AND from the source's `post_types` data; taxonomy slugs come from the feature definitions'
+	 * `taxonomies`. Keeping them separate prevents an unknown custom taxonomy from being collapsed
+	 * into a single generic `taxonomy` slot (or, worse, merged with a CPT family).
+	 *
+	 * @param array $source_data Source data payload (may be missing/!array).
+	 *
+	 * @return array list( $cpts, $taxonomies ) of de-duped, sanitized slugs.
+	 */
+	private function known_source_content_types( $source_data ) {
+		$cpts = array();
+		$tax  = array();
+
+		foreach ( (array) $this->get_layout_feature_definitions() as $feature ) {
+			if ( ! is_array( $feature ) ) {
+				continue;
+			}
+
+			if ( ! empty( $feature['post_type'] ) ) {
+				$cpts[] = $feature['post_type'];
+			}
+
+			if ( ! empty( $feature['taxonomies'] ) && is_array( $feature['taxonomies'] ) ) {
+				foreach ( $feature['taxonomies'] as $taxonomy ) {
+					$tax[] = $taxonomy;
+				}
+			}
+		}
+
+		if ( is_array( $source_data ) && ! empty( $source_data['post_types'] ) && is_array( $source_data['post_types'] ) ) {
+			$cpts = array_merge( $cpts, array_keys( $source_data['post_types'] ) );
+		}
+
+		return array(
+			array_values( array_unique( $cpts ) ),
+			array_values( array_unique( $tax ) ),
+		);
 	}
 
 	/**
@@ -5692,6 +5856,14 @@ HTML;
 				$seen[ $key ] = true;
 			}
 
+			// The compact list carries no PER-SOURCE topology, but the catalog's feature-defined families
+			// (portfolio -> single-portfolio / archive-portfolio / taxonomy-portfolio_type) are static and
+			// known here, so feed them in to keep CPT-bound templates in their own family — matching the
+			// dynamic path. A source-specific CPT that is NOT a feature family (no /data here) still
+			// degrades to its core slot; none exist in the current catalog.
+			list( $known_cpts, $known_tax ) = $this->known_source_content_types( array() );
+			$normalized = $this->decorate_layout_units_with_type_group( $normalized, $known_cpts, $known_tax );
+
 			return $normalized;
 		}
 
@@ -6952,6 +7124,13 @@ HTML;
 
 		if ( empty( $slug ) || ! in_array( $unit_type, array( 'wp_template_part', 'wp_template', 'feature' ), true ) ) {
 			return '';
+		}
+
+		// Templates share a slot per type_group so applying one variant replaces its siblings
+		// ("one frame per type"). Headers/footers (parts) and features keep their slug-keyed slot.
+		if ( 'wp_template' === $unit_type ) {
+			list( $known_cpts, $known_tax ) = $this->known_source_content_types( array() );
+			return 'wp_template:' . $this->layout_unit_type_group( $slug, $known_cpts, $known_tax );
 		}
 
 		return $unit_type . ':' . $slug;
