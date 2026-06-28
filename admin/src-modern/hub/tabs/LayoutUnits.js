@@ -301,10 +301,56 @@ function filterUnits( units, { search, typeFilter, sourceFilter } ) {
 	} );
 }
 
-// Headers and footers each share ONE slot across every candidate, so only one can be active at a
-// time — which lets their section header carry a single "Active: <source>" caption. Templates,
-// features and other template parts span many distinct slots, so several can be active at once.
+// Headers and footers each share ONE slot across every candidate, and each wp_template SLUG is its
+// own slot too — so all of these sections carry a single "Active: <source>" caption. Features and
+// other template parts span many distinct slots, so several can be active within them at once.
 const SINGLE_SLOT_GROUPS = [ 'headers', 'footers' ];
+const TEMPLATE_SECTION_PREFIX = 'template:';
+
+// Friendly names for the common WordPress template slugs; unknown slugs fall back to a title-cased
+// slug (e.g. `archive-portfolio` -> "Archive Portfolio").
+const TEMPLATE_SLUG_LABELS = {
+	'front-page': __( 'Front Page', 'pixelgrade_assistant' ),
+	home: __( 'Blog Home', 'pixelgrade_assistant' ),
+	index: __( 'Index', 'pixelgrade_assistant' ),
+	archive: __( 'Archive', 'pixelgrade_assistant' ),
+	single: __( 'Single Post', 'pixelgrade_assistant' ),
+	singular: __( 'Singular', 'pixelgrade_assistant' ),
+	page: __( 'Page', 'pixelgrade_assistant' ),
+	search: __( 'Search', 'pixelgrade_assistant' ),
+	'404': __( '404', 'pixelgrade_assistant' ),
+	'privacy-policy': __( 'Privacy Policy', 'pixelgrade_assistant' ),
+};
+
+// The order template sub-sections appear in (most-used first); slugs outside this list sort after,
+// alphabetically.
+const TEMPLATE_SLUG_ORDER = [ 'front-page', 'home', 'index', 'archive', 'single', 'singular', 'page', 'search', '404', 'privacy-policy' ];
+
+function titleCaseSlug( slug ) {
+	return ( slug || '' )
+		.split( /[-_]/ )
+		.filter( Boolean )
+		.map( ( word ) => word.charAt( 0 ).toUpperCase() + word.slice( 1 ) )
+		.join( ' ' );
+}
+
+// The browse-section key. Templates split one section per slug (each slug is its own slot); every
+// other type keeps its coarse getGroupKey() bucket.
+function getSectionKey( unit ) {
+	if ( 'wp_template' === unit.type ) {
+		return TEMPLATE_SECTION_PREFIX + ( unit.slug || '' );
+	}
+
+	return getGroupKey( unit );
+}
+
+function getTemplateSectionSlug( sectionKey ) {
+	return 0 === sectionKey.indexOf( TEMPLATE_SECTION_PREFIX ) ? sectionKey.slice( TEMPLATE_SECTION_PREFIX.length ) : '';
+}
+
+function isSingleSlotSection( sectionKey ) {
+	return SINGLE_SLOT_GROUPS.includes( sectionKey ) || 0 === sectionKey.indexOf( TEMPLATE_SECTION_PREFIX );
+}
 
 function getGroupLabel( groupKey, copy ) {
 	switch ( groupKey ) {
@@ -321,29 +367,42 @@ function getGroupLabel( groupKey, copy ) {
 	}
 }
 
+// Section heading text — a per-slug template name, or the coarse group label for everything else.
+function getSectionLabel( sectionKey, copy ) {
+	const templateSlug = getTemplateSectionSlug( sectionKey );
+
+	if ( templateSlug ) {
+		return TEMPLATE_SLUG_LABELS[ templateSlug ] || titleCaseSlug( templateSlug ) || copy.templatesType;
+	}
+
+	return getGroupLabel( sectionKey, copy );
+}
+
 // The shared slot key behind a single-slot section (used for the filter-independent active caption).
-function getSingleSlotKey( groupKey ) {
-	if ( 'headers' === groupKey ) {
+function getSingleSlotKey( sectionKey ) {
+	if ( 'headers' === sectionKey ) {
 		return 'wp_template_part:header';
 	}
 
-	if ( 'footers' === groupKey ) {
+	if ( 'footers' === sectionKey ) {
 		return 'wp_template_part:footer';
 	}
 
-	return '';
+	const templateSlug = getTemplateSectionSlug( sectionKey );
+
+	return templateSlug ? 'wp_template:' + templateSlug : '';
 }
 
 /**
  * The source label of the unit currently applied to a single-slot section, read straight from
  * `applied` so it stays correct even when search/source filters hide the matching card.
  *
- * @param {string} groupKey Section key.
- * @param {Object} applied  Map of slot key -> applied unit.
+ * @param {string} sectionKey Section key.
+ * @param {Object} applied    Map of slot key -> applied unit.
  * @return {string} Source title (or empty string when nothing is applied / not single-slot).
  */
-function getGroupActiveSummary( groupKey, applied ) {
-	const slot = getSingleSlotKey( groupKey );
+function getGroupActiveSummary( sectionKey, applied ) {
+	const slot = getSingleSlotKey( sectionKey );
 	const unit = slot ? applied[ slot ] : null;
 
 	return unit ? unit.sourceTitle || unit.demoKey || '' : '';
@@ -359,9 +418,26 @@ function pinCurrentFirst( units, applied ) {
 	return current.concat( rest );
 }
 
+function templateSlugRank( slug ) {
+	const index = TEMPLATE_SLUG_ORDER.indexOf( slug );
+
+	return -1 === index ? TEMPLATE_SLUG_ORDER.length : index;
+}
+
+// Order template sub-sections: known slugs first (TEMPLATE_SLUG_ORDER), the rest alphabetically.
+function compareTemplateSectionKeys( a, b ) {
+	const sa = getTemplateSectionSlug( a );
+	const sb = getTemplateSectionSlug( b );
+	const ra = templateSlugRank( sa );
+	const rb = templateSlugRank( sb );
+
+	return ra !== rb ? ra - rb : sa.localeCompare( sb );
+}
+
 /**
- * Bucket the (already ordered + filtered) units into the GROUP_ORDER sections, dropping empties and
- * pinning the active card first within each.
+ * Bucket the (already ordered + filtered) units into browse sections, dropping empties and pinning
+ * the active card first within each. Headers, then Footers, then one section per template slug
+ * (Front Page, Single Post, …), then Features, then other Template parts.
  *
  * @param {Array}  units   Ordered + filtered unit descriptors.
  * @param {Object} applied Map of slot key -> applied unit.
@@ -371,15 +447,22 @@ function groupUnits( units, applied ) {
 	const buckets = {};
 
 	units.forEach( ( unit ) => {
-		const key = getGroupKey( unit );
+		const key = getSectionKey( unit );
 		buckets[ key ] = buckets[ key ] || [];
 		buckets[ key ].push( unit );
 	} );
 
-	return GROUP_ORDER.filter( ( key ) => buckets[ key ] && buckets[ key ].length ).map( ( key ) => ( {
-		key,
-		units: pinCurrentFirst( buckets[ key ], applied ),
-	} ) );
+	const templateKeys = Object.keys( buckets )
+		.filter( ( key ) => 0 === key.indexOf( TEMPLATE_SECTION_PREFIX ) )
+		.sort( compareTemplateSectionKeys );
+	const orderedKeys = [ 'headers', 'footers' ].concat( templateKeys, [ 'features', 'templateParts' ] );
+
+	return orderedKeys
+		.filter( ( key ) => buckets[ key ] && buckets[ key ].length )
+		.map( ( key ) => ( {
+			key,
+			units: pinCurrentFirst( buckets[ key ], applied ),
+		} ) );
 }
 
 function getPrewarmableUnits( units ) {
@@ -897,7 +980,7 @@ function LayoutToolbar( { search, onSearch, typeFilter, onTypeFilter, sourceFilt
 // active-source caption (single-slot sections only) reads from `applied`, so it survives filtering.
 function LayoutSection( { groupKey, units, applied, viewMode, columns, busyKey, copy, featureSamples, operation, previewConfig, onFeatureSampleChange, onImport, onPreview, onUndo } ) {
 	const activeSummary = getGroupActiveSummary( groupKey, applied );
-	const isSingleSlot = SINGLE_SLOT_GROUPS.includes( groupKey );
+	const isSingleSlot = isSingleSlotSection( groupKey );
 	const caption = activeSummary
 		? copy.activeBadge + ': ' + activeSummary
 		: isSingleSlot
@@ -921,7 +1004,7 @@ function LayoutSection( { groupKey, units, applied, viewMode, columns, busyKey, 
 					paddingBottom: '8px',
 				},
 			},
-			createElement( 'h2', { style: { fontSize: '15px', margin: 0 } }, getGroupLabel( groupKey, copy ) ),
+			createElement( 'h2', { style: { fontSize: '15px', margin: 0 } }, getSectionLabel( groupKey, copy ) ),
 			caption ? createElement( 'span', { style: { color: '#646970', fontSize: '13px' } }, caption ) : null
 		),
 		createElement(
