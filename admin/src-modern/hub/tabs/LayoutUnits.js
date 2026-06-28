@@ -210,6 +210,15 @@ function getSlotKey( unit ) {
 	return type && slug ? type + ':' + slug : '';
 }
 
+// Per-CARD identity: unique per variant (slug), unlike getSlotKey which is group-level (type_group)
+// so siblings share one applied slot. Used for React keys + the busy/operation indicator so two
+// variant cards from the same source don't alias each other.
+function getCardKey( unit, sourceId ) {
+	const slug = unit && ( unit.slug || unit.id ) ? unit.slug || unit.id : '';
+	const src = sourceId || ( unit && unit.source && unit.source.id ? unit.source.id : '' );
+	return ( unit && unit.type ? unit.type : '' ) + ':' + slug + ':' + src;
+}
+
 /**
  * Is THIS specific card (its source + slug) the unit currently applied to its slot? A slot can be
  * filled by another source — that is "applied but not current".
@@ -646,9 +655,10 @@ function UnitCard( { unit, viewMode, applied, busyKey, copy, featureSamples, ope
 	const source = unit.source || {};
 	const appliedUnit = applied[ slot ];
 	const isCurrent = isUnitCurrent( unit, applied );
-	const isBusy = busyKey === 'import:' + slot + ':' + source.id;
+	const cardKey = getCardKey( unit, source.id );
+	const isBusy = busyKey === 'import:' + cardKey;
 	const undoBusy = busyKey === 'undo:' + slot;
-	const operationKey = 'import:' + slot + ':' + source.id;
+	const operationKey = 'import:' + cardKey;
 	const preview = getPreviewUrl( unit );
 	const sampleKey = slot + ':' + source.id;
 	const isFeature = 'feature' === unit.type;
@@ -1112,7 +1122,7 @@ function LayoutSection( { groupKey, units, applied, viewMode, columns, busyKey, 
 			},
 			units.map( ( unit ) =>
 				createElement( UnitCard, {
-					key: getSlotKey( unit ) + ':' + ( unit.source && unit.source.id ? unit.source.id : '' ),
+					key: getCardKey( unit ),
 					unit,
 					viewMode,
 					applied,
@@ -1472,7 +1482,6 @@ export function LayoutUnits() {
 			return;
 		}
 
-		const slot = getSlotKey( unit );
 		const payload = {
 			demo_key: unit.source.id,
 			url: unit.source.baseRestUrl,
@@ -1482,7 +1491,7 @@ export function LayoutUnits() {
 		};
 		const supportsQueuedImport = Boolean( getEndpoint( data, 'queueUnit' ).url && getEndpoint( data, 'unitJobStatus' ).url );
 		const prewarmedJob = supportsQueuedImport ? getPrewarmedJob( unit ) : null;
-		const operationKey = 'import:' + slot + ':' + unit.source.id;
+		const operationKey = 'import:' + getCardKey( unit, unit.source.id );
 		const queueStep = supportsQueuedImport
 			? {
 					id: 'queue',
