@@ -4,10 +4,10 @@
  * Lets an admin mix headers, footers, and templates from multiple starter sources without running the
  * full starter-content import.
  */
-import { createElement, Fragment, useMemo, useRef, useState } from '@wordpress/element';
+import { createElement, Fragment, useEffect, useMemo, useRef, useState } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
-import { Button, Card, CardBody, CardHeader, CheckboxControl, Dropdown, Flex, FlexItem, Modal, Notice, RangeControl, SearchControl, SelectControl } from '@wordpress/components';
-import { fullscreen, grid, listView, settings } from '@wordpress/icons';
+import { Button, CheckboxControl, Dropdown, Icon, Modal, Notice, RangeControl, SearchControl, SelectControl } from '@wordpress/components';
+import { check, fullscreen, grid, listView, settings, update } from '@wordpress/icons';
 import { LayoutPreview, PreviewModeToggle } from '../LayoutPreview';
 
 const DEFAULT_LAYOUT_UNITS = {
@@ -53,6 +53,11 @@ const DEFAULT_LAYOUT_UNITS = {
 		freeLabel: __( 'Free', 'pixelgrade_assistant' ),
 		previewLabel: __( 'Expand', 'pixelgrade_assistant' ),
 		previewFull: __( 'Open the full layout at full height', 'pixelgrade_assistant' ),
+		templateParts: __( 'Template parts', 'pixelgrade_assistant' ),
+		refreshLabel: __( 'Refresh', 'pixelgrade_assistant' ),
+		refreshTitle: __( 'Reload layouts from your starters', 'pixelgrade_assistant' ),
+		activeBadge: __( 'Active', 'pixelgrade_assistant' ),
+		sectionNoneApplied: __( 'None applied yet', 'pixelgrade_assistant' ),
 	},
 	sources: [],
 	endpoints: {},
@@ -61,6 +66,22 @@ const DEFAULT_LAYOUT_UNITS = {
 
 const LAYOUT_UNIT_JOB_POLL_INTERVAL = 300;
 const LAYOUT_UNIT_JOB_TIMEOUT = 120000;
+
+/**
+ * Session cache for the (remote) layout list plus the current `applied` snapshot, keyed by the
+ * source-set. The Layouts tab unmounts/remounts as the admin navigates the hub; a module-level
+ * variable survives those remounts so re-entering the tab rehydrates the grid instantly — no
+ * re-fetch of the remote sources and no re-prewarm. It lives for the page session only (cleared on
+ * a full reload). Refresh bypasses it by calling loadUnits() directly.
+ */
+let layoutUnitsCache = null;
+
+function getSourcesKey( sources ) {
+	return sources
+		.map( ( source ) => source.id )
+		.sort()
+		.join( '|' );
+}
 
 function getLayoutUnitsData() {
 	if ( typeof window !== 'undefined' && window.pixelgradeLayoutUnits ) {
@@ -161,6 +182,21 @@ function getSlotKey( unit ) {
 	const slug = unit && unit.slug ? unit.slug : '';
 
 	return type && slug ? type + ':' + slug : '';
+}
+
+/**
+ * Is THIS specific card (its source + slug) the unit currently applied to its slot? A slot can be
+ * filled by another source — that is "applied but not current".
+ *
+ * @param {Object} unit    Unit descriptor (carries `.source`).
+ * @param {Object} applied Map of slot key -> applied unit.
+ * @return {boolean} True when this exact unit is the live one.
+ */
+function isUnitCurrent( unit, applied ) {
+	const appliedUnit = applied[ getSlotKey( unit ) ];
+	const source = unit.source || {};
+
+	return Boolean( appliedUnit && appliedUnit.demoKey === source.id && appliedUnit.slug === unit.slug );
 }
 
 function getSlotTypeLabel( unit, copy ) {
@@ -265,6 +301,87 @@ function filterUnits( units, { search, typeFilter, sourceFilter } ) {
 	} );
 }
 
+// Headers and footers each share ONE slot across every candidate, so only one can be active at a
+// time — which lets their section header carry a single "Active: <source>" caption. Templates,
+// features and other template parts span many distinct slots, so several can be active at once.
+const SINGLE_SLOT_GROUPS = [ 'headers', 'footers' ];
+
+function getGroupLabel( groupKey, copy ) {
+	switch ( groupKey ) {
+		case 'headers':
+			return copy.headers;
+		case 'footers':
+			return copy.footers;
+		case 'templates':
+			return copy.templatesType;
+		case 'features':
+			return copy.features;
+		default:
+			return copy.templateParts;
+	}
+}
+
+// The shared slot key behind a single-slot section (used for the filter-independent active caption).
+function getSingleSlotKey( groupKey ) {
+	if ( 'headers' === groupKey ) {
+		return 'wp_template_part:header';
+	}
+
+	if ( 'footers' === groupKey ) {
+		return 'wp_template_part:footer';
+	}
+
+	return '';
+}
+
+/**
+ * The source label of the unit currently applied to a single-slot section, read straight from
+ * `applied` so it stays correct even when search/source filters hide the matching card.
+ *
+ * @param {string} groupKey Section key.
+ * @param {Object} applied  Map of slot key -> applied unit.
+ * @return {string} Source title (or empty string when nothing is applied / not single-slot).
+ */
+function getGroupActiveSummary( groupKey, applied ) {
+	const slot = getSingleSlotKey( groupKey );
+	const unit = slot ? applied[ slot ] : null;
+
+	return unit ? unit.sourceTitle || unit.demoKey || '' : '';
+}
+
+// Float the active card(s) to the front of a section, otherwise keep the incoming (source-alpha) order.
+function pinCurrentFirst( units, applied ) {
+	const current = [];
+	const rest = [];
+
+	units.forEach( ( unit ) => ( isUnitCurrent( unit, applied ) ? current : rest ).push( unit ) );
+
+	return current.concat( rest );
+}
+
+/**
+ * Bucket the (already ordered + filtered) units into the GROUP_ORDER sections, dropping empties and
+ * pinning the active card first within each.
+ *
+ * @param {Array}  units   Ordered + filtered unit descriptors.
+ * @param {Object} applied Map of slot key -> applied unit.
+ * @return {Array} [ { key, units } ] in display order.
+ */
+function groupUnits( units, applied ) {
+	const buckets = {};
+
+	units.forEach( ( unit ) => {
+		const key = getGroupKey( unit );
+		buckets[ key ] = buckets[ key ] || [];
+		buckets[ key ].push( unit );
+	} );
+
+	return GROUP_ORDER.filter( ( key ) => buckets[ key ] && buckets[ key ].length ).map( ( key ) => ( {
+		key,
+		units: pinCurrentFirst( buckets[ key ], applied ),
+	} ) );
+}
+
 function getPrewarmableUnits( units ) {
 	return units
 		.filter( ( unit ) => 'wp_template_part' === unit.type && [ 'header', 'footer' ].includes( unit.slug ) )
@@ -345,65 +462,6 @@ function renderTypeBadge( unit, copy ) {
 	);
 }
 
-function AppliedLayouts( { applied, busyKey, copy, onUndo } ) {
-	const slots = Object.keys( applied );
-
-	return createElement(
-		Card,
-		{ style: { marginTop: '16px' } },
-		createElement( CardHeader, null, createElement( 'h2', { style: { margin: 0 } }, copy.appliedTitle ) ),
-		createElement(
-			CardBody,
-			null,
-			slots.length
-				? createElement(
-						'ul',
-						{ style: { margin: 0 } },
-						slots.map( ( slot ) => {
-							const unit = applied[ slot ] || {};
-							const isBusy = busyKey === 'undo:' + slot;
-							const label = getSlotTypeLabel( unit, copy );
-							const source = unit.sourceTitle || unit.demoKey || '';
-
-							return createElement(
-								'li',
-								{
-									key: slot,
-									style: {
-										alignItems: 'center',
-										borderTop: '1px solid #ddd',
-										display: 'flex',
-										gap: '12px',
-										justifyContent: 'space-between',
-										margin: 0,
-										padding: '10px 0',
-									},
-								},
-								createElement(
-									'div',
-									null,
-									createElement( 'strong', null, label + ': ' + ( unit.title || unit.slug || slot ) ),
-									source ? createElement( 'div', { style: { color: '#646970' } }, copy.sourceHeading + ': ' + source ) : null
-								),
-								createElement(
-									Button,
-									{
-										variant: 'secondary',
-										isDestructive: true,
-										isBusy,
-										disabled: Boolean( busyKey ),
-										onClick: () => onUndo( unit, slot ),
-									},
-									isBusy ? copy.undoing : copy.undoLabel
-								)
-							);
-						} )
-				  )
-				: createElement( 'p', { style: { margin: 0 } }, copy.appliedEmpty )
-		)
-	);
-}
-
 function getActiveOperationStep( operation ) {
 	const operationSteps = operation && Array.isArray( operation.operationSteps ) ? operation.operationSteps : [];
 
@@ -416,16 +474,13 @@ function getOperationButtonLabel( operation, key, fallback ) {
 	return activeStep && activeStep.label ? activeStep.label : fallback;
 }
 
-function isOperationButtonBusy( operation, key ) {
-	return Boolean( operation && operation.key === key && getActiveOperationStep( operation ) );
-}
-
-function UnitCard( { unit, viewMode, applied, busyKey, copy, featureSamples, operation, previewConfig, onFeatureSampleChange, onImport, onPreview } ) {
+function UnitCard( { unit, viewMode, applied, busyKey, copy, featureSamples, operation, previewConfig, onFeatureSampleChange, onImport, onPreview, onUndo } ) {
 	const slot = getSlotKey( unit );
 	const source = unit.source || {};
 	const appliedUnit = applied[ slot ];
-	const isCurrent = Boolean( appliedUnit && appliedUnit.demoKey === source.id && appliedUnit.slug === unit.slug );
+	const isCurrent = isUnitCurrent( unit, applied );
 	const isBusy = busyKey === 'import:' + slot + ':' + source.id;
+	const undoBusy = busyKey === 'undo:' + slot;
 	const operationKey = 'import:' + slot + ':' + source.id;
 	const preview = getPreviewUrl( unit );
 	const sampleKey = slot + ':' + source.id;
@@ -447,20 +502,57 @@ function UnitCard( { unit, viewMode, applied, busyKey, copy, featureSamples, ope
 	const applyButton = createElement(
 		Button,
 		{
-			variant: isCurrent ? 'secondary' : 'primary',
+			variant: 'primary',
 			isBusy,
-			disabled: Boolean( busyKey ) || isCurrent,
+			disabled: Boolean( busyKey ),
 			onClick: () => onImport( unit, { includeSample } ),
 			style: { flexShrink: 0, minWidth: '104px' },
 		},
 		isBusy
 			? getOperationButtonLabel( operation, operationKey, copy.importing )
-			: isCurrent
-			? copy.appliedButton
 			: appliedUnit
 			? copy.replaceLabel
 			: copy.importLabel
 	);
+
+	// On the active card the useful action is to undo (revert the slot) — this folds in what used to
+	// live in the separate "Applied layouts" list.
+	const removeButton = createElement(
+		Button,
+		{
+			variant: 'secondary',
+			isDestructive: true,
+			isBusy: undoBusy,
+			disabled: Boolean( busyKey ),
+			onClick: () => onUndo( unit, slot ),
+			style: { flexShrink: 0, minWidth: '104px' },
+		},
+		undoBusy ? copy.undoing : copy.undoLabel
+	);
+	const actionButton = isCurrent ? removeButton : applyButton;
+
+	// "Active" pill in the theme accent — the Site-Editor cue for the part that is currently live.
+	const activeBadge = createElement(
+		'span',
+		{
+			style: {
+				alignItems: 'center',
+				background: 'var(--wp-admin-theme-color, #3858e9)',
+				borderRadius: '2px',
+				color: '#fff',
+				display: 'inline-flex',
+				fontSize: '11px',
+				fontWeight: 600,
+				gap: '2px',
+				lineHeight: 1.5,
+				padding: '2px 8px 2px 4px',
+			},
+		},
+		createElement( Icon, { icon: check, size: 16 } ),
+		copy.activeBadge
+	);
+	const cardBorderColor = isCurrent ? 'var(--wp-admin-theme-color, #3858e9)' : '#dcdcde';
+	const cardRing = isCurrent ? '0 0 0 1px var(--wp-admin-theme-color, #3858e9)' : undefined;
 
 	// "Preview" opens the full-height overlay — most useful for tall templates the card crops.
 	const previewButton = isPreviewable && onPreview
@@ -478,7 +570,8 @@ function UnitCard( { unit, viewMode, applied, busyKey, copy, featureSamples, ope
 		  )
 		: null;
 
-	const appliedNote = appliedUnit
+	// On a non-active card whose slot is already filled by another source, hint what it would replace.
+	const appliedNote = appliedUnit && ! isCurrent
 		? createElement(
 				'span',
 				{ style: { color: '#646970', fontSize: '12px' } },
@@ -504,8 +597,9 @@ function UnitCard( { unit, viewMode, applied, busyKey, copy, featureSamples, ope
 				style: {
 					alignItems: 'center',
 					background: '#fff',
-					border: '1px solid #dcdcde',
+					border: '1px solid ' + cardBorderColor,
 					borderRadius: '4px',
+					boxShadow: cardRing,
 					display: 'flex',
 					flexWrap: 'wrap',
 					gap: '12px',
@@ -519,7 +613,8 @@ function UnitCard( { unit, viewMode, applied, busyKey, copy, featureSamples, ope
 					'div',
 					{ style: { alignItems: 'center', display: 'flex', flexWrap: 'wrap', gap: '8px' } },
 					renderTypeBadge( unit, copy ),
-					createElement( 'strong', { style: { fontSize: '13px' } }, primaryText )
+					createElement( 'strong', { style: { fontSize: '13px' } }, primaryText ),
+					isCurrent ? activeBadge : null
 				),
 				isGenericTitle
 					? null
@@ -536,7 +631,7 @@ function UnitCard( { unit, viewMode, applied, busyKey, copy, featureSamples, ope
 				renderSourceBadge( source, copy ),
 				appliedNote,
 				previewButton,
-				applyButton
+				actionButton
 			)
 		);
 	}
@@ -568,19 +663,30 @@ function UnitCard( { unit, viewMode, applied, busyKey, copy, featureSamples, ope
 		  } )
 		: createElement( 'div', { style: { aspectRatio: '16 / 10', background: '#f0f0f1' } } );
 
+	// Overlay the "Active" pill on the preview (top-left), mirroring the Site Editor's active cue.
+	const previewWrap = createElement(
+		'div',
+		{ style: { position: 'relative' } },
+		previewEl,
+		isCurrent
+			? createElement( 'div', { style: { left: '8px', position: 'absolute', top: '8px', zIndex: 1 } }, activeBadge )
+			: null
+	);
+
 	return createElement(
 		'div',
 		{
 			style: {
 				background: '#fff',
-				border: '1px solid #dcdcde',
+				border: '1px solid ' + cardBorderColor,
 				borderRadius: '4px',
+				boxShadow: cardRing,
 				display: 'flex',
 				flexDirection: 'column',
 				overflow: 'hidden',
 			},
 		},
-		previewEl,
+		previewWrap,
 		createElement(
 			'div',
 			{ style: { display: 'flex', flex: 1, flexDirection: 'column', gap: '6px', padding: '12px 14px' } },
@@ -611,7 +717,7 @@ function UnitCard( { unit, viewMode, applied, busyKey, copy, featureSamples, ope
 					'div',
 					{ style: { alignItems: 'center', display: 'flex', flexShrink: 0, gap: '6px' } },
 					previewButton,
-					applyButton
+					actionButton
 				)
 			)
 		)
@@ -787,6 +893,113 @@ function LayoutToolbar( { search, onSearch, typeFilter, onTypeFilter, sourceFilt
 	);
 }
 
+// One Site-Editor-style section: a labelled header with a divider, then the section's cards. The
+// active-source caption (single-slot sections only) reads from `applied`, so it survives filtering.
+function LayoutSection( { groupKey, units, applied, viewMode, columns, busyKey, copy, featureSamples, operation, previewConfig, onFeatureSampleChange, onImport, onPreview, onUndo } ) {
+	const activeSummary = getGroupActiveSummary( groupKey, applied );
+	const isSingleSlot = SINGLE_SLOT_GROUPS.includes( groupKey );
+	const caption = activeSummary
+		? copy.activeBadge + ': ' + activeSummary
+		: isSingleSlot
+		? copy.sectionNoneApplied
+		: '';
+
+	return createElement(
+		'section',
+		{ style: { marginTop: '28px' } },
+		createElement(
+			'div',
+			{
+				style: {
+					alignItems: 'baseline',
+					borderBottom: '1px solid #e0e0e0',
+					display: 'flex',
+					flexWrap: 'wrap',
+					gap: '12px',
+					justifyContent: 'space-between',
+					marginBottom: '14px',
+					paddingBottom: '8px',
+				},
+			},
+			createElement( 'h2', { style: { fontSize: '15px', margin: 0 } }, getGroupLabel( groupKey, copy ) ),
+			caption ? createElement( 'span', { style: { color: '#646970', fontSize: '13px' } }, caption ) : null
+		),
+		createElement(
+			'div',
+			{
+				style:
+					'list' === viewMode
+						? { display: 'flex', flexDirection: 'column', gap: '8px' }
+						: { display: 'grid', gap: '16px', gridTemplateColumns: 'repeat(' + columns + ', minmax(0, 1fr))' },
+			},
+			units.map( ( unit ) =>
+				createElement( UnitCard, {
+					key: getSlotKey( unit ) + ':' + ( unit.source && unit.source.id ? unit.source.id : '' ),
+					unit,
+					viewMode,
+					applied,
+					busyKey,
+					copy,
+					featureSamples,
+					operation,
+					previewConfig,
+					onFeatureSampleChange,
+					onImport,
+					onPreview,
+					onUndo,
+				} )
+			)
+		)
+	);
+}
+
+// Loading placeholder shown on the very first auto-load (no cache yet): a couple of section headers
+// with greyed-out card rectangles, so the tab reads as "loading my layouts", not "nothing here".
+function LayoutsSkeleton( { columns, copy } ) {
+	const sectionLabels = [ copy.headers, copy.footers, copy.templatesType ];
+	const block = {
+		animation: 'pixassist-skeleton-pulse 1.4s ease-in-out infinite',
+		background: '#e6e7e9',
+		borderRadius: '4px',
+	};
+
+	return createElement(
+		Fragment,
+		null,
+		createElement( 'style', null, '@keyframes pixassist-skeleton-pulse{0%,100%{opacity:1}50%{opacity:.5}}' ),
+		sectionLabels.map( ( label, index ) =>
+			createElement(
+				'section',
+				{ key: index, style: { marginTop: '28px' } },
+				createElement( 'div', {
+					'aria-label': label,
+					style: { ...block, height: '18px', marginBottom: '20px', width: '120px' },
+				} ),
+				createElement(
+					'div',
+					{ style: { display: 'grid', gap: '16px', gridTemplateColumns: 'repeat(' + columns + ', minmax(0, 1fr))' } },
+					Array.from( { length: columns }, ( ignored, cardIndex ) =>
+						createElement(
+							'div',
+							{
+								key: cardIndex,
+								style: { border: '1px solid #ededed', borderRadius: '4px', overflow: 'hidden' },
+							},
+							createElement( 'div', { style: { ...block, aspectRatio: '16 / 10', borderRadius: 0 } } ),
+							createElement(
+								'div',
+								{ style: { display: 'flex', flexDirection: 'column', gap: '8px', padding: '12px 14px' } },
+								createElement( 'div', { style: { ...block, height: '14px', width: '60%' } } ),
+								createElement( 'div', { style: { ...block, height: '12px', width: '40%' } } )
+							)
+						)
+					)
+				)
+			)
+		)
+	);
+}
+
 export function LayoutUnits() {
 	const data = getLayoutUnitsData();
 	const copy = mergeCopy( data.copy );
@@ -929,10 +1142,10 @@ export function LayoutUnits() {
 			return;
 		}
 
+		// Keep any already-loaded grid on screen while a Refresh runs (the inline status conveys the
+		// reload); only the very first load starts from an empty state.
 		setLoading( true );
-		setLoaded( false );
 		setMessage( null );
-		setUnits( [] );
 
 		const operationId = startOperationSteps( 'load', [
 			{ id: 'prepare', label: copy.loadStepPrepare },
@@ -1014,8 +1227,14 @@ export function LayoutUnits() {
 			const successful = results.filter( ( result ) => ! result.error );
 			const failed = results.filter( ( result ) => result.error );
 
-			setUnits( successful.reduce( ( list, result ) => list.concat( result.units ), [] ) );
+			const loadedUnits = successful.reduce( ( list, result ) => list.concat( result.units ), [] );
+
+			setUnits( loadedUnits );
 			setLoaded( true );
+
+			// Seed the session cache so re-entering the tab rehydrates instantly. `applied` here is the
+			// snapshot at load time; the sync effect keeps it current as units are applied/removed.
+			layoutUnitsCache = { sourcesKey: getSourcesKey( sources ), units: loadedUnits, applied };
 
 			if ( failed.length && successful.length ) {
 				setMessage( { type: 'warning', text: copy.partialFailure } );
@@ -1181,6 +1400,34 @@ export function LayoutUnits() {
 		}
 	};
 
+	// Auto-load on first open; on re-entry rehydrate from the session cache (no re-fetch, no
+	// re-prewarm). Refresh is the explicit way to reload. Runs once per mount.
+	useEffect( () => {
+		if ( ! sources.length ) {
+			return;
+		}
+
+		const sourcesKey = getSourcesKey( sources );
+
+		if ( layoutUnitsCache && layoutUnitsCache.sourcesKey === sourcesKey ) {
+			setUnits( layoutUnitsCache.units );
+			setApplied( normalizeApplied( layoutUnitsCache.applied ) );
+			setLoaded( true );
+			return;
+		}
+
+		loadUnits();
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [] );
+
+	// Keep the cached `applied` snapshot current so a later re-entry shows the right active state.
+	useEffect( () => {
+		if ( layoutUnitsCache && layoutUnitsCache.sourcesKey === getSourcesKey( sources ) ) {
+			layoutUnitsCache.applied = applied;
+		}
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [ applied ] );
+
 	if ( ! sources.length ) {
 		return createElement(
 			'section',
@@ -1190,8 +1437,11 @@ export function LayoutUnits() {
 		);
 	}
 
-	const loadOperationBusy = loading || isOperationButtonBusy( operation, 'load' );
-	const loadButtonLabel = getOperationButtonLabel( operation, 'load', loading ? copy.loading : copy.loadLabel );
+	// First load (no cache) shows the skeleton; a Refresh on an already-loaded grid keeps the cards on
+	// screen and just surfaces the inline status.
+	const showSkeleton = loading && ! loaded;
+	const loadStatusText = getOperationButtonLabel( operation, 'load', copy.loading );
+	const sections = groupUnits( filtered, applied );
 
 	return createElement(
 		'section',
@@ -1200,30 +1450,24 @@ export function LayoutUnits() {
 		createElement( 'p', null, copy.description ),
 		renderMessage( message ),
 		createElement(
-			Flex,
-			{ align: 'center', gap: 4, style: { marginTop: '16px' } },
+			'div',
+			{ style: { alignItems: 'center', display: 'flex', gap: '12px', margin: '16px 0 4px' } },
 			createElement(
-				FlexItem,
-				null,
-				createElement(
-					Button,
-					{
-						variant: 'secondary',
-						isBusy: loadOperationBusy,
-						disabled: loadOperationBusy || Boolean( busyKey ),
-						onClick: loadUnits,
-						style: { minWidth: '132px' },
-					},
-					loadButtonLabel
-				)
-			)
+				Button,
+				{
+					variant: 'secondary',
+					icon: update,
+					isBusy: loading,
+					disabled: loading || Boolean( busyKey ),
+					onClick: loadUnits,
+					label: copy.refreshTitle,
+					showTooltip: true,
+				},
+				copy.refreshLabel
+			),
+			loading ? createElement( 'span', { style: { color: '#646970', fontSize: '13px' } }, loadStatusText ) : null
 		),
-		createElement( AppliedLayouts, {
-			applied,
-			busyKey,
-			copy,
-			onUndo: undoUnit,
-		} ),
+		showSkeleton ? createElement( LayoutsSkeleton, { columns, copy } ) : null,
 		loaded && ! units.length ? createElement( 'p', null, copy.empty ) : null,
 		loaded && units.length
 			? createElement(
@@ -1243,31 +1487,25 @@ export function LayoutUnits() {
 						sources,
 						copy,
 					} ),
-					filtered.length
-						? createElement(
-								'div',
-								{
-									style:
-										'list' === viewMode
-											? { display: 'flex', flexDirection: 'column', gap: '8px' }
-											: { display: 'grid', gap: '16px', gridTemplateColumns: 'repeat(' + columns + ', minmax(0, 1fr))' },
-								},
-								filtered.map( ( unit ) =>
-									createElement( UnitCard, {
-										key: getSlotKey( unit ) + ':' + ( unit.source && unit.source.id ? unit.source.id : '' ),
-										unit,
-										viewMode,
-										applied,
-										busyKey,
-										copy,
-										featureSamples,
-										operation,
-										previewConfig,
-										onFeatureSampleChange: setFeatureSample,
-										onImport: importUnit,
-										onPreview: setPreviewUnit,
-									} )
-								)
+					sections.length
+						? sections.map( ( section ) =>
+								createElement( LayoutSection, {
+									key: section.key,
+									groupKey: section.key,
+									units: section.units,
+									applied,
+									viewMode,
+									columns,
+									busyKey,
+									copy,
+									featureSamples,
+									operation,
+									previewConfig,
+									onFeatureSampleChange: setFeatureSample,
+									onImport: importUnit,
+									onPreview: setPreviewUnit,
+									onUndo: undoUnit,
+								} )
 						  )
 						: createElement(
 								'p',
