@@ -5812,12 +5812,13 @@ HTML;
 				$seen[ $key ] = true;
 			}
 
-			// Decorate template descriptors with type_group + variant_label. The compact source list
-			// carries no CPT/taxonomy topology here, so we pass empty known-type lists: slug-only
-			// derivation still resolves core families and collapses variant siblings correctly. A
-			// CPT-bound template (e.g. single-portfolio) simply stays its own family — never a wrong
-			// merge into the generic single/archive slot.
-			$normalized = $this->decorate_layout_units_with_type_group( $normalized, array(), array() );
+			// The compact list carries no PER-SOURCE topology, but the catalog's feature-defined families
+			// (portfolio -> single-portfolio / archive-portfolio / taxonomy-portfolio_type) are static and
+			// known here, so feed them in to keep CPT-bound templates in their own family — matching the
+			// dynamic path. A source-specific CPT that is NOT a feature family (no /data here) still
+			// degrades to its core slot; none exist in the current catalog.
+			list( $known_cpts, $known_tax ) = $this->known_source_content_types( array() );
+			$normalized = $this->decorate_layout_units_with_type_group( $normalized, $known_cpts, $known_tax );
 
 			return $normalized;
 		}

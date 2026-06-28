@@ -121,4 +121,21 @@ assert_same( 'single', $decorated[1]['type_group'], 'A `single-magazine` variant
 assert_same( 'Magazine', $decorated[1]['variant_label'], 'The variant card label uses the authored title.' );
 assert_same( false, isset( $decorated[2]['type_group'] ), 'A wp_template_part is left untouched (no type_group key).' );
 
+// The compact list path feeds the catalog's static feature families (not empty lists) so CPT-bound
+// templates keep their own family there too — matching the dynamic path (never a wrong merge).
+$kc = new ReflectionMethod( $sc, 'known_source_content_types' );
+$kc->setAccessible( true );
+list( $compact_cpts, $compact_tax ) = $kc->invoke( $sc, array() );
+$compact_out = $sc->decorate_layout_units_with_type_group(
+	array( array( 'id' => 1, 'type' => 'wp_template', 'slug' => 'single-portfolio', 'title' => 'Project' ) ),
+	$compact_cpts, $compact_tax
+);
+assert_same( 'single-portfolio', $compact_out[0]['type_group'], 'Compact path keeps the portfolio CPT family separate (never merges into core single).' );
+// And variant collapse still works with the static families:
+$variant_out = $sc->decorate_layout_units_with_type_group(
+	array( array( 'id' => 2, 'type' => 'wp_template', 'slug' => 'single-magazine', 'title' => 'Magazine' ) ),
+	$compact_cpts, $compact_tax
+);
+assert_same( 'single', $variant_out[0]['type_group'], 'A non-CPT variant still collapses to the core single slot.' );
+
 echo "decorate OK\n";
