@@ -2184,11 +2184,54 @@ class PixelgradeAssistant_StarterContent {
 ( function () {
 	var el = document.querySelector( '.pixassist-layout-preview-canvas' ) || document.body;
 	function neutralizeFixed() {
+		var vp = window.innerHeight || 0;
 		var nodes = el.querySelectorAll( '*' );
 		for ( var i = 0; i < nodes.length; i++ ) {
-			var pos = window.getComputedStyle( nodes[ i ] ).position;
-			if ( 'fixed' === pos || 'sticky' === pos ) {
-				nodes[ i ].style.position = 'static';
+			var node = nodes[ i ];
+			var pos = window.getComputedStyle( node ).position;
+			if ( 'fixed' !== pos && 'sticky' !== pos ) {
+				continue;
+			}
+			// A fixed/sticky element that blankets the viewport is almost always interactive chrome
+			// (off-canvas cart, search/menu drawer, modal) — drop it from a static preview, since
+			// flattening it to static would otherwise blanket or inflate the page. A short one is a
+			// header/footer bar: pin it in flow so it contributes height and shows fully.
+			if ( vp > 0 && node.getBoundingClientRect().height >= vp * 0.7 ) {
+				node.style.setProperty( 'display', 'none', 'important' );
+			} else {
+				node.style.position = 'static';
+			}
+		}
+	}
+	function tameFullHeight() {
+		// Full-viewport heroes (height/min-height ~ 100vh) eat the whole preview — and because the
+		// iframe's own height feeds back into vh units, they balloon without bound (up to the browser's
+		// max element height). Pin any near-viewport-height block to a band sized from the render WIDTH
+		// (never the unstable viewport height), so the feedback is broken and the preview shows the hero
+		// AND the content beneath it. Runs at first paint while the viewport is still its sane initial
+		// height, so `vh`/`100%` blocks read ~= the viewport and naturally-tall content does not.
+		var vp = window.innerHeight || 0;
+		if ( vp <= 0 ) {
+			return;
+		}
+		var cap = Math.round( ( window.innerWidth || 1200 ) * 0.5 );
+		if ( cap < 240 ) {
+			cap = 240;
+		}
+		var nodes = el.querySelectorAll( '*' );
+		var limit = Math.min( nodes.length, 4000 );
+		for ( var i = 0; i < limit; i++ ) {
+			var node = nodes[ i ];
+			var cs = window.getComputedStyle( node );
+			var minH = parseFloat( cs.minHeight ) || 0;
+			var h = parseFloat( cs.height ) || 0;
+			if ( minH >= vp * 0.8 && minH > cap ) {
+				node.style.setProperty( 'min-height', cap + 'px', 'important' );
+			}
+			// height ~ exactly the viewport => a height:100vh / height:100% bleed, not tall content.
+			if ( Math.abs( h - vp ) <= 2 && h > cap ) {
+				node.style.setProperty( 'height', cap + 'px', 'important' );
+				node.style.setProperty( 'max-height', cap + 'px', 'important' );
 			}
 		}
 	}
@@ -2293,6 +2336,7 @@ class PixelgradeAssistant_StarterContent {
 			isolateFocus();
 		}
 		neutralizeFixed();
+		tameFullHeight();
 		placeholderImages();
 		reportHeight();
 	}

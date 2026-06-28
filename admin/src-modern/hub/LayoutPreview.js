@@ -15,10 +15,15 @@
 import { createElement, useEffect, useRef, useState } from '@wordpress/element';
 import { Button } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
+import { getPreviewMode, savePreviewMode } from './preferences';
 
 const DEFAULT_VW = 1200;
 const LOAD_TIMEOUT_MS = 8000;
-const PREVIEW_MODE_STORAGE_KEY = 'pixassist_preview_mode';
+// Hard ceiling on the reported frame height. The in-iframe runtime already tames full-viewport
+// heroes, but a pathological page could still report a runaway height (a `vh`/`%` block feeding back
+// off the iframe's own height, up to the browser's ~16.7M-px limit). Clamp so the iframe element can
+// never balloon — far above any real template, so legit long pages are unaffected.
+const MAX_FRAME_HEIGHT = 16000;
 
 /*
  * Module-level load gate (concurrency cap).
@@ -90,23 +95,14 @@ function acquirePreviewSlot( onGrant ) {
  *
  * Module-level so a single <PreviewModeToggle> drives every mounted <LayoutPreview> across tabs.
  */
-let currentPreviewMode = 'site';
-try {
-	const stored = window.localStorage.getItem( PREVIEW_MODE_STORAGE_KEY );
-	if ( 'demo' === stored || 'site' === stored ) {
-		currentPreviewMode = stored;
-	}
-} catch ( e ) {} // eslint-disable-line no-empty
+let currentPreviewMode = getPreviewMode();
 const previewModeListeners = new Set();
 
 export function setPreviewMode( mode ) {
 	if ( 'demo' !== mode && 'site' !== mode ) {
 		return;
 	}
-	currentPreviewMode = mode;
-	try {
-		window.localStorage.setItem( PREVIEW_MODE_STORAGE_KEY, mode );
-	} catch ( e ) {} // eslint-disable-line no-empty
+	currentPreviewMode = savePreviewMode( mode );
 	previewModeListeners.forEach( ( fn ) => fn( mode ) );
 }
 
@@ -399,7 +395,7 @@ export function LayoutPreview( props ) {
 				return;
 			}
 			if ( 'number' === typeof payload.height && payload.height >= 20 ) {
-				setFrameHeight( payload.height );
+				setFrameHeight( Math.min( payload.height, MAX_FRAME_HEIGHT ) );
 				setStatus( 'ready' );
 			}
 		};

@@ -9,6 +9,7 @@ import { __ } from '@wordpress/i18n';
 import { Button, CheckboxControl, Dropdown, Icon, Modal, Notice, RangeControl, SearchControl, SelectControl } from '@wordpress/components';
 import { check, fullscreen, grid, listView, settings, update } from '@wordpress/icons';
 import { LayoutPreview, PreviewModeToggle } from '../LayoutPreview';
+import { getLayoutUnitPreferences, saveLayoutUnitPreferences } from '../preferences';
 
 const DEFAULT_LAYOUT_UNITS = {
 	copy: {
@@ -1151,13 +1152,23 @@ export function LayoutUnits() {
 	const [ prewarmedJobs, setPrewarmedJobs ] = useState( {} );
 	const [ operation, setOperation ] = useState( { key: '', operationSteps: [] } );
 	const [ search, setSearch ] = useState( '' );
-	const [ typeFilter, setTypeFilter ] = useState( 'all' );
-	const [ sourceFilter, setSourceFilter ] = useState( 'all' );
-	const [ viewMode, setViewMode ] = useState( 'grid' );
-	const [ columns, setColumns ] = useState( PREVIEW_SIZE_DEFAULT_COLUMNS );
+	const [ layoutPreferences, setLayoutPreferences ] = useState( () => getLayoutUnitPreferences() );
 	const [ previewUnit, setPreviewUnit ] = useState( null );
 	const prewarmedJobsRef = useRef( prewarmedJobs );
 	const operationIdRef = useRef( 0 );
+	const typeFilter = layoutPreferences.typeFilter;
+	const sourceFilter = layoutPreferences.sourceFilter;
+	const viewMode = layoutPreferences.viewMode;
+	const columns = layoutPreferences.columns;
+
+	function setLayoutPreference( key, value ) {
+		setLayoutPreferences( ( current ) =>
+			saveLayoutUnitPreferences( {
+				...current,
+				[ key ]: value,
+			} )
+		);
+	}
 
 	const ordered = useMemo( () => orderedUnits( units ), [ units ] );
 	const filtered = useMemo(
@@ -1635,13 +1646,13 @@ export function LayoutUnits() {
 						search,
 						onSearch: setSearch,
 						typeFilter,
-						onTypeFilter: setTypeFilter,
+						onTypeFilter: ( value ) => setLayoutPreference( 'typeFilter', value ),
 						sourceFilter,
-						onSourceFilter: setSourceFilter,
+						onSourceFilter: ( value ) => setLayoutPreference( 'sourceFilter', value ),
 						viewMode,
-						onViewMode: setViewMode,
+						onViewMode: ( value ) => setLayoutPreference( 'viewMode', value ),
 						columns,
-						onColumns: setColumns,
+						onColumns: ( value ) => setLayoutPreference( 'columns', value ),
 						sources,
 						templateSectionKeys,
 						templateTitles,

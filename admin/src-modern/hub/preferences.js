@@ -1,0 +1,121 @@
+const PREVIEW_SIZE_MIN_COLUMNS = 1;
+const PREVIEW_SIZE_MAX_COLUMNS = 4;
+
+export const LAYOUT_UNIT_PREFERENCES_STORAGE_KEY = 'pixassist_layout_units_preferences';
+export const PREVIEW_MODE_STORAGE_KEY = 'pixassist_preview_mode';
+
+export const DEFAULT_LAYOUT_UNIT_PREFERENCES = Object.freeze( {
+	typeFilter: 'all',
+	sourceFilter: 'all',
+	viewMode: 'grid',
+	columns: 2,
+} );
+
+function getBrowserStorage() {
+	if ( typeof window === 'undefined' ) {
+		return null;
+	}
+
+	try {
+		return window.localStorage || null;
+	} catch ( e ) {
+		return null;
+	}
+}
+
+function readStorage( storage, key ) {
+	if ( ! storage || 'function' !== typeof storage.getItem ) {
+		return null;
+	}
+
+	try {
+		return storage.getItem( key );
+	} catch ( e ) {
+		return null;
+	}
+}
+
+function writeStorage( storage, key, value ) {
+	if ( ! storage || 'function' !== typeof storage.setItem ) {
+		return;
+	}
+
+	try {
+		storage.setItem( key, value );
+	} catch ( e ) {} // eslint-disable-line no-empty
+}
+
+function parseObject( value ) {
+	if ( ! value || 'string' !== typeof value ) {
+		return {};
+	}
+
+	try {
+		const parsed = JSON.parse( value );
+		return parsed && 'object' === typeof parsed && ! Array.isArray( parsed ) ? parsed : {};
+	} catch ( e ) {
+		return {};
+	}
+}
+
+function normalizeStringPreference( value, fallback ) {
+	return 'string' === typeof value && value ? value : fallback;
+}
+
+function normalizeColumnsPreference( value, fallback ) {
+	const parsed = parseInt( value, 10 );
+
+	return parsed >= PREVIEW_SIZE_MIN_COLUMNS && parsed <= PREVIEW_SIZE_MAX_COLUMNS ? parsed : fallback;
+}
+
+export function normalizeLayoutUnitPreferences( preferences ) {
+	const input = preferences && 'object' === typeof preferences && ! Array.isArray( preferences ) ? preferences : {};
+
+	return {
+		typeFilter: normalizeStringPreference( input.typeFilter, DEFAULT_LAYOUT_UNIT_PREFERENCES.typeFilter ),
+		sourceFilter: normalizeStringPreference( input.sourceFilter, DEFAULT_LAYOUT_UNIT_PREFERENCES.sourceFilter ),
+		viewMode: [ 'grid', 'list' ].includes( input.viewMode ) ? input.viewMode : DEFAULT_LAYOUT_UNIT_PREFERENCES.viewMode,
+		columns: normalizeColumnsPreference( input.columns, DEFAULT_LAYOUT_UNIT_PREFERENCES.columns ),
+	};
+}
+
+export function getLayoutUnitPreferences( storage = getBrowserStorage() ) {
+	return normalizeLayoutUnitPreferences( parseObject( readStorage( storage, LAYOUT_UNIT_PREFERENCES_STORAGE_KEY ) ) );
+}
+
+export function saveLayoutUnitPreferences( preferences, storage = getBrowserStorage() ) {
+	const normalized = normalizeLayoutUnitPreferences( preferences );
+
+	writeStorage( storage, LAYOUT_UNIT_PREFERENCES_STORAGE_KEY, JSON.stringify( normalized ) );
+
+	return normalized;
+}
+
+export function setLayoutUnitPreference( key, value, storage = getBrowserStorage() ) {
+	const current = getLayoutUnitPreferences( storage );
+
+	if ( ! Object.prototype.hasOwnProperty.call( DEFAULT_LAYOUT_UNIT_PREFERENCES, key ) ) {
+		return current;
+	}
+
+	return saveLayoutUnitPreferences( {
+		...current,
+		[ key ]: value,
+	}, storage );
+}
+
+export function normalizePreviewMode( mode, fallback = 'site' ) {
+	return 'demo' === mode || 'site' === mode ? mode : fallback;
+}
+
+export function getPreviewMode( storage = getBrowserStorage() ) {
+	return normalizePreviewMode( readStorage( storage, PREVIEW_MODE_STORAGE_KEY ) );
+}
+
+export function savePreviewMode( mode, storage = getBrowserStorage() ) {
+	const normalized = normalizePreviewMode( mode, getPreviewMode( storage ) );
+
+	writeStorage( storage, PREVIEW_MODE_STORAGE_KEY, normalized );
+
+	return normalized;
+}
