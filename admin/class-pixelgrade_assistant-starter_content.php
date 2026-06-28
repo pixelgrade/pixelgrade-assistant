@@ -1663,6 +1663,99 @@ class PixelgradeAssistant_StarterContent {
 	}
 
 	/**
+	 * Derive the catalog "type group" (slot key) for a wp_template slug. CPT/taxonomy-bound templates
+	 * stay their own family; variants of a core slug collapse to that core. Slug+CPT derivation only —
+	 * native post_types is a later enhancement.
+	 *
+	 * @param string $slug             Template slug (post_name).
+	 * @param array  $known_cpts       CPT slugs that exist for this source.
+	 * @param array  $known_taxonomies Taxonomy slugs that exist for this source.
+	 *
+	 * @return string Type-group key (e.g. `single`, `single-portfolio`, `archive`, `page`).
+	 */
+	public function layout_unit_type_group( $slug, $known_cpts = array(), $known_taxonomies = array() ) {
+		$slug = sanitize_key( $slug );
+		if ( '' === $slug ) {
+			return '';
+		}
+
+		$core = array( 'front-page', 'home', 'index', 'archive', 'single', 'singular', 'page', 'search', '404', 'privacy-policy' );
+		if ( in_array( $slug, $core, true ) ) {
+			return $slug;
+		}
+
+		foreach ( array( 'single', 'archive' ) as $prefix ) {
+			if ( 0 === strpos( $slug, $prefix . '-' ) ) {
+				$rest = substr( $slug, strlen( $prefix ) + 1 );
+				$cpt  = $this->match_known_token( $rest, $known_cpts );
+				if ( '' !== $cpt ) {
+					return $prefix . '-' . $cpt; // CPT family, e.g. single-portfolio.
+				}
+
+				return $prefix; // A variant of the core single / archive.
+			}
+		}
+
+		if ( 0 === strpos( $slug, 'taxonomy-' ) ) {
+			$tax = $this->match_known_token( substr( $slug, strlen( 'taxonomy-' ) ), $known_taxonomies );
+
+			return '' !== $tax ? 'taxonomy-' . $tax : 'taxonomy';
+		}
+
+		if ( 0 === strpos( $slug, 'page-' ) ) {
+			return 'page';
+		}
+
+		return $slug; // Unknown custom template — its own family.
+	}
+
+	/**
+	 * Longest known token that `$rest` equals or begins with (token or "token-..."). Longest wins so
+	 * `portfolio_type` matches before `portfolio`.
+	 *
+	 * @param string $rest   The slug remainder after the prefix.
+	 * @param array  $tokens Known CPT / taxonomy slugs to match against.
+	 *
+	 * @return string The matched token, or '' when none match.
+	 */
+	private function match_known_token( $rest, $tokens ) {
+		$rest  = sanitize_key( $rest );
+		$match = '';
+		foreach ( (array) $tokens as $token ) {
+			$token = sanitize_key( $token );
+			if ( '' === $token ) {
+				continue;
+			}
+			if ( $rest === $token || 0 === strpos( $rest, $token . '-' ) ) {
+				if ( strlen( $token ) > strlen( $match ) ) {
+					$match = $token;
+				}
+			}
+		}
+
+		return $match;
+	}
+
+	/**
+	 * Human label for a template variant card. The authored title when it adds info beyond the slug,
+	 * else a title-cased slug.
+	 *
+	 * @param string $slug  Template slug (post_name).
+	 * @param string $title Authored template title.
+	 *
+	 * @return string
+	 */
+	public function layout_unit_variant_label( $slug, $title ) {
+		$slug  = sanitize_key( $slug );
+		$title = wp_strip_all_tags( (string) $title );
+		if ( '' !== $title && strtolower( $title ) !== strtolower( str_replace( array( '-', '_' ), ' ', $slug ) ) && strtolower( $title ) !== strtolower( $slug ) ) {
+			return $title;
+		}
+
+		return ucwords( str_replace( array( '-', '_' ), ' ', $slug ) );
+	}
+
+	/**
 	 * Return configured feature units.
 	 *
 	 * @return array

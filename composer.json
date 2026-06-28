@@ -20,6 +20,7 @@
             "php tests/starter-segments-test.php",
             "php tests/admin-recipes-test.php",
             "php tests/admin-layout-units-test.php",
+            "php tests/layout-unit-type-group-test.php",
             "php tests/recipe-test.php",
             "php tests/layout-unit-import-test.php",
             "php tests/layout-unit-mix-and-match-test.php",
