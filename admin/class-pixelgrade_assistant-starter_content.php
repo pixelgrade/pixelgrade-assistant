@@ -1507,6 +1507,9 @@ class PixelgradeAssistant_StarterContent {
 				$units = array_merge( $units, $this->list_layout_feature_units( $source_data, $posts_by_type ) );
 			}
 
+			list( $known_cpts, $known_tax ) = $this->known_source_content_types( ( isset( $source_data ) && ! is_wp_error( $source_data ) ) ? $source_data : array() );
+			$units = $this->decorate_layout_units_with_type_group( $units, $known_cpts, $known_tax );
+
 		return array(
 			'code'    => 'success',
 			'message' => '',
@@ -1753,6 +1756,74 @@ class PixelgradeAssistant_StarterContent {
 		}
 
 		return ucwords( str_replace( array( '-', '_' ), ' ', $slug ) );
+	}
+
+	/**
+	 * Add `type_group` + `variant_label` to every wp_template unit descriptor.
+	 *
+	 * wp_template_part and feature units pass through unchanged (they are grouped client-side by
+	 * their own keys and have no template type-group concept).
+	 *
+	 * @param array $units            Layout unit descriptors.
+	 * @param array $known_cpts       CPT slugs that exist for this source.
+	 * @param array $known_taxonomies Taxonomy slugs that exist for this source.
+	 *
+	 * @return array The descriptors with template units decorated.
+	 */
+	public function decorate_layout_units_with_type_group( $units, $known_cpts = array(), $known_taxonomies = array() ) {
+		foreach ( (array) $units as $i => $unit ) {
+			if ( empty( $unit['type'] ) || 'wp_template' !== $unit['type'] || empty( $unit['slug'] ) ) {
+				continue;
+			}
+
+			$units[ $i ]['type_group']    = $this->layout_unit_type_group( $unit['slug'], $known_cpts, $known_taxonomies );
+			$units[ $i ]['variant_label'] = $this->layout_unit_variant_label( $unit['slug'], isset( $unit['title'] ) ? $unit['title'] : '' );
+		}
+
+		return $units;
+	}
+
+	/**
+	 * Resolve the known CPT + taxonomy slugs for a source, used to keep CPT/taxonomy-bound templates
+	 * in their own type-group family.
+	 *
+	 * Both lists are populated genuinely: CPT slugs come from the feature definitions' `post_type`
+	 * AND from the source's `post_types` data; taxonomy slugs come from the feature definitions'
+	 * `taxonomies`. Keeping them separate prevents an unknown custom taxonomy from being collapsed
+	 * into a single generic `taxonomy` slot (or, worse, merged with a CPT family).
+	 *
+	 * @param array $source_data Source data payload (may be missing/!array).
+	 *
+	 * @return array list( $cpts, $taxonomies ) of de-duped, sanitized slugs.
+	 */
+	private function known_source_content_types( $source_data ) {
+		$cpts = array();
+		$tax  = array();
+
+		foreach ( (array) $this->get_layout_feature_definitions() as $feature ) {
+			if ( ! is_array( $feature ) ) {
+				continue;
+			}
+
+			if ( ! empty( $feature['post_type'] ) ) {
+				$cpts[] = $feature['post_type'];
+			}
+
+			if ( ! empty( $feature['taxonomies'] ) && is_array( $feature['taxonomies'] ) ) {
+				foreach ( $feature['taxonomies'] as $taxonomy ) {
+					$tax[] = $taxonomy;
+				}
+			}
+		}
+
+		if ( is_array( $source_data ) && ! empty( $source_data['post_types'] ) && is_array( $source_data['post_types'] ) ) {
+			$cpts = array_merge( $cpts, array_keys( $source_data['post_types'] ) );
+		}
+
+		return array(
+			array_values( array_unique( $cpts ) ),
+			array_values( array_unique( $tax ) ),
+		);
 	}
 
 	/**
@@ -5740,6 +5811,13 @@ HTML;
 				$normalized[] = $entry;
 				$seen[ $key ] = true;
 			}
+
+			// Decorate template descriptors with type_group + variant_label. The compact source list
+			// carries no CPT/taxonomy topology here, so we pass empty known-type lists: slug-only
+			// derivation still resolves core families and collapses variant siblings correctly. A
+			// CPT-bound template (e.g. single-portfolio) simply stays its own family — never a wrong
+			// merge into the generic single/archive slot.
+			$normalized = $this->decorate_layout_units_with_type_group( $normalized, array(), array() );
 
 			return $normalized;
 		}

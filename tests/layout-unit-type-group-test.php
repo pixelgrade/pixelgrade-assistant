@@ -97,4 +97,28 @@ assert_same( 'Single Magazine', $sc->layout_unit_variant_label( 'single-magazine
 assert_same( 'Single Magazine', $sc->layout_unit_variant_label( 'single-magazine', 'single-magazine' ), 'A title that merely echoes the slug falls back to the title-cased slug.' );
 assert_same( 'Single Magazine', $sc->layout_unit_variant_label( 'single-magazine', 'single magazine' ), 'A title that merely echoes the de-slugged slug falls back to the title-cased slug.' );
 
+// 7) Longest known-token tie-break: a more specific CPT wins over its prefix sibling.
+assert_same( 'single-portfolio-item', $sc->layout_unit_type_group( 'single-portfolio-item-vertical', array( 'portfolio', 'portfolio-item' ), $tax ), 'The longest matching CPT token wins (`portfolio-item` over `portfolio`).' );
+
+// 8) CPT-prefix boundary guard: a slug token that merely starts with a CPT name is NOT captured.
+assert_same( 'single', $sc->layout_unit_type_group( 'single-products-showcase', array( 'portfolio', 'product' ), $tax ), '`single-products-showcase` is a core single variant, not the `product` CPT family.' );
+
 echo "layout_unit_type_group OK\n";
+
+// --- decorate_layout_units_with_type_group() --------------------------------------------------
+// wp_template units gain type_group + variant_label; parts (and features) pass through untouched.
+
+$decorate_units = array(
+	array( 'id' => 1, 'type' => 'wp_template', 'slug' => 'single', 'title' => 'Single' ),
+	array( 'id' => 2, 'type' => 'wp_template', 'slug' => 'single-magazine', 'title' => 'Magazine' ),
+	array( 'id' => 3, 'type' => 'wp_template_part', 'slug' => 'header', 'title' => 'Header' ),
+);
+
+$decorated = $sc->decorate_layout_units_with_type_group( $decorate_units, array( 'portfolio' ), array() );
+
+assert_same( 'single', $decorated[0]['type_group'], 'A core `single` template carries its own type_group.' );
+assert_same( 'single', $decorated[1]['type_group'], 'A `single-magazine` variant collapses to the `single` type_group.' );
+assert_same( 'Magazine', $decorated[1]['variant_label'], 'The variant card label uses the authored title.' );
+assert_same( false, isset( $decorated[2]['type_group'] ), 'A wp_template_part is left untouched (no type_group key).' );
+
+echo "decorate OK\n";
