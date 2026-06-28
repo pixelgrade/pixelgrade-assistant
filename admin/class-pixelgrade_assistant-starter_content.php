@@ -7082,6 +7082,13 @@ HTML;
 			return '';
 		}
 
+		// Templates share a slot per type_group so applying one variant replaces its siblings
+		// ("one frame per type"). Headers/footers (parts) and features keep their slug-keyed slot.
+		if ( 'wp_template' === $unit_type ) {
+			list( $known_cpts, $known_tax ) = $this->known_source_content_types( array() );
+			return 'wp_template:' . $this->layout_unit_type_group( $slug, $known_cpts, $known_tax );
+		}
+
 		return $unit_type . ':' . $slug;
 	}
 
