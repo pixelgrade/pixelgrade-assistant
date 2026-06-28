@@ -275,8 +275,17 @@ function filterUnits( units, { search, typeFilter, sourceFilter } ) {
 	const query = ( search || '' ).trim().toLowerCase();
 
 	return units.filter( ( unit ) => {
-		if ( typeFilter && 'all' !== typeFilter && getGroupKey( unit ) !== typeFilter ) {
-			return false;
+		if ( typeFilter && 'all' !== typeFilter ) {
+			// A `template:<slug>` filter narrows to one template section; any other value is a coarse
+			// group key (headers/footers/templates/features/templateParts).
+			const matchesType =
+				0 === typeFilter.indexOf( TEMPLATE_SECTION_PREFIX )
+					? getSectionKey( unit ) === typeFilter
+					: getGroupKey( unit ) === typeFilter;
+
+			if ( ! matchesType ) {
+				return false;
+			}
 		}
 
 		const sourceId = unit.source && unit.source.id ? unit.source.id : '';
@@ -367,12 +376,49 @@ function getGroupLabel( groupKey, copy ) {
 	}
 }
 
-// Section heading text — a per-slug template name, or the coarse group label for everything else.
-function getSectionLabel( sectionKey, copy ) {
+/**
+ * Map of template slug -> the starter's human-authored title, used to name custom (non-core)
+ * template sections like `single-split-header` -> "Single Post (Split Header)". Only titles that add
+ * information beyond the raw slug are kept; the first such title per slug wins.
+ *
+ * @param {Array} units Loaded unit descriptors.
+ * @return {Object} slug -> title.
+ */
+function buildTemplateTitles( units ) {
+	const map = {};
+
+	units.forEach( ( unit ) => {
+		if ( 'wp_template' !== unit.type || ! unit.slug || map[ unit.slug ] ) {
+			return;
+		}
+
+		const title = unit.title || '';
+
+		if ( title && title.toLowerCase() !== unit.slug.toLowerCase() ) {
+			map[ unit.slug ] = title;
+		}
+	} );
+
+	return map;
+}
+
+// Section heading text — a per-slug template name (friendly map for core slugs, the starter's own
+// title for custom ones, title-cased slug as a last resort), or the coarse group label otherwise.
+function getSectionLabel( sectionKey, copy, templateTitles ) {
 	const templateSlug = getTemplateSectionSlug( sectionKey );
 
 	if ( templateSlug ) {
-		return TEMPLATE_SLUG_LABELS[ templateSlug ] || titleCaseSlug( templateSlug ) || copy.templatesType;
+		if ( TEMPLATE_SLUG_LABELS[ templateSlug ] ) {
+			return TEMPLATE_SLUG_LABELS[ templateSlug ];
+		}
+
+		const title = templateTitles ? templateTitles[ templateSlug ] : '';
+
+		if ( title && title.toLowerCase() !== templateSlug.toLowerCase() ) {
+			return title;
+		}
+
+		return titleCaseSlug( templateSlug ) || copy.templatesType;
 	}
 
 	return getGroupLabel( sectionKey, copy );
@@ -855,12 +901,19 @@ function UnitPreviewModal( { unit, previewConfig, copy, onClose } ) {
 const PREVIEW_SIZE_MAX = 4;
 const PREVIEW_SIZE_DEFAULT_COLUMNS = 2;
 
-function LayoutToolbar( { search, onSearch, typeFilter, onTypeFilter, sourceFilter, onSourceFilter, viewMode, onViewMode, columns, onColumns, sources, copy } ) {
+function LayoutToolbar( { search, onSearch, typeFilter, onTypeFilter, sourceFilter, onSourceFilter, viewMode, onViewMode, columns, onColumns, sources, templateSectionKeys, templateTitles, copy } ) {
+	// Each available template type is an indented sub-item under "Templates" (e.g. "— Single Post"),
+	// so the filter mirrors the per-slug sections.
+	const templateSubOptions = ( templateSectionKeys || [] ).map( ( key ) => ( {
+		label: '— ' + getSectionLabel( key, copy, templateTitles ),
+		value: key,
+	} ) );
 	const typeOptions = [
 		{ label: __( 'All types', 'pixelgrade_assistant' ), value: 'all' },
 		{ label: copy.headers, value: 'headers' },
 		{ label: copy.footers, value: 'footers' },
 		{ label: copy.templatesType, value: 'templates' },
+		...templateSubOptions,
 		{ label: copy.features, value: 'features' },
 		{ label: copy.templateParts, value: 'templateParts' },
 	];
@@ -978,7 +1031,7 @@ function LayoutToolbar( { search, onSearch, typeFilter, onTypeFilter, sourceFilt
 
 // One Site-Editor-style section: a labelled header with a divider, then the section's cards. The
 // active-source caption (single-slot sections only) reads from `applied`, so it survives filtering.
-function LayoutSection( { groupKey, units, applied, viewMode, columns, busyKey, copy, featureSamples, operation, previewConfig, onFeatureSampleChange, onImport, onPreview, onUndo } ) {
+function LayoutSection( { groupKey, units, applied, viewMode, columns, busyKey, copy, featureSamples, operation, previewConfig, templateTitles, onFeatureSampleChange, onImport, onPreview, onUndo } ) {
 	const activeSummary = getGroupActiveSummary( groupKey, applied );
 	const isSingleSlot = isSingleSlotSection( groupKey );
 	const caption = activeSummary
@@ -1004,7 +1057,7 @@ function LayoutSection( { groupKey, units, applied, viewMode, columns, busyKey, 
 					paddingBottom: '8px',
 				},
 			},
-			createElement( 'h2', { style: { fontSize: '15px', margin: 0 } }, getSectionLabel( groupKey, copy ) ),
+			createElement( 'h2', { style: { fontSize: '15px', margin: 0 } }, getSectionLabel( groupKey, copy, templateTitles ) ),
 			caption ? createElement( 'span', { style: { color: '#646970', fontSize: '13px' } }, caption ) : null
 		),
 		createElement(
@@ -1111,6 +1164,28 @@ export function LayoutUnits() {
 		() => filterUnits( ordered, { search, typeFilter, sourceFilter } ),
 		[ ordered, search, typeFilter, sourceFilter ]
 	);
+	const templateTitles = useMemo( () => buildTemplateTitles( units ), [ units ] );
+	// The distinct template sections present (in display order), for the Type-filter sub-items.
+	// Derived from the full unit list so the options stay stable regardless of the active filters.
+	const templateSectionKeys = useMemo( () => {
+		const seen = {};
+		const keys = [];
+
+		ordered.forEach( ( unit ) => {
+			if ( 'wp_template' !== unit.type ) {
+				return;
+			}
+
+			const key = getSectionKey( unit );
+
+			if ( ! seen[ key ] ) {
+				seen[ key ] = true;
+				keys.push( key );
+			}
+		} );
+
+		return keys.sort( compareTemplateSectionKeys );
+	}, [ ordered ] );
 
 	const startOperationSteps = ( key, steps ) => {
 		const operationId = operationIdRef.current + 1;
@@ -1568,6 +1643,8 @@ export function LayoutUnits() {
 						columns,
 						onColumns: setColumns,
 						sources,
+						templateSectionKeys,
+						templateTitles,
 						copy,
 					} ),
 					sections.length
@@ -1584,6 +1661,7 @@ export function LayoutUnits() {
 									featureSamples,
 									operation,
 									previewConfig,
+									templateTitles,
 									onFeatureSampleChange: setFeatureSample,
 									onImport: importUnit,
 									onPreview: setPreviewUnit,
