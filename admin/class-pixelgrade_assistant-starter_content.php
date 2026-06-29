@@ -2189,6 +2189,57 @@ class PixelgradeAssistant_StarterContent {
 	}
 
 	/**
+	 * Normalize optional Assistant Catalog metadata from an SCE source record.
+	 *
+	 * Missing metadata defaults to the legacy behavior: visible, source title/excerpt, no order,
+	 * no grouping, and no tags.
+	 *
+	 * @param array $post Source post record.
+	 *
+	 * @return array
+	 */
+	private function get_content_unit_catalog( $post ) {
+		$pattern = array();
+		if ( ! empty( $post['pixassist'] ) && is_array( $post['pixassist'] ) && ! empty( $post['pixassist']['pagePattern'] ) && is_array( $post['pixassist']['pagePattern'] ) ) {
+			$pattern = $post['pixassist']['pagePattern'];
+		}
+
+		return array(
+			'enabled'     => array_key_exists( 'enabled', $pattern ) ? $this->sanitize_bool( $pattern['enabled'] ) : true,
+			'order'       => ! empty( $pattern['order'] ) ? absint( $pattern['order'] ) : 0,
+			'group'       => ! empty( $pattern['group'] ) ? sanitize_key( $pattern['group'] ) : '',
+			'tags'        => ! empty( $pattern['tags'] ) ? $this->normalize_content_unit_catalog_tags( $pattern['tags'] ) : array(),
+			'title'       => ! empty( $pattern['title'] ) ? wp_strip_all_tags( $pattern['title'] ) : '',
+			'description' => ! empty( $pattern['description'] ) ? wp_strip_all_tags( $pattern['description'] ) : '',
+			'reason'      => ! empty( $pattern['reason'] ) ? wp_strip_all_tags( $pattern['reason'] ) : '',
+		);
+	}
+
+	/**
+	 * Normalize catalog tags from an SCE source record.
+	 *
+	 * @param array|string $tags Raw tags.
+	 *
+	 * @return array
+	 */
+	private function normalize_content_unit_catalog_tags( $tags ) {
+		if ( is_string( $tags ) ) {
+			$tags = explode( ',', $tags );
+		}
+
+		$normalized = array();
+		foreach ( (array) $tags as $tag ) {
+			$tag = sanitize_text_field( $tag );
+			if ( '' === $tag ) {
+				continue;
+			}
+			$normalized[] = $tag;
+		}
+
+		return array_values( array_unique( $normalized ) );
+	}
+
+	/**
 	 * Build a safe UI descriptor for a source content record.
 	 *
 	 * @param string $demo_key Starter/demo key.
@@ -2205,13 +2256,22 @@ class PixelgradeAssistant_StarterContent {
 		$post_type    = sanitize_key( $post['post_type'] );
 		$slug         = sanitize_key( $post['post_name'] );
 		$availability = $this->get_content_unit_availability( $post );
+		$catalog      = $this->get_content_unit_catalog( $post );
+
+		if ( empty( $catalog['enabled'] ) ) {
+			return array();
+		}
 
 		return array(
 			'id'                 => absint( $post['ID'] ),
 			'type'               => $post_type,
 			'slug'               => $slug,
-			'title'              => ! empty( $post['post_title'] ) ? wp_strip_all_tags( $post['post_title'] ) : $slug,
-			'description'        => ! empty( $post['post_excerpt'] ) ? wp_strip_all_tags( $post['post_excerpt'] ) : '',
+			'title'              => ! empty( $catalog['title'] ) ? $catalog['title'] : ( ! empty( $post['post_title'] ) ? wp_strip_all_tags( $post['post_title'] ) : $slug ),
+			'description'        => ! empty( $catalog['description'] ) ? $catalog['description'] : ( ! empty( $post['post_excerpt'] ) ? wp_strip_all_tags( $post['post_excerpt'] ) : '' ),
+			'order'              => ! empty( $catalog['order'] ) ? absint( $catalog['order'] ) : 0,
+			'group'              => ! empty( $catalog['group'] ) ? sanitize_key( $catalog['group'] ) : '',
+			'tags'               => ! empty( $catalog['tags'] ) ? $catalog['tags'] : array(),
+			'catalogReason'      => ! empty( $catalog['reason'] ) ? $catalog['reason'] : '',
 			'kindLabel'          => $this->get_content_unit_type_label( $post_type ),
 			'mediaCount'         => count( $this->get_content_unit_media_ids( $post ) ),
 			'gate'               => ! empty( $availability['gate'] ) ? sanitize_key( $availability['gate'] ) : '',
@@ -2313,6 +2373,20 @@ class PixelgradeAssistant_StarterContent {
 	 * @return int
 	 */
 	private function sort_content_units( $a, $b ) {
+		$catalog_order_a = ! empty( $a['order'] ) ? absint( $a['order'] ) : 0;
+		$catalog_order_b = ! empty( $b['order'] ) ? absint( $b['order'] ) : 0;
+
+		if ( $catalog_order_a !== $catalog_order_b ) {
+			if ( 0 === $catalog_order_a ) {
+				return 1;
+			}
+			if ( 0 === $catalog_order_b ) {
+				return -1;
+			}
+
+			return $catalog_order_a < $catalog_order_b ? -1 : 1;
+		}
+
 		$order = array( 'page' => 10, 'post' => 20, 'portfolio' => 30, 'product' => 40 );
 		$type_a = isset( $a['type'] ) ? sanitize_key( $a['type'] ) : '';
 		$type_b = isset( $b['type'] ) ? sanitize_key( $b['type'] ) : '';
@@ -5754,6 +5828,21 @@ HTML;
 				'code'    => 'unit_not_found',
 				'message' => esc_html__( 'The requested page pattern could not be found.', '__plugin_txtd' ),
 				'data'    => array(),
+			);
+		}
+
+		$catalog = $this->get_content_unit_catalog( $unit_post );
+		if ( empty( $catalog['enabled'] ) ) {
+			$this->restore_import_counting();
+
+			return array(
+				'code'    => 'page_pattern_hidden',
+				'message' => ! empty( $catalog['reason'] )
+					? $catalog['reason']
+					: esc_html__( 'This page pattern has been hidden by the starter source.', '__plugin_txtd' ),
+				'data'    => array(
+					'reason' => ! empty( $catalog['reason'] ) ? $catalog['reason'] : '',
+				),
 			);
 		}
 
@@ -9231,12 +9320,14 @@ HTML;
 			$starter_content[ $demo_key ]['content_units'] = array();
 		}
 
+		$catalog = $this->get_content_unit_catalog( $unit_post );
+
 		$starter_content[ $demo_key ]['content_units'][ $slot ] = array(
 			'type'         => $unit_type,
 			'slug'         => $slug,
 			'localSlug'    => sanitize_key( $local_slug ),
-			'title'        => ! empty( $unit_post['post_title'] ) ? wp_strip_all_tags( $unit_post['post_title'] ) : $slug,
-			'description'  => ! empty( $unit_post['post_excerpt'] ) ? wp_strip_all_tags( $unit_post['post_excerpt'] ) : '',
+			'title'        => ! empty( $catalog['title'] ) ? $catalog['title'] : ( ! empty( $unit_post['post_title'] ) ? wp_strip_all_tags( $unit_post['post_title'] ) : $slug ),
+			'description'  => ! empty( $catalog['description'] ) ? $catalog['description'] : ( ! empty( $unit_post['post_excerpt'] ) ? wp_strip_all_tags( $unit_post['post_excerpt'] ) : '' ),
 			'sourceId'     => isset( $unit_post['ID'] ) ? absint( $unit_post['ID'] ) : 0,
 			'localId'      => absint( $local_id ),
 			'demoKey'      => $demo_key,

@@ -312,8 +312,27 @@ function mergeUnitsForSources( existingUnits, incomingUnits, sourceIds ) {
 	];
 }
 
+function getCatalogOrder( unit ) {
+	const order = Number( unit && unit.order ? unit.order : 0 );
+
+	return Number.isFinite( order ) && order > 0 ? order : 0;
+}
+
 function orderedUnits( units ) {
 	return units.slice().sort( ( a, b ) => {
+		const oa = getCatalogOrder( a );
+		const ob = getCatalogOrder( b );
+		if ( oa !== ob ) {
+			if ( ! oa ) {
+				return 1;
+			}
+			if ( ! ob ) {
+				return -1;
+			}
+
+			return oa - ob;
+		}
+
 		const ga = TYPE_ORDER.indexOf( getTypeGroupKey( a ) );
 		const gb = TYPE_ORDER.indexOf( getTypeGroupKey( b ) );
 		if ( ga !== gb ) {
@@ -354,6 +373,10 @@ function filterUnits( units, filters ) {
 				( unit.slug || '' ) +
 				' ' +
 				( unit.kindLabel || '' ) +
+				' ' +
+				( unit.group || '' ) +
+				' ' +
+				( Array.isArray( unit.tags ) ? unit.tags.join( ' ' ) : unit.tags || '' ) +
 				' ' +
 				( unit.source && unit.source.title ? unit.source.title : '' )
 			).toLowerCase();
@@ -419,6 +442,39 @@ function renderSourceBadge( source, copy ) {
 			},
 		},
 		source && source.gate ? copy.premiumLabel : copy.freeLabel
+	);
+}
+
+function renderCatalogBadges( unit ) {
+	const tags = Array.isArray( unit.tags ) ? unit.tags : [];
+	const labels = [ unit.group || '', ...tags ].filter( Boolean ).slice( 0, 4 );
+
+	if ( ! labels.length ) {
+		return null;
+	}
+
+	return createElement(
+		'div',
+		{ style: { alignItems: 'center', display: 'flex', flexWrap: 'wrap', gap: '5px' } },
+		labels.map( ( label ) =>
+			createElement(
+				'span',
+				{
+					key: label,
+					style: {
+						background: '#f6f7f7',
+						border: '1px solid #dcdcde',
+						borderRadius: '2px',
+						color: '#50575e',
+						display: 'inline-block',
+						fontSize: '11px',
+						lineHeight: '16px',
+						padding: '0 6px',
+					},
+				},
+				label
+			)
+		)
 	);
 }
 
@@ -614,6 +670,7 @@ function UnitCard( { unit, viewMode, applied, busyKey, copy, previewConfig, onAp
 						: null
 				),
 				unit.description ? createElement( 'span', { style: { color: '#646970', fontSize: '12px' } }, unit.description ) : null,
+				renderCatalogBadges( unit ),
 				reason ? createElement( 'span', { style: { color: '#8a2424', fontSize: '12px' } }, reason ) : null
 			),
 			createElement(
@@ -662,6 +719,7 @@ function UnitCard( { unit, viewMode, applied, busyKey, copy, previewConfig, onAp
 					: null
 			),
 			unit.description ? createElement( 'div', { style: { color: '#50575e', fontSize: '13px', lineHeight: 1.45 } }, unit.description ) : null,
+			renderCatalogBadges( unit ),
 			createElement(
 				'div',
 				{ style: { color: '#646970', fontSize: '12px' } },

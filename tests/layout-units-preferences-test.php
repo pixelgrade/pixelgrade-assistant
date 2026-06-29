@@ -291,6 +291,9 @@ assert_true( false !== strpos( $content_patterns_js, 'PreviewModeToggle' ), 'Pag
 assert_true( false !== strpos( $content_patterns_js, 'createElement( PreviewModeToggle' ), 'Page Patterns toolbar must render the shared preview-mode toggle.' );
 assert_true( false !== strpos( $content_patterns_js, 'getContentPatternPreferences' ), 'Page Patterns tab must hydrate toolbar state from persisted preferences.' );
 assert_true( false !== strpos( $content_patterns_js, 'saveContentPatternPreferences' ), 'Page Patterns tab must save toolbar state changes to persisted preferences.' );
+assert_true( false !== strpos( $content_patterns_js, 'getCatalogOrder' ), 'Page Patterns tab must preserve source catalog display order.' );
+assert_true( false !== strpos( $content_patterns_js, 'unit.group' ), 'Page Patterns tab must consume source catalog group metadata.' );
+assert_true( false !== strpos( $content_patterns_js, 'unit.tags' ), 'Page Patterns tab must consume source catalog tag metadata.' );
 assert_true( false !== strpos( $content_patterns_js, 'pixassist-content-patterns__grid' ), 'Page Patterns grid must expose a stable class for responsive constraints.' );
 assert_true( false !== strpos( $content_patterns_js, '@media (max-width: 782px)' ), 'Page Patterns must include an admin-mobile breakpoint.' );
 assert_true( false !== strpos( $content_patterns_js, 'grid-template-columns: 1fr !important;' ), 'Page Patterns mobile grid must collapse to one column to avoid horizontal overflow.' );

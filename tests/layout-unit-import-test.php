@@ -528,6 +528,21 @@ function paf_remote_data( $url = '' ) {
 		);
 	}
 
+	if ( false !== strpos( $url, 'starter.pixelgrade.com/mies-lt' ) ) {
+		return array(
+			'code'    => 'success',
+			'message' => '',
+			'data'    => array(
+				'post_types' => array(
+					'page' => array(
+						'name' => 'page',
+						'ids'  => array( 48, 42, 14, 12, 9 ),
+					),
+				),
+			),
+		);
+	}
+
 	return array(
 		'code'    => 'success',
 		'message' => '',
@@ -545,7 +560,7 @@ function paf_remote_data( $url = '' ) {
 				),
 				'page'             => array(
 					'name' => 'page',
-					'ids'  => array( 50, 52 ),
+					'ids'  => array( 50, 52, 53, 54 ),
 				),
 			),
 			'post_settings' => array(
@@ -873,6 +888,165 @@ function paf_remote_posts( $post_type, $url = '' ) {
 	}
 
 	if ( 'page' === $post_type ) {
+		if ( false !== strpos( $url, 'starter.pixelgrade.com/mies-lt' ) ) {
+			return array(
+				array(
+					'ID'                    => 48,
+					'post_title'            => 'Contact',
+					'post_content'          => '<!-- wp:paragraph --><p>Contact intro with useful structure.</p><!-- /wp:paragraph --><!-- wp:image {"id":39,"sizeSlug":"large"} --><figure class="wp-block-image size-large"><img src="https://starter.test/header-image.jpg" class="wp-image-39"/></figure><!-- /wp:image -->',
+					'post_content_filtered' => '',
+					'post_excerpt'          => '',
+					'post_status'           => 'publish',
+					'post_name'             => 'contact',
+					'post_type'             => 'page',
+					'post_date'             => '2026-01-01 00:00:00',
+					'post_date_gmt'         => '2026-01-01 00:00:00',
+					'post_modified'         => '2026-01-01 00:00:00',
+					'post_modified_gmt'     => '2026-01-01 00:00:00',
+					'post_parent'           => 0,
+					'menu_order'            => 0,
+					'guid'                  => 'https://starter.pixelgrade.com/mies-lt/?page_id=48',
+					'meta'                  => array(
+						'_thumbnail_id' => array( '39' ),
+					),
+					'taxonomies'            => array(),
+					'pixassist'             => array(
+						'pagePattern' => array(
+							'enabled'     => true,
+							'order'       => 30,
+							'group'       => 'contact',
+							'tags'        => array( 'contact', 'lead' ),
+							'title'       => 'Contact Page',
+							'description' => 'A reusable contact page with intro copy and contact sections.',
+							'reason'      => '',
+						),
+					),
+				),
+				array(
+					'ID'                    => 42,
+					'post_title'            => 'News',
+					'post_content'          => '',
+					'post_content_filtered' => '',
+					'post_excerpt'          => '',
+					'post_status'           => 'publish',
+					'post_name'             => 'news',
+					'post_type'             => 'page',
+					'post_date'             => '2026-01-01 00:00:00',
+					'post_date_gmt'         => '2026-01-01 00:00:00',
+					'post_modified'         => '2026-01-01 00:00:00',
+					'post_modified_gmt'     => '2026-01-01 00:00:00',
+					'post_parent'           => 0,
+					'menu_order'            => 0,
+					'guid'                  => 'https://starter.pixelgrade.com/mies-lt/?page_id=42',
+					'meta'                  => array(),
+					'taxonomies'            => array(),
+					'pixassist'             => array(
+						'pagePattern' => array(
+							'enabled'     => false,
+							'order'       => 0,
+							'group'       => 'blog',
+							'tags'        => array( 'blog', 'index' ),
+							'title'       => '',
+							'description' => '',
+							'reason'      => 'Empty posts index placeholder; hidden from Assistant Page Patterns.',
+						),
+					),
+				),
+				array(
+					'ID'                    => 14,
+					'post_title'            => 'Profile',
+					'post_content'          => '<!-- wp:paragraph --><p>Profile content with biography and context.</p><!-- /wp:paragraph -->',
+					'post_content_filtered' => '',
+					'post_excerpt'          => '',
+					'post_status'           => 'publish',
+					'post_name'             => 'profile',
+					'post_type'             => 'page',
+					'post_date'             => '2026-01-01 00:00:00',
+					'post_date_gmt'         => '2026-01-01 00:00:00',
+					'post_modified'         => '2026-01-01 00:00:00',
+					'post_modified_gmt'     => '2026-01-01 00:00:00',
+					'post_parent'           => 0,
+					'menu_order'            => 0,
+					'guid'                  => 'https://starter.pixelgrade.com/mies-lt/?page_id=14',
+					'meta'                  => array(),
+					'taxonomies'            => array(),
+					'pixassist'             => array(
+						'pagePattern' => array(
+							'enabled'     => true,
+							'order'       => 20,
+							'group'       => 'about',
+							'tags'        => array( 'about', 'profile' ),
+							'title'       => 'Profile Page',
+							'description' => 'An about/profile page with structured biography and portfolio context.',
+							'reason'      => '',
+						),
+					),
+				),
+				array(
+					'ID'                    => 12,
+					'post_title'            => 'Work',
+					'post_content'          => '<!-- wp:heading --><h2>Work</h2><!-- /wp:heading -->',
+					'post_content_filtered' => '',
+					'post_excerpt'          => '',
+					'post_status'           => 'publish',
+					'post_name'             => 'work',
+					'post_type'             => 'page',
+					'post_date'             => '2026-01-01 00:00:00',
+					'post_date_gmt'         => '2026-01-01 00:00:00',
+					'post_modified'         => '2026-01-01 00:00:00',
+					'post_modified_gmt'     => '2026-01-01 00:00:00',
+					'post_parent'           => 0,
+					'menu_order'            => 0,
+					'guid'                  => 'https://starter.pixelgrade.com/mies-lt/?page_id=12',
+					'meta'                  => array(
+						'_thumbnail_id' => array( '39' ),
+					),
+					'taxonomies'            => array(),
+					'pixassist'             => array(
+						'pagePattern' => array(
+							'enabled'     => false,
+							'order'       => 0,
+							'group'       => 'portfolio',
+							'tags'        => array( 'portfolio', 'index' ),
+							'title'       => '',
+							'description' => '',
+							'reason'      => 'Title-only portfolio archive placeholder; hidden from Assistant Page Patterns.',
+						),
+					),
+				),
+				array(
+					'ID'                    => 9,
+					'post_title'            => 'Home',
+					'post_content'          => '<!-- wp:paragraph --><p>Home page with hero content and project highlights.</p><!-- /wp:paragraph -->',
+					'post_content_filtered' => '',
+					'post_excerpt'          => '',
+					'post_status'           => 'publish',
+					'post_name'             => 'home',
+					'post_type'             => 'page',
+					'post_date'             => '2026-01-01 00:00:00',
+					'post_date_gmt'         => '2026-01-01 00:00:00',
+					'post_modified'         => '2026-01-01 00:00:00',
+					'post_modified_gmt'     => '2026-01-01 00:00:00',
+					'post_parent'           => 0,
+					'menu_order'            => 0,
+					'guid'                  => 'https://starter.pixelgrade.com/mies-lt/?page_id=9',
+					'meta'                  => array(),
+					'taxonomies'            => array(),
+					'pixassist'             => array(
+						'pagePattern' => array(
+							'enabled'     => true,
+							'order'       => 10,
+							'group'       => 'landing',
+							'tags'        => array( 'home', 'landing' ),
+							'title'       => 'Home Page',
+							'description' => 'A landing page with hero content, project highlights, and editorial sections.',
+							'reason'      => '',
+						),
+					),
+				),
+			);
+		}
+
 		return array(
 			array(
 				'ID'                    => 50,
@@ -913,6 +1087,66 @@ function paf_remote_posts( $post_type, $url = '' ) {
 					'_thumbnail_id' => array( '39' ),
 				),
 				'taxonomies'            => array(),
+			),
+			array(
+				'ID'                    => 53,
+				'post_title'            => 'Work',
+				'post_content'          => '',
+				'post_content_filtered' => '',
+				'post_excerpt'          => '',
+				'post_status'           => 'publish',
+				'post_name'             => 'work',
+				'post_type'             => 'page',
+				'post_date'             => '2026-01-01 00:00:00',
+				'post_date_gmt'         => '2026-01-01 00:00:00',
+				'post_modified'         => '2026-01-01 00:00:00',
+				'post_modified_gmt'     => '2026-01-01 00:00:00',
+				'post_parent'           => 0,
+				'menu_order'            => 0,
+				'guid'                  => 'https://starter.test/?page_id=53',
+				'meta'                  => array(),
+				'taxonomies'            => array(),
+				'pixassist'             => array(
+					'pagePattern' => array(
+						'enabled'     => false,
+						'order'       => 20,
+						'group'       => 'portfolio',
+						'tags'        => array( 'portfolio' ),
+						'title'       => 'Selected Work',
+						'description' => 'Hidden because the source page only carries a title.',
+						'reason'      => 'Title-only page.',
+					),
+				),
+			),
+			array(
+				'ID'                    => 54,
+				'post_title'            => 'Services',
+				'post_content'          => '<!-- wp:paragraph --><p>Service intro.</p><!-- /wp:paragraph --><!-- wp:columns --><!-- wp:column --><p>One.</p><!-- /wp:column --><!-- /wp:columns -->',
+				'post_content_filtered' => '',
+				'post_excerpt'          => '',
+				'post_status'           => 'publish',
+				'post_name'             => 'services-pattern',
+				'post_type'             => 'page',
+				'post_date'             => '2026-01-01 00:00:00',
+				'post_date_gmt'         => '2026-01-01 00:00:00',
+				'post_modified'         => '2026-01-01 00:00:00',
+				'post_modified_gmt'     => '2026-01-01 00:00:00',
+				'post_parent'           => 0,
+				'menu_order'            => 0,
+				'guid'                  => 'https://starter.test/?page_id=54',
+				'meta'                  => array(),
+				'taxonomies'            => array(),
+				'pixassist'             => array(
+					'pagePattern' => array(
+						'enabled'     => true,
+						'order'       => 5,
+						'group'       => 'business',
+						'tags'        => array( 'services', 'landing' ),
+						'title'       => 'Services Landing',
+						'description' => 'A services page with intro copy and a column layout.',
+						'reason'      => '',
+					),
+				),
 			),
 		);
 	}
@@ -1968,17 +2202,41 @@ $content_units_response = $starter_content->list_content_units( 'content-pattern
 assert_same( 'success', $content_units_response['code'], 'Content-unit listing must return a success code.' );
 
 $about_unit = null;
+$services_unit = null;
+$listed_slugs = array();
 foreach ( $content_units_response['data']['units'] as $unit ) {
+	$listed_slugs[] = $unit['slug'];
 	if ( 'page' === $unit['type'] && 'about-pattern' === $unit['slug'] ) {
 		$about_unit = $unit;
 	}
+	if ( 'page' === $unit['type'] && 'services-pattern' === $unit['slug'] ) {
+		$services_unit = $unit;
+	}
 }
+assert_true( ! in_array( 'work', $listed_slugs, true ), 'Content-unit listing must hide page patterns explicitly disabled by source catalog metadata.' );
+assert_same( 'services-pattern', $listed_slugs[0], 'Content-unit listing must sort catalog-ordered records before uncatalogued records.' );
+assert_true( is_array( $services_unit ), 'Content-unit listing must expose curated visible page patterns.' );
+assert_same( 'Services Landing', $services_unit['title'], 'Content-unit listing must use the catalog title override.' );
+assert_same( 'A services page with intro copy and a column layout.', $services_unit['description'], 'Content-unit listing must use the catalog description override.' );
+assert_same( 5, $services_unit['order'], 'Content-unit listing must expose the catalog display order.' );
+assert_same( 'business', $services_unit['group'], 'Content-unit listing must expose the catalog group.' );
+assert_same( array( 'services', 'landing' ), $services_unit['tags'], 'Content-unit listing must expose catalog tags.' );
 assert_true( is_array( $about_unit ), 'Content-unit listing must expose page-level records from SCE sources.' );
 assert_same( 'About Pattern', $about_unit['title'], 'Content-unit listing must preserve the source page title.' );
+assert_same( '', $about_unit['group'], 'Missing catalog metadata must preserve backward-compatible empty grouping.' );
+assert_same( array(), $about_unit['tags'], 'Missing catalog metadata must preserve backward-compatible empty tags.' );
 assert_same( true, $about_unit['available'], 'Editorial page patterns must be available without Plus.' );
 assert_same( true, $about_unit['previewAvailable'], 'Content-unit listing must advertise same-origin live previews for records with block content.' );
 assert_same( 'content', $about_unit['previewMode'], 'Content-unit previews must be identified as content previews, not layout/template previews.' );
 assert_same( 'https://starter.test/?page_id=52', $about_unit['previewUrl'], 'Content-unit listing must preserve the source permalink as a demo/fallback preview URL.' );
+
+$hidden_content_summary = $starter_content->import_content_unit(
+	'content-patterns',
+	'https://starter.test/wp-json/sce/v2/',
+	'page',
+	'work'
+);
+assert_same( 'page_pattern_hidden', $hidden_content_summary['code'], 'Direct content-unit imports must reject records explicitly hidden by source catalog metadata.' );
 
 $content_summary = $starter_content->import_content_unit(
 	'content-patterns',
@@ -2025,5 +2283,73 @@ assert_true( 0 < $reset_summary['posts_deleted'], 'Full Reset must delete import
 assert_true( 0 < $reset_summary['media_deleted'], 'Full Reset must delete imported page-pattern media.' );
 assert_same( array(), $GLOBALS['paf_pixassist_options']['imported_starter_content'], 'Full Reset must clear the content-unit journal.' );
 assert_same( array( 'is_connected' => true, 'email' => 'owner@example.test' ), $GLOBALS['paf_pixassist_options']['account'], 'Full Reset must not touch account/license/OAuth state after content imports.' );
+
+$GLOBALS['paf_remote_requests']       = array();
+$GLOBALS['paf_inserted_posts']        = array();
+$GLOBALS['paf_deleted_posts']         = array();
+$GLOBALS['paf_deleted_attachments']   = array();
+$GLOBALS['paf_inserted_attachments']  = array();
+$GLOBALS['paf_attachment_metadata']   = array();
+$GLOBALS['paf_uploaded_bits']         = array();
+$GLOBALS['paf_pixassist_options']     = array();
+$GLOBALS['paf_pixassist_db_options']  = array();
+$GLOBALS['paf_next_post_id']          = 7000;
+$GLOBALS['paf_next_attachment_id']    = 8000;
+
+add_filter( 'pixassist_sce_allowed_demo_hosts', function ( $hosts ) {
+	$hosts[] = 'starter.pixelgrade.com';
+
+	return $hosts;
+} );
+
+$mies_units_response = $starter_content->list_content_units( 'mies-lt', 'https://starter.pixelgrade.com/mies-lt/wp-json/sce/v2/' );
+assert_same( 'success', $mies_units_response['code'], 'Mies content-unit listing must return a success code.' );
+
+$mies_slugs = array();
+$mies_contact_unit = null;
+foreach ( $mies_units_response['data']['units'] as $unit ) {
+	$mies_slugs[] = $unit['slug'];
+	if ( 'contact' === $unit['slug'] ) {
+		$mies_contact_unit = $unit;
+	}
+}
+
+assert_same( array( 'home', 'profile', 'contact' ), $mies_slugs, 'Mies listing must hide low-value Work and News pages while preserving catalog order.' );
+assert_true( is_array( $mies_contact_unit ), 'Mies listing must keep valuable Contact page patterns visible.' );
+assert_same( 'Contact Page', $mies_contact_unit['title'], 'Mies listing must use the Contact catalog title.' );
+assert_same( 'A reusable contact page with intro copy and contact sections.', $mies_contact_unit['description'], 'Mies listing must use the Contact catalog description.' );
+assert_same( 'contact', $mies_contact_unit['group'], 'Mies listing must expose the Contact catalog group.' );
+assert_same( array( 'contact', 'lead' ), $mies_contact_unit['tags'], 'Mies listing must expose Contact catalog tags.' );
+
+$mies_hidden_work = $starter_content->import_content_unit(
+	'mies-lt',
+	'https://starter.pixelgrade.com/mies-lt/wp-json/sce/v2/',
+	'page',
+	'work'
+);
+assert_same( 'page_pattern_hidden', $mies_hidden_work['code'], 'Mies Work direct import must be rejected when hidden by source catalog metadata.' );
+
+$mies_hidden_news = $starter_content->import_content_unit(
+	'mies-lt',
+	'https://starter.pixelgrade.com/mies-lt/wp-json/sce/v2/',
+	'page',
+	'news'
+);
+assert_same( 'page_pattern_hidden', $mies_hidden_news['code'], 'Mies News direct import must be rejected when hidden by source catalog metadata.' );
+
+$mies_contact_summary = $starter_content->import_content_unit(
+	'mies-lt',
+	'https://starter.pixelgrade.com/mies-lt/wp-json/sce/v2/',
+	'page',
+	'contact'
+);
+assert_same( 'success', $mies_contact_summary['code'], 'Mies Contact page pattern must still import.' );
+assert_same( 1, $mies_contact_summary['data']['dependencies']['content'], 'Mies Contact import must report the selected content record.' );
+assert_same( 1, $mies_contact_summary['data']['dependencies']['media'], 'Mies Contact import must import referenced media.' );
+assert_same( 'Contact Page', $mies_contact_summary['data']['appliedContent']['page:contact']['title'], 'Mies Contact import response must expose the catalog title in applied content state.' );
+
+$mies_journal = $GLOBALS['paf_pixassist_options']['imported_starter_content']['mies-lt'];
+assert_true( isset( $mies_journal['content_units']['page:contact'] ), 'Mies Contact import must record applied content state.' );
+assert_same( 'Contact Page', $mies_journal['content_units']['page:contact']['title'], 'Mies applied content state must carry the catalog title.' );
 
 echo "Layout unit import contract OK\n";
