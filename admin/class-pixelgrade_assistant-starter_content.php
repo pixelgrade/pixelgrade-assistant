@@ -2599,7 +2599,7 @@ HTML;
 			// Cache the fetched demo PAGE per URL (not the focus/runtime scripts — those are injected fresh
 			// below, so script changes take effect immediately and one cached page serves any focus). The
 			// `v2` prefix drops older cache entries that baked the script in.
-			$cache_key = 'pixassist_demo_prev_v2_' . md5( $target_url );
+			$cache_key = 'pixassist_demo_prev_v3_' . md5( $target_url );
 			$html      = get_transient( $cache_key );
 
 			if ( false === $html ) {
@@ -2616,8 +2616,12 @@ HTML;
 				}
 
 				// <base> keeps the demo's relative assets resolving to the demo root even on a deep URL.
+				// The neutralizer (injected in <head>, before the demo's own scripts) stops the proxied
+				// page's cross-origin WooCommerce cart-fragment refresh — there is no cart in a static
+				// preview, and it otherwise spams CORS errors in the admin console on every demo card.
 				$head_inject = '<base href="' . esc_url( $demo_base ) . '">'
-					. '<style>*{animation:none!important;transition:none!important;scroll-behavior:auto!important}</style>';
+					. '<style>*{animation:none!important;transition:none!important;scroll-behavior:auto!important}</style>'
+					. '<script>(function(){try{var O=XMLHttpRequest.prototype.open;XMLHttpRequest.prototype.open=function(m,u){if(typeof u==="string"&&u.indexOf("wc-ajax=")!==-1){this.__pixBlock=1;}return O.apply(this,arguments);};var S=XMLHttpRequest.prototype.send;XMLHttpRequest.prototype.send=function(){if(this.__pixBlock){return;}return S.apply(this,arguments);};var F=window.fetch;if(F){window.fetch=function(i){var u=(typeof i==="string")?i:(i&&i.url)||"";if(u.indexOf("wc-ajax=")!==-1){return Promise.resolve(new Response("",{status:204}));}return F.apply(this,arguments);};}}catch(e){}})();</script>';
 				$html = preg_replace_callback(
 					'/<head[^>]*>/i',
 					function ( $matches ) use ( $head_inject ) {
