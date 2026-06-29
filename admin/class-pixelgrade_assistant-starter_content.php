@@ -2311,7 +2311,10 @@ class PixelgradeAssistant_StarterContent {
 			$this->render_layout_unit_preview_document( $post['post_content'] );
 			$preview_html = ob_get_clean();
 
-			set_transient( $preview_cache_key, $preview_html, 3 * MINUTE_IN_SECONDS );
+			// Cache the cold render generously: it is the expensive step (live Style Manager CSS gen +
+			// theme render), keyed per unit+mode and invalidated whenever the unit/theme/SM state changes
+			// the cache key. A long TTL keeps re-scrolling, re-opening, and other users' first visits instant.
+			set_transient( $preview_cache_key, $preview_html, 30 * MINUTE_IN_SECONDS );
 
 			echo $preview_html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- block-rendered preview HTML.
 			exit;
@@ -2328,8 +2331,8 @@ class PixelgradeAssistant_StarterContent {
 
 			header( 'Content-Type: text/html; charset=' . get_bloginfo( 'charset' ) );
 			header( 'X-Robots-Tag: noindex, nofollow', true );
-			// Short PRIVATE browser cache so re-scrolling / re-opening the tab is instant; the matching
-			// server render cache (see layout_unit_preview_cache_key) is bounded to the same 180s window.
+			// Short PRIVATE browser cache so re-scrolling / re-opening the tab is instant; once it lapses
+			// the re-request still hits the much longer server render cache (layout_unit_preview_cache_key).
 			header( 'Cache-Control: private, max-age=180' );
 		}
 

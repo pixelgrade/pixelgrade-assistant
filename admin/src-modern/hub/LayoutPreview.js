@@ -18,7 +18,11 @@ import { __ } from '@wordpress/i18n';
 import { getPreviewMode, savePreviewMode } from './preferences';
 
 const DEFAULT_VW = 1200;
-const LOAD_TIMEOUT_MS = 8000;
+// A My-site render is heavy on the FIRST hit (live Style Manager CSS generation + theme render); the
+// result is then server-cached, so only the cold render is slow. Give that cold render generous
+// headroom — paired with the concurrency gate below — so a slow first paint resolves instead of
+// wrongly falling back to "No preview". Subsequent loads hit the cache and are near-instant.
+const LOAD_TIMEOUT_MS = 16000;
 // Hard ceiling on the reported frame height. The in-iframe runtime already tames full-viewport
 // heroes, but a pathological page could still report a runaway height (a `vh`/`%` block feeding back
 // off the iframe's own height, up to the browser's ~16.7M-px limit). Clamp so the iframe element can
