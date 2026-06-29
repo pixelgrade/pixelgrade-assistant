@@ -2814,6 +2814,9 @@ HTML;
 			if ( 'search' === $group ) {
 				return 'search';
 			}
+			if ( 'home' === $group || 'index' === $group ) {
+				return 'posts';
+			}
 
 			return 'generic';
 		}
@@ -2897,6 +2900,10 @@ HTML;
 				$this->set_archive_query_context( $this->local_portfolio_post_type() );
 			} elseif ( 'search' === $kind ) {
 				$this->set_search_query_context();
+			} elseif ( 'posts' === $kind ) {
+				// Blog home / index: render a multi-post listing instead of the default front-page query
+				// (which can surface a single static page), so the listing template previews as a real feed.
+				$this->set_archive_query_context( 'post' );
 			}
 		}
 
