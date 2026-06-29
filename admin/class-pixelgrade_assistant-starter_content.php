@@ -64,6 +64,18 @@ class PixelgradeAssistant_StarterContent {
 	private $preview_demo_menu_map = null;
 
 	/**
+	 * Scheme+host of the layout source (e.g. https://starter.pixelgrade.com), used to rebase a site-mode
+	 * preview's content images. A unit's content carries the demo's media URLs already rewritten to the
+	 * LOCAL upload path (a multisite `/wp-content/uploads/sites/<id>/…` path that does not exist locally
+	 * until import), so those images 404 in a pre-import preview. The runtime rebases a broken local image
+	 * to this host so the preview shows the real media the layout is designed for — exactly what Apply
+	 * will sideload — instead of a blank placeholder. Empty disables rebasing.
+	 *
+	 * @var string
+	 */
+	private $preview_media_host = '';
+
+	/**
 	 * The only instance.
 	 * @var     PixelgradeAssistant_StarterContent
 	 * @access  protected
@@ -2270,6 +2282,14 @@ class PixelgradeAssistant_StarterContent {
 			$this->preview_demo_menu_map  = null;
 			add_filter( 'pre_wp_nav_menu', array( $this, 'inject_demo_nav_menu' ), 10, 2 );
 
+			// Source scheme+host, so the runtime can rebase content images that point at the not-yet-imported
+			// local upload path back to the demo's real media (see $preview_media_host). Only when the source
+			// is one we already trust to fetch from.
+			$media_parts = wp_parse_url( $base_url );
+			$this->preview_media_host = ( ! empty( $media_parts['scheme'] ) && ! empty( $media_parts['host'] ) )
+				? $media_parts['scheme'] . '://' . $media_parts['host']
+				: '';
+
 			// Render templates against a representative query context from the LOCAL site (a real post for
 			// single, an archive query for archive, …) so post-title/content/featured-image blocks resolve
 			// instead of rendering against the front-page query. Parts (header/footer) need nothing.
@@ -2327,6 +2347,12 @@ class PixelgradeAssistant_StarterContent {
 ?>
 </div>
 <?php wp_footer(); ?>
+<?php
+			if ( ! empty( $this->preview_media_host ) ) {
+				// Tell the runtime which host to rebase broken (not-yet-imported) content images to.
+				echo '<script>window.__pixassistMediaHost=' . wp_json_encode( $this->preview_media_host ) . ';</script>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- json-encoded URL string.
+			}
+?>
 <?php echo $this->layout_preview_runtime_script(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- static inline JS. ?>
 </body>
 </html>
@@ -2406,10 +2432,40 @@ class PixelgradeAssistant_StarterContent {
 			img.removeAttribute( 'srcset' );
 		}
 	}
+	function rebaseLocalUploads() {
+		// A unit's content images point at the LOCAL upload path the importer WILL use (e.g.
+		// /wp-content/uploads/sites/6/…), which 404s until the layout is applied. Rewrite those to the
+		// demo's real media host UP FRONT so the preview loads the actual image the layout is designed for
+		// — exactly what Apply sideloads — instead of round-tripping a 404 into a placeholder. Only
+		// same-origin upload paths qualify; everything else (gravatars, demo-host images) is left as-is.
+		var host = window.__pixassistMediaHost || '';
+		if ( ! host ) {
+			return;
+		}
+		var imgs = el.querySelectorAll( 'img' );
+		for ( var i = 0; i < imgs.length; i++ ) {
+			var img = imgs[ i ];
+			var raw = img.getAttribute( 'src' ) || '';
+			if ( ! raw ) {
+				continue;
+			}
+			var u;
+			try { u = new URL( raw, location.href ); } catch ( e ) { continue; }
+			if ( u.host === location.host && -1 !== u.pathname.indexOf( '/wp-content/uploads/' ) ) {
+				img.removeAttribute( 'srcset' ); // the local sized variants do not exist either
+				img.setAttribute( 'src', host + u.pathname + u.search );
+			}
+		}
+	}
 	function placeholderImages() {
 		var imgs = el.querySelectorAll( 'img' );
 		for ( var i = 0; i < imgs.length; i++ ) {
 			var img = imgs[ i ];
+			// A static preview never scrolls, so native lazy-loading would leave below-the-fold images
+			// permanently unloaded — they would neither show nor get rebased/placeholdered. Force eager so
+			// every image resolves (and a broken one can be rebased to the demo host or placeholdered).
+			img.loading = 'eager';
+			img.removeAttribute( 'loading' );
 			if ( img.complete ) {
 				markBroken( img );
 			} else {
@@ -2490,6 +2546,7 @@ class PixelgradeAssistant_StarterContent {
 		}
 	}
 	function run() {
+		rebaseLocalUploads();
 		var focus = window.__pixassistPreviewFocus || 'full';
 		if ( 'header' === focus ) {
 			placeholderImages();
