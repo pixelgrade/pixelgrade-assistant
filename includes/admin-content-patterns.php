@@ -48,6 +48,23 @@ if ( ! function_exists( 'pixassist_get_content_patterns_data' ) ) {
 			'sources'   => pixassist_get_content_patterns_sources(),
 			'endpoints' => pixassist_get_content_patterns_endpoints(),
 			'applied'   => pixassist_get_content_patterns_applied(),
+			'preview'   => pixassist_get_content_patterns_preview(),
+		);
+	}
+}
+
+if ( ! function_exists( 'pixassist_get_content_patterns_preview' ) ) {
+	/**
+	 * Config consumed by the same-origin Page Patterns preview iframe route.
+	 *
+	 * @return array
+	 */
+	function pixassist_get_content_patterns_preview() {
+		return array(
+			'base'  => function_exists( 'home_url' ) ? esc_url_raw( home_url( '/' ) ) : '/',
+			'param' => 'pixassist_content_preview',
+			'nonce' => function_exists( 'wp_create_nonce' ) ? wp_create_nonce( 'pixassist_content_preview' ) : '',
+			'vw'    => 1200,
 		);
 	}
 }
@@ -86,8 +103,17 @@ if ( ! function_exists( 'pixassist_get_content_patterns_copy' ) ) {
 			'appliedTitle'   => esc_html__( 'Applied page patterns', '__plugin_txtd' ),
 			'appliedEmpty'   => esc_html__( 'No page patterns are applied yet.', '__plugin_txtd' ),
 			'appliedLabel'   => esc_html__( 'Applied', '__plugin_txtd' ),
+			'activeBadge'    => esc_html__( 'Active', '__plugin_txtd' ),
+			'sectionNoneApplied' => esc_html__( 'None applied yet', '__plugin_txtd' ),
+			'sourceHeading'  => esc_html__( 'Source', '__plugin_txtd' ),
+			'premiumLabel'   => esc_html__( 'Premium', '__plugin_txtd' ),
+			'freeLabel'      => esc_html__( 'Free', '__plugin_txtd' ),
 			'lockedLabel'    => esc_html__( 'Unavailable', '__plugin_txtd' ),
 			'mediaLabel'     => esc_html__( 'media', '__plugin_txtd' ),
+			'previewLabel'   => esc_html__( 'Expand', '__plugin_txtd' ),
+			'previewFull'    => esc_html__( 'Open the full page pattern preview', '__plugin_txtd' ),
+			'noPreview'      => esc_html__( 'No preview', '__plugin_txtd' ),
+			'refreshTitle'   => esc_html__( 'Reload page patterns from your starters', '__plugin_txtd' ),
 		);
 	}
 }

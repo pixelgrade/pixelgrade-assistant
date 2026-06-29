@@ -79,8 +79,15 @@ const defaultLayoutPrefs = {
 	viewMode: 'grid',
 	columns: 2,
 };
+const defaultContentPatternPrefs = {
+	typeFilter: 'all',
+	sourceFilter: 'all',
+	viewMode: 'grid',
+	columns: 2,
+};
 
 assertEqual(prefs.LAYOUT_UNIT_PREFERENCES_STORAGE_KEY, 'pixassist_layout_units_preferences', 'The Layouts preference key must be stable.');
+assertEqual(prefs.CONTENT_PATTERN_PREFERENCES_STORAGE_KEY, 'pixassist_content_patterns_preferences', 'The Page Patterns preference key must be separate from Layouts.');
 assertEqual(prefs.PREVIEW_MODE_STORAGE_KEY, 'pixassist_preview_mode', 'The preview mode key must keep the existing storage contract.');
 
 assertDeepEqual(
@@ -123,6 +130,46 @@ assertDeepEqual(
 	'Invalid stored Layouts preferences must fall back field-by-field.'
 );
 
+assertDeepEqual(
+	prefs.getContentPatternPreferences(makeStorage()),
+	defaultContentPatternPrefs,
+	'Missing stored Page Patterns preferences must hydrate defaults.'
+);
+
+const storedContentPatternPrefs = makeStorage({
+	pixassist_content_patterns_preferences: JSON.stringify({
+		typeFilter: 'page',
+		sourceFilter: 'felt-lt',
+		viewMode: 'list',
+		columns: 4,
+		ignored: 'not-localized',
+	}),
+});
+assertDeepEqual(
+	prefs.getContentPatternPreferences(storedContentPatternPrefs),
+	{
+		typeFilter: 'page',
+		sourceFilter: 'felt-lt',
+		viewMode: 'list',
+		columns: 4,
+	},
+	'Valid stored Page Patterns preferences must survive a new page session.'
+);
+
+const invalidContentPatternPrefs = makeStorage({
+	pixassist_content_patterns_preferences: JSON.stringify({
+		typeFilter: '',
+		sourceFilter: 17,
+		viewMode: 'cards',
+		columns: 99,
+	}),
+});
+assertDeepEqual(
+	prefs.getContentPatternPreferences(invalidContentPatternPrefs),
+	defaultContentPatternPrefs,
+	'Invalid stored Page Patterns preferences must fall back field-by-field.'
+);
+
 const writableLayoutPrefs = makeStorage({
 	pixassist_layout_units_preferences: JSON.stringify({ typeFilter: 'footers', columns: 3 }),
 });
@@ -141,6 +188,26 @@ assertDeepEqual(
 	JSON.parse(writableLayoutPrefs.dump().pixassist_layout_units_preferences),
 	saved,
 	'Updating a Layouts preference must write the normalized snapshot to storage.'
+);
+
+const writableContentPatternPrefs = makeStorage({
+	pixassist_content_patterns_preferences: JSON.stringify({ typeFilter: 'post', columns: 3 }),
+});
+const savedContentPatternPrefs = prefs.setContentPatternPreference('sourceFilter', 'anima-blog', writableContentPatternPrefs);
+assertDeepEqual(
+	savedContentPatternPrefs,
+	{
+		typeFilter: 'post',
+		sourceFilter: 'anima-blog',
+		viewMode: 'grid',
+		columns: 3,
+	},
+	'Updating one Page Patterns preference must preserve the other stored values.'
+);
+assertDeepEqual(
+	JSON.parse(writableContentPatternPrefs.dump().pixassist_content_patterns_preferences),
+	savedContentPatternPrefs,
+	'Updating a Page Patterns preference must write the normalized snapshot to storage.'
 );
 
 assertEqual(prefs.getPreviewMode(makeStorage()), 'site', 'Missing preview mode must default to My site.');
@@ -172,6 +239,11 @@ assertDeepEqual(
 	defaultLayoutPrefs,
 	'Blocked storage reads must not break the Layouts tab.'
 );
+assertDeepEqual(
+	prefs.getContentPatternPreferences(throwingStorage),
+	defaultContentPatternPrefs,
+	'Blocked storage reads must not break the Page Patterns tab.'
+);
 assertEqual(prefs.savePreviewMode('demo', throwingStorage), 'demo', 'Blocked storage writes must not break preview toggling.');
 JS;
 
@@ -200,6 +272,7 @@ if ( 0 !== $exit_code ) {
 
 $layout_units_js = file_get_contents( __DIR__ . '/../admin/src-modern/hub/tabs/LayoutUnits.js' );
 $layout_preview_js = file_get_contents( __DIR__ . '/../admin/src-modern/hub/LayoutPreview.js' );
+$content_patterns_js = file_get_contents( __DIR__ . '/../admin/src-modern/hub/tabs/ContentPatterns.js' );
 
 assert_true( false !== strpos( $layout_units_js, "from '../preferences'" ), 'Layouts tab must import the shared preferences helper.' );
 assert_true( false !== strpos( $layout_units_js, 'getLayoutUnitPreferences' ), 'Layouts tab must hydrate toolbar state from persisted preferences.' );
@@ -213,5 +286,11 @@ assert_true( false === strpos( $layout_units_js, 'useState( PREVIEW_SIZE_DEFAULT
 assert_true( false !== strpos( $layout_preview_js, "from './preferences'" ), 'Layout preview mode must import the shared preferences helper.' );
 assert_true( false !== strpos( $layout_preview_js, 'getPreviewMode' ), 'Layout preview mode must hydrate from persisted storage.' );
 assert_true( false !== strpos( $layout_preview_js, 'savePreviewMode' ), 'Layout preview mode changes must persist to storage.' );
+assert_true( false !== strpos( $content_patterns_js, "from '../preferences'" ), 'Page Patterns tab must import the shared preferences helper.' );
+assert_true( false !== strpos( $content_patterns_js, 'getContentPatternPreferences' ), 'Page Patterns tab must hydrate toolbar state from persisted preferences.' );
+assert_true( false !== strpos( $content_patterns_js, 'saveContentPatternPreferences' ), 'Page Patterns tab must save toolbar state changes to persisted preferences.' );
+assert_true( false !== strpos( $content_patterns_js, 'pixassist-content-patterns__grid' ), 'Page Patterns grid must expose a stable class for responsive constraints.' );
+assert_true( false !== strpos( $content_patterns_js, '@media (max-width: 782px)' ), 'Page Patterns must include an admin-mobile breakpoint.' );
+assert_true( false !== strpos( $content_patterns_js, 'grid-template-columns: 1fr !important;' ), 'Page Patterns mobile grid must collapse to one column to avoid horizontal overflow.' );
 
 echo "Layouts preferences OK\n";

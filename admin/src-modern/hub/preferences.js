@@ -2,9 +2,17 @@ const PREVIEW_SIZE_MIN_COLUMNS = 1;
 const PREVIEW_SIZE_MAX_COLUMNS = 4;
 
 export const LAYOUT_UNIT_PREFERENCES_STORAGE_KEY = 'pixassist_layout_units_preferences';
+export const CONTENT_PATTERN_PREFERENCES_STORAGE_KEY = 'pixassist_content_patterns_preferences';
 export const PREVIEW_MODE_STORAGE_KEY = 'pixassist_preview_mode';
 
 export const DEFAULT_LAYOUT_UNIT_PREFERENCES = Object.freeze( {
+	typeFilter: 'all',
+	sourceFilter: 'all',
+	viewMode: 'grid',
+	columns: 2,
+} );
+
+export const DEFAULT_CONTENT_PATTERN_PREFERENCES = Object.freeze( {
 	typeFilter: 'all',
 	sourceFilter: 'all',
 	viewMode: 'grid',
@@ -79,14 +87,37 @@ export function normalizeLayoutUnitPreferences( preferences ) {
 	};
 }
 
+export function normalizeContentPatternPreferences( preferences ) {
+	const input = preferences && 'object' === typeof preferences && ! Array.isArray( preferences ) ? preferences : {};
+
+	return {
+		typeFilter: normalizeStringPreference( input.typeFilter, DEFAULT_CONTENT_PATTERN_PREFERENCES.typeFilter ),
+		sourceFilter: normalizeStringPreference( input.sourceFilter, DEFAULT_CONTENT_PATTERN_PREFERENCES.sourceFilter ),
+		viewMode: [ 'grid', 'list' ].includes( input.viewMode ) ? input.viewMode : DEFAULT_CONTENT_PATTERN_PREFERENCES.viewMode,
+		columns: normalizeColumnsPreference( input.columns, DEFAULT_CONTENT_PATTERN_PREFERENCES.columns ),
+	};
+}
+
 export function getLayoutUnitPreferences( storage = getBrowserStorage() ) {
 	return normalizeLayoutUnitPreferences( parseObject( readStorage( storage, LAYOUT_UNIT_PREFERENCES_STORAGE_KEY ) ) );
+}
+
+export function getContentPatternPreferences( storage = getBrowserStorage() ) {
+	return normalizeContentPatternPreferences( parseObject( readStorage( storage, CONTENT_PATTERN_PREFERENCES_STORAGE_KEY ) ) );
 }
 
 export function saveLayoutUnitPreferences( preferences, storage = getBrowserStorage() ) {
 	const normalized = normalizeLayoutUnitPreferences( preferences );
 
 	writeStorage( storage, LAYOUT_UNIT_PREFERENCES_STORAGE_KEY, JSON.stringify( normalized ) );
+
+	return normalized;
+}
+
+export function saveContentPatternPreferences( preferences, storage = getBrowserStorage() ) {
+	const normalized = normalizeContentPatternPreferences( preferences );
+
+	writeStorage( storage, CONTENT_PATTERN_PREFERENCES_STORAGE_KEY, JSON.stringify( normalized ) );
 
 	return normalized;
 }
@@ -99,6 +130,19 @@ export function setLayoutUnitPreference( key, value, storage = getBrowserStorage
 	}
 
 	return saveLayoutUnitPreferences( {
+		...current,
+		[ key ]: value,
+	}, storage );
+}
+
+export function setContentPatternPreference( key, value, storage = getBrowserStorage() ) {
+	const current = getContentPatternPreferences( storage );
+
+	if ( ! Object.prototype.hasOwnProperty.call( DEFAULT_CONTENT_PATTERN_PREFERENCES, key ) ) {
+		return current;
+	}
+
+	return saveContentPatternPreferences( {
 		...current,
 		[ key ]: value,
 	}, storage );

@@ -59,6 +59,14 @@ function rest_url( $path = '' ) {
 	return 'https://example.test/wp-json/' . ltrim( (string) $path, '/' );
 }
 
+function home_url( $path = '' ) {
+	return 'https://example.test/' . ltrim( (string) $path, '/' );
+}
+
+function wp_create_nonce( $action = '' ) {
+	return 'nonce-' . (string) $action;
+}
+
 function wp_strip_all_tags( $value ) {
 	return trim( strip_tags( (string) $value ) );
 }
@@ -165,6 +173,16 @@ assert_same( 'anima-restaurant', $data['sources'][0]['id'], 'Page Patterns sourc
 assert_same( PixelgradeAssistant_Admin::$internalApiEndpoints['contentUnits'], $data['endpoints']['contentUnits'], 'Page Patterns payload must expose the content-list endpoint.' );
 assert_same( PixelgradeAssistant_Admin::$internalApiEndpoints['importContentUnit'], $data['endpoints']['importContentUnit'], 'Page Patterns payload must expose the content-import endpoint.' );
 assert_same( PixelgradeAssistant_Admin::$internalApiEndpoints['undoContentUnit'], $data['endpoints']['undoContentUnit'], 'Page Patterns payload must expose the content-undo endpoint.' );
+assert_same(
+	array(
+		'base'  => 'https://example.test/',
+		'param' => 'pixassist_content_preview',
+		'nonce' => 'nonce-pixassist_content_preview',
+		'vw'    => 1200,
+	),
+	$data['preview'],
+	'Page Patterns payload must expose the nonce-gated same-origin content preview config.'
+);
 assert_same( 'About', $data['applied']['page:about']['title'], 'Page Patterns payload must expose applied content units.' );
 
 echo "Admin Page Patterns tab OK\n";

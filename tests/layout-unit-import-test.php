@@ -1976,6 +1976,9 @@ foreach ( $content_units_response['data']['units'] as $unit ) {
 assert_true( is_array( $about_unit ), 'Content-unit listing must expose page-level records from SCE sources.' );
 assert_same( 'About Pattern', $about_unit['title'], 'Content-unit listing must preserve the source page title.' );
 assert_same( true, $about_unit['available'], 'Editorial page patterns must be available without Plus.' );
+assert_same( true, $about_unit['previewAvailable'], 'Content-unit listing must advertise same-origin live previews for records with block content.' );
+assert_same( 'content', $about_unit['previewMode'], 'Content-unit previews must be identified as content previews, not layout/template previews.' );
+assert_same( 'https://starter.test/?page_id=52', $about_unit['previewUrl'], 'Content-unit listing must preserve the source permalink as a demo/fallback preview URL.' );
 
 $content_summary = $starter_content->import_content_unit(
 	'content-patterns',

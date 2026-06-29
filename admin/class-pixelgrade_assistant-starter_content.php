@@ -76,6 +76,27 @@ class PixelgradeAssistant_StarterContent {
 	private $preview_media_host = '';
 
 	/**
+	 * Source post record used while rendering a demo-mode template preview.
+	 *
+	 * @var array|null
+	 */
+	private $preview_demo_post = null;
+
+	/**
+	 * Source SCE base URL for the current demo-mode template preview, used to resolve terms/media.
+	 *
+	 * @var string
+	 */
+	private $preview_demo_post_base = '';
+
+	/**
+	 * Request-local cache for source media records used by demo-mode template previews.
+	 *
+	 * @var array
+	 */
+	private $preview_demo_media_cache = array();
+
+	/**
 	 * Request-cached pool of stand-in featured images for previews (recent large landscape local images),
 	 * used when a previewed post's own featured image is missing or broken — common after re-imports, where
 	 * `_thumbnail_id` points at an attachment that no longer exists — so featured-image covers / blocks
@@ -113,6 +134,7 @@ class PixelgradeAssistant_StarterContent {
 
 		// Front-end render route for layout-unit visual previews (see .ai/layout-previews).
 		add_action( 'template_redirect', array( $this, 'maybe_render_layout_unit_preview' ) );
+		add_action( 'template_redirect', array( $this, 'maybe_render_content_unit_preview' ) );
 
 		// Add some data to the localized data
 		add_filter( 'pixassist_localized_data', array( $this, 'localize_js_data' ) );
@@ -2197,9 +2219,50 @@ class PixelgradeAssistant_StarterContent {
 			'availability'       => ! empty( $availability['availability'] ) ? sanitize_key( $availability['availability'] ) : 'available',
 			'availabilityReason' => ! empty( $availability['availabilityReason'] ) ? wp_strip_all_tags( $availability['availabilityReason'] ) : '',
 			'available'          => ! empty( $availability['available'] ),
+			'previewAvailable'   => ! empty( $post['post_content'] ),
+			'previewMode'        => 'content',
+			'previewUrl'         => $this->get_content_unit_preview_url( $post ),
+			'previewImage'       => $this->get_content_unit_preview_image( $post ),
 			'demoKey'            => sanitize_key( $demo_key ),
 			'baseRestUrl'        => esc_url_raw( $base_url ),
 		);
+	}
+
+	/**
+	 * Best-effort public URL for a source content record.
+	 *
+	 * The same-origin preview route is preferred. This URL is only a fallback/hint for source data that
+	 * already exposes one; the tab must not depend on embedding a remote page.
+	 *
+	 * @param array $post Source post record.
+	 *
+	 * @return string
+	 */
+	private function get_content_unit_preview_url( $post ) {
+		foreach ( array( 'link', 'permalink', 'guid' ) as $key ) {
+			if ( ! empty( $post[ $key ] ) ) {
+				return esc_url_raw( $post[ $key ] );
+			}
+		}
+
+		return '';
+	}
+
+	/**
+	 * Best-effort static preview image from source records that already expose one.
+	 *
+	 * @param array $post Source post record.
+	 *
+	 * @return string
+	 */
+	private function get_content_unit_preview_image( $post ) {
+		foreach ( array( 'thumbnail', 'thumbnailUrl', 'featuredImage', 'featured_image', 'image' ) as $key ) {
+			if ( ! empty( $post[ $key ] ) && is_string( $post[ $key ] ) ) {
+				return esc_url_raw( $post[ $key ] );
+			}
+		}
+
+		return '';
 	}
 
 	/**
@@ -2771,6 +2834,85 @@ class PixelgradeAssistant_StarterContent {
 		}
 
 		/**
+		 * Front-end render route for Page Patterns content previews.
+		 *
+		 * Renders one source content record's block body through the active site's front-end styles without
+		 * importing it. This is intentionally not a full remote-page proxy: pages/posts/projects/products may
+		 * not have a safe public iframe target, and importing just to preview would violate the Page Patterns
+		 * model. Capability + nonce + source allow-list checks mirror the import endpoint.
+		 *
+		 * @return void
+		 */
+		public function maybe_render_content_unit_preview() {
+			if ( empty( $_GET['pixassist_content_preview'] ) ) {
+				return;
+			}
+
+			$nonce = isset( $_GET['_pixprev'] ) ? sanitize_text_field( wp_unslash( $_GET['_pixprev'] ) ) : '';
+			if ( ! current_user_can( 'manage_options' ) || ! wp_verify_nonce( $nonce, 'pixassist_content_preview' ) ) {
+				status_header( 403 );
+				exit;
+			}
+
+			$base_url  = isset( $_GET['url'] ) ? esc_url_raw( wp_unslash( $_GET['url'] ) ) : '';
+			$unit_type = isset( $_GET['unit_type'] ) ? sanitize_key( wp_unslash( $_GET['unit_type'] ) ) : '';
+			$unit      = isset( $_GET['unit'] ) ? sanitize_text_field( wp_unslash( $_GET['unit'] ) ) : '';
+
+			if ( empty( $base_url ) || empty( $unit_type ) || empty( $unit ) || ! in_array( $unit_type, $this->get_content_unit_post_types(), true ) || ! $this->is_allowed_demo_url( $base_url ) ) {
+				status_header( 400 );
+				exit;
+			}
+
+			$posts = $this->fetch_layout_source_posts( $base_url, $unit_type );
+			if ( is_wp_error( $posts ) ) {
+				status_header( 502 );
+				exit;
+			}
+
+			$post = $this->find_layout_unit_post( $posts, $unit );
+			if ( empty( $post ) || ! is_array( $post ) ) {
+				status_header( 404 );
+				exit;
+			}
+
+			$availability = $this->get_content_unit_availability( $post );
+			if ( empty( $availability['available'] ) ) {
+				$this->render_layout_unit_preview_document(
+					'<div style="padding:80px 24px;text-align:center;font-family:sans-serif;color:#50575e;">'
+					. esc_html__( 'Premium page pattern — preview unavailable.', '__plugin_txtd' ) . '</div>'
+				);
+				exit;
+			}
+
+			if ( empty( $post['post_content'] ) ) {
+				status_header( 404 );
+				exit;
+			}
+
+			$preview_cache_key = $this->content_unit_preview_cache_key( $base_url, $unit_type, $unit );
+			$cached_preview    = get_transient( $preview_cache_key );
+			if ( is_string( $cached_preview ) && '' !== $cached_preview ) {
+				$this->send_layout_unit_preview_headers();
+				echo $cached_preview; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- cached block-rendered preview HTML.
+				exit;
+			}
+
+			$media_parts = wp_parse_url( $base_url );
+			$this->preview_media_host = ( ! empty( $media_parts['scheme'] ) && ! empty( $media_parts['host'] ) )
+				? $media_parts['scheme'] . '://' . $media_parts['host']
+				: '';
+
+			ob_start();
+			$this->render_content_unit_preview_document( $post );
+			$preview_html = ob_get_clean();
+
+			set_transient( $preview_cache_key, $preview_html, 3 * MINUTE_IN_SECONDS );
+
+			echo $preview_html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- block-rendered preview HTML.
+			exit;
+		}
+
+		/**
 		 * Front-end render route for layout-unit previews (Layouts tab + Starter Sites composer).
 		 *
 		 * Renders ONE layout unit's blocks through the active theme's real front-end pipeline so the
@@ -2817,7 +2959,11 @@ class PixelgradeAssistant_StarterContent {
 			// against the (possibly incomplete) local content.
 			$mode = isset( $_GET['mode'] ) ? sanitize_key( wp_unslash( $_GET['mode'] ) ) : 'site';
 			if ( 'demo' === $mode ) {
-				$this->render_layout_unit_demo_preview( $base_url, $unit_type, $unit );
+				if ( 'wp_template' === $unit_type ) {
+					$this->render_layout_unit_demo_template_preview( $base_url, $unit_type, $unit );
+				} else {
+					$this->render_layout_unit_demo_preview( $base_url, $unit_type, $unit );
+				}
 				exit;
 			}
 
@@ -2928,6 +3074,58 @@ class PixelgradeAssistant_StarterContent {
 		}
 
 		/**
+		 * Transient key for the cached render of one content preview.
+		 *
+		 * @param string $base_url  Source SCE REST base.
+		 * @param string $unit_type Content post type.
+		 * @param string $unit      Content slug.
+		 *
+		 * @return string
+		 */
+		private function content_unit_preview_cache_key( $base_url, $unit_type, $unit ) {
+			$theme   = function_exists( 'wp_get_theme' ) ? wp_get_theme() : null;
+			$version = ( $theme && ! is_wp_error( $theme ) ) ? (string) $theme->get( 'Version' ) : '';
+			$parts   = array(
+				$base_url,
+				$unit_type,
+				$unit,
+				function_exists( 'get_stylesheet' ) ? get_stylesheet() : '',
+				$version,
+			);
+
+			return 'pixassist_cupv_' . md5( implode( '|', $parts ) );
+		}
+
+		/**
+		 * Render one source content record inside the shared preview document.
+		 *
+		 * @param array $post Source post record.
+		 *
+		 * @return void
+		 */
+		private function render_content_unit_preview_document( $post ) {
+			$title   = ! empty( $post['post_title'] ) ? wp_strip_all_tags( $post['post_title'] ) : '';
+			$excerpt = ! empty( $post['post_excerpt'] ) ? wp_strip_all_tags( $post['post_excerpt'] ) : '';
+			$content = ! empty( $post['post_content'] ) ? (string) $post['post_content'] : '';
+			$markup  = '<article class="pixassist-content-preview-document">';
+
+			if ( $title || $excerpt ) {
+				$markup .= '<header class="pixassist-content-preview-header" style="padding:48px 24px 24px;max-width:760px;margin:0 auto;">';
+				if ( $title ) {
+					$markup .= '<h1 style="margin:0 0 12px;">' . esc_html( $title ) . '</h1>';
+				}
+				if ( $excerpt ) {
+					$markup .= '<p style="margin:0;color:#646970;font-size:18px;line-height:1.55;">' . esc_html( $excerpt ) . '</p>';
+				}
+				$markup .= '</header>';
+			}
+
+			$markup .= $content . '</article>';
+
+			$this->render_layout_unit_preview_document( $markup );
+		}
+
+		/**
 		 * Output a minimal front-end document containing only the given block markup.
 		 *
 		 * Calls wp_head()/wp_footer() so the active theme + Style Manager + Nova Blocks styles and fonts
@@ -2953,6 +3151,11 @@ class PixelgradeAssistant_StarterContent {
 	   that overruns the fixed canvas width doesn't spill outside the preview (overflow-x: clip keeps
 	   vertical position:sticky working, unlike overflow:hidden). */
 	.pixassist-layout-preview-canvas { width: 1200px; max-width: none; margin: 0 auto; overflow-x: clip; }
+	/* The preview shell lacks the real template wrapper, so theme .wp-site-blocks > .alignfull rules can
+	   out-place Nova Sidecar content. Re-apply the sidecar's own grid placement variables after theme CSS. */
+	.pixassist-layout-preview-canvas .nb-sidecar .nb-sidecar-area--content {
+		grid-column: var(--block-content-start) / var(--block-content-end) !important;
+	}
 	/* Static capture: kill intro animations/transitions so nothing renders mid-reveal. */
 	.pixassist-layout-preview-canvas, .pixassist-layout-preview-canvas * { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 	/* Neutral placeholder for media that cannot resolve before import (see .ai/layout-previews phase-0). */
@@ -3194,6 +3397,91 @@ HTML;
 		}
 
 		/**
+		 * Demo-content template preview: render the selected source template with representative demo content.
+		 *
+		 * The public demo site can only show whichever template is active for a route. If three source
+		 * variants all target a single post route, proxying the public post URL makes every card identical.
+		 * For full templates, render the exported template record itself so the selected unit slug is the
+		 * thing being previewed. Dynamic post blocks are filled from the source's exported demo content.
+		 *
+		 * @param string $base_url  Source SCE REST base.
+		 * @param string $unit_type wp_template.
+		 * @param string $unit      Template slug.
+		 *
+		 * @return void
+		 */
+		private function render_layout_unit_demo_template_preview( $base_url, $unit_type, $unit ) {
+			$preview_cache_key = $this->layout_unit_demo_template_preview_cache_key( $base_url, $unit_type, $unit );
+			$cached_preview    = get_transient( $preview_cache_key );
+			if ( is_string( $cached_preview ) && '' !== $cached_preview ) {
+				$this->send_layout_unit_preview_headers();
+				echo $cached_preview; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- cached block-rendered preview HTML.
+				exit;
+			}
+
+			$posts = $this->fetch_layout_source_posts( $base_url, $unit_type );
+			if ( is_wp_error( $posts ) ) {
+				status_header( 502 );
+				exit;
+			}
+
+			$post = $this->find_layout_unit_post( $posts, $unit );
+			if ( empty( $post['post_content'] ) ) {
+				status_header( 404 );
+				exit;
+			}
+
+			// Keep source template-part navigation/menu intent while rendering through the local front-end
+			// stack, mirroring site-mode previews.
+			$this->preview_demo_menu_base = $base_url;
+			$this->preview_demo_menu_map  = null;
+			add_filter( 'pre_wp_nav_menu', array( $this, 'inject_demo_nav_menu' ), 10, 2 );
+
+			$media_parts = wp_parse_url( $base_url );
+			$this->preview_media_host = ( ! empty( $media_parts['scheme'] ) && ! empty( $media_parts['host'] ) )
+				? $media_parts['scheme'] . '://' . $media_parts['host']
+				: '';
+
+			$this->setup_demo_template_preview_context( $base_url, $unit_type, $unit );
+
+			ob_start();
+			$this->render_layout_unit_preview_document( $post['post_content'] );
+			$preview_html = ob_get_clean();
+
+			set_transient( $preview_cache_key, $preview_html, 10 * MINUTE_IN_SECONDS );
+
+			echo $preview_html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- block-rendered preview HTML.
+			exit;
+		}
+
+		/**
+		 * Transient key for demo-mode full-template renders.
+		 *
+		 * Kept separate from site-mode renders: the same unit slug has different semantics when it is seeded
+		 * from source demo content instead of local site content.
+		 *
+		 * @param string $base_url  Source SCE REST base.
+		 * @param string $unit_type Unit type.
+		 * @param string $unit      Unit slug.
+		 *
+		 * @return string
+		 */
+		private function layout_unit_demo_template_preview_cache_key( $base_url, $unit_type, $unit ) {
+			$theme   = function_exists( 'wp_get_theme' ) ? wp_get_theme() : null;
+			$version = ( $theme && ! is_wp_error( $theme ) ) ? (string) $theme->get( 'Version' ) : '';
+			$parts   = array(
+				'demo-template',
+				$base_url,
+				$unit_type,
+				$unit,
+				function_exists( 'get_stylesheet' ) ? get_stylesheet() : '',
+				$version,
+			);
+
+			return 'pixassist_ludtpv_' . md5( implode( '|', $parts ) );
+		}
+
+		/**
 		 * Demo-content preview: proxy the starter's polished public demo page.
 		 *
 		 * The site-mode render uses the LOCAL site's content (menus/posts/media), which may be incomplete.
@@ -3386,17 +3674,424 @@ HTML;
 		 * @return int 0 when none found.
 		 */
 		private function demo_first_post_id( $base_url, $post_type ) {
+			$post = $this->demo_first_post( $base_url, $post_type );
+
+			return ! empty( $post['ID'] ) ? (int) $post['ID'] : 0;
+		}
+
+		/**
+		 * A representative published source post of a given type from the demo.
+		 *
+		 * @param string $base_url  Source SCE REST base.
+		 * @param string $post_type Source post type.
+		 *
+		 * @return array|null
+		 */
+		private function demo_first_post( $base_url, $post_type ) {
 			$posts = $this->fetch_layout_source_posts( $base_url, sanitize_key( $post_type ) );
 			if ( is_wp_error( $posts ) ) {
-				return 0;
+				return null;
 			}
 			foreach ( (array) $posts as $post ) {
 				if ( ! empty( $post['ID'] ) && ( empty( $post['post_status'] ) || 'publish' === $post['post_status'] ) ) {
-					return (int) $post['ID'];
+					return $post;
 				}
 			}
 
-			return 0;
+			return null;
+		}
+
+		/**
+		 * Set up a demo-content query context for full-template demo previews.
+		 *
+		 * @param string $base_url  Source SCE REST base.
+		 * @param string $unit_type wp_template.
+		 * @param string $unit      Template slug.
+		 *
+		 * @return void
+		 */
+		private function setup_demo_template_preview_context( $base_url, $unit_type, $unit ) {
+			if ( 'wp_template' !== $unit_type ) {
+				return;
+			}
+
+			$unit = sanitize_title( $unit );
+			$kind = $this->preview_template_kind( $unit );
+
+			if ( 'single' === $kind ) {
+				$this->set_demo_single_preview_context( $base_url, 'post', 'post' );
+			} elseif ( 'cpt-single' === $kind ) {
+				$source_post_type = $this->demo_portfolio_post_type( $base_url );
+				if ( $source_post_type ) {
+					$this->set_demo_single_preview_context( $base_url, $source_post_type, $this->local_portfolio_post_type() );
+				}
+			} else {
+				$this->setup_preview_query_context( $unit_type, $unit );
+			}
+		}
+
+		/**
+		 * Use one exported source post to fill dynamic single-post template blocks.
+		 *
+		 * A real local post is still installed as the query context where possible so non-intercepted core
+		 * blocks (for example a featured-image cover) can render normally; the source post filter below
+		 * replaces the visible post data blocks with demo content.
+		 *
+		 * @param string $base_url          Source SCE REST base.
+		 * @param string $source_post_type  Source post type.
+		 * @param string $local_post_type   Local post type for the query context.
+		 *
+		 * @return void
+		 */
+		private function set_demo_single_preview_context( $base_url, $source_post_type, $local_post_type ) {
+			$demo_post = $this->demo_first_post( $base_url, $source_post_type );
+			if ( empty( $demo_post ) ) {
+				$this->setup_preview_query_context( 'wp_template', 'single' );
+				return;
+			}
+
+			$this->preview_demo_post      = $demo_post;
+			$this->preview_demo_post_base = trailingslashit( esc_url_raw( $base_url ) );
+
+			$local_post = $this->first_local_post( $local_post_type );
+			if ( $local_post ) {
+				$this->set_single_query_context( $local_post );
+			}
+
+			add_filter( 'post_thumbnail_id', array( $this, 'preview_thumbnail_id_fallback' ), 10, 2 );
+			add_filter( 'pre_render_block', array( $this, 'render_demo_post_preview_block' ), 10, 2 );
+		}
+
+		/**
+		 * Filter callback (`pre_render_block`): render source-demo post data inside a selected template.
+		 *
+		 * @param string|null $pre_render   Existing pre-rendered block output.
+		 * @param array       $parsed_block Parsed block.
+		 *
+		 * @return string|null
+		 */
+		public function render_demo_post_preview_block( $pre_render, $parsed_block ) {
+			if ( null !== $pre_render || empty( $this->preview_demo_post ) || empty( $parsed_block['blockName'] ) ) {
+				return $pre_render;
+			}
+
+			$attrs = ! empty( $parsed_block['attrs'] ) && is_array( $parsed_block['attrs'] ) ? $parsed_block['attrs'] : array();
+
+			switch ( $parsed_block['blockName'] ) {
+				case 'core/post-title':
+					return $this->render_demo_post_title_block( $attrs );
+				case 'core/post-content':
+					return $this->render_demo_post_content_block( $attrs );
+				case 'core/post-excerpt':
+					return $this->render_demo_post_excerpt_block( $attrs );
+				case 'core/post-date':
+					return $this->render_demo_post_date_block( $attrs );
+				case 'core/post-author-name':
+					return $this->render_demo_post_author_name_block( $attrs );
+				case 'core/post-terms':
+					return $this->render_demo_post_terms_block( $attrs );
+				case 'core/post-featured-image':
+					return $this->render_demo_post_featured_image_block( $attrs );
+			}
+
+			return $pre_render;
+		}
+
+		/**
+		 * Render a demo post-title block.
+		 *
+		 * @param array $attrs Block attributes.
+		 *
+		 * @return string
+		 */
+		private function render_demo_post_title_block( $attrs ) {
+			$title = isset( $this->preview_demo_post['post_title'] ) ? wp_strip_all_tags( $this->preview_demo_post['post_title'] ) : '';
+			if ( '' === $title ) {
+				return '';
+			}
+
+			$level = isset( $attrs['level'] ) ? absint( $attrs['level'] ) : 2;
+			$level = min( 6, max( 1, $level ) );
+			$class = $this->demo_post_block_classes( 'wp-block-post-title', $attrs );
+
+			return '<h' . $level . ' class="' . esc_attr( $class ) . '">' . esc_html( $title ) . '</h' . $level . '>';
+		}
+
+		/**
+		 * Render a demo post-content block.
+		 *
+		 * @param array $attrs Block attributes.
+		 *
+		 * @return string
+		 */
+		private function render_demo_post_content_block( $attrs ) {
+			$content = isset( $this->preview_demo_post['post_content'] ) ? (string) $this->preview_demo_post['post_content'] : '';
+			if ( '' === trim( $content ) ) {
+				return '';
+			}
+
+			$class = $this->demo_post_block_classes( 'wp-block-post-content', $attrs );
+
+			return '<div class="' . esc_attr( $class ) . '">' . do_blocks( $content ) . '</div>';
+		}
+
+		/**
+		 * Render a demo post-excerpt block.
+		 *
+		 * @param array $attrs Block attributes.
+		 *
+		 * @return string
+		 */
+		private function render_demo_post_excerpt_block( $attrs ) {
+			$excerpt = isset( $this->preview_demo_post['post_excerpt'] ) ? wp_strip_all_tags( $this->preview_demo_post['post_excerpt'] ) : '';
+			if ( '' === $excerpt && ! empty( $this->preview_demo_post['post_content'] ) ) {
+				$excerpt = wp_trim_words( wp_strip_all_tags( (string) $this->preview_demo_post['post_content'] ), 32, '&hellip;' );
+			}
+			if ( '' === $excerpt ) {
+				return '';
+			}
+
+			$class = $this->demo_post_block_classes( 'wp-block-post-excerpt', $attrs );
+
+			return '<div class="' . esc_attr( $class ) . '"><p class="wp-block-post-excerpt__excerpt">' . esc_html( $excerpt ) . '</p></div>';
+		}
+
+		/**
+		 * Render a demo post-date block.
+		 *
+		 * @param array $attrs Block attributes.
+		 *
+		 * @return string
+		 */
+		private function render_demo_post_date_block( $attrs ) {
+			$date = isset( $this->preview_demo_post['post_date'] ) ? (string) $this->preview_demo_post['post_date'] : '';
+			if ( '' === $date ) {
+				return '';
+			}
+
+			$timestamp = strtotime( $date );
+			$formatted = $timestamp ? date_i18n( get_option( 'date_format' ), $timestamp ) : wp_strip_all_tags( $date );
+			$class     = $this->demo_post_block_classes( 'wp-block-post-date', $attrs );
+
+			return '<time class="' . esc_attr( $class ) . '" datetime="' . esc_attr( mysql2date( 'c', $date ) ) . '">' . esc_html( $formatted ) . '</time>';
+		}
+
+		/**
+		 * Render a demo post-author-name block.
+		 *
+		 * @param array $attrs Block attributes.
+		 *
+		 * @return string
+		 */
+		private function render_demo_post_author_name_block( $attrs ) {
+			$author = $this->demo_post_author_name();
+			if ( '' === $author ) {
+				return '';
+			}
+
+			$class = $this->demo_post_block_classes( 'wp-block-post-author-name', $attrs );
+
+			return '<div class="' . esc_attr( $class ) . '">' . esc_html( $author ) . '</div>';
+		}
+
+		/**
+		 * Render a demo post-terms block.
+		 *
+		 * @param array $attrs Block attributes.
+		 *
+		 * @return string
+		 */
+		private function render_demo_post_terms_block( $attrs ) {
+			$taxonomy = ! empty( $attrs['term'] ) ? sanitize_key( $attrs['term'] ) : 'category';
+			$terms    = $this->demo_post_term_labels( $taxonomy );
+			if ( empty( $terms ) ) {
+				return '';
+			}
+
+			$class = $this->demo_post_block_classes( 'taxonomy-' . $taxonomy . ' wp-block-post-terms', $attrs );
+			$sep   = isset( $attrs['separator'] ) ? (string) $attrs['separator'] : ', ';
+			$links = array();
+
+			foreach ( $terms as $term ) {
+				$links[] = '<a href="#" rel="tag">' . esc_html( $term ) . '</a>';
+			}
+
+			return '<div class="' . esc_attr( $class ) . '">' . implode( esc_html( $sep ), $links ) . '</div>';
+		}
+
+		/**
+		 * Render a demo post-featured-image block.
+		 *
+		 * @param array $attrs Block attributes.
+		 *
+		 * @return string
+		 */
+		private function render_demo_post_featured_image_block( $attrs ) {
+			$url = $this->demo_post_featured_image_url( 'large' );
+			if ( '' === $url ) {
+				return '';
+			}
+
+			$class       = $this->demo_post_block_classes( 'wp-block-post-featured-image', $attrs );
+			$image_style = 'width:100%;height:auto;';
+			if ( ! empty( $attrs['aspectRatio'] ) ) {
+				$image_style .= 'aspect-ratio:' . esc_attr( (string) $attrs['aspectRatio'] ) . ';object-fit:cover;';
+			}
+
+			return '<figure class="' . esc_attr( $class ) . '"><img src="' . esc_url( $url ) . '" alt="" style="' . esc_attr( $image_style ) . '"></figure>';
+		}
+
+		/**
+		 * Build common block classes for source-demo post block stand-ins.
+		 *
+		 * @param string $base  Base classes.
+		 * @param array  $attrs Block attributes.
+		 *
+		 * @return string
+		 */
+		private function demo_post_block_classes( $base, $attrs ) {
+			$classes = preg_split( '/\s+/', trim( (string) $base ) );
+			if ( ! empty( $attrs['textAlign'] ) ) {
+				$classes[] = 'has-text-align-' . sanitize_html_class( $attrs['textAlign'] );
+			}
+			if ( ! empty( $attrs['fontSize'] ) ) {
+				$classes[] = 'has-' . sanitize_html_class( $attrs['fontSize'] ) . '-font-size';
+			}
+			if ( ! empty( $attrs['align'] ) ) {
+				$classes[] = 'align' . sanitize_html_class( $attrs['align'] );
+			}
+
+			return implode( ' ', array_filter( array_unique( $classes ) ) );
+		}
+
+		/**
+		 * Resolve the source-demo post author label.
+		 *
+		 * @return string
+		 */
+		private function demo_post_author_name() {
+			if ( ! empty( $this->preview_demo_post['author_name'] ) ) {
+				return wp_strip_all_tags( $this->preview_demo_post['author_name'] );
+			}
+			if ( ! empty( $this->preview_demo_post['author'] ) && is_numeric( $this->preview_demo_post['author'] ) ) {
+				$user = get_user_by( 'id', (int) $this->preview_demo_post['author'] );
+				if ( $user && ! empty( $user->display_name ) ) {
+					return $user->display_name;
+				}
+			}
+
+			return esc_html__( 'Author', '__plugin_txtd' );
+		}
+
+		/**
+		 * Source-demo term labels for the current preview post.
+		 *
+		 * @param string $taxonomy Taxonomy.
+		 *
+		 * @return string[]
+		 */
+		private function demo_post_term_labels( $taxonomy ) {
+			if ( empty( $this->preview_demo_post['taxonomies'][ $taxonomy ] ) || empty( $this->preview_demo_post_base ) ) {
+				return array();
+			}
+
+			$ids = array_values( array_filter( array_map( 'absint', (array) $this->preview_demo_post['taxonomies'][ $taxonomy ] ) ) );
+			if ( empty( $ids ) ) {
+				return array();
+			}
+
+			$terms = $this->fetch_layout_source_terms( $this->preview_demo_post_base, $taxonomy, $ids );
+			if ( is_wp_error( $terms ) ) {
+				return array();
+			}
+
+			$labels = array();
+			foreach ( (array) $terms as $term ) {
+				if ( ! empty( $term['name'] ) ) {
+					$labels[] = wp_strip_all_tags( $term['name'] );
+				}
+			}
+
+			return array_values( array_filter( $labels ) );
+		}
+
+		/**
+		 * Source-demo featured image URL for the current preview post.
+		 *
+		 * @param string $size Preferred image size.
+		 *
+		 * @return string
+		 */
+		private function demo_post_featured_image_url( $size = 'large' ) {
+			if ( empty( $this->preview_demo_post['meta']['_thumbnail_id'] ) || empty( $this->preview_demo_post_base ) ) {
+				return '';
+			}
+
+			$media_id = $this->first_numeric_media_id( $this->preview_demo_post['meta']['_thumbnail_id'] );
+			if ( ! $media_id ) {
+				return '';
+			}
+
+			$media = $this->fetch_demo_media_record( $this->preview_demo_post_base, $media_id );
+			if ( is_wp_error( $media ) || empty( $media ) ) {
+				return '';
+			}
+
+			if ( ! empty( $media['media_details']['sizes'][ $size ]['source_url'] ) ) {
+				return esc_url_raw( $media['media_details']['sizes'][ $size ]['source_url'] );
+			}
+			if ( ! empty( $media['source_url'] ) ) {
+				return esc_url_raw( $media['source_url'] );
+			}
+
+			return '';
+		}
+
+		/**
+		 * Fetch a source media record through the demo site's public WP REST endpoint.
+		 *
+		 * @param string $base_url Source SCE REST base.
+		 * @param int    $media_id Source media ID.
+		 *
+		 * @return array|WP_Error
+		 */
+		private function fetch_demo_media_record( $base_url, $media_id ) {
+			$base_url = trailingslashit( esc_url_raw( $base_url ) );
+			$media_id = absint( $media_id );
+			if ( empty( $base_url ) || empty( $media_id ) ) {
+				return array();
+			}
+
+			$key = md5( $base_url . '|' . $media_id );
+			if ( isset( $this->preview_demo_media_cache[ $key ] ) ) {
+				return $this->preview_demo_media_cache[ $key ];
+			}
+
+			$demo_base = trailingslashit( preg_replace( '#wp-json/sce/v[0-9]+/?$#i', '', $base_url ) );
+			$response  = wp_remote_get( $demo_base . 'wp-json/wp/v2/media/' . $media_id, array(
+				'timeout'   => 10,
+				'sslverify' => true,
+			) );
+			if ( is_wp_error( $response ) ) {
+				$this->preview_demo_media_cache[ $key ] = $response;
+
+				return $response;
+			}
+			if ( 200 !== (int) wp_remote_retrieve_response_code( $response ) ) {
+				$error = new WP_Error( 'demo_media_unavailable', esc_html__( 'The demo media record could not be reached.', '__plugin_txtd' ) );
+				$this->preview_demo_media_cache[ $key ] = $error;
+
+				return $error;
+			}
+
+			$media = json_decode( wp_remote_retrieve_body( $response ), true );
+			if ( ! is_array( $media ) ) {
+				$media = array();
+			}
+
+			$this->preview_demo_media_cache[ $key ] = $media;
+
+			return $media;
 		}
 
 		/**
