@@ -2263,6 +2263,16 @@ class PixelgradeAssistant_StarterContent {
 				exit;
 			}
 
+			// Serve a recent cached render when one exists — skips the remote fetch + do_blocks entirely, so
+			// a client retry or a re-visit becomes an instant hit instead of re-rendering under contention.
+			$preview_cache_key = $this->layout_unit_preview_cache_key( $base_url, $unit_type, $unit );
+			$cached_preview    = get_transient( $preview_cache_key );
+			if ( is_string( $cached_preview ) && '' !== $cached_preview ) {
+				$this->send_layout_unit_preview_headers();
+				echo $cached_preview; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- cached block-rendered preview HTML.
+				exit;
+			}
+
 			$posts = $this->fetch_layout_source_posts( $base_url, $unit_type );
 			if ( is_wp_error( $posts ) ) {
 				status_header( 502 );
@@ -2295,8 +2305,65 @@ class PixelgradeAssistant_StarterContent {
 			// instead of rendering against the front-page query. Parts (header/footer) need nothing.
 			$this->setup_preview_query_context( $unit_type, $unit );
 
+			// Capture the rendered document so we can serve it AND cache it for the next request (see
+			// layout_unit_preview_cache_key). The headers are sent inside render(); only the body is cached.
+			ob_start();
 			$this->render_layout_unit_preview_document( $post['post_content'] );
+			$preview_html = ob_get_clean();
+
+			set_transient( $preview_cache_key, $preview_html, 3 * MINUTE_IN_SECONDS );
+
+			echo $preview_html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- block-rendered preview HTML.
 			exit;
+		}
+
+		/**
+		 * Send the shared response headers for a site-mode layout-unit preview document.
+		 *
+		 * @return void
+		 */
+		private function send_layout_unit_preview_headers() {
+			// We are emitting a full front-end document; keep the admin bar and its chrome out of it.
+			show_admin_bar( false );
+
+			header( 'Content-Type: text/html; charset=' . get_bloginfo( 'charset' ) );
+			header( 'X-Robots-Tag: noindex, nofollow', true );
+			// Short PRIVATE browser cache so re-scrolling / re-opening the tab is instant; the matching
+			// server render cache (see layout_unit_preview_cache_key) is bounded to the same 180s window.
+			header( 'Cache-Control: private, max-age=180' );
+		}
+
+		/**
+		 * Transient key for the cached site-mode render of one layout unit.
+		 *
+		 * do_blocks() on a full template is the costly step, and under the grid's preview concurrency a
+		 * cold render can miss the client's load timeout and fall back to "No preview". Caching the rendered
+		 * document briefly makes a retry or a re-visit an instant hit and relieves the render stampede. The
+		 * TTL is deliberately kept to the same 180s window as the per-response browser cache, so this adds
+		 * NO staleness beyond what the browser already holds — a Style-Manager palette/font change surfaces
+		 * within that same bounded, self-healing window (we avoid a long-lived render cache that could
+		 * outlast an unsignalled SM Site-Editor save). The key carries the unit identity + active theme +
+		 * version; the cached HTML is site content (identical for every admin), and access (cap + nonce) is
+		 * already enforced before any lookup.
+		 *
+		 * @param string $base_url  Source SCE REST base.
+		 * @param string $unit_type Unit type.
+		 * @param string $unit      Unit slug.
+		 *
+		 * @return string
+		 */
+		private function layout_unit_preview_cache_key( $base_url, $unit_type, $unit ) {
+			$theme   = function_exists( 'wp_get_theme' ) ? wp_get_theme() : null;
+			$version = ( $theme && ! is_wp_error( $theme ) ) ? (string) $theme->get( 'Version' ) : '';
+			$parts   = array(
+				$base_url,
+				$unit_type,
+				$unit,
+				function_exists( 'get_stylesheet' ) ? get_stylesheet() : '',
+				$version,
+			);
+
+			return 'pixassist_lupv_' . md5( implode( '|', $parts ) );
 		}
 
 		/**
@@ -2311,15 +2378,7 @@ class PixelgradeAssistant_StarterContent {
 		 * @return void
 		 */
 		private function render_layout_unit_preview_document( $markup ) {
-			// We are emitting a full front-end document; keep the admin bar and its chrome out of it.
-			show_admin_bar( false );
-
-			header( 'Content-Type: text/html; charset=' . get_bloginfo( 'charset' ) );
-			header( 'X-Robots-Tag: noindex, nofollow', true );
-			// Short PRIVATE browser cache so re-scrolling / re-opening the tab is instant. Kept brief so a
-			// theme/Style-Manager design change surfaces quickly (a server-side render cache was deliberately
-			// avoided — SM's Site-Editor save path may not fire the Customizer hooks, risking stale previews).
-			header( 'Cache-Control: private, max-age=180' );
+			$this->send_layout_unit_preview_headers();
 
 			?><!DOCTYPE html>
 <html <?php language_attributes(); ?>>
@@ -2328,8 +2387,11 @@ class PixelgradeAssistant_StarterContent {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <?php wp_head(); ?>
 <style>
-	html, body { margin: 0; padding: 0; background: var(--sm-current-bg-color, #ffffff); }
-	.pixassist-layout-preview-canvas { width: 1200px; max-width: none; margin: 0 auto; }
+	html, body { margin: 0; padding: 0; background: var(--sm-current-bg-color, #ffffff); overflow-x: clip; }
+	/* Clip horizontal bleed the way the real page wrapper does, so a sidecar sidebar / break-align block
+	   that overruns the fixed canvas width doesn't spill outside the preview (overflow-x: clip keeps
+	   vertical position:sticky working, unlike overflow:hidden). */
+	.pixassist-layout-preview-canvas { width: 1200px; max-width: none; margin: 0 auto; overflow-x: clip; }
 	/* Static capture: kill intro animations/transitions so nothing renders mid-reveal. */
 	.pixassist-layout-preview-canvas, .pixassist-layout-preview-canvas * { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 	/* Neutral placeholder for media that cannot resolve before import (see .ai/layout-previews phase-0). */
