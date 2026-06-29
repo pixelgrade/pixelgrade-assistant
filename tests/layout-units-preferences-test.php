@@ -287,6 +287,8 @@ assert_true( false !== strpos( $layout_preview_js, "from './preferences'" ), 'La
 assert_true( false !== strpos( $layout_preview_js, 'getPreviewMode' ), 'Layout preview mode must hydrate from persisted storage.' );
 assert_true( false !== strpos( $layout_preview_js, 'savePreviewMode' ), 'Layout preview mode changes must persist to storage.' );
 assert_true( false !== strpos( $content_patterns_js, "from '../preferences'" ), 'Page Patterns tab must import the shared preferences helper.' );
+assert_true( false !== strpos( $content_patterns_js, 'PreviewModeToggle' ), 'Page Patterns tab must expose the shared My site / Demo site preview toggle.' );
+assert_true( false !== strpos( $content_patterns_js, 'createElement( PreviewModeToggle' ), 'Page Patterns toolbar must render the shared preview-mode toggle.' );
 assert_true( false !== strpos( $content_patterns_js, 'getContentPatternPreferences' ), 'Page Patterns tab must hydrate toolbar state from persisted preferences.' );
 assert_true( false !== strpos( $content_patterns_js, 'saveContentPatternPreferences' ), 'Page Patterns tab must save toolbar state changes to persisted preferences.' );
 assert_true( false !== strpos( $content_patterns_js, 'pixassist-content-patterns__grid' ), 'Page Patterns grid must expose a stable class for responsive constraints.' );

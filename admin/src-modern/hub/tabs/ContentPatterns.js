@@ -7,7 +7,7 @@ import { createElement, Fragment, useEffect, useMemo, useRef, useState } from '@
 import { __, sprintf } from '@wordpress/i18n';
 import { Button, Dropdown, Icon, Modal, Notice, RangeControl, SearchControl, SelectControl } from '@wordpress/components';
 import { check, fullscreen, grid, listView, settings, update } from '@wordpress/icons';
-import { LayoutPreview } from '../LayoutPreview';
+import { LayoutPreview, PreviewModeToggle } from '../LayoutPreview';
 import { getContentPatternPreferences, saveContentPatternPreferences } from '../preferences';
 
 const DEFAULT_CONTENT_PATTERNS = {
@@ -773,6 +773,7 @@ function ContentToolbar( { search, onSearch, typeFilter, onTypeFilter, sourceFil
 					onChange: onSourceFilter,
 				} )
 			),
+			createElement( PreviewModeToggle, null ),
 			createElement(
 				'div',
 				{ style: { display: 'inline-flex', border: '1px solid #dcdcde', borderRadius: '4px' } },
