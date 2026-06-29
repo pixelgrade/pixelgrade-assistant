@@ -2520,7 +2520,12 @@ function renderComposerView( starter, context ) {
 export function StarterSites() {
 	const data = getStarterSitesData();
 	const copy = mergeCopy( data.copy );
-	const starters = Array.isArray( data.starters ) ? data.starters : [];
+	// Layouts-only libraries (role === 'library', e.g. the Frame Library) are a Layouts SOURCE but not
+	// a whole-site starter — drop them from the Starter Sites cards. They stay in the localized data
+	// (the Layouts tab + its previews still read window.pixelgradeStarterSites for the source list).
+	const starters = ( Array.isArray( data.starters ) ? data.starters : [] ).filter(
+		( starter ) => 'library' !== ( starter && starter.role )
+	);
 	const [ imported, setImported ] = useState( data.imported || {} );
 	const [ applied, setApplied ] = useState( normalizeApplied( data.applied ) );
 	const [ states, setStates ] = useState( {} );

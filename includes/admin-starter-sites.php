@@ -257,6 +257,11 @@ if ( ! function_exists( 'pixassist_normalize_admin_hub_starter' ) ) {
 			'image'           => isset( $starter['image'] ) ? pixassist_starter_sites_esc_url_raw( $starter['image'] ) : '',
 			'previewUrl'      => isset( $starter['previewUrl'] ) ? pixassist_starter_sites_esc_url_raw( $starter['previewUrl'] ) : '',
 			'badge'           => isset( $starter['badge'] ) ? (string) $starter['badge'] : '',
+			// Surface role: 'starter' (default — a full starter site, shown in Starter Sites AND as a
+			// Layouts source) vs 'library' (a Layouts-only parts/template library, e.g. the Frame
+			// Library — hidden from the Starter Sites tab, still listed as a Layouts source). Access is
+			// unchanged; this is presentation only.
+			'role'            => ( isset( $starter['role'] ) && 'library' === $starter['role'] ) ? 'library' : 'starter',
 			'source'          => $source,
 			'order'           => isset( $starter['order'] ) ? (int) $starter['order'] : 10,
 			'capabilities'    => $capabilities,

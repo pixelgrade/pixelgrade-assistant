@@ -297,7 +297,7 @@ add_filter(
 $starters = pixassist_get_admin_hub_starters();
 assert_same( array( 'premium-pack', 'secondary', 'anima-portfolio', 'main' ), array_column( $starters, 'id' ), 'Starters must include free + injected premium entries, drop malformed entries, dedupe ids, and sort by order.' );
 
-$expected_starter_keys = array( 'applyPlan', 'badge', 'baseRestUrl', 'capabilities', 'description', 'gate', 'id', 'image', 'order', 'previewUrl', 'requiredPlugins', 'segments', 'source', 'title', 'url' );
+$expected_starter_keys = array( 'applyPlan', 'badge', 'baseRestUrl', 'capabilities', 'description', 'gate', 'id', 'image', 'order', 'previewUrl', 'requiredPlugins', 'role', 'segments', 'source', 'title', 'url' );
 foreach ( $starters as $starter ) {
 	$keys = array_keys( $starter );
 	sort( $keys );
