@@ -15,6 +15,7 @@ import { Plugins } from './Plugins';
 import { StarterSites } from './StarterSites';
 import { Recipes } from './Recipes';
 import { LayoutUnits } from './LayoutUnits';
+import { ContentPatterns } from './ContentPatterns';
 import { SystemStatus } from './SystemStatus';
 import { Tools } from './Tools';
 import { HelpTab } from './Help';
@@ -61,6 +62,12 @@ addFilter( 'pixelgrade.adminHub.tabs', 'pixelgrade-assistant/recipes', ( map ) =
 
 addFilter( 'pixelgrade.adminHub.tabs', 'pixelgrade-assistant/layout-units', ( map ) => {
 	map.layoutUnits = { component: LayoutUnits };
+
+	return map;
+} );
+
+addFilter( 'pixelgrade.adminHub.tabs', 'pixelgrade-assistant/content-patterns', ( map ) => {
+	map.contentPatterns = { component: ContentPatterns };
 
 	return map;
 } );

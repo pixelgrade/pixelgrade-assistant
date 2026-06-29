@@ -17,6 +17,7 @@
             "php tests/admin-plugins-test.php",
             "php tests/setup-readiness-test.php",
             "php tests/admin-starter-sites-test.php",
+            "php tests/admin-content-patterns-test.php",
             "php tests/starter-segments-test.php",
             "php tests/admin-recipes-test.php",
             "php tests/admin-layout-units-test.php",

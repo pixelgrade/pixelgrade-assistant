@@ -164,7 +164,7 @@ export function TabBar( { tabs, activeId, onSelect } ) {
 		'div',
 		{
 			className: 'pixelgrade-admin-hub__tabbar',
-			role: 'tablist',
+			role: 'navigation',
 			'aria-label': __( 'Pixelgrade Design sections', 'pixelgrade_assistant' ),
 			style: {
 				alignItems: 'center',
@@ -180,38 +180,67 @@ export function TabBar( { tabs, activeId, onSelect } ) {
 		createElement(
 			'div',
 			{
-				className: 'pixelgrade-admin-hub__tabbar-primary',
-				role: 'presentation',
+				className: 'pixelgrade-admin-hub__tabbar-tabs',
+				role: 'tablist',
+				'aria-label': __( 'Pixelgrade Design sections', 'pixelgrade_assistant' ),
 				style: {
 					alignItems: 'center',
 					display: 'flex',
 					flex: '1 1 520px',
 					flexWrap: 'wrap',
-					gap: '2px',
+					gap: '12px 20px',
 				},
 			},
-			designTabs.map( ( tab ) => renderTab( tab ) )
-		),
-		serviceTabs.length || utilityTabs.length
-			? createElement(
+			createElement(
 				'div',
 				{
-					className: 'pixelgrade-admin-hub__tabbar-service',
+					className: 'pixelgrade-admin-hub__tabbar-primary',
 					role: 'presentation',
 					style: {
 						alignItems: 'center',
-						borderLeft: '1px solid #dcdcde',
 						display: 'flex',
-						flex: '0 1 auto',
+						flex: '1 1 auto',
 						flexWrap: 'wrap',
 						gap: '2px',
-						marginLeft: 'auto',
-						paddingLeft: '16px',
 					},
 				},
-				serviceTabs.map( ( tab ) => renderTab( tab, true ) ),
-				renderMoreMenu()
-			)
+				designTabs.map( ( tab ) => renderTab( tab ) )
+			),
+			serviceTabs.length
+				? createElement(
+					'div',
+					{
+						className: 'pixelgrade-admin-hub__tabbar-service',
+						role: 'presentation',
+						style: {
+							alignItems: 'center',
+							borderLeft: '1px solid #dcdcde',
+							display: 'flex',
+							flex: '0 1 auto',
+							flexWrap: 'wrap',
+							gap: '2px',
+							marginLeft: 'auto',
+							paddingLeft: '16px',
+						},
+					},
+					serviceTabs.map( ( tab ) => renderTab( tab, true ) )
+				)
+				: null
+		),
+		utilityTabs.length
+			? createElement(
+					'div',
+					{
+						className: 'pixelgrade-admin-hub__tabbar-utilities',
+						style: {
+							alignItems: 'center',
+							display: 'flex',
+							flex: '0 1 auto',
+							marginLeft: serviceTabs.length ? 0 : 'auto',
+						},
+					},
+					renderMoreMenu()
+			  )
 			: null
 	);
 }

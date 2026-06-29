@@ -545,7 +545,7 @@ function paf_remote_data( $url = '' ) {
 				),
 				'page'             => array(
 					'name' => 'page',
-					'ids'  => array( 50 ),
+					'ids'  => array( 50, 52 ),
 				),
 			),
 			'post_settings' => array(
@@ -868,6 +868,51 @@ function paf_remote_posts( $post_type, $url = '' ) {
 				'taxonomies'            => array(
 					'wp_theme' => array( 'anima' ),
 				),
+			),
+		);
+	}
+
+	if ( 'page' === $post_type ) {
+		return array(
+			array(
+				'ID'                    => 50,
+				'post_title'            => 'Menu Page',
+				'post_content'          => '<!-- wp:paragraph --><p>Menu target.</p><!-- /wp:paragraph -->',
+				'post_content_filtered' => '',
+				'post_excerpt'          => '',
+				'post_status'           => 'publish',
+				'post_name'             => 'menu',
+				'post_type'             => 'page',
+				'post_date'             => '2026-01-01 00:00:00',
+				'post_date_gmt'         => '2026-01-01 00:00:00',
+				'post_modified'         => '2026-01-01 00:00:00',
+				'post_modified_gmt'     => '2026-01-01 00:00:00',
+				'post_parent'           => 0,
+				'menu_order'            => 0,
+				'guid'                  => 'https://starter.test/?page_id=50',
+				'meta'                  => array(),
+				'taxonomies'            => array(),
+			),
+			array(
+				'ID'                    => 52,
+				'post_title'            => 'About Pattern',
+				'post_content'          => '<!-- wp:paragraph --><p>About content.</p><!-- /wp:paragraph --><!-- wp:image {"id":39,"sizeSlug":"large"} --><figure class="wp-block-image size-large"><img src="https://starter.test/header-image.jpg" class="wp-image-39"/></figure><!-- /wp:image -->',
+				'post_content_filtered' => '',
+				'post_excerpt'          => 'A reusable About page.',
+				'post_status'           => 'publish',
+				'post_name'             => 'about-pattern',
+				'post_type'             => 'page',
+				'post_date'             => '2026-01-01 00:00:00',
+				'post_date_gmt'         => '2026-01-01 00:00:00',
+				'post_modified'         => '2026-01-01 00:00:00',
+				'post_modified_gmt'     => '2026-01-01 00:00:00',
+				'post_parent'           => 0,
+				'menu_order'            => 0,
+				'guid'                  => 'https://starter.test/?page_id=52',
+				'meta'                  => array(
+					'_thumbnail_id' => array( '39' ),
+				),
+				'taxonomies'            => array(),
 			),
 		);
 	}
@@ -1897,5 +1942,85 @@ foreach ( $GLOBALS['paf_remote_requests'] as $request ) {
 	}
 }
 assert_same( array( 30, 90 ), $media_request_timeouts, 'A transient full-starter media timeout must be retried with a longer timeout.' );
+
+$GLOBALS['paf_pixassist_options']  = array(
+	'account' => array(
+		'is_connected' => true,
+		'email'        => 'owner@example.test',
+	),
+);
+$GLOBALS['paf_pixassist_db_options'] = $GLOBALS['paf_pixassist_options'];
+$GLOBALS['paf_inserted_posts']      = array();
+$GLOBALS['paf_deleted_posts']       = array();
+$GLOBALS['paf_deleted_attachments'] = array();
+$GLOBALS['paf_attachment_metadata'] = array();
+$GLOBALS['paf_sideloads']           = array();
+$GLOBALS['paf_downloads']           = array();
+$GLOBALS['paf_next_post_id']        = 5000;
+$GLOBALS['paf_next_attachment_id']  = 6000;
+
+assert_true( method_exists( $starter_content, 'list_content_units' ), 'Starter Content must expose list_content_units().' );
+assert_true( method_exists( $starter_content, 'import_content_unit' ), 'Starter Content must expose import_content_unit().' );
+assert_true( method_exists( $starter_content, 'undo_content_unit' ), 'Starter Content must expose undo_content_unit().' );
+assert_true( method_exists( $starter_content, 'get_applied_content_units' ), 'Starter Content must expose get_applied_content_units().' );
+
+$content_units_response = $starter_content->list_content_units( 'content-patterns', 'https://starter.test/wp-json/sce/v2/' );
+assert_same( 'success', $content_units_response['code'], 'Content-unit listing must return a success code.' );
+
+$about_unit = null;
+foreach ( $content_units_response['data']['units'] as $unit ) {
+	if ( 'page' === $unit['type'] && 'about-pattern' === $unit['slug'] ) {
+		$about_unit = $unit;
+	}
+}
+assert_true( is_array( $about_unit ), 'Content-unit listing must expose page-level records from SCE sources.' );
+assert_same( 'About Pattern', $about_unit['title'], 'Content-unit listing must preserve the source page title.' );
+assert_same( true, $about_unit['available'], 'Editorial page patterns must be available without Plus.' );
+
+$content_summary = $starter_content->import_content_unit(
+	'content-patterns',
+	'https://starter.test/wp-json/sce/v2/',
+	'page',
+	'about-pattern'
+);
+assert_same( 'success', $content_summary['code'], 'Content-unit import must return a success code.' );
+assert_same( 'page', $content_summary['data']['unit']['type'], 'The imported content summary must report its post type.' );
+assert_same( 'about-pattern', $content_summary['data']['unit']['slug'], 'The imported content summary must report its source slug.' );
+assert_same( 1, $content_summary['data']['dependencies']['content'], 'Content-unit import must report the selected content record.' );
+assert_same( 1, $content_summary['data']['dependencies']['media'], 'Content-unit import must sideload referenced media.' );
+
+$content_journal = $GLOBALS['paf_pixassist_options']['imported_starter_content']['content-patterns'];
+$local_page_id   = $content_journal['post_types']['page'][52];
+$local_media_id  = $content_journal['media']['ignored'][39];
+assert_same( array( 52 => $local_page_id ), $content_journal['post_types']['page'], 'The selected page must be journaled as a post_type import.' );
+assert_same( array( 39 => $local_media_id ), $content_journal['media']['ignored'], 'The page image dependency must be journaled as imported media.' );
+assert_true( isset( $content_journal['content_units']['page:about-pattern'] ), 'Content-unit import must record one applied content unit.' );
+assert_same( 'About Pattern', $content_journal['content_units']['page:about-pattern']['title'], 'Applied content state must carry a readable title.' );
+assert_same( $local_media_id, $GLOBALS['paf_inserted_posts'][ $local_page_id ]['meta_input']['_thumbnail_id'], 'Content-unit featured images must be remapped to the imported local attachment.' );
+assert_same( true, $GLOBALS['paf_attachment_metadata'][ $local_media_id ]['imported_with_pixassist'], 'Content-unit media must carry the reset safety tag.' );
+assert_true( isset( $content_summary['data']['appliedContent']['page:about-pattern'] ), 'Content import response must expose applied content state for the UI.' );
+
+$applied_content = $starter_content->get_applied_content_units();
+assert_same( 'About Pattern', $applied_content['page:about-pattern']['title'], 'Applied content accessor must expose imported content units.' );
+
+$undo_content = $starter_content->undo_content_unit( 'page', 'about-pattern' );
+assert_same( 'success', $undo_content['code'], 'Undoing the page pattern must succeed.' );
+assert_same( array( array( $local_page_id, true ) ), $GLOBALS['paf_deleted_posts'], 'Undoing the page pattern must delete the journaled imported page.' );
+assert_same( array( array( $local_media_id, true ) ), $GLOBALS['paf_deleted_attachments'], 'Undoing the page pattern must delete safely-tagged imported media dependencies.' );
+assert_true( empty( $GLOBALS['paf_pixassist_options']['imported_starter_content']['content-patterns'] ), 'Undoing the page pattern must remove its empty source journal.' );
+
+$content_summary = $starter_content->import_content_unit(
+	'content-patterns',
+	'https://starter.test/wp-json/sce/v2/',
+	'page',
+	'about-pattern'
+);
+assert_same( 'success', $content_summary['code'], 'Content-unit import must be repeatable after undo.' );
+
+$reset_summary = $starter_content->reset_starter_content();
+assert_true( 0 < $reset_summary['posts_deleted'], 'Full Reset must delete imported page patterns.' );
+assert_true( 0 < $reset_summary['media_deleted'], 'Full Reset must delete imported page-pattern media.' );
+assert_same( array(), $GLOBALS['paf_pixassist_options']['imported_starter_content'], 'Full Reset must clear the content-unit journal.' );
+assert_same( array( 'is_connected' => true, 'email' => 'owner@example.test' ), $GLOBALS['paf_pixassist_options']['account'], 'Full Reset must not touch account/license/OAuth state after content imports.' );
 
 echo "Layout unit import contract OK\n";

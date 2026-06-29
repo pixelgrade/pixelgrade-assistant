@@ -120,6 +120,8 @@ assert_true( false !== strpos( $app_js, 'tabAliases' ), 'The hub shell must pass
 assert_true( false !== strpos( $tabbar_js, 'designTabs' ), 'The tab bar must render the left design cluster separately.' );
 assert_true( false !== strpos( $tabbar_js, 'serviceTabs' ), 'The tab bar must render Account and Help as a right-side service cluster.' );
 assert_true( false !== strpos( $tabbar_js, 'utilityTabs' ), 'The tab bar must collect utility tabs separately for More.' );
+assert_true( false !== strpos( $tabbar_js, "role: 'navigation'" ), 'The tab bar wrapper must be navigation, not the tablist itself.' );
+assert_true( false !== strpos( $tabbar_js, 'pixelgrade-admin-hub__tabbar-tabs' ), 'The tablist must be isolated from the utility More dropdown.' );
 assert_true( false !== strpos( $tabbar_js, 'Dropdown' ), 'The tab bar must use an accessible dropdown for More utilities.' );
 assert_true( false !== strpos( $tabbar_js, 'MenuItem' ), 'The More dropdown must render utility entries as menu items.' );
 assert_true( false !== strpos( $tabbar_js, "'More'" ), 'The utility dropdown button must be labeled More.' );

@@ -189,10 +189,18 @@ class PixelgradeAssistant_Admin {
 			    'method' => 'POST',
 			    'url'    => esc_url_raw( rest_url() . 'pixassist/v1/layout_units' ),
 		    ),
+		    'contentUnits'       => array(
+			    'method' => 'POST',
+			    'url'    => esc_url_raw( rest_url() . 'pixassist/v1/content_units' ),
+		    ),
 			    'importUnit'         => array(
 				    'method' => 'POST',
 				    'url'    => esc_url_raw( rest_url() . 'pixassist/v1/import_unit' ),
 			    ),
+		    'importContentUnit'  => array(
+			    'method' => 'POST',
+			    'url'    => esc_url_raw( rest_url() . 'pixassist/v1/import_content_unit' ),
+		    ),
 			    'queueUnit'          => array(
 				    'method' => 'POST',
 				    'url'    => esc_url_raw( rest_url() . 'pixassist/v1/queue_unit' ),
@@ -205,6 +213,10 @@ class PixelgradeAssistant_Admin {
 				    'method' => 'POST',
 				    'url'    => esc_url_raw( rest_url() . 'pixassist/v1/undo_unit' ),
 			    ),
+		    'undoContentUnit'    => array(
+			    'method' => 'POST',
+			    'url'    => esc_url_raw( rest_url() . 'pixassist/v1/undo_content_unit' ),
+		    ),
 		    'recipes'            => array(
 			    'method' => 'POST',
 			    'url'    => esc_url_raw( rest_url() . 'pixassist/v1/recipes' ),
@@ -366,6 +378,7 @@ class PixelgradeAssistant_Admin {
             // Recipes are source-as-recipe presets over the granular layout-unit importer.
             wp_localize_script( $handle, 'pixelgradeRecipes', pixassist_get_recipes_data() );
             wp_localize_script( $handle, 'pixelgradeLayoutUnits', pixassist_get_layout_units_data() );
+            wp_localize_script( $handle, 'pixelgradeContentPatterns', pixassist_get_content_patterns_data() );
             // Secondary diagnostics/maintenance tabs (#50), sourced from existing Assistant REST
             // endpoints and data collectors.
             wp_localize_script( $handle, 'pixelgradeSystemStatus', pixassist_get_system_status_data() );
