@@ -2857,6 +2857,7 @@ class PixelgradeAssistant_StarterContent {
 			$base_url  = isset( $_GET['url'] ) ? esc_url_raw( wp_unslash( $_GET['url'] ) ) : '';
 			$unit_type = isset( $_GET['unit_type'] ) ? sanitize_key( wp_unslash( $_GET['unit_type'] ) ) : '';
 			$unit      = isset( $_GET['unit'] ) ? sanitize_text_field( wp_unslash( $_GET['unit'] ) ) : '';
+			$mode      = isset( $_GET['mode'] ) ? sanitize_key( wp_unslash( $_GET['mode'] ) ) : 'site';
 
 			if ( empty( $base_url ) || empty( $unit_type ) || empty( $unit ) || ! in_array( $unit_type, $this->get_content_unit_post_types(), true ) || ! $this->is_allowed_demo_url( $base_url ) ) {
 				status_header( 400 );
@@ -2881,6 +2882,11 @@ class PixelgradeAssistant_StarterContent {
 					'<div style="padding:80px 24px;text-align:center;font-family:sans-serif;color:#50575e;">'
 					. esc_html__( 'Premium page pattern — preview unavailable.', '__plugin_txtd' ) . '</div>'
 				);
+				exit;
+			}
+
+			if ( 'demo' === $mode ) {
+				$this->render_content_unit_demo_preview( $base_url, $post );
 				exit;
 			}
 
@@ -3070,7 +3076,7 @@ class PixelgradeAssistant_StarterContent {
 				$version,
 			);
 
-			return 'pixassist_lupv_' . md5( implode( '|', $parts ) );
+			return 'pixassist_lupv2_' . md5( implode( '|', $parts ) );
 		}
 
 		/**
@@ -3093,7 +3099,114 @@ class PixelgradeAssistant_StarterContent {
 				$version,
 			);
 
-			return 'pixassist_cupv_' . md5( implode( '|', $parts ) );
+			return 'pixassist_cupv2_' . md5( implode( '|', $parts ) );
+		}
+
+		/**
+		 * Resolve the public demo URL for one source content record.
+		 *
+		 * Only the selected starter's own frontend URL is accepted. All starter subsites share
+		 * starter.pixelgrade.com, so host equality is not enough; the URL path must stay under the
+		 * stripped SCE base path too.
+		 *
+		 * @param string $base_url Source SCE REST base.
+		 * @param array  $post     Source post record.
+		 *
+		 * @return string
+		 */
+		private function get_content_unit_demo_preview_url( $base_url, $post ) {
+			$preview_url = $this->get_content_unit_preview_url( $post );
+			if ( '' === $preview_url ) {
+				return '';
+			}
+
+			$demo_base = preg_replace( '#wp-json/sce/v[0-9]+/?$#i', '', rtrim( (string) $base_url, '/' ) . '/' );
+			$demo_base = rtrim( (string) $demo_base, '/' ) . '/';
+
+			$demo_parts    = parse_url( $demo_base );
+			$preview_parts = parse_url( $preview_url );
+
+			if ( empty( $demo_parts['scheme'] ) || empty( $demo_parts['host'] ) || empty( $preview_parts['scheme'] ) || empty( $preview_parts['host'] ) ) {
+				return '';
+			}
+
+			if ( ! in_array( strtolower( $preview_parts['scheme'] ), array( 'http', 'https' ), true ) ) {
+				return '';
+			}
+
+			if ( strtolower( $demo_parts['host'] ) !== strtolower( $preview_parts['host'] ) ) {
+				return '';
+			}
+
+			$demo_path    = isset( $demo_parts['path'] ) ? '/' . ltrim( $demo_parts['path'], '/' ) : '/';
+			$preview_path = isset( $preview_parts['path'] ) ? '/' . ltrim( $preview_parts['path'], '/' ) : '/';
+			$demo_path    = rtrim( $demo_path, '/' ) . '/';
+
+			if ( '/' !== $demo_path && 0 !== strpos( $preview_path, $demo_path ) ) {
+				return '';
+			}
+
+			return esc_url_raw( $preview_url );
+		}
+
+		/**
+		 * Demo-content preview for Page Patterns: proxy the source record's public demo page.
+		 *
+		 * @param string $base_url Source SCE REST base.
+		 * @param array  $post     Source post record.
+		 *
+		 * @return void
+		 */
+		private function render_content_unit_demo_preview( $base_url, $post ) {
+			$target_url = $this->get_content_unit_demo_preview_url( $base_url, $post );
+			if ( '' === $target_url ) {
+				status_header( 404 );
+				exit;
+			}
+
+			$demo_base = preg_replace( '#wp-json/sce/v[0-9]+/?$#i', '', rtrim( (string) $base_url, '/' ) . '/' );
+			$demo_base = rtrim( (string) $demo_base, '/' ) . '/';
+
+			$cache_key = 'pixassist_content_demo_prev_v2_' . md5( $target_url );
+			$html      = get_transient( $cache_key );
+
+			if ( false === $html ) {
+				$response = wp_remote_get( $target_url, array( 'timeout' => 15, 'redirection' => 3, 'sslverify' => true ) );
+				if ( is_wp_error( $response ) || 200 !== (int) wp_remote_retrieve_response_code( $response ) ) {
+					status_header( 502 );
+					exit;
+				}
+
+				$html = wp_remote_retrieve_body( $response );
+				if ( '' === trim( $html ) ) {
+					status_header( 502 );
+					exit;
+				}
+
+				$head_inject = '<base href="' . esc_url( $demo_base ) . '">'
+					. '<style>*{animation:none!important;transition:none!important;scroll-behavior:auto!important}</style>'
+					. '<script>(function(){try{var O=XMLHttpRequest.prototype.open;XMLHttpRequest.prototype.open=function(m,u){if(typeof u==="string"&&u.indexOf("wc-ajax=")!==-1){this.__pixBlock=1;}return O.apply(this,arguments);};var S=XMLHttpRequest.prototype.send;XMLHttpRequest.prototype.send=function(){if(this.__pixBlock){return;}return S.apply(this,arguments);};var F=window.fetch;if(F){window.fetch=function(i){var u=(typeof i==="string")?i:(i&&i.url)||"";if(u.indexOf("wc-ajax=")!==-1){return Promise.resolve(new Response("",{status:204}));}return F.apply(this,arguments);};}}catch(e){}})();</script>';
+				$html = preg_replace_callback(
+					'/<head[^>]*>/i',
+					function ( $matches ) use ( $head_inject ) {
+						return $matches[0] . $head_inject;
+					},
+					$html,
+					1
+				);
+
+				set_transient( $cache_key, $html, 10 * MINUTE_IN_SECONDS );
+			}
+
+			$focus_script = '<script>window.__pixassistPreviewFocus="full";</script>';
+			$html         = str_ireplace( '</body>', $focus_script . $this->layout_preview_runtime_script() . '</body>', $html );
+
+			show_admin_bar( false );
+			header( 'Content-Type: text/html; charset=' . get_bloginfo( 'charset' ) );
+			header( 'X-Robots-Tag: noindex, nofollow', true );
+			header( 'Cache-Control: private, max-age=300' );
+			echo $html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- proxied allow-listed demo HTML for an admin-only iframe preview.
+			exit;
 		}
 
 		/**
@@ -3104,23 +3217,11 @@ class PixelgradeAssistant_StarterContent {
 		 * @return void
 		 */
 		private function render_content_unit_preview_document( $post ) {
-			$title   = ! empty( $post['post_title'] ) ? wp_strip_all_tags( $post['post_title'] ) : '';
-			$excerpt = ! empty( $post['post_excerpt'] ) ? wp_strip_all_tags( $post['post_excerpt'] ) : '';
 			$content = ! empty( $post['post_content'] ) ? (string) $post['post_content'] : '';
 			$markup  = '<article class="pixassist-content-preview-document">';
-
-			if ( $title || $excerpt ) {
-				$markup .= '<header class="pixassist-content-preview-header" style="padding:48px 24px 24px;max-width:760px;margin:0 auto;">';
-				if ( $title ) {
-					$markup .= '<h1 style="margin:0 0 12px;">' . esc_html( $title ) . '</h1>';
-				}
-				if ( $excerpt ) {
-					$markup .= '<p style="margin:0;color:#646970;font-size:18px;line-height:1.55;">' . esc_html( $excerpt ) . '</p>';
-				}
-				$markup .= '</header>';
-			}
-
-			$markup .= $content . '</article>';
+			$markup .= '<div class="entry-content wp-block-post-content has-global-padding is-layout-constrained wp-block-post-content-is-layout-constrained">';
+			$markup .= $content;
+			$markup .= '</div></article>';
 
 			$this->render_layout_unit_preview_document( $markup );
 		}
@@ -3199,6 +3300,38 @@ class PixelgradeAssistant_StarterContent {
 <script>
 ( function () {
 	var el = document.querySelector( '.pixassist-layout-preview-canvas' ) || document.body;
+	var stablePreviewViewportHeight = Math.max(
+		360,
+		Math.min( window.innerHeight || 0, Math.round( ( window.innerWidth || 1200 ) * 0.75 ) )
+	);
+	function injectNovaHeroPreviewStyles() {
+		if ( document.getElementById( 'pixassist-nova-hero-preview-style' ) ) {
+			return;
+		}
+		document.documentElement.classList.add( 'pixassist-preview-runtime' );
+		var style = document.createElement( 'style' );
+		style.id = 'pixassist-nova-hero-preview-style';
+		style.textContent = [
+			'.pixassist-preview-runtime .nb-supernova--card-layout-stacked.nb-supernova--1-columns.nb-supernova--align-full img.nb-supernova-item__media,',
+			'.pixassist-preview-runtime .novablocks-hero img{',
+			'position:absolute!important;inset:0!important;display:block!important;visibility:visible!important;',
+			'width:100%!important;height:100%!important;min-height:0!important;max-width:none!important;max-height:none!important;',
+			'object-fit:cover!important;transform:none!important;',
+			'}',
+			'.pixassist-preview-runtime .nb-supernova--card-layout-stacked.nb-supernova--1-columns.nb-supernova--align-full .nb-supernova-item__media-wrapper,',
+			'.pixassist-preview-runtime .nb-supernova--card-layout-stacked.nb-supernova--1-columns.nb-supernova--align-full .nb-supernova-item__media-aspect-ratio,',
+			'.pixassist-preview-runtime .nb-supernova--card-layout-stacked.nb-supernova--1-columns.nb-supernova--align-full .nb-supernova-item__media-doppler,',
+			'.pixassist-preview-runtime .nb-supernova--card-layout-stacked.nb-supernova--1-columns.nb-supernova--align-full .novablocks-doppler__mask,',
+			'.pixassist-preview-runtime .nb-supernova--card-layout-stacked.nb-supernova--1-columns.nb-supernova--align-full .novablocks-doppler__wrapper,',
+			'.pixassist-preview-runtime .nb-supernova--card-layout-stacked.nb-supernova--1-columns.nb-supernova--align-full .blob-mix,',
+			'.pixassist-preview-runtime .nb-supernova--card-layout-stacked.nb-supernova--1-columns.nb-supernova--align-full .blob-mix__mask,',
+			'.pixassist-preview-runtime .nb-supernova--card-layout-stacked.nb-supernova--1-columns.nb-supernova--align-full .blob-mix__media,',
+			'.pixassist-preview-runtime .nb-supernova--card-layout-stacked.nb-supernova--1-columns.nb-supernova--align-full .novablocks-media-composition__grid-item-mask{',
+			'position:relative!important;width:100%!important;height:100%!important;overflow:hidden!important;transform:none!important;',
+			'}'
+		].join( '' );
+		( document.head || document.documentElement ).appendChild( style );
+	}
 	function neutralizeFixed() {
 		var vp = window.innerHeight || 0;
 		var nodes = el.querySelectorAll( '*' );
@@ -3296,6 +3429,136 @@ class PixelgradeAssistant_StarterContent {
 			}
 		}
 	}
+	function revealIntroTargets() {
+		// Static previews disable the JS/CSS intro animations that normally reveal Nova/Anima blocks.
+		// Force pending targets visible before measuring, otherwise whole sections can look missing.
+		var nodes = el.querySelectorAll( '.anima-intro-target, .anima-intro-target--pending' );
+		for ( var i = 0; i < nodes.length; i++ ) {
+			var node = nodes[ i ];
+			node.classList.remove( 'anima-intro-target--pending' );
+			node.style.setProperty( 'visibility', 'visible', 'important' );
+			node.style.setProperty( 'opacity', '1', 'important' );
+			node.style.setProperty( 'transform', 'none', 'important' );
+		}
+	}
+	function forceNovaHeroImage( img ) {
+		if ( ! img ) {
+			return;
+		}
+		if ( img.parentElement ) {
+			img.parentElement.style.setProperty( 'position', 'relative', 'important' );
+		}
+		img.style.setProperty( 'display', 'block', 'important' );
+		img.style.setProperty( 'visibility', 'visible', 'important' );
+		img.style.setProperty( 'position', 'absolute', 'important' );
+		img.style.setProperty( 'inset', '0', 'important' );
+		img.style.setProperty( 'max-width', 'none', 'important' );
+		img.style.setProperty( 'max-height', 'none', 'important' );
+		img.style.setProperty( 'min-height', '0', 'important' );
+		img.style.setProperty( 'width', '100%', 'important' );
+		img.style.setProperty( 'height', '100%', 'important' );
+		img.style.setProperty( 'object-fit', 'cover', 'important' );
+		img.style.setProperty( 'transform', 'none', 'important' );
+	}
+	function getNovaHeroPreviewHeight( hero ) {
+		var ratio = parseFloat( hero.getAttribute( 'data-min-height-fallback' ) || '' );
+		if ( ! ratio || ratio <= 0 ) {
+			return 0;
+		}
+		return Math.round( stablePreviewViewportHeight * ratio / 100 );
+	}
+	function forceNovaHeroHeight( node, height ) {
+		if ( ! node || ! height ) {
+			return;
+		}
+		node.style.setProperty( 'height', height + 'px', 'important' );
+		node.style.setProperty( 'min-height', height + 'px', 'important' );
+		node.style.setProperty( 'max-height', height + 'px', 'important' );
+	}
+	function revealNovaHeroMedia() {
+		// Nova stacked heroes/carousels can leave their media <img> at display:none until the animation
+		// controller finishes initialization. They also use fixed-position parallax media, which zooms
+		// badly when the host iframe grows to the full page height. In static preview mode, reveal the
+		// active (or first) item and anchor its media to the hero box instead of the iframe viewport.
+		var heroes = el.querySelectorAll(
+			'.nb-supernova--card-layout-stacked.nb-supernova--1-columns.nb-supernova--align-full,' +
+			'.novablocks-hero'
+		);
+		for ( var i = 0; i < heroes.length; i++ ) {
+			var hero = heroes[ i ];
+			hero.classList.add( 'novablocks-block--ready' );
+			var items = hero.querySelectorAll( '.nb-supernova-item' );
+			var previewHeight = getNovaHeroPreviewHeight( hero );
+			forceNovaHeroHeight( hero, previewHeight );
+			for ( var h = 0; h < items.length; h++ ) {
+				forceNovaHeroHeight( items[ h ], previewHeight );
+			}
+			var target = null;
+			for ( var j = 0; j < items.length; j++ ) {
+				if ( items[ j ].classList.contains( 'slick-active' ) || items[ j ].classList.contains( 'is-active' ) ) {
+					target = items[ j ];
+					break;
+				}
+			}
+			if ( ! target && items.length ) {
+				target = items[ 0 ];
+			}
+			var scope = target || hero;
+			scope.style.setProperty( 'visibility', 'visible', 'important' );
+			scope.style.setProperty( 'opacity', '1', 'important' );
+			scope.style.setProperty( 'transform', 'none', 'important' );
+
+			var layers = scope.querySelectorAll(
+				'.nb-supernova-item__media-wrapper,' +
+				'.nb-supernova-item__media-aspect-ratio,' +
+				'.nb-supernova-item__media-doppler,' +
+				'.novablocks-doppler__mask,' +
+				'.novablocks-doppler__wrapper,' +
+				'.blob-mix,' +
+				'.blob-mix__mask,' +
+				'.blob-mix__media,' +
+				'.novablocks-media-composition__grid-item-mask'
+			);
+			for ( var k = 0; k < layers.length; k++ ) {
+				layers[ k ].style.setProperty( 'position', 'relative', 'important' );
+				layers[ k ].style.setProperty( 'visibility', 'visible', 'important' );
+				layers[ k ].style.setProperty( 'opacity', '1', 'important' );
+				layers[ k ].style.setProperty( 'width', '100%', 'important' );
+				layers[ k ].style.setProperty( 'height', '100%', 'important' );
+				layers[ k ].style.setProperty( 'overflow', 'hidden', 'important' );
+				layers[ k ].style.setProperty( 'transform', 'none', 'important' );
+				forceNovaHeroHeight( layers[ k ], previewHeight );
+			}
+
+			var imgs = scope.querySelectorAll( 'img.nb-supernova-item__media, .nb-supernova-item__media-wrapper img, .novablocks-hero img' );
+			for ( var m = 0; m < imgs.length; m++ ) {
+				forceNovaHeroImage( imgs[ m ] );
+				if ( ! imgs[ m ].__pixassistHeroMediaObserver && window.MutationObserver ) {
+					imgs[ m ].__pixassistHeroMediaObserver = true;
+					( function( img ) {
+						var observer = new window.MutationObserver( function() {
+							var style = window.getComputedStyle( img );
+							if ( 'none' === style.display || 'fixed' === style.position || /[0-9]px/.test( img.style.width + img.style.height ) ) {
+								forceNovaHeroImage( img );
+							}
+						} );
+						observer.observe( img, { attributes: true, attributeFilter: [ 'style', 'class' ] } );
+						window.setTimeout( function() { observer.disconnect(); }, 6000 );
+					} )( imgs[ m ] );
+				}
+			}
+
+			var containers = scope.querySelectorAll( '.novablocks-hero__inner-container, .nb-supernova-item__inner-container' );
+			for ( var n = 0; n < containers.length; n++ ) {
+				var children = containers[ n ].querySelectorAll( '*' );
+				for ( var p = 0; p < children.length; p++ ) {
+					children[ p ].style.setProperty( 'visibility', 'visible', 'important' );
+					children[ p ].style.setProperty( 'opacity', '1', 'important' );
+					children[ p ].style.setProperty( 'transform', 'none', 'important' );
+				}
+			}
+		}
+	}
 	function reportHeight() {
 		var h = Math.max( el.scrollHeight, el.offsetHeight );
 		// Positioned headers/footers collapse scrollHeight — fall back to the bottom-most rendered extent.
@@ -3368,7 +3631,10 @@ class PixelgradeAssistant_StarterContent {
 		}
 	}
 	function run() {
+		injectNovaHeroPreviewStyles();
 		rebaseLocalUploads();
+		revealIntroTargets();
+		revealNovaHeroMedia();
 		var focus = window.__pixassistPreviewFocus || 'full';
 		if ( 'header' === focus ) {
 			placeholderImages();
@@ -3386,8 +3652,16 @@ class PixelgradeAssistant_StarterContent {
 	function report() {
 		if ( 'header' === ( window.__pixassistPreviewFocus || 'full' ) ) { reportBandHeight(); } else { reportHeight(); }
 	}
+	function delayedRun() {
+		run();
+		report();
+	}
 	if ( 'loading' !== document.readyState ) { run(); } else { document.addEventListener( 'DOMContentLoaded', run ); }
 	window.addEventListener( 'load', function () { run(); window.setTimeout( report, 350 ); } );
+	window.setTimeout( delayedRun, 120 );
+	window.setTimeout( delayedRun, 700 );
+	window.setTimeout( delayedRun, 1600 );
+	window.setTimeout( delayedRun, 3200 );
 	if ( window.ResizeObserver && document.body ) {
 		try { new window.ResizeObserver( report ).observe( document.body ); } catch ( e ) {}
 	}
