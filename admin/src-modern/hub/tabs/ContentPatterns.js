@@ -213,6 +213,49 @@ function buildSourceOptions( sources, copy ) {
 	];
 }
 
+function getInitialSourceFilter( sources ) {
+	return sources.length && sources[ 0 ].id ? sources[ 0 ].id : 'all';
+}
+
+function getLoadedSourceIds( cache ) {
+	return normalizeObject( cache ? cache.loadedSourceIds : {} );
+}
+
+function areAllSourcesLoaded( sources, loadedSourceIds ) {
+	return Boolean( sources.length ) && sources.every( ( source ) => source.id && loadedSourceIds[ source.id ] );
+}
+
+function getSourcesToLoad( sources, sourceFilter, loadedSourceIds ) {
+	if ( ! sources.length ) {
+		return [];
+	}
+
+	if ( sourceFilter && 'all' !== sourceFilter ) {
+		const source = findSource( sources, sourceFilter );
+		return source ? [ source ] : [];
+	}
+
+	const unloadedSource = sources.find( ( source ) => source.id && ! loadedSourceIds[ source.id ] );
+	return unloadedSource ? [ unloadedSource ] : [ sources[ 0 ] ];
+}
+
+function mergeUnitsForSources( existingUnits, incomingUnits, sourceIds ) {
+	const replacing = {};
+	sourceIds.forEach( ( id ) => {
+		if ( id ) {
+			replacing[ id ] = true;
+		}
+	} );
+
+	return [
+		...( Array.isArray( existingUnits ) ? existingUnits : [] ).filter( ( unit ) => {
+			const sourceId = unit.source && unit.source.id ? unit.source.id : '';
+			return ! replacing[ sourceId ];
+		} ),
+		...( Array.isArray( incomingUnits ) ? incomingUnits : [] ),
+	];
+}
+
 function filterUnits( units, filters ) {
 	const query = ( filters.search || '' ).trim().toLowerCase();
 
@@ -408,16 +451,18 @@ export function ContentPatterns() {
 	const sources = Array.isArray( data.sources ) ? data.sources : [];
 	const [ units, setUnits ] = useState( contentPatternsCache ? contentPatternsCache.units : [] );
 	const [ applied, setApplied ] = useState( normalizeObject( contentPatternsCache ? contentPatternsCache.applied : data.applied ) );
+	const [ loadedSourceIds, setLoadedSourceIds ] = useState( getLoadedSourceIds( contentPatternsCache ) );
 	const [ loaded, setLoaded ] = useState( Boolean( contentPatternsCache ) );
 	const [ loading, setLoading ] = useState( false );
 	const [ busyKey, setBusyKey ] = useState( '' );
 	const [ message, setMessage ] = useState( null );
 	const [ search, setSearch ] = useState( '' );
 	const [ typeFilter, setTypeFilter ] = useState( 'all' );
-	const [ sourceFilter, setSourceFilter ] = useState( 'all' );
+	const [ sourceFilter, setSourceFilter ] = useState( getInitialSourceFilter( sources ) );
 
 	const typeOptions = useMemo( () => buildTypeOptions( units, copy ), [ units, copy ] );
 	const sourceOptions = useMemo( () => buildSourceOptions( sources, copy ), [ sources, copy ] );
+	const currentSourceLoaded = 'all' === sourceFilter ? areAllSourcesLoaded( sources, loadedSourceIds ) : Boolean( loadedSourceIds[ sourceFilter ] );
 	const filteredUnits = useMemo(
 		() => filterUnits( units, { search, type: typeFilter, source: sourceFilter } ),
 		[ units, search, typeFilter, sourceFilter ]
@@ -431,29 +476,44 @@ export function ContentPatterns() {
 			return;
 		}
 
+		const sourcesToLoad = getSourcesToLoad( sources, sourceFilter, loadedSourceIds );
+		if ( ! sourcesToLoad.length ) {
+			setLoaded( true );
+			setMessage( null );
+			return;
+		}
+
 		setLoading( true );
 		setMessage( null );
 
 		try {
 			const response = await restRequest( data, 'contentUnits', {
-				sources,
+				sources: sourcesToLoad,
 			} );
 			const responseData = response && response.data ? response.data : {};
 			const result = flattenSourceResults( responseData.sources || [], sources );
 			const nextApplied = normalizeObject( responseData.applied || applied );
+			const loadedIds = sourcesToLoad.map( ( source ) => source.id ).filter( Boolean );
+			const nextUnits = mergeUnitsForSources( units, result.units, loadedIds );
+			const nextLoadedSourceIds = { ...loadedSourceIds };
+			loadedIds.forEach( ( id ) => {
+				nextLoadedSourceIds[ id ] = true;
+			} );
 
-			setUnits( result.units );
+			setUnits( nextUnits );
 			setApplied( nextApplied );
+			setLoadedSourceIds( nextLoadedSourceIds );
 			setLoaded( true );
 			contentPatternsCache = {
-				units: result.units,
+				units: nextUnits,
 				applied: nextApplied,
+				loadedSourceIds: nextLoadedSourceIds,
 			};
 
 			if ( result.failures.length ) {
 				setMessage( {
-					type: result.units.length ? 'warning' : 'error',
-					text: result.units.length ? copy.partialFailure : copy.failure,
+					type: nextUnits.length ? 'warning' : 'error',
+					text: nextUnits.length ? copy.partialFailure : copy.failure,
 				} );
 			}
 		} catch ( error ) {
@@ -484,6 +544,7 @@ export function ContentPatterns() {
 			contentPatternsCache = {
 				units,
 				applied: nextApplied,
+				loadedSourceIds,
 			};
 			setMessage( { type: 'success', text: copy.importSuccess } );
 		} catch ( error ) {
@@ -510,6 +571,7 @@ export function ContentPatterns() {
 			contentPatternsCache = {
 				units,
 				applied: nextApplied,
+				loadedSourceIds,
 			};
 			setMessage( { type: 'success', text: copy.undoSuccess } );
 		} catch ( error ) {
@@ -570,13 +632,13 @@ export function ContentPatterns() {
 						createElement(
 							Button,
 							{
-								variant: loaded ? 'secondary' : 'primary',
-								icon: loaded ? update : undefined,
+								variant: currentSourceLoaded ? 'secondary' : 'primary',
+								icon: currentSourceLoaded ? update : undefined,
 								isBusy: loading,
 								disabled: loading || Boolean( busyKey ),
 								onClick: loadUnits,
 							},
-							loading ? copy.loading : ( loaded ? copy.refreshLabel : copy.loadLabel )
+							loading ? copy.loading : ( currentSourceLoaded ? copy.refreshLabel : copy.loadLabel )
 						)
 					)
 				)
