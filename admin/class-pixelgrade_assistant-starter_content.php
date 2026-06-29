@@ -2461,11 +2461,6 @@ class PixelgradeAssistant_StarterContent {
 		var imgs = el.querySelectorAll( 'img' );
 		for ( var i = 0; i < imgs.length; i++ ) {
 			var img = imgs[ i ];
-			// A static preview never scrolls, so native lazy-loading would leave below-the-fold images
-			// permanently unloaded — they would neither show nor get rebased/placeholdered. Force eager so
-			// every image resolves (and a broken one can be rebased to the demo host or placeholdered).
-			img.loading = 'eager';
-			img.removeAttribute( 'loading' );
 			if ( img.complete ) {
 				markBroken( img );
 			} else {
