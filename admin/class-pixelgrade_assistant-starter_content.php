@@ -9152,6 +9152,13 @@ HTML;
 						$resolved = $this->get_imported_media_id( $demo_key, $pending );
 						if ( $resolved && get_post( $resolved ) ) {
 							set_post_thumbnail( $local_id, $resolved );
+						} elseif ( $current ) {
+							// The referenced media was never imported (e.g. an import whose media phase was cut
+							// short — heavy starters split media/content and can finish content with media still
+							// incomplete). Drop the dangling _thumbnail_id so the post has NO featured image
+							// rather than a broken one: a broken id renders grey covers and empty featured-image
+							// areas on the front end. A later full re-import re-stages the marker and resolves it.
+							delete_post_thumbnail( $local_id );
 						}
 					}
 
