@@ -1,10 +1,9 @@
 /**
- * The free Overview tab — the Appearance -> Pixelgrade hub's orientation surface (#44, #55).
+ * The free Overview tab — the Appearance -> Pixelgrade hub's command center (#44, #55).
  *
- * This is the branded orientation hub: it explains, at a value level, what the Pixelgrade design
- * system is, then routes to the right hub section or external action. Top-to-bottom it renders an
- * always-on orientation lead, three value areas that double as routes, the demoted theme card, and
- * the Pixelgrade Plus discovery/manage card.
+ * This is the state-aware Home surface: it shows what is true about the site now, recommends one
+ * next action, explains safe/reversible changes, then keeps the existing orientation routes, theme
+ * card, and Pixelgrade Plus discovery/manage card.
  *
  * Presentational only: all *data* (theme, account, plus state, and the link list — labels, URLs, and
  * which links exist) comes from the server-assembled `window.pixelgradeOverview` payload
@@ -20,7 +19,15 @@ import { Card, CardHeader, CardBody, Button, Flex, FlexItem } from '@wordpress/c
 import { renderAvatar } from '../avatar';
 import { GetStartedCard } from './GetStartedCard';
 
-const DEFAULT_OVERVIEW = { theme: {}, links: [], plus: {}, account: { is_connected: false } };
+const DEFAULT_OVERVIEW = {
+	theme: {},
+	links: [],
+	plus: {},
+	account: { is_connected: false },
+	stateSummary: [],
+	nextAction: null,
+	safety: {},
+};
 
 // The three value areas, in order. Each binds to the first server link whose id matches `ids`; if no
 // such link exists (server-decided availability), the area is skipped. Titles + descriptions are
@@ -82,6 +89,208 @@ function renderOrientation() {
 			'p',
 			{ style: { margin: 0, fontSize: '1.05em', color: '#50575e', maxWidth: '46em' } },
 			__( 'Set your colors, fonts, spacing, and motion once — and your whole site follows.', 'pixelgrade_assistant' )
+		)
+	);
+}
+
+function getToneStyle( tone ) {
+	const style = {
+		background: '#f6f7f7',
+		border: '1px solid #dcdcde',
+		color: '#50575e',
+	};
+
+	if ( 'ok' === tone ) {
+		style.background = '#edfaef';
+		style.border = '1px solid #b8e6c2';
+		style.color = '#0a7a28';
+	}
+
+	if ( 'needs-attention' === tone ) {
+		style.background = '#fcf9e8';
+		style.border = '1px solid #f0d98a';
+		style.color = '#7a5600';
+	}
+
+	return style;
+}
+
+function getToneLabel( tone ) {
+	if ( 'ok' === tone ) {
+		return __( 'Ready', 'pixelgrade_assistant' );
+	}
+
+	if ( 'needs-attention' === tone ) {
+		return __( 'Needs attention', 'pixelgrade_assistant' );
+	}
+
+	return __( 'Info', 'pixelgrade_assistant' );
+}
+
+function renderSummaryItem( item ) {
+	if ( ! item || ! item.id ) {
+		return null;
+	}
+
+	const toneStyle = getToneStyle( item.tone );
+
+	return createElement(
+		'div',
+		{
+			key: item.id,
+			className: 'pixelgrade-overview__state-item pixelgrade-overview__state-item--' + item.id,
+			style: {
+				border: '1px solid #dcdcde',
+				borderRadius: '2px',
+				minWidth: 0,
+				padding: '12px',
+			},
+		},
+		createElement(
+			'div',
+			{
+				style: {
+					alignItems: 'center',
+					display: 'flex',
+					gap: '8px',
+					justifyContent: 'space-between',
+					marginBottom: '6px',
+				},
+			},
+			createElement(
+				'span',
+				{ style: { color: '#50575e', fontSize: '12px', fontWeight: 600, textTransform: 'uppercase' } },
+				item.label || item.id
+			),
+			createElement(
+				'span',
+				{
+					style: {
+						...toneStyle,
+						borderRadius: '999px',
+						display: 'inline-flex',
+						fontSize: '11px',
+						fontWeight: 600,
+						lineHeight: 1,
+						padding: '4px 7px',
+						whiteSpace: 'nowrap',
+					},
+				},
+				getToneLabel( item.tone )
+			)
+		),
+		createElement( 'div', { style: { color: '#1d2327', fontWeight: 600, overflowWrap: 'anywhere' } }, item.value || '-' ),
+		item.detail
+			? createElement( 'p', { style: { color: '#50575e', margin: '4px 0 0' } }, item.detail )
+			: null
+	);
+}
+
+function renderNextAction( nextAction ) {
+	if ( ! nextAction || ! nextAction.label ) {
+		return null;
+	}
+
+	return createElement(
+		'div',
+		{
+			className: 'pixelgrade-overview__next-action',
+			style: {
+				background: '#f6f7f7',
+				border: '1px solid #dcdcde',
+				borderRadius: '2px',
+				padding: '16px',
+			},
+		},
+		createElement(
+			'span',
+			{ style: { color: '#50575e', display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px', textTransform: 'uppercase' } },
+			__( 'Best next action', 'pixelgrade_assistant' )
+		),
+		createElement( 'h3', { style: { margin: '0 0 6px' } }, nextAction.title || nextAction.label ),
+		nextAction.description
+			? createElement( 'p', { style: { color: '#50575e', margin: '0 0 14px', maxWidth: '48em' } }, nextAction.description )
+			: null,
+		createElement(
+			Button,
+			{ variant: 'primary', href: nextAction.url || undefined },
+			nextAction.label
+		),
+		nextAction.safety
+			? createElement(
+					'p',
+					{ style: { color: '#50575e', fontSize: '13px', margin: '12px 0 0' } },
+					nextAction.safety
+			  )
+			: null
+	);
+}
+
+function renderSafety( safety ) {
+	if ( ! safety || ! Array.isArray( safety.items ) || ! safety.items.length ) {
+		return null;
+	}
+
+	return createElement(
+		'div',
+		{ className: 'pixelgrade-overview__safety', style: { marginTop: '14px' } },
+		createElement(
+			'strong',
+			{ style: { display: 'block', marginBottom: '6px' } },
+			safety.title || __( 'Safety notes', 'pixelgrade_assistant' )
+		),
+		createElement(
+			'ul',
+			{ style: { color: '#50575e', listStyle: 'disc', margin: '0 0 0 18px', padding: 0 } },
+			safety.items.map( ( item, index ) => createElement( 'li', { key: index, style: { margin: '0 0 4px' } }, item ) )
+		)
+	);
+}
+
+function renderCommandCenter( data ) {
+	const summary = Array.isArray( data.stateSummary ) ? data.stateSummary : [];
+	const nextAction = data.nextAction || null;
+	const safety = data.safety || {};
+
+	if ( ! summary.length && ! nextAction ) {
+		return null;
+	}
+
+	return createElement(
+		Card,
+		{ className: 'pixelgrade-overview__command-center', style: { margin: '0 0 24px' } },
+		createElement(
+			CardHeader,
+			null,
+			createElement(
+				'div',
+				null,
+				createElement( 'h2', { style: { margin: 0 } }, __( 'Site command center', 'pixelgrade_assistant' ) ),
+				createElement(
+					'p',
+					{ style: { color: '#757575', fontSize: '13px', margin: '2px 0 0' } },
+					__( 'What is true now, and what to do next.', 'pixelgrade_assistant' )
+				)
+			)
+		),
+		createElement(
+			CardBody,
+			null,
+			createElement(
+				'div',
+				{
+					className: 'pixelgrade-overview__state-grid',
+					style: {
+						display: 'grid',
+						gap: '10px',
+						gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))',
+						marginBottom: nextAction ? '16px' : 0,
+					},
+				},
+				summary.map( renderSummaryItem ).filter( Boolean )
+			),
+			renderNextAction( nextAction ),
+			renderSafety( safety )
 		)
 	);
 }
@@ -246,6 +455,7 @@ export function Overview() {
 		// The hub-native onboarding checklist sits above the hero. It self-hides when the server says
 		// onboarding is complete / dismissed / disabled (window.pixelgradeOverview.onboarding.show).
 		createElement( GetStartedCard, null ),
+		renderCommandCenter( data ),
 		renderOrientation(),
 		renderValueAreas( links ),
 		renderThemeCard( theme, account ),

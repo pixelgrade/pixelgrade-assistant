@@ -71,6 +71,9 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/admin-recipes.php';
 // Free Layouts tab: granular single-unit layout import.
 require_once plugin_dir_path( __FILE__ ) . 'includes/admin-layout-units.php';
 
+// Free Page Patterns tab: granular single-unit content import.
+require_once plugin_dir_path( __FILE__ ) . 'includes/admin-content-patterns.php';
+
 // Secondary System Status tab: diagnostics data and controls.
 require_once plugin_dir_path( __FILE__ ) . 'includes/admin-system-status.php';
 
