@@ -76,6 +76,25 @@ class PixelgradeAssistant_StarterContent {
 	private $preview_media_host = '';
 
 	/**
+	 * Request-cached pool of stand-in featured images for previews (recent large landscape local images),
+	 * used when a previewed post's own featured image is missing or broken — common after re-imports, where
+	 * `_thumbnail_id` points at an attachment that no longer exists — so featured-image covers / blocks
+	 * render real photos instead of empty grey bands. Resolutions rotate through the pool so a grid of cards
+	 * gets varied images, not the same one repeated. `null` = not yet resolved.
+	 *
+	 * @var int[]|null
+	 */
+	private $preview_fallback_thumbnail_ids = null;
+
+	/**
+	 * Rotating cursor into $preview_fallback_thumbnail_ids, so successive featured-image positions in one
+	 * render get different stand-in photos.
+	 *
+	 * @var int
+	 */
+	private $preview_fallback_thumbnail_cursor = 0;
+
+	/**
 	 * The only instance.
 	 * @var     PixelgradeAssistant_StarterContent
 	 * @access  protected
@@ -2498,11 +2517,12 @@ class PixelgradeAssistant_StarterContent {
 		}
 	}
 	function rebaseLocalUploads() {
-		// A unit's content images point at the LOCAL upload path the importer WILL use (e.g.
-		// /wp-content/uploads/sites/6/…), which 404s until the layout is applied. Rewrite those to the
-		// demo's real media host UP FRONT so the preview loads the actual image the layout is designed for
-		// — exactly what Apply sideloads — instead of round-tripping a 404 into a placeholder. Only
-		// same-origin upload paths qualify; everything else (gravatars, demo-host images) is left as-is.
+		// A unit's content images point at the demo's MULTISITE upload path the importer WILL use (e.g.
+		// /wp-content/uploads/sites/6/…), which 404s on this single-site install until the layout is
+		// applied. Rewrite those to the demo's real media host UP FRONT so the preview loads the actual
+		// image the layout is designed for — exactly what Apply sideloads — instead of a placeholder.
+		// Scope to the `/sites/<id>/` subsite path ONLY: a plain /wp-content/uploads/YYYY/MM/ image is a
+		// genuine LOCAL upload (e.g. a stand-in featured image) that exists and must NOT be rebased.
 		var host = window.__pixassistMediaHost || '';
 		if ( ! host ) {
 			return;
@@ -2516,7 +2536,7 @@ class PixelgradeAssistant_StarterContent {
 			}
 			var u;
 			try { u = new URL( raw, location.href ); } catch ( e ) { continue; }
-			if ( u.host === location.host && -1 !== u.pathname.indexOf( '/wp-content/uploads/' ) ) {
+			if ( u.host === location.host && -1 !== u.pathname.indexOf( '/wp-content/uploads/sites/' ) ) {
 				img.removeAttribute( 'srcset' ); // the local sized variants do not exist either
 				img.setAttribute( 'src', host + u.pathname + u.search );
 			}
@@ -2850,6 +2870,14 @@ HTML;
 			if ( 'wp_template' !== $unit_type ) {
 				return;
 			}
+
+			// A featured-image cover / post-featured-image block renders an empty grey band when the previewed
+			// post's featured image is missing or broken (after re-imports, `_thumbnail_id` often points at a
+			// no-longer-existing attachment — true site-wide on these starters). Substitute a real local image
+			// so the cover shows a photo instead of grey. Only fills a genuine gap — a resolvable featured
+			// image always wins. See preview_thumbnail_id_fallback().
+			add_filter( 'post_thumbnail_id', array( $this, 'preview_thumbnail_id_fallback' ), 10, 2 );
+
 			$unit = sanitize_title( $unit );
 			$kind = $this->preview_template_kind( $unit );
 
@@ -2870,6 +2898,112 @@ HTML;
 			} elseif ( 'search' === $kind ) {
 				$this->set_search_query_context();
 			}
+		}
+
+		/**
+		 * Filter callback (`post_thumbnail_id`): keep a real, resolvable featured image; only when the post's
+		 * own thumbnail is empty OR points at a no-longer-existing attachment, return a representative local
+		 * image so featured-image covers / post-featured-image blocks render a photo instead of grey. Active
+		 * only during a template preview render.
+		 *
+		 * @param int|string  $thumbnail_id Resolved thumbnail id (may be a broken/missing id).
+		 * @param int|WP_Post $post         Post the thumbnail was requested for (unused).
+		 *
+		 * @return int
+		 */
+		public function preview_thumbnail_id_fallback( $thumbnail_id, $post ) {
+			if ( ! empty( $thumbnail_id ) && wp_attachment_is_image( $thumbnail_id ) ) {
+				return (int) $thumbnail_id;
+			}
+
+			return $this->preview_fallback_thumbnail_id();
+		}
+
+		/**
+		 * A representative local image id for previews — the most recent large landscape image (best for a
+		 * full-bleed cover), else any valid image. Cached per request; 0 when the site has no usable image.
+		 *
+		 * @return int
+		 */
+		private function preview_fallback_thumbnail_id() {
+			if ( null === $this->preview_fallback_thumbnail_ids ) {
+				$this->preview_fallback_thumbnail_ids = $this->collect_preview_fallback_images();
+			}
+
+			$pool = $this->preview_fallback_thumbnail_ids;
+			if ( empty( $pool ) ) {
+				return 0;
+			}
+
+			$id = $pool[ $this->preview_fallback_thumbnail_cursor % count( $pool ) ];
+			$this->preview_fallback_thumbnail_cursor++;
+
+			return (int) $id;
+		}
+
+		/**
+		 * Collect recent local images that read as real photos, for use as stand-in featured images in
+		 * previews. Prefers large landscape-ish JPEGs (content photos); logos/icons are typically PNG or have
+		 * an extreme aspect ratio, so they are filtered out. Falls back to looser criteria, then any image.
+		 *
+		 * @return int[]
+		 */
+		private function collect_preview_fallback_images() {
+			$photos = $this->query_preview_fallback_images( 'image/jpeg', 1200, 1.2, 2.4 );
+			if ( ! empty( $photos ) ) {
+				return $photos;
+			}
+
+			$looser = $this->query_preview_fallback_images( 'image', 1000, 1.1, 3.0 );
+
+			return ! empty( $looser ) ? $looser : $this->query_preview_fallback_images( 'image', 1, 0, 100 );
+		}
+
+		/**
+		 * Recent local image attachment ids matching a mime + minimum width + width/height ratio range.
+		 *
+		 * @param string $mime      Mime type filter (e.g. `image/jpeg` or `image`).
+		 * @param int    $min_width Minimum pixel width.
+		 * @param float  $min_ratio Minimum width/height ratio.
+		 * @param float  $max_ratio Maximum width/height ratio.
+		 *
+		 * @return int[] Up to 12 ids, most-recent first.
+		 */
+		private function query_preview_fallback_images( $mime, $min_width, $min_ratio, $max_ratio ) {
+			$ids = get_posts( array(
+				'post_type'        => 'attachment',
+				'post_mime_type'   => $mime,
+				'post_status'      => 'inherit',
+				'numberposts'      => 60,
+				'orderby'          => 'date',
+				'order'            => 'DESC',
+				'fields'           => 'ids',
+				'suppress_filters' => true,
+			) );
+
+			$out = array();
+			foreach ( $ids as $id ) {
+				$id = (int) $id;
+				if ( ! wp_attachment_is_image( $id ) ) {
+					continue;
+				}
+				$meta = wp_get_attachment_metadata( $id );
+				$w    = isset( $meta['width'] ) ? (int) $meta['width'] : 0;
+				$h    = isset( $meta['height'] ) ? (int) $meta['height'] : 0;
+				if ( $w < $min_width || $h < 1 ) {
+					continue;
+				}
+				$ratio = $w / $h;
+				if ( $ratio < $min_ratio || $ratio > $max_ratio ) {
+					continue;
+				}
+				$out[] = $id;
+				if ( count( $out ) >= 12 ) {
+					break;
+				}
+			}
+
+			return $out;
 		}
 
 		/**
