@@ -2614,31 +2614,67 @@ HTML;
 				);
 			}
 
-			// Templates: load a demo URL that actually renders that template.
-			if ( in_array( $unit, array( 'single', 'single-split-header' ), true ) ) {
+			// Templates: load a demo URL that actually renders that template — keyed on the type_group so
+			// every variant in a family (single-magazine, single-split-header, an authored single-post…)
+			// is treated like its canonical sibling instead of falling through to the demo home.
+			$kind = $this->preview_template_kind( $unit );
+
+			if ( 'single' === $kind ) {
 				$post_id = $this->demo_first_post_id( $base_url, 'post' );
 				if ( $post_id ) {
 					return array( 'url' => add_query_arg( 'p', $post_id, $demo_base ), 'focus' => 'full' );
 				}
-			} elseif ( 'single-portfolio' === $unit ) {
+			} elseif ( 'cpt-single' === $kind ) {
 				$portfolio_type = $this->demo_portfolio_post_type( $base_url );
 				$post_id        = $portfolio_type ? $this->demo_first_post_id( $base_url, $portfolio_type ) : 0;
 				if ( $post_id ) {
 					return array( 'url' => add_query_arg( array( 'p' => $post_id, 'post_type' => $portfolio_type ), $demo_base ), 'focus' => 'full' );
 				}
-			} elseif ( 'archive-portfolio' === $unit ) {
+			} elseif ( 'cpt-archive' === $kind ) {
 				$portfolio_type = $this->demo_portfolio_post_type( $base_url );
 				if ( $portfolio_type ) {
 					return array( 'url' => add_query_arg( 'post_type', $portfolio_type, $demo_base ), 'focus' => 'full' );
 				}
-			} elseif ( 'archive' === $unit ) {
+			} elseif ( 'archive' === $kind ) {
 				return array( 'url' => add_query_arg( 'cat', 1, $demo_base ), 'focus' => 'full' );
-			} elseif ( 'search' === $unit ) {
+			} elseif ( 'search' === $kind ) {
 				return array( 'url' => add_query_arg( 's', 'a', $demo_base ), 'focus' => 'full' );
 			}
 
-			// home / front-page / index / fallbacks → the demo home.
+			// home / front-page / index / page / fallbacks → the demo home.
 			return array( 'url' => $demo_base, 'focus' => 'full' );
+		}
+
+		/**
+		 * Classify a wp_template unit for preview purposes via its type_group, so every variant in a
+		 * family (single-magazine, single-minimal, an authored single-post, …) previews like its
+		 * canonical sibling instead of falling through to the demo home / front-page query.
+		 *
+		 * @param string $unit Template slug.
+		 *
+		 * @return string One of: single | cpt-single | archive | cpt-archive | search | generic.
+		 */
+		private function preview_template_kind( $unit ) {
+			list( $known_cpts, $known_tax ) = $this->known_source_content_types( array() );
+			$group = $this->layout_unit_type_group( $unit, $known_cpts, $known_tax );
+
+			if ( 'single' === $group || 'singular' === $group ) {
+				return 'single';
+			}
+			if ( 0 === strpos( $group, 'single-' ) ) {
+				return 'cpt-single';
+			}
+			if ( 'archive' === $group ) {
+				return 'archive';
+			}
+			if ( 0 === strpos( $group, 'archive-' ) ) {
+				return 'cpt-archive';
+			}
+			if ( 'search' === $group ) {
+				return 'search';
+			}
+
+			return 'generic';
 		}
 
 		/**
@@ -2694,22 +2730,23 @@ HTML;
 				return;
 			}
 			$unit = sanitize_title( $unit );
+			$kind = $this->preview_template_kind( $unit );
 
-			if ( in_array( $unit, array( 'single', 'single-split-header' ), true ) ) {
+			if ( 'single' === $kind ) {
 				$post = $this->first_local_post( 'post' );
 				if ( $post ) {
 					$this->set_single_query_context( $post );
 				}
-			} elseif ( 'single-portfolio' === $unit ) {
+			} elseif ( 'cpt-single' === $kind ) {
 				$post = $this->first_local_post( $this->local_portfolio_post_type() );
 				if ( $post ) {
 					$this->set_single_query_context( $post );
 				}
-			} elseif ( 'archive' === $unit ) {
+			} elseif ( 'archive' === $kind ) {
 				$this->set_archive_query_context( 'post' );
-			} elseif ( 'archive-portfolio' === $unit ) {
+			} elseif ( 'cpt-archive' === $kind ) {
 				$this->set_archive_query_context( $this->local_portfolio_post_type() );
-			} elseif ( 'search' === $unit ) {
+			} elseif ( 'search' === $kind ) {
 				$this->set_search_query_context();
 			}
 		}
@@ -2725,14 +2762,26 @@ HTML;
 			if ( ! post_type_exists( $post_type ) ) {
 				return null;
 			}
-			$posts = get_posts( array(
+			$args = array(
 				'post_type'        => $post_type,
 				'post_status'      => 'publish',
 				'numberposts'      => 1,
 				'orderby'          => 'date',
 				'order'            => 'DESC',
 				'suppress_filters' => true,
-			) );
+			);
+
+			// Prefer a post WITH a featured image so cover-style templates (e.g. a magazine single with a
+			// full-bleed hero) preview against a real image instead of an empty cover.
+			$with_thumb = get_posts( array_merge( $args, array(
+				'meta_key'     => '_thumbnail_id', // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key
+				'meta_compare' => 'EXISTS',
+			) ) );
+			if ( ! empty( $with_thumb ) ) {
+				return $with_thumb[0];
+			}
+
+			$posts = get_posts( $args );
 
 			return empty( $posts ) ? null : $posts[0];
 		}
