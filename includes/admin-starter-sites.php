@@ -115,6 +115,37 @@ if ( ! function_exists( 'pixassist_get_admin_hub_starters' ) ) {
 	}
 }
 
+if ( ! function_exists( 'pixassist_starter_lineage_title' ) ) {
+	/**
+	 * Present each free starter under its Pixelgrade LT lineage name.
+	 *
+	 * Field Notes / Olive & Ash / Meridian ARE the Hive LT / Rosa LT / Mies LT designs converted onto
+	 * the Anima LT stack with fresh media (Felt/Julia/Pile LT are already named that way), so the hub
+	 * shows the whole set under consistent LT-lineage names. Display title ONLY — the demo slug/id is
+	 * unchanged, so nothing collides with the reserved theme-single slugs. The cloud
+	 * `starterContent.demos` titles remain the source of record until aligned there.
+	 *
+	 * @param string $id    Demo id/slug.
+	 * @param string $title Cloud-provided title (used when no lineage mapping exists).
+	 *
+	 * @return string
+	 */
+	function pixassist_starter_lineage_title( $id, $title ) {
+		$lineage = apply_filters(
+			'pixassist_starter_lineage_titles',
+			array(
+				'anima-blog'       => 'Hive LT',
+				'anima-restaurant' => 'Rosa LT',
+				'anima-portfolio'  => 'Mies LT',
+			)
+		);
+
+		$key = sanitize_key( (string) $id );
+
+		return isset( $lineage[ $key ] ) ? (string) $lineage[ $key ] : (string) $title;
+	}
+}
+
 if ( ! function_exists( 'pixassist_get_starter_sites_config' ) ) {
 	/**
 	 * Read Assistant's existing merged config when the admin class is available.
@@ -236,7 +267,7 @@ if ( ! function_exists( 'pixassist_normalize_admin_hub_starter' ) ) {
 			$starter,
 			array(
 				'id'          => $id,
-				'title'       => ! empty( $starter['title'] ) ? (string) $starter['title'] : pixassist_get_starter_sites_default_title(),
+				'title'       => pixassist_starter_lineage_title( $id, ! empty( $starter['title'] ) ? (string) $starter['title'] : pixassist_get_starter_sites_default_title() ),
 				'description' => isset( $starter['description'] ) ? (string) $starter['description'] : '',
 				'url'         => $url,
 				'baseRestUrl' => $base_rest_url,
@@ -247,7 +278,7 @@ if ( ! function_exists( 'pixassist_normalize_admin_hub_starter' ) ) {
 
 		$normalized = array(
 			'id'              => $id,
-			'title'           => ! empty( $starter['title'] ) ? (string) $starter['title'] : pixassist_get_starter_sites_default_title(),
+			'title'           => pixassist_starter_lineage_title( $id, ! empty( $starter['title'] ) ? (string) $starter['title'] : pixassist_get_starter_sites_default_title() ),
 			'description'     => isset( $starter['description'] ) && '' !== (string) $starter['description']
 				? (string) $starter['description']
 				: pixassist_get_starter_sites_default_description( $config ),
@@ -781,7 +812,7 @@ if ( ! function_exists( 'pixassist_get_starter_sites_copy' ) ) {
 
 		return array(
 			'title'       => esc_html__( 'Starter Sites', '__plugin_txtd' ),
-			'description' => esc_html__( 'Pick a starter, then choose how much of it to apply.', '__plugin_txtd' ),
+			'description' => esc_html__( 'Pick a free starter design, then choose how much of it to apply. ("LT" is our Anima LT theme line — each starter is built on it.)', '__plugin_txtd' ),
 			'importTitle' => pixassist_starter_sites_replace_tokens( isset( $l10n['importTitle'] ) ? (string) $l10n['importTitle'] : esc_html__( '{{theme_name}} demo content', '__plugin_txtd' ) ),
 			'empty'       => isset( $l10n['noSources'] ) ? (string) $l10n['noSources'] : esc_html__( 'No starter sites are currently configured.', '__plugin_txtd' ),
 			'confirm'     => isset( $l10n['alreadyImportedConfirm'] ) ? (string) $l10n['alreadyImportedConfirm'] : esc_html__( 'Starter content was already imported. Import it again?', '__plugin_txtd' ),

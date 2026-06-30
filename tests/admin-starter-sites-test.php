@@ -360,7 +360,13 @@ sort( $keys );
 assert_same( array( 'applied', 'copy', 'endpoints', 'imported', 'plus', 'siteAnalysis', 'starters' ), $keys, 'Starter Sites payload must expose starters, site analysis, unified applied state, endpoints, imported, and Plus state.' );
 assert_same( 4, count( $payload['starters'] ), 'Payload starters must come from the same normalized free + injected list.' );
 assert_same( 'Starter Sites', $payload['copy']['title'], 'Payload copy must include a tab title.' );
-assert_same( 'Pick a starter, then choose how much of it to apply.', $payload['copy']['description'], 'Starter Sites description must frame the gallery as a chooser, not a legacy demo-content import.' );
+assert_same( 'Pick a free starter design, then choose how much of it to apply. ("LT" is our Anima LT theme line — each starter is built on it.)', $payload['copy']['description'], 'Starter Sites description must frame the gallery as a chooser (not a legacy demo-content import) and explain the "LT" lineage naming.' );
+
+// S6: free starters present under their Pixelgrade LT lineage name (display title only; slug unchanged).
+assert_same( 'Hive LT', pixassist_starter_lineage_title( 'anima-blog', 'Field Notes' ), 'anima-blog starter must display as its Hive LT lineage name.' );
+assert_same( 'Rosa LT', pixassist_starter_lineage_title( 'anima-restaurant', 'Olive & Ash' ), 'anima-restaurant starter must display as its Rosa LT lineage name.' );
+assert_same( 'Mies LT', pixassist_starter_lineage_title( 'anima-portfolio', 'Meridian' ), 'anima-portfolio starter must display as its Mies LT lineage name.' );
+assert_same( 'Felt LT', pixassist_starter_lineage_title( 'felt-lt', 'Felt LT' ), 'A starter without a lineage mapping keeps its cloud title.' );
 assert_same( 'Anima LT demo content', $payload['copy']['importTitle'], 'Payload copy must preserve the legacy importTitle token replacement.' );
 assert_same( 'Successfully applied.', $payload['copy']['success'], 'Starter Sites success copy must use the composer apply language.' );
 assert_same( 'Use %s', $payload['copy']['actions']['useStarter'], 'Payload copy must expose the gallery-card primary action template.' );
