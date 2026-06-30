@@ -86,8 +86,8 @@ const DEFAULT_STARTER_SITES = {
 				header: __( 'Header', 'pixelgrade_assistant' ),
 				footer: __( 'Footer', 'pixelgrade_assistant' ),
 				home: __( 'Home', 'pixelgrade_assistant' ),
-				archive: __( 'Archive', 'pixelgrade_assistant' ),
-				single: __( 'Single', 'pixelgrade_assistant' ),
+				archive: __( 'Post list (archive)', 'pixelgrade_assistant' ),
+				single: __( 'Single post', 'pixelgrade_assistant' ),
 				portfolioArchive: __( 'Portfolio archive', 'pixelgrade_assistant' ),
 				portfolioSingle: __( 'Portfolio single', 'pixelgrade_assistant' ),
 				colorsFonts: __( 'Colors and fonts', 'pixelgrade_assistant' ),
@@ -1951,7 +1951,21 @@ function renderStatusNotice( state, copy, starterId = '' ) {
 							? sprintf( __( 'Finished %1$d steps in %2$s.', 'pixelgrade_assistant' ), current || total, elapsedText )
 							: __( 'The selected starter parts are in place.', 'pixelgrade_assistant' )
 					),
-					renderProgressWarnings( state.warnings )
+					renderProgressWarnings( state.warnings ),
+					createElement(
+						'div',
+						{ style: { marginTop: '12px' } },
+						createElement(
+							Button,
+							{
+								variant: 'primary',
+								href: ( typeof window !== 'undefined' && window.pixassist && window.pixassist.siteUrl ) || '/',
+								target: '_blank',
+								rel: 'noreferrer',
+							},
+							__( 'View your site', 'pixelgrade_assistant' )
+						)
+					)
 			  )
 			: isWorking
 			? createElement(
@@ -2724,7 +2738,7 @@ export function StarterSites() {
 					const skippedLayoutUnit = 'layout_unit' === operation.type && response && 'unit_not_found' === response.code;
 					const appliedOperationMessage =
 						skippedLayoutUnit
-							? sprintf( __( 'Skipped %s.', 'pixelgrade_assistant' ), getLayoutOperationLabel( operation, copy ) )
+							? sprintf( __( "%s isn't included in this starter — skipped.", 'pixelgrade_assistant' ), getLayoutOperationLabel( operation, copy ) )
 							: 'layout_unit' === operation.type
 							? sprintf( __( 'Applied %s.', 'pixelgrade_assistant' ), getLayoutOperationLabel( operation, copy ) )
 							: __( 'Applied selected operation.', 'pixelgrade_assistant' );
@@ -2733,12 +2747,14 @@ export function StarterSites() {
 						starter.id,
 						{
 							message: appliedOperationMessage,
-							details: skippedLayoutUnit && response.message ? response.message : '',
+							details: '',
 						},
 						{
 							advance: true,
 							log: appliedOperationMessage,
-							logType: skippedLayoutUnit ? 'warning' : 'info',
+							// A part the starter simply doesn't ship (unit_not_found) is expected, not a
+							// problem — log it as neutral info, not an alarm-colored warning.
+							logType: 'info',
 						}
 					);
 				}
