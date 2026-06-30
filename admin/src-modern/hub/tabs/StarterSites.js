@@ -24,7 +24,7 @@ const DEFAULT_STARTER_SITES = {
 	},
 	copy: {
 		title: __( 'Starter Sites', 'pixelgrade_assistant' ),
-		description: __( 'Pick a free starter design, then choose how much of it to apply. ("LT" is our Anima LT theme line — each starter is built on it.)', 'pixelgrade_assistant' ),
+		description: __( 'Pick a free starter design, then choose how much of it to apply. (“LT” is our Anima LT theme line — each starter is built on it.)', 'pixelgrade_assistant' ),
 		empty: __( 'No starter sites are currently configured.', 'pixelgrade_assistant' ),
 		confirm: __( 'Starter content was already imported. Import it again?', 'pixelgrade_assistant' ),
 		importing: __( 'Getting data about available content...', 'pixelgrade_assistant' ),

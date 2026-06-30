@@ -812,7 +812,7 @@ if ( ! function_exists( 'pixassist_get_starter_sites_copy' ) ) {
 
 		return array(
 			'title'       => esc_html__( 'Starter Sites', '__plugin_txtd' ),
-			'description' => esc_html__( 'Pick a free starter design, then choose how much of it to apply. ("LT" is our Anima LT theme line — each starter is built on it.)', '__plugin_txtd' ),
+			'description' => esc_html__( 'Pick a free starter design, then choose how much of it to apply. (“LT” is our Anima LT theme line — each starter is built on it.)', '__plugin_txtd' ),
 			'importTitle' => pixassist_starter_sites_replace_tokens( isset( $l10n['importTitle'] ) ? (string) $l10n['importTitle'] : esc_html__( '{{theme_name}} demo content', '__plugin_txtd' ) ),
 			'empty'       => isset( $l10n['noSources'] ) ? (string) $l10n['noSources'] : esc_html__( 'No starter sites are currently configured.', '__plugin_txtd' ),
 			'confirm'     => isset( $l10n['alreadyImportedConfirm'] ) ? (string) $l10n['alreadyImportedConfirm'] : esc_html__( 'Starter content was already imported. Import it again?', '__plugin_txtd' ),
