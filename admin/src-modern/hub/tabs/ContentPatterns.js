@@ -13,7 +13,7 @@ import { getContentPatternPreferences, saveContentPatternPreferences } from '../
 const DEFAULT_CONTENT_PATTERNS = {
 	copy: {
 		title: __( 'Page Patterns', 'pixelgrade_assistant' ),
-		description: __( 'Import one reusable page, post, project, or service-style content example without importing a full starter site.', 'pixelgrade_assistant' ),
+		description: __( 'Add ready-made content — a single page or post from a starter — instead of importing a whole starter site. For reusable parts like headers, footers, and templates, use the Layouts tab.', 'pixelgrade_assistant' ),
 		sourceLabel: __( 'Source', 'pixelgrade_assistant' ),
 		typeLabel: __( 'Type', 'pixelgrade_assistant' ),
 		allSources: __( 'All sources', 'pixelgrade_assistant' ),

@@ -78,7 +78,7 @@ if ( ! function_exists( 'pixassist_get_content_patterns_copy' ) ) {
 	function pixassist_get_content_patterns_copy() {
 		return array(
 			'title'          => esc_html__( 'Page Patterns', '__plugin_txtd' ),
-			'description'    => esc_html__( 'Import one reusable page, post, project, or service-style content example without importing a full starter site.', '__plugin_txtd' ),
+			'description'    => esc_html__( 'Add ready-made content — a single page or post from a starter — instead of importing a whole starter site. For reusable parts like headers, footers, and templates, use the Layouts tab.', '__plugin_txtd' ),
 			'sourceLabel'    => esc_html__( 'Source', '__plugin_txtd' ),
 			'typeLabel'      => esc_html__( 'Type', '__plugin_txtd' ),
 			'allSources'     => esc_html__( 'All sources', '__plugin_txtd' ),
