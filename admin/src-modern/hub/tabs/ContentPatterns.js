@@ -27,10 +27,14 @@ const DEFAULT_CONTENT_PATTERNS = {
 		emptyFiltered: __( 'No page patterns match these filters.', 'pixelgrade_assistant' ),
 		failure: __( 'Page patterns could not be loaded. Please try again.', 'pixelgrade_assistant' ),
 		partialFailure: __( 'Some page-pattern sources could not be loaded.', 'pixelgrade_assistant' ),
+		partialFailureNamed: __( 'Some sources are temporarily unavailable: %s. The other page patterns loaded fine.', 'pixelgrade_assistant' ),
 		importLabel: __( 'Apply', 'pixelgrade_assistant' ),
 		replaceLabel: __( 'Replace', 'pixelgrade_assistant' ),
 		importing: __( 'Applying page pattern...', 'pixelgrade_assistant' ),
 		importSuccess: __( 'Page pattern applied.', 'pixelgrade_assistant' ),
+		importSuccessNamed: __( 'Added “%s” to your site.', 'pixelgrade_assistant' ),
+		viewLabel: __( 'View', 'pixelgrade_assistant' ),
+		editLabel: __( 'Edit', 'pixelgrade_assistant' ),
 		importFailure: __( 'Page pattern could not be applied. Please try again.', 'pixelgrade_assistant' ),
 		undoLabel: __( 'Remove', 'pixelgrade_assistant' ),
 		undoing: __( 'Removing page pattern...', 'pixelgrade_assistant' ),
@@ -422,6 +426,7 @@ function renderMessage( message ) {
 			status: message.type || 'info',
 			isDismissible: true,
 			onRemove: message.onRemove || undefined,
+			actions: message.actions || undefined,
 		},
 		message.text
 	);
@@ -1139,9 +1144,14 @@ export function ContentPatterns() {
 		}
 
 		if ( failures.length ) {
+			const failedNames = Array.from(
+				new Set( failures.map( ( failure ) => failure.title || failure.id ).filter( Boolean ) )
+			).join( ', ' );
 			setMessage( {
 				type: nextUnits.length ? 'warning' : 'error',
-				text: nextUnits.length ? copy.partialFailure : copy.failure,
+				text: nextUnits.length
+					? ( failedNames ? sprintf( copy.partialFailureNamed, failedNames ) : copy.partialFailure )
+					: copy.failure,
 			} );
 		}
 
@@ -1165,11 +1175,25 @@ export function ContentPatterns() {
 				unit_type: unit.type,
 				unit: unit.slug,
 			} );
-			const nextApplied = normalizeObject( response && response.data ? response.data.appliedContent : applied );
+			const responseData = response && response.data ? response.data : {};
+			const nextApplied = normalizeObject( responseData.appliedContent ? responseData.appliedContent : applied );
+			const appliedInfo = responseData.unit || {};
+			const appliedTitle = appliedInfo.title || unit.title || unit.slug || '';
+			const actions = [];
+			if ( appliedInfo.viewUrl ) {
+				actions.push( { label: copy.viewLabel, url: appliedInfo.viewUrl, variant: 'primary' } );
+			}
+			if ( appliedInfo.editUrl ) {
+				actions.push( { label: copy.editLabel, url: appliedInfo.editUrl } );
+			}
 
 			setApplied( nextApplied );
 			writeCache( units, nextApplied, loadedSourceIds );
-			setMessage( { type: 'success', text: copy.importSuccess } );
+			setMessage( {
+				type: 'success',
+				text: appliedTitle ? sprintf( copy.importSuccessNamed, appliedTitle ) : copy.importSuccess,
+				actions: actions.length ? actions : undefined,
+			} );
 		} catch ( error ) {
 			setMessage( { type: 'error', text: error && error.message ? error.message : copy.importFailure } );
 		} finally {
