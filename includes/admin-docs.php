@@ -173,7 +173,7 @@ if ( ! function_exists( 'pixassist_get_docs_data' ) ) {
 				'ticketFailure'          => esc_html__( 'The request could not be sent. Please try again.', '__plugin_txtd' ),
 				'ticketSubjectHelp'      => esc_html__( 'Keep the subject under %d characters. Add extra context in Details.', '__plugin_txtd' ),
 				'ticketSubjectTooLong'   => esc_html__( 'The subject is too long. Shorten it and move the extra context to Details.', '__plugin_txtd' ),
-				'welcomeTitle'           => esc_html__( 'Design &amp; site-building help', '__plugin_txtd' ),
+				'welcomeTitle'           => __( 'Design & site-building help', '__plugin_txtd' ),
 				'welcomeText'            => esc_html__( 'Guides for designing and building your site with your Pixelgrade theme — search or browse a topic to get started.', '__plugin_txtd' ),
 				'relatedTitle'           => esc_html__( 'Related articles', '__plugin_txtd' ),
 				'suggestionsTitle'       => esc_html__( 'These articles might already answer it:', '__plugin_txtd' ),

@@ -138,7 +138,7 @@ if ( ! function_exists( 'pixassist_get_overview_state_summary' ) ) {
 				'label'  => ! empty( $plus['productLabel'] ) ? $plus['productLabel'] : 'Pixelgrade Plus',
 				'value'  => pixassist_get_overview_plus_state_label( $plus ),
 				'detail' => pixassist_get_overview_plus_state_detail( $plus ),
-				'tone'   => ! empty( $plus['isLicensed'] ) ? 'ok' : ( ! empty( $plus['isActive'] ) ? 'needs-attention' : 'neutral' ),
+				'tone'   => ! empty( $plus['isLicensed'] ) ? 'ok' : 'neutral',
 				'url'    => ! empty( $plus['url'] ) ? $plus['url'] : '',
 			),
 			array(
@@ -260,10 +260,10 @@ if ( ! function_exists( 'pixassist_get_overview_next_action' ) ) {
 				'id'          => 'plus',
 				'kind'        => 'plus',
 				'label'       => ! empty( $plus['label'] ) ? $plus['label'] : esc_html__( 'Set up Pixelgrade Plus', '__plugin_txtd' ),
-				'title'       => esc_html__( 'Unlock the paid capability layer', '__plugin_txtd' ),
-				'description' => esc_html__( 'Pixelgrade Plus is installed but not licensed yet. Activate it when you are ready to use paid capabilities on top of the free Pixelgrade LT stack.', '__plugin_txtd' ),
+				'title'       => esc_html__( 'Unlock premium features', '__plugin_txtd' ),
+				'description' => esc_html__( 'Pixelgrade Plus is installed but not licensed yet. Activate it when you are ready to use its premium features on top of your free Pixelgrade theme.', '__plugin_txtd' ),
 				'url'         => $plus['url'],
-				'safety'      => esc_html__( 'Assistant only reads Plus status; license setup stays owned by Pixelgrade Plus.', '__plugin_txtd' ),
+				'safety'      => esc_html__( 'Pixelgrade Plus handles its own licensing — this just takes you there.', '__plugin_txtd' ),
 			);
 		}
 
@@ -285,9 +285,9 @@ if ( ! function_exists( 'pixassist_get_overview_next_action' ) ) {
 				'kind'        => 'plus',
 				'label'       => ! empty( $plus['label'] ) ? $plus['label'] : esc_html__( 'Explore Pixelgrade Plus', '__plugin_txtd' ),
 				'title'       => esc_html__( 'See what Plus unlocks', '__plugin_txtd' ),
-				'description' => esc_html__( 'Pixelgrade Plus adds the paid capability layer over the free Pixelgrade LT stack.', '__plugin_txtd' ),
+				'description' => esc_html__( 'Pixelgrade Plus adds premium features on top of your free Pixelgrade theme.', '__plugin_txtd' ),
 				'url'         => $plus['url'],
-				'safety'      => esc_html__( 'Exploring Plus does not change this site. Assistant only reads Plus status.', '__plugin_txtd' ),
+				'safety'      => esc_html__( 'Exploring Plus does not change anything on your site.', '__plugin_txtd' ),
 			);
 		}
 
@@ -314,8 +314,8 @@ if ( ! function_exists( 'pixassist_get_overview_safety_notes' ) ) {
 			'title' => esc_html__( 'What is safe to change', '__plugin_txtd' ),
 			'items' => array(
 				esc_html__( 'Starter imports are tracked and can be reset from Tools without disconnecting your account.', '__plugin_txtd' ),
-				esc_html__( 'Individual layouts are journaled, so they can be replaced or removed later.', '__plugin_txtd' ),
-				esc_html__( 'Assistant reads Pixelgrade Plus status only; license and entitlement state stay owned by Plus.', '__plugin_txtd' ),
+				esc_html__( 'Individual layouts are tracked, so they can be replaced or removed later.', '__plugin_txtd' ),
+				esc_html__( 'Color, font, and spacing changes live in your WordPress design settings and can be adjusted again anytime.', '__plugin_txtd' ),
 			),
 		);
 	}
@@ -875,14 +875,14 @@ if ( ! function_exists( 'pixassist_get_overview_plus_state_detail' ) ) {
 	 */
 	function pixassist_get_overview_plus_state_detail( $plus ) {
 		if ( ! empty( $plus['isLicensed'] ) ) {
-			return esc_html__( 'Paid capabilities are unlocked on this site.', '__plugin_txtd' );
+			return esc_html__( 'Premium features are unlocked on this site.', '__plugin_txtd' );
 		}
 
 		if ( ! empty( $plus['isActive'] ) ) {
-			return esc_html__( 'Activate a license to unlock the paid capability layer.', '__plugin_txtd' );
+			return esc_html__( 'Activate a license to unlock premium features.', '__plugin_txtd' );
 		}
 
-		return esc_html__( 'Paid capabilities can extend the free Pixelgrade LT stack.', '__plugin_txtd' );
+		return esc_html__( 'Premium features can extend your free Pixelgrade theme.', '__plugin_txtd' );
 	}
 }
 

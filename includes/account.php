@@ -1551,7 +1551,7 @@ if ( ! function_exists( 'pixassist_get_account_value_data' ) ) {
 					'label'       => esc_html__( 'Account identity', '__plugin_txtd' ),
 					'state'       => $connected ? 'available' : 'optional',
 					'description' => $connected
-						? esc_html__( 'Your pixelgrade.com identity is available to trusted server-side actions.', '__plugin_txtd' )
+						? esc_html__( 'Your pixelgrade.com account is connected and ready for support requests.', '__plugin_txtd' )
 						: esc_html__( 'The connection is optional and can be disconnected from this page.', '__plugin_txtd' ),
 				),
 			),

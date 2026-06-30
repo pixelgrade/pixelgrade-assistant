@@ -133,17 +133,23 @@ function renderSummaryItem( item ) {
 	}
 
 	const toneStyle = getToneStyle( item.tone );
+	const hasUrl = item.url && 'string' === typeof item.url;
 
 	return createElement(
-		'div',
+		hasUrl ? 'a' : 'div',
 		{
 			key: item.id,
 			className: 'pixelgrade-overview__state-item pixelgrade-overview__state-item--' + item.id,
+			href: hasUrl ? item.url : undefined,
 			style: {
 				border: '1px solid #dcdcde',
 				borderRadius: '2px',
+				color: 'inherit',
+				cursor: hasUrl ? 'pointer' : 'default',
+				display: 'block',
 				minWidth: 0,
 				padding: '12px',
+				textDecoration: 'none',
 			},
 		},
 		createElement(
@@ -269,7 +275,7 @@ function renderCommandCenter( data ) {
 				createElement(
 					'p',
 					{ style: { color: '#757575', fontSize: '13px', margin: '2px 0 0' } },
-					__( 'What is true now, and what to do next.', 'pixelgrade_assistant' )
+					__( 'Where your site stands — and the best next step.', 'pixelgrade_assistant' )
 				)
 			)
 		),

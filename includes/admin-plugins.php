@@ -123,10 +123,6 @@ if ( ! function_exists( 'pixassist_get_plugins_copy' ) ) {
 		$manager_l10n = isset( $config['pluginManager']['l10n'] ) && is_array( $config['pluginManager']['l10n'] )
 			? $config['pluginManager']['l10n']
 			: array();
-		$groups       = isset( $manager_l10n['groupByRequiredLabels'] ) && is_array( $manager_l10n['groupByRequiredLabels'] )
-			? $manager_l10n['groupByRequiredLabels']
-			: array();
-
 		return array(
 			'title'            => esc_html__( 'Setup', '__plugin_txtd' ),
 			'content'          => esc_html__( 'Check the recommended plugins and activate anything Pixelgrade Design needs before you start working.', '__plugin_txtd' ),
@@ -134,8 +130,8 @@ if ( ! function_exists( 'pixassist_get_plugins_copy' ) ) {
 			'validatedContent' => pixassist_plugins_replace_tokens( isset( $recommended['validatedContent'] ) ? (string) $recommended['validatedContent'] : esc_html__( 'The recommended plugins are active.', '__plugin_txtd' ) ),
 			'empty'            => isset( $manager_l10n['noPlugins'] ) ? (string) $manager_l10n['noPlugins'] : esc_html__( 'You are all set. There are no recommended plugins for this theme right now.', '__plugin_txtd' ),
 			'groups'           => array(
-				'required'    => isset( $groups['required'] ) ? (string) $groups['required'] : esc_html__( 'Required', '__plugin_txtd' ),
-				'recommended' => isset( $groups['recommended'] ) ? (string) $groups['recommended'] : esc_html__( 'Recommended', '__plugin_txtd' ),
+				'required'    => esc_html__( 'Required', '__plugin_txtd' ),
+				'recommended' => esc_html__( 'Recommended', '__plugin_txtd' ),
 			),
 			'actions'          => array(
 				'install'      => isset( $config['l10n']['pluginInstallLabel'] ) ? (string) $config['l10n']['pluginInstallLabel'] : esc_html__( 'Install', '__plugin_txtd' ),
