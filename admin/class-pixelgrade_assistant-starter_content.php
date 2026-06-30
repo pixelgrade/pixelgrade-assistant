@@ -3150,7 +3150,7 @@ class PixelgradeAssistant_StarterContent {
 				$version,
 			);
 
-			return 'pixassist_lupv2_' . md5( implode( '|', $parts ) );
+			return 'pixassist_lupv3_' . md5( implode( '|', $parts ) );
 		}
 
 		/**
@@ -3173,7 +3173,7 @@ class PixelgradeAssistant_StarterContent {
 				$version,
 			);
 
-			return 'pixassist_cupv2_' . md5( implode( '|', $parts ) );
+			return 'pixassist_cupv3_' . md5( implode( '|', $parts ) );
 		}
 
 		/**
@@ -3241,7 +3241,7 @@ class PixelgradeAssistant_StarterContent {
 			$demo_base = preg_replace( '#wp-json/sce/v[0-9]+/?$#i', '', rtrim( (string) $base_url, '/' ) . '/' );
 			$demo_base = rtrim( (string) $demo_base, '/' ) . '/';
 
-			$cache_key = 'pixassist_content_demo_prev_v2_' . md5( $target_url );
+			$cache_key = 'pixassist_content_demo_prev_v3_' . md5( $target_url );
 			$html      = get_transient( $cache_key );
 
 			if ( false === $html ) {
@@ -3269,6 +3269,8 @@ class PixelgradeAssistant_StarterContent {
 					1
 				);
 
+				$html = $this->strip_preview_script_modules( $html );
+
 				set_transient( $cache_key, $html, 10 * MINUTE_IN_SECONDS );
 			}
 
@@ -3281,6 +3283,35 @@ class PixelgradeAssistant_StarterContent {
 			header( 'Cache-Control: private, max-age=300' );
 			echo $html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- proxied allow-listed demo HTML for an admin-only iframe preview.
 			exit;
+		}
+
+		/**
+		 * Strip <script type="module"> tags + modulepreload links from a proxied demo preview page.
+		 *
+		 * The demo HTML enqueues the WP Interactivity API as an ES module, but the proxied document
+		 * carries no import map, so the browser throws "Failed to resolve module specifier
+		 * @wordpress/interactivity" once per interactive block — pure console noise (16+ stacked errors
+		 * on a full Layouts grid). Those modules never run in a frozen thumbnail anyway, so removing
+		 * them is visually identical and silences the errors.
+		 *
+		 * @param string $html Proxied demo HTML.
+		 *
+		 * @return string
+		 */
+		private function strip_preview_script_modules( $html ) {
+			$html = (string) $html;
+
+			$without_modules = preg_replace( '#<script\b[^>]*\btype=([\'"])module\1[^>]*>.*?</script>#is', '', $html );
+			if ( null !== $without_modules ) {
+				$html = $without_modules;
+			}
+
+			$without_preload = preg_replace( '#<link\b[^>]*\brel=([\'"])modulepreload\1[^>]*>#is', '', $html );
+			if ( null !== $without_preload ) {
+				$html = $without_preload;
+			}
+
+			return $html;
 		}
 
 		/**
@@ -3314,6 +3345,7 @@ class PixelgradeAssistant_StarterContent {
 		private function render_layout_unit_preview_document( $markup ) {
 			$this->send_layout_unit_preview_headers();
 
+			ob_start();
 			?><!DOCTYPE html>
 <html <?php language_attributes(); ?>>
 <head>
@@ -3358,6 +3390,7 @@ class PixelgradeAssistant_StarterContent {
 </body>
 </html>
 <?php
+			echo $this->strip_preview_script_modules( ob_get_clean() ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- preview document HTML; module scripts stripped.
 		}
 
 		/**
@@ -3826,7 +3859,7 @@ HTML;
 				$version,
 			);
 
-			return 'pixassist_ludtpv_' . md5( implode( '|', $parts ) );
+			return 'pixassist_ludtpv2_' . md5( implode( '|', $parts ) );
 		}
 
 		/**
@@ -3859,7 +3892,7 @@ HTML;
 			// Cache the fetched demo PAGE per URL (not the focus/runtime scripts — those are injected fresh
 			// below, so script changes take effect immediately and one cached page serves any focus). The
 			// `v2` prefix drops older cache entries that baked the script in.
-			$cache_key = 'pixassist_demo_prev_v3_' . md5( $target_url );
+			$cache_key = 'pixassist_demo_prev_v4_' . md5( $target_url );
 			$html      = get_transient( $cache_key );
 
 			if ( false === $html ) {
@@ -3890,6 +3923,8 @@ HTML;
 					$html,
 					1
 				);
+
+				$html = $this->strip_preview_script_modules( $html );
 
 				set_transient( $cache_key, $html, 10 * MINUTE_IN_SECONDS );
 			}

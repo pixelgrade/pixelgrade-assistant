@@ -89,7 +89,7 @@ if ( ! function_exists( 'pixassist_get_layout_units_copy' ) ) {
 	function pixassist_get_layout_units_copy() {
 		return array(
 			'title'         => esc_html__( 'Layouts', '__plugin_txtd' ),
-			'description'   => esc_html__( 'Apply one header, footer, or template from a starter without importing its pages, posts, or projects.', '__plugin_txtd' ),
+			'description'   => esc_html__( 'Apply a single reusable part — a header, footer, or full page template — without importing a whole site. For complete ready-made pages, use Page Patterns; for an entire site, use Starter Sites.', '__plugin_txtd' ),
 			'sourceLabel'   => esc_html__( 'Source', '__plugin_txtd' ),
 			'loadLabel'     => esc_html__( 'Load layouts', '__plugin_txtd' ),
 			'loading'       => esc_html__( 'Loading layouts...', '__plugin_txtd' ),

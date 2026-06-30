@@ -14,7 +14,7 @@ import { getLayoutUnitPreferences, saveLayoutUnitPreferences } from '../preferen
 const DEFAULT_LAYOUT_UNITS = {
 	copy: {
 		title: __( 'Layouts', 'pixelgrade_assistant' ),
-		description: __( 'Apply headers, footers, and templates from different starters without importing their pages, posts, or projects.', 'pixelgrade_assistant' ),
+		description: __( 'Apply a single reusable part — a header, footer, or full page template — without importing a whole site. For complete ready-made pages, use Page Patterns; for an entire site, use Starter Sites.', 'pixelgrade_assistant' ),
 		loadLabel: __( 'Load layouts', 'pixelgrade_assistant' ),
 		loading: __( 'Loading layouts...', 'pixelgrade_assistant' ),
 		empty: __( 'No layouts are available from these sources.', 'pixelgrade_assistant' ),
