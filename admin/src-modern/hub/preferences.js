@@ -153,7 +153,11 @@ export function normalizePreviewMode( mode, fallback = 'site' ) {
 }
 
 export function getPreviewMode( storage = getBrowserStorage() ) {
-	return normalizePreviewMode( readStorage( storage, PREVIEW_MODE_STORAGE_KEY ) );
+	// Default new users (no stored choice) to the starter's polished DEMO, not their own (often
+	// near-empty) site — otherwise a first-time user sees every layout in its plainest form (bare
+	// site title repeated, default fonts, no imagery) and the catalog undersells itself. Their own
+	// choice persists once they switch.
+	return normalizePreviewMode( readStorage( storage, PREVIEW_MODE_STORAGE_KEY ), 'demo' );
 }
 
 export function savePreviewMode( mode, storage = getBrowserStorage() ) {

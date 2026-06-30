@@ -140,7 +140,7 @@ export function PreviewModeToggle() {
 				{
 					isPressed: 'site' === mode,
 					onClick: () => setPreviewMode( 'site' ),
-					title: __( 'Render each layout on your site, in your colors and fonts (uses your current content).', 'pixelgrade_assistant' ),
+					title: __( 'Preview on your site — your colors, fonts, and current content.', 'pixelgrade_assistant' ),
 				},
 				__( 'My site', 'pixelgrade_assistant' )
 			),
@@ -149,7 +149,7 @@ export function PreviewModeToggle() {
 				{
 					isPressed: 'demo' === mode,
 					onClick: () => setPreviewMode( 'demo' ),
-					title: __( "Show the starter's polished demo — real menus & images, but the demo's design.", 'pixelgrade_assistant' ),
+					title: __( 'Show the polished demo — its real images, menus, and design.', 'pixelgrade_assistant' ),
 				},
 				__( 'Demo site', 'pixelgrade_assistant' )
 			)
