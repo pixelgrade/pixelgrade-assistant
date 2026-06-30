@@ -130,22 +130,37 @@ function CategoryList( { categories, onOpen } ) {
 	);
 }
 
-function Breadcrumbs( { path } ) {
+function Breadcrumbs( { path, onBack } ) {
 	if ( ! path || ! path.length ) {
 		return null;
 	}
 
-	return createElement(
-		'nav',
-		{ className: 'pixelgrade-docs__breadcrumbs' },
-		path.map( ( name, index ) =>
-			createElement(
-				'span',
-				{ key: index, className: 'pixelgrade-docs__crumb' },
-				( index > 0 ? ' › ' : '' ) + name
-			)
+	const crumbs = path.map( ( name, index ) =>
+		createElement(
+			'span',
+			{ key: index, className: 'pixelgrade-docs__crumb' },
+			( onBack || index > 0 ? ' › ' : '' ) + name
 		)
 	);
+
+	// In master-detail (the Help tab) there is no standalone Back button, and the static crumbs read
+	// as clickable but aren't — give a real way back to the category overview.
+	if ( onBack ) {
+		crumbs.unshift(
+			createElement(
+				Button,
+				{
+					key: 'all-topics',
+					variant: 'link',
+					className: 'pixelgrade-docs__crumb pixelgrade-docs__crumb--back',
+					onClick: onBack,
+				},
+				getCopy( 'allTopics', __( 'All topics', 'pixelgrade_assistant' ) )
+			)
+		);
+	}
+
+	return createElement( 'nav', { className: 'pixelgrade-docs__breadcrumbs' }, crumbs );
 }
 
 function CategoryTree( { nodes, expanded, activeArticleId, onToggle, onOpenArticle, depth } ) {
@@ -356,7 +371,7 @@ export function ArticleView( { article, allArticles, context, feedback, layout, 
 		'master-detail' !== layout
 			? createElement( Button, { variant: 'link', onClick: onBack }, getCopy( 'back', __( 'Back', 'pixelgrade_assistant' ) ) )
 			: null,
-		createElement( Breadcrumbs, { path: article.categoryPath } ),
+		createElement( Breadcrumbs, { path: article.categoryPath, onBack: 'master-detail' === layout ? onBack : null } ),
 		false === showTitle
 			? null
 			: createElement( 'h2', { className: 'pixelgrade-docs__article-title' }, article.title ),
