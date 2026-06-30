@@ -263,7 +263,7 @@ if ( ! function_exists( 'pixassist_get_starter_segment_availability' ) ) {
 				return array(
 					'availability'       => 'requires_plugins',
 					'available'          => false,
-					'availabilityReason' => pixassist_starter_segment_text_domain( 'Install and activate the required plugin to apply this part.' ),
+					'availabilityReason' => count( array_filter( (array) $required_entitlements, function ( $entitlement ) { return ! pixassist_starter_segment_has_entitlement( $entitlement ); } ) ) ? pixassist_starter_segment_text_domain( 'Requires WooCommerce and Pixelgrade Plus.' ) : pixassist_starter_segment_text_domain( 'Install and activate the required plugin to apply this part.' ),
 				);
 			}
 		}

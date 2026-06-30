@@ -548,7 +548,7 @@ assert_true( false !== strpos( $starter_sites_js, 'combineStarterProgressGroups'
 assert_true( false !== strpos( $starter_sites_js, 'progressTotalBase' ), 'Choose parts must preserve already-known layout steps in the overall progress total.' );
 assert_true( false !== strpos( $starter_sites_js, 'starterHasAppliedLayoutUnits' ), 'Starter Sites JS must still show Layouts applied after per-unit layout applies.' );
 assert_true( false !== strpos( $starter_sites_js, "allowCodes: [ 'unit_not_found' ]" ), 'Starter Sites JS must skip missing source layout units without aborting the whole layout apply.' );
-assert_true( false !== strpos( $starter_sites_js, 'Skipped %s.' ), 'Starter Sites JS must log skipped layout-unit steps as visible progress.' );
+assert_true( false !== strpos( $starter_sites_js, 'included in this starter' ), 'Starter Sites JS must log skipped layout-unit steps as visible progress (neutral "<part> isn\'t included in this starter — skipped." info log, not an alarm).' );
 assert_true( false !== strpos( $starter_sites_js, 'heartbeatTick' ), 'Starter Sites progress must visibly tick while waiting for long network requests.' );
 assert_true( false !== strpos( $starter_sites_js, '( message, options = {} ) => {' ), 'Starter Sites apply progress callback must receive advance/log options from granular import tasks.' );
 assert_true( false !== strpos( $starter_sites_js, '}, options );' ), 'Starter Sites apply progress callback must pass advance/log options through to the progress state.' );

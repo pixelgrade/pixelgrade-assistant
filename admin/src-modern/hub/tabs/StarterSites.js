@@ -1411,8 +1411,24 @@ export function getComposerParts( starter, copy ) {
 	// Commerce/products is a gated segment: only offer it when the commerce segment is available
 	// (WooCommerce active AND the Plus WooCommerce integration). The free/default import excludes it,
 	// and the server rejects unauthorized commerce content even if this UI gate is bypassed.
-	if ( starterHasProducts( starter ) && starterCommerceAvailable( starter ) ) {
-		contentParts.push( { id: 'products', label: labels.products } );
+	if ( starterHasProducts( starter ) ) {
+		if ( starterCommerceAvailable( starter ) ) {
+			contentParts.push( { id: 'products', label: labels.products } );
+		} else {
+			// Present-but-locked commerce segment: surface it as a disabled row (with its reason) so a
+			// shop-seeking user can see the shop exists and what it needs. getAllPartIds keeps locked
+			// parts out of every selection/import path; the server also rejects unauthorized commerce.
+			const commerceSegment = getStarterSegment( starter, 'commerce' );
+			if ( commerceSegment ) {
+				contentParts.push( {
+					id: 'products',
+					label: labels.products,
+					available: false,
+					gate: commerceSegment.gate || 'plus',
+					reason: commerceSegment.availabilityReason || '',
+				} );
+			}
+		}
 	}
 
 	return [
@@ -1424,7 +1440,9 @@ export function getComposerParts( starter, copy ) {
 }
 
 function getAllPartIds( starter, copy ) {
-	return getComposerParts( starter, copy ).reduce( ( ids, group ) => ids.concat( group.parts.map( ( part ) => part.id ) ), [] );
+	// Locked parts (e.g. a gated commerce segment shown disabled) must never enter any selection /
+	// preset / import path — only the renderer (getComposerParts) sees them.
+	return getComposerParts( starter, copy ).reduce( ( ids, group ) => ids.concat( group.parts.filter( ( part ) => false !== part.available ).map( ( part ) => part.id ) ), [] );
 }
 
 function getDefaultPresetId( starter, siteAnalysis ) {
@@ -2303,8 +2321,9 @@ function renderComposerPartGroups( starter, copy, composerState, isWorking, onTo
 						},
 					},
 					group.parts.map( ( part ) => {
-						const isSelected = selected.has( part.id );
-						const mapping = 'layouts' === group.id ? LAYOUT_UNITS[ part.id ] : null;
+						const isLocked = false === part.available;
+						const isSelected = ! isLocked && selected.has( part.id );
+						const mapping = ! isLocked && 'layouts' === group.id ? LAYOUT_UNITS[ part.id ] : null;
 						const previewNode =
 							mapping && starter.baseRestUrl
 								? createElement(
@@ -2326,20 +2345,28 @@ function renderComposerPartGroups( starter, copy, composerState, isWorking, onTo
 							{
 								key: part.id,
 								style: {
-									background: isSelected ? '#f6f7ff' : '#fff',
+									background: isLocked ? '#f6f7f7' : isSelected ? '#f6f7ff' : '#fff',
 									border: '1px solid ' + ( isSelected ? '#3858e9' : '#dcdcde' ),
 									borderRadius: '4px',
 									boxShadow: isSelected ? 'inset 3px 0 0 #3858e9' : 'none',
+								opacity: isLocked ? 0.9 : 1,
 									padding: '9px 10px',
 								},
 							},
 							previewNode,
 							createElement( CheckboxControl, {
 								checked: isSelected,
-								disabled: isWorking,
+								disabled: isWorking || isLocked,
 								label: part.label,
-								onChange: ( nextValue ) => onTogglePart( part.id, nextValue ),
-							} )
+								onChange: isLocked ? undefined : ( nextValue ) => onTogglePart( part.id, nextValue ),
+							} ),
+							isLocked && part.reason
+								? createElement(
+										'p',
+										{ style: { color: '#646970', fontSize: '12px', margin: '6px 0 0' } },
+										part.reason
+								  )
+								: null
 						);
 					} )
 				)

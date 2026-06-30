@@ -210,7 +210,7 @@ assertDeepEqual(
 	'Updating a Page Patterns preference must write the normalized snapshot to storage.'
 );
 
-assertEqual(prefs.getPreviewMode(makeStorage()), 'site', 'Missing preview mode must default to My site.');
+assertEqual(prefs.getPreviewMode(makeStorage()), 'demo', 'Missing preview mode must default to the polished Demo site — a new/empty site shows plain, often-blank previews in My-site mode (S5 UX fix).');
 assertEqual(
 	prefs.getPreviewMode(makeStorage({ pixassist_preview_mode: 'demo' })),
 	'demo',
@@ -218,8 +218,8 @@ assertEqual(
 );
 assertEqual(
 	prefs.getPreviewMode(makeStorage({ pixassist_preview_mode: 'bad-value' })),
-	'site',
-	'Invalid preview mode storage must fall back to My site.'
+	'demo',
+	'Invalid preview mode storage must fall back to the default (Demo site).'
 );
 
 const previewStorage = makeStorage();
