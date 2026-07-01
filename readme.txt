@@ -4,7 +4,7 @@ Tags: dashboard, starter-content, demo-content, recommended-plugins, pixelgrade
 Requires at least: 5.9
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 2.1.0
+Stable tag: 2.2.0
 License: GPLv3.0
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -103,6 +103,17 @@ No. We are not tracking you or your site. Sharing is entirely optional and off b
 6. Site setup wizard
 
 == Changelog ==
+
+= 2.2.0 =
+* Fix: Anima LT is now recognized out of the box — the free WordPress.org build no longer comes up unrecognized, so starter sites, recommended plugins, and the setup wizard all work as intended.
+* Style Manager now appears alongside Nova Blocks as a recommended companion, so the full free Pixelgrade LT stack sets up in one pass.
+* New home: the whole experience now lives under Appearance → Pixelgrade Design — a calmer hub organized into Home, Design System, Starter Sites, Layouts, Page Patterns, Setup, Account, and Help.
+* Starter Sites: pick a free Anima LT starter (Hive, Rosa, Mies, Felt, Julia, or Pile LT), preview it, and choose how much of it to apply.
+* Layouts: browse and apply individual templates and parts with live previews, without importing a whole site.
+* New: Page Patterns — add ready-made page designs to your site.
+* Help & Docs: a redesigned Help tab and a floating documentation window that follows you across the dashboard and opens articles right where you are working — no new tabs.
+* Account: optional, account-free by default; connect a free Pixelgrade account for support when you want it, and it coexists cleanly with Pixelgrade Care.
+* Plenty of clearer, jargon-free copy throughout, plus performance and reliability improvements to previews and starter imports.
 
 = 2.1.0 =
 * New: Pixelgrade Docs sidebar - browse, search, read, and rate your theme's documentation right inside the block editor.
