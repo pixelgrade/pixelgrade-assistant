@@ -7,7 +7,7 @@ import { createElement, Fragment, useEffect, useMemo, useRef, useState } from '@
 import { __, sprintf } from '@wordpress/i18n';
 import { Button, Dropdown, Icon, Modal, Notice, RangeControl, SearchControl, SelectControl } from '@wordpress/components';
 import { check, fullscreen, grid, listView, settings, update } from '@wordpress/icons';
-import { LayoutPreview, PreviewModeToggle } from '../LayoutPreview';
+import { DemoLiveLink, LayoutPreview, PreviewModeToggle } from '../LayoutPreview';
 import { getContentPatternPreferences, saveContentPatternPreferences } from '../preferences';
 
 const DEFAULT_CONTENT_PATTERNS = {
@@ -763,6 +763,20 @@ function UnitPreviewModal( { unit, previewConfig, copy, onClose } ) {
 			size: 'large',
 			className: 'pixassist-content-preview-modal',
 		},
+		unit.previewAvailable && previewConfig && previewConfig.base
+			? createElement(
+					'div',
+					{ style: { alignItems: 'center', display: 'flex', gap: '16px', justifyContent: 'flex-end', marginBottom: '10px' } },
+					createElement( DemoLiveLink, {
+						baseRestUrl: source.baseRestUrl,
+						demoKey: source.id,
+						unitType: unit.type,
+						unit: unit.slug || String( unit.id ),
+						config: previewConfig,
+					} ),
+					createElement( PreviewModeToggle, null )
+			  )
+			: null,
 		createElement(
 			'div',
 			{ style: { maxHeight: '74vh', overflow: 'auto', background: '#f0f0f1', borderRadius: '4px' } },

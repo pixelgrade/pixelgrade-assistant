@@ -2965,6 +2965,16 @@ class PixelgradeAssistant_StarterContent {
 			}
 
 			if ( 'demo' === $mode ) {
+				// See the layout route: `live=1` redirects to the pattern's public demo page.
+				if ( ! empty( $_GET['live'] ) ) {
+					$target_url = $this->get_content_unit_demo_preview_url( $base_url, $post );
+					if ( '' === $target_url ) {
+						$target_url = $this->demo_base_from_rest_url( $base_url );
+					}
+					wp_redirect( esc_url_raw( $target_url ) ); // phpcs:ignore WordPress.Security.SafeRedirect.wp_redirect_wp_redirect -- deliberate external redirect to the allow-listed demo host.
+					exit;
+				}
+
 				$this->render_content_unit_demo_preview( $base_url, $post );
 				exit;
 			}
@@ -3044,6 +3054,17 @@ class PixelgradeAssistant_StarterContent {
 			// …) has no public URL that renders it and falls back to the local demo-content render.
 			$mode = isset( $_GET['mode'] ) ? sanitize_key( wp_unslash( $_GET['mode'] ) ) : 'site';
 			if ( 'demo' === $mode ) {
+				// `live=1` = the modal's "View on demo site" link: redirect to the SAME public demo URL
+				// the preview resolves (the exact page for canonical units, the demo home otherwise), so
+				// the link always lands on what the user is looking at. Access is already cap+nonce gated
+				// and the target derives from the allow-listed demo base by construction.
+				if ( ! empty( $_GET['live'] ) ) {
+					$demo_base = $this->demo_base_from_rest_url( $base_url );
+					$target    = 'wp_template' === $unit_type ? $this->demo_template_proxy_target( $base_url, $demo_base, $unit ) : null;
+					wp_redirect( esc_url_raw( ! empty( $target['url'] ) ? $target['url'] : $demo_base ) ); // phpcs:ignore WordPress.Security.SafeRedirect.wp_redirect_wp_redirect -- deliberate external redirect to the allow-listed demo host.
+					exit;
+				}
+
 				if ( 'wp_template' === $unit_type && null === $this->demo_template_proxy_target( $base_url, $this->demo_base_from_rest_url( $base_url ), $unit ) ) {
 					$this->render_layout_unit_demo_template_preview( $base_url, $unit_type, $unit );
 				} else {

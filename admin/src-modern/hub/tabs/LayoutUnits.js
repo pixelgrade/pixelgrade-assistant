@@ -8,7 +8,7 @@ import { createElement, Fragment, useEffect, useMemo, useRef, useState } from '@
 import { __ } from '@wordpress/i18n';
 import { Button, CheckboxControl, Dropdown, Icon, Modal, Notice, RangeControl, SearchControl, SelectControl } from '@wordpress/components';
 import { check, fullscreen, grid, listView, settings, update } from '@wordpress/icons';
-import { LayoutPreview, PreviewModeToggle } from '../LayoutPreview';
+import { DemoLiveLink, LayoutPreview, PreviewModeToggle } from '../LayoutPreview';
 import { getLayoutUnitPreferences, saveLayoutUnitPreferences } from '../preferences';
 
 const DEFAULT_LAYOUT_UNITS = {
@@ -951,7 +951,14 @@ function UnitPreviewModal( { unit, previewConfig, copy, onClose } ) {
 		},
 		createElement(
 			'div',
-			{ style: { alignItems: 'center', display: 'flex', justifyContent: 'flex-end', marginBottom: '10px' } },
+			{ style: { alignItems: 'center', display: 'flex', gap: '16px', justifyContent: 'flex-end', marginBottom: '10px' } },
+			createElement( DemoLiveLink, {
+				baseRestUrl: source.baseRestUrl,
+				demoKey: source.id,
+				unitType: unit.type,
+				unit: unit.slug || String( unit.id ),
+				config: previewConfig,
+			} ),
 			createElement( PreviewModeToggle, null )
 		),
 		createElement(

@@ -13,7 +13,7 @@
  */
 
 import { createElement, useEffect, useRef, useState } from '@wordpress/element';
-import { Button } from '@wordpress/components';
+import { Button, ExternalLink } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
 import { getPreviewMode, savePreviewMode } from './preferences';
 
@@ -242,7 +242,7 @@ export function getLayoutPreviewConfig() {
  *
  * @return {string} The preview URL, or '' when it cannot be built.
  */
-export function getLayoutPreviewUrl( { baseRestUrl, demoKey, unitType, unit, config, mode } ) {
+export function getLayoutPreviewUrl( { baseRestUrl, demoKey, unitType, unit, config, mode, live } ) {
 	const cfg = config || getLayoutPreviewConfig();
 	if ( ! cfg || ! cfg.base || ! baseRestUrl || ! unitType || ! unit ) {
 		return '';
@@ -265,11 +265,38 @@ export function getLayoutPreviewUrl( { baseRestUrl, demoKey, unitType, unit, con
 	if ( 'demo' === mode ) {
 		url.searchParams.set( 'mode', 'demo' );
 	}
+	if ( live ) {
+		// The route 302-redirects to the resolved public demo URL instead of rendering (the modal's
+		// "View on demo site" link) — same resolution, so the link matches the preview.
+		url.searchParams.set( 'live', '1' );
+	}
 	if ( cfg.nonce ) {
 		url.searchParams.set( '_pixprev', cfg.nonce );
 	}
 
 	return url.toString();
+}
+
+/**
+ * "View on demo site" — opens the unit's public demo page in a new tab.
+ *
+ * Rendered only in DEMO preview mode: in My-site mode the live demo page would not match the
+ * preview the user is looking at (different design and content). The href goes through the
+ * preview route with `live=1`, which redirects to the exact URL the demo preview resolves —
+ * canonical units land on their real page, everything else on the demo home.
+ *
+ * @param {Object} props Same unit descriptor as LayoutPreview (baseRestUrl/demoKey/unitType/unit/config).
+ */
+export function DemoLiveLink( { baseRestUrl, demoKey, unitType, unit, config } ) {
+	const mode = usePreviewMode();
+	if ( 'demo' !== mode ) {
+		return null;
+	}
+	const href = getLayoutPreviewUrl( { baseRestUrl, demoKey, unitType, unit, config, mode: 'demo', live: true } );
+	if ( ! href ) {
+		return null;
+	}
+	return createElement( ExternalLink, { href }, __( 'View on demo site', 'pixelgrade_assistant' ) );
 }
 
 /**
