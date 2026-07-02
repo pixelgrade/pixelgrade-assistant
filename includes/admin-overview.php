@@ -160,9 +160,9 @@ if ( ! function_exists( 'pixassist_get_overview_state_summary' ) ) {
 			array(
 				'id'     => 'layouts',
 				'label'  => esc_html__( 'Layouts', '__plugin_txtd' ),
-				'value'  => pixassist_get_overview_count_label( $layout_state['count'], esc_html__( 'applied', '__plugin_txtd' ), esc_html__( 'applied', '__plugin_txtd' ) ),
-				'detail' => $layout_state['count'] > 0 ? esc_html__( 'Applied frames can be replaced or removed.', '__plugin_txtd' ) : esc_html__( 'No individual layouts applied yet.', '__plugin_txtd' ),
-				'tone'   => $layout_state['count'] > 0 ? 'ok' : 'neutral',
+				'value'  => pixassist_get_overview_layout_state_value( $layout_state, $starter_state ),
+				'detail' => pixassist_get_overview_layout_state_detail( $layout_state, $starter_state ),
+				'tone'   => ( $layout_state['count'] > 0 || ! empty( $starter_state['has_imported'] ) ) ? 'ok' : 'neutral',
 				'url'    => pixassist_overview_tab_url_by_id( $tabs, $base_url, 'layouts' ),
 			),
 			array(
@@ -762,6 +762,52 @@ if ( ! function_exists( 'pixassist_get_overview_layout_state' ) ) {
 			'count'   => count( $applied ),
 			'applied' => $applied,
 		);
+	}
+}
+
+if ( ! function_exists( 'pixassist_get_overview_layout_state_value' ) ) {
+	/**
+	 * Build the Layouts card value. Individually-applied frames count first; otherwise, once a
+	 * starter's full demo is imported the page layouts ARE in place (via the starter), so the card
+	 * says so instead of "0 applied" — which contradicted the Starter card reading "applied".
+	 *
+	 * @param array $layout_state  Layout state ({ count, applied }).
+	 * @param array $starter_state Starter state ({ has_imported, ... }).
+	 *
+	 * @return string
+	 */
+	function pixassist_get_overview_layout_state_value( $layout_state, $starter_state ) {
+		if ( ! empty( $layout_state['count'] ) ) {
+			return pixassist_get_overview_count_label( (int) $layout_state['count'], esc_html__( 'applied', '__plugin_txtd' ), esc_html__( 'applied', '__plugin_txtd' ) );
+		}
+
+		if ( ! empty( $starter_state['has_imported'] ) ) {
+			return esc_html__( 'Set by your starter', '__plugin_txtd' );
+		}
+
+		return pixassist_get_overview_count_label( 0, esc_html__( 'applied', '__plugin_txtd' ), esc_html__( 'applied', '__plugin_txtd' ) );
+	}
+}
+
+if ( ! function_exists( 'pixassist_get_overview_layout_state_detail' ) ) {
+	/**
+	 * Build the Layouts card detail, matching the starter-aware value above.
+	 *
+	 * @param array $layout_state  Layout state ({ count, applied }).
+	 * @param array $starter_state Starter state ({ has_imported, ... }).
+	 *
+	 * @return string
+	 */
+	function pixassist_get_overview_layout_state_detail( $layout_state, $starter_state ) {
+		if ( ! empty( $layout_state['count'] ) ) {
+			return esc_html__( 'Applied frames can be replaced or removed.', '__plugin_txtd' );
+		}
+
+		if ( ! empty( $starter_state['has_imported'] ) ) {
+			return esc_html__( 'Your starter set the page layouts. Apply individual frames to customize.', '__plugin_txtd' );
+		}
+
+		return esc_html__( 'No individual layouts applied yet.', '__plugin_txtd' );
 	}
 }
 
