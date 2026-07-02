@@ -1166,94 +1166,168 @@ class PixelgradeAssistant_Admin {
      */
     public static function get_remote_config( $skip_cache = false ) {
 
-    	if ( defined( 'PIXELGRADE_ASSISTANT__SKIP_CONFIG_CACHE' ) && PIXELGRADE_ASSISTANT__SKIP_CONFIG_CACHE === true ) {
-    		$skip_cache = true;
-	    }
+		if ( defined( 'PIXELGRADE_ASSISTANT__SKIP_CONFIG_CACHE' ) && PIXELGRADE_ASSISTANT__SKIP_CONFIG_CACHE === true ) {
+			$skip_cache = true;
+		}
 
-        // Get the theme hash ID
-        $theme_id = self::get_theme_hash_id();
-        // If we have no hash ID present, bail
-        if ( empty( $theme_id ) ) {
-            return false;
-        }
+		// Get the theme hash ID.
+		$theme_id = self::get_theme_hash_id();
+		// If we have no hash ID present, bail.
+		if ( empty( $theme_id ) ) {
+			return false;
+		}
 
-	    // Anima (placeholder hash QBAXY) is now resolvable for get_config via its registered
-	    // pixelgrade.com product, disambiguated by the theme SKU sent in the request body below — so we
-	    // no longer skip the round-trip here. The KB (get_htkb_categories) likewise resolves by SKU now
-	    // that the Anima LT product's docs_article_groups are populated. See #59.
+		// Anima (placeholder hash QBAXY) is now resolvable for get_config via its registered
+		// pixelgrade.com product, disambiguated by the theme SKU sent in the request body below — so we
+		// no longer skip the round-trip here. The KB (get_htkb_categories) likewise resolves by SKU now
+		// that the Anima LT product's docs_article_groups are populated. See #59.
 
-	    $config = false;
+		$config       = false;
+		$cache_key    = self::_get_remote_config_cache_key( $theme_id );
+		$stale_config = false;
 
-        // We will cache this config for a little while, just enough to avoid getting hammered by a broken theme mod entry
-	    if ( false === $skip_cache ) {
-		    $config = get_transient( self::_get_remote_config_cache_key( $theme_id ) );
-	    }
+		// Keep a normal cache for fresh reads, plus a stale fallback and a short lock to avoid
+		// stampedes. The lock is a non-autoloaded option (not a transient) and is NOT released after
+		// a fetch attempt — it expires on its own, so it doubles as a hard floor of at most one
+		// remote attempt per minute per theme even on installs where transients never persist
+		// (broken object-cache drop-ins) — the very sites that used to hammer PXM on every request.
+		if ( false === $skip_cache ) {
+			$config = get_transient( $cache_key );
+			if ( false !== $config ) {
+				return $config;
+			}
 
-        if ( true === $skip_cache || false === $config ) {
-            // Retrieve the config from the server. The theme-config endpoint is fixed, so don't depend on
-            // init() having populated the static $externalApiEndpoints property — get_remote_config() can run
-            // on a cold cache before that runs (it would otherwise warn on a null array offset).
-            $get_config = ! empty( self::$externalApiEndpoints['pxm']['getConfig'] )
-                ? self::$externalApiEndpoints['pxm']['getConfig']
-                : array(
-                    'method' => 'GET',
-                    'url'    => PIXELGRADE_ASSISTANT__API_BASE . 'wp-json/pxm/v2/front/get_config',
-                );
+			$stale_config = get_transient( self::_get_remote_config_stale_cache_key( $theme_id ) );
+			if ( false !== get_transient( self::_get_remote_config_failure_cache_key( $theme_id ) ) ) {
+				return false !== $stale_config ? $stale_config : false;
+			}
 
-            $request_args = array(
-                'method' => $get_config['method'],
-                'timeout'   => 4,
-                'blocking'  => true,
-                'body' => array(
-                    'hash_id' => $theme_id,
-                    // The theme SKU (e.g. anima-lt) disambiguates products that share a hash. Anima's
-                    // hash (QBAXY) is shared by every premium LT product, so without the SKU the
-                    // Manager cannot resolve which product config to return. See #59.
-                    'sku'     => self::get_original_theme_slug(),
-                    // This is the Pixelgrade Assistant Manager configuration version, not the API version
-                    // @todo this parameter naming is quite confusing
-                    'version' => self::$pixelgrade_assistant_manager_api_version,
-                ),
-                'sslverify' => true,
-            );
+			if ( false === self::_acquire_remote_config_lock( $theme_id ) ) {
+				return false !== $stale_config ? $stale_config : false;
+			}
+		}
 
-            // Increase timeout when using the PIXELGRADE_ASSISTANT__SKIP_CONFIG_CACHE constant so we can account for slow local (development) installations.
-	        // Also do this if the target URL is a development one.
-	        if ( ( defined( 'PIXELGRADE_ASSISTANT__SKIP_CONFIG_CACHE' ) && PIXELGRADE_ASSISTANT__SKIP_CONFIG_CACHE === true ) || self::is_development_url( $get_config['url'] ) ) {
-		        $request_args['timeout'] = 10;
-	        }
+		// Retrieve the config from the server. The theme-config endpoint is fixed, so don't depend on
+		// init() having populated the static $externalApiEndpoints property — get_remote_config() can run
+		// on a cold cache before that runs (it would otherwise warn on a null array offset).
+		$get_config = ! empty( self::$externalApiEndpoints['pxm']['getConfig'] )
+			? self::$externalApiEndpoints['pxm']['getConfig']
+			: array(
+				'method' => 'GET',
+				'url'    => PIXELGRADE_ASSISTANT__API_BASE . 'wp-json/pxm/v2/front/get_config',
+			);
 
-            $response = wp_remote_request( $get_config['url'], $request_args  );
-            if ( is_wp_error( $response ) ) {
-                return false;
-            }
-            $response_data = json_decode( wp_remote_retrieve_body( $response ), true );
-            if ( null === $response_data || empty( $response_data['data']['config'] ) || 'success' !== $response_data['code'] ) {
-                // This means the json_decode has failed
-                return false;
-            }
-            $config = $response_data['data']['config'];
+		$request_args = array(
+			'method'    => $get_config['method'],
+			'timeout'   => 4,
+			'blocking'  => true,
+			'body'      => array(
+				'hash_id' => $theme_id,
+				// The theme SKU (e.g. anima-lt) disambiguates products that share a hash. Anima's
+				// hash (QBAXY) is shared by every premium LT product, so without the SKU the
+				// Manager cannot resolve which product config to return. See #59.
+				'sku'     => self::get_original_theme_slug(),
+				// This is the Pixelgrade Assistant Manager configuration version, not the API version.
+				// @todo this parameter naming is quite confusing.
+				'version' => self::$pixelgrade_assistant_manager_api_version,
+			),
+			'sslverify' => true,
+		);
 
-            // For now, we don't need anything related to dashboard or setup wizard. We will just use the plugin defaults.
-	        if ( isset( $config['dashboard'] ) ) {
-		        unset( $config['dashboard'] );
-	        }
-	        if ( isset( $config['setupWizard'] ) ) {
-		        unset( $config['setupWizard'] );
-	        }
+		// Increase timeout when using the PIXELGRADE_ASSISTANT__SKIP_CONFIG_CACHE constant so we can account for slow local (development) installations.
+		// Also do this if the target URL is a development one.
+		if ( ( defined( 'PIXELGRADE_ASSISTANT__SKIP_CONFIG_CACHE' ) && PIXELGRADE_ASSISTANT__SKIP_CONFIG_CACHE === true ) || self::is_development_url( $get_config['url'] ) ) {
+			$request_args['timeout'] = 10;
+		}
 
-            // Sanitize it
-	        $config = self::sanitize_theme_mods_holding_content( $config, array() );
-            // Cache it
-            set_transient( self::_get_remote_config_cache_key( $theme_id ), $config, 6 * HOUR_IN_SECONDS );
-        }
+		$response = wp_remote_request( $get_config['url'], $request_args );
+		if ( is_wp_error( $response ) ) {
+			// Throttle repeated attempts against a failing endpoint. The lock is deliberately left
+			// in place to expire on its own (see above).
+			if ( false === $skip_cache ) {
+				self::_mark_remote_config_failure( $theme_id );
+			}
 
-        return $config;
+			return false !== $stale_config ? $stale_config : false;
+		}
+
+		$response_data = json_decode( wp_remote_retrieve_body( $response ), true );
+		if ( null === $response_data || empty( $response_data['data']['config'] ) || 'success' !== $response_data['code'] ) {
+			if ( false === $skip_cache ) {
+				self::_mark_remote_config_failure( $theme_id );
+			}
+
+			return false !== $stale_config ? $stale_config : false;
+		}
+
+		$config = $response_data['data']['config'];
+
+		// For now, we don't need anything related to dashboard or setup wizard. We will just use the plugin defaults.
+		if ( isset( $config['dashboard'] ) ) {
+			unset( $config['dashboard'] );
+		}
+		if ( isset( $config['setupWizard'] ) ) {
+			unset( $config['setupWizard'] );
+		}
+
+		// Sanitize it.
+		$config = self::sanitize_theme_mods_holding_content( $config, array() );
+		// Cache it.
+		set_transient( $cache_key, $config, 6 * HOUR_IN_SECONDS );
+		set_transient( self::_get_remote_config_stale_cache_key( $theme_id ), $config, 7 * DAY_IN_SECONDS );
+
+		// A successful fetch lifts the failure throttle. The lock is deliberately left in place to
+		// expire on its own (see above) — with a healthy cache the fresh transient short-circuits
+		// way before the lock is ever consulted.
+		delete_transient( self::_get_remote_config_failure_cache_key( $theme_id ) );
+
+		return $config;
     }
 
 	protected static function _get_remote_config_cache_key( $theme_id ) {
         return 'pixassist_theme_config_' . $theme_id;
     }
+
+	protected static function _get_remote_config_stale_cache_key( $theme_id ) {
+		return 'pixassist_theme_config_stale_' . $theme_id;
+	}
+
+	protected static function _get_remote_config_failure_cache_key( $theme_id ) {
+		return 'pixassist_theme_config_failure_' . $theme_id;
+	}
+
+	protected static function _get_remote_config_lock_key( $theme_id ) {
+		return 'pixassist_theme_config_lock_' . $theme_id;
+	}
+
+	protected static function _acquire_remote_config_lock( $theme_id ) {
+		$lock_key = self::_get_remote_config_lock_key( $theme_id );
+		$now      = time();
+		$lock     = absint( get_option( $lock_key ) );
+
+		if ( ! empty( $lock ) && $lock > $now - MINUTE_IN_SECONDS ) {
+			return false;
+		}
+
+		if ( add_option( $lock_key, $now, '', 'no' ) ) {
+			return true;
+		}
+
+		$lock = absint( get_option( $lock_key ) );
+		if ( ! empty( $lock ) && $lock <= $now - MINUTE_IN_SECONDS ) {
+			return update_option( $lock_key, $now, false );
+		}
+
+		return false;
+	}
+
+	protected static function _release_remote_config_lock( $theme_id ) {
+		delete_option( self::_get_remote_config_lock_key( $theme_id ) );
+	}
+
+	protected static function _mark_remote_config_failure( $theme_id ) {
+		set_transient( self::_get_remote_config_failure_cache_key( $theme_id ), time(), 5 * MINUTE_IN_SECONDS );
+	}
 
 	public static function clear_remote_config_cache() {
 
@@ -1264,7 +1338,12 @@ class PixelgradeAssistant_Admin {
 		    return false;
 	    }
 
-	    return delete_transient( self::_get_remote_config_cache_key( $theme_id ) );
+		$deleted = delete_transient( self::_get_remote_config_cache_key( $theme_id ) );
+		delete_transient( self::_get_remote_config_stale_cache_key( $theme_id ) );
+		delete_transient( self::_get_remote_config_failure_cache_key( $theme_id ) );
+		self::_release_remote_config_lock( $theme_id );
+
+		return $deleted;
     }
 
 	/**

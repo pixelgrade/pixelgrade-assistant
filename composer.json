@@ -37,7 +37,8 @@
             "php tests/help-kb-fetch-test.php",
             "php tests/admin-docs-test.php",
             "php tests/portfolio-cpt-test.php",
-            "php tests/wupdates-identification-test.php"
+            "php tests/wupdates-identification-test.php",
+            "php tests/remote-config-cache-test.php"
         ]
     }
 }
