@@ -3038,10 +3038,13 @@ class PixelgradeAssistant_StarterContent {
 			}
 
 			// Demo mode previews the starter's polished public demo page instead of rendering the unit
-			// against the (possibly incomplete) local content.
+			// against the (possibly incomplete) local content. Templates split two ways: a CANONICAL
+			// route template (single, archive, page, …) proxies the REAL demo page — pixel-accurate,
+			// with the demo's own header/menus/design — while a variant (single-magazine, archive-list,
+			// …) has no public URL that renders it and falls back to the local demo-content render.
 			$mode = isset( $_GET['mode'] ) ? sanitize_key( wp_unslash( $_GET['mode'] ) ) : 'site';
 			if ( 'demo' === $mode ) {
-				if ( 'wp_template' === $unit_type ) {
+				if ( 'wp_template' === $unit_type && null === $this->demo_template_proxy_target( $base_url, $this->demo_base_from_rest_url( $base_url ), $unit ) ) {
 					$this->render_layout_unit_demo_template_preview( $base_url, $unit_type, $unit );
 				} else {
 					$this->render_layout_unit_demo_preview( $base_url, $unit_type, $unit );
@@ -3089,10 +3092,14 @@ class PixelgradeAssistant_StarterContent {
 			// instead of rendering against the front-page query. Parts (header/footer) need nothing.
 			$this->setup_preview_query_context( $unit_type, $unit );
 
+			$markup = 'wp_template' === $unit_type
+				? $this->strip_template_chrome_parts( $post['post_content'] )
+				: $post['post_content'];
+
 			// Capture the rendered document so we can serve it AND cache it for the next request (see
 			// layout_unit_preview_cache_key). The headers are sent inside render(); only the body is cached.
 			ob_start();
-			$this->render_layout_unit_preview_document( $post['post_content'] );
+			$this->render_layout_unit_preview_document( $markup );
 			$preview_html = ob_get_clean();
 
 			// Cache the cold render generously: it is the expensive step (live Style Manager CSS gen +
@@ -3102,6 +3109,46 @@ class PixelgradeAssistant_StarterContent {
 
 			echo $preview_html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- block-rendered preview HTML.
 			exit;
+		}
+
+		/**
+		 * Drop header/footer template-part blocks from a template's markup for LOCAL preview renders.
+		 *
+		 * A template card previews the template's own content layout. Its header/footer refs resolve to
+		 * the LOCAL site's parts (the source's parts do not exist here), which reads as the wrong site
+		 * in demo mode and repeats the same local header across every card in site mode. Headers and
+		 * footers have their own dedicated cards; proxied demo pages keep the demo's real chrome.
+		 * Top-level blocks only — that is where template chrome lives, and removing a top-level block
+		 * never disturbs inner-content serialization.
+		 *
+		 * @param string $markup Template block markup.
+		 *
+		 * @return string
+		 */
+		private function strip_template_chrome_parts( $markup ) {
+			if ( false === strpos( (string) $markup, 'wp:template-part' ) || ! function_exists( 'parse_blocks' ) || ! function_exists( 'serialize_blocks' ) ) {
+				return $markup;
+			}
+
+			$kept = array();
+			foreach ( parse_blocks( $markup ) as $block ) {
+				if ( ! empty( $block['blockName'] ) && 'core/template-part' === $block['blockName'] ) {
+					$slug = isset( $block['attrs']['slug'] ) ? sanitize_title( $block['attrs']['slug'] ) : '';
+					$area = isset( $block['attrs']['area'] ) ? sanitize_key( $block['attrs']['area'] ) : '';
+					$tag  = isset( $block['attrs']['tagName'] ) ? strtolower( (string) $block['attrs']['tagName'] ) : '';
+					if (
+						in_array( $area, array( 'header', 'footer' ), true )
+						|| in_array( $tag, array( 'header', 'footer' ), true )
+						|| 0 === strpos( $slug, 'header' )
+						|| 0 === strpos( $slug, 'footer' )
+					) {
+						continue;
+					}
+				}
+				$kept[] = $block;
+			}
+
+			return serialize_blocks( $kept );
 		}
 
 		/**
@@ -3177,7 +3224,7 @@ class PixelgradeAssistant_StarterContent {
 				$version,
 			);
 
-			return 'pixassist_lupv3_' . md5( implode( '|', $parts ) );
+			return 'pixassist_lupv4_' . md5( implode( '|', $parts ) );
 		}
 
 		/**
@@ -3345,7 +3392,7 @@ class PixelgradeAssistant_StarterContent {
 				set_transient( $cache_key, $html, 12 * HOUR_IN_SECONDS );
 			}
 
-			$focus_script = '<script>window.__pixassistPreviewFocus="full";</script>';
+			$focus_script = '<script>window.__pixassistPreviewFocus="content";</script>';
 			$html         = str_ireplace( '</body>', $focus_script . $this->layout_preview_runtime_script() . '</body>', $html );
 
 			show_admin_bar( false );
@@ -3760,6 +3807,18 @@ class PixelgradeAssistant_StarterContent {
 			window.parent.postMessage( { pixassistPreview: true, height: h, empty: isEmpty }, '*' );
 		}
 	}
+	function trimChrome() {
+		// Content focus (proxied demo pages behind template/pattern cards): hide the page's own
+		// header/footer chrome so the card shows the template's CONTENT — headers and footers have
+		// their own dedicated cards, and tall demo mastheads otherwise eat most of the preview.
+		// Selectors target theme chrome only; a content-level <header>/<footer> (an article header,
+		// an author-box footer) never matches.
+		var sel = 'header.wp-block-template-part, footer.wp-block-template-part, .nb-header, .nb-header-row, .nb-footer, .c-footer, [class*="announcement-bar"]';
+		var nodes = document.querySelectorAll( sel );
+		for ( var i = 0; i < nodes.length; i++ ) {
+			nodes[ i ].style.setProperty( 'display', 'none', 'important' );
+		}
+	}
 	function isolateFocus() {
 		var focus = window.__pixassistPreviewFocus || 'full';
 		if ( 'header' !== focus && 'footer' !== focus ) {
@@ -3821,6 +3880,9 @@ class PixelgradeAssistant_StarterContent {
 		}
 		if ( 'footer' === focus ) {
 			isolateFocus();
+		}
+		if ( 'content' === focus ) {
+			trimChrome();
 		}
 		neutralizeFixed();
 		tameFullHeight();
@@ -3895,7 +3957,7 @@ HTML;
 			$this->setup_demo_template_preview_context( $base_url, $unit_type, $unit );
 
 			ob_start();
-			$this->render_layout_unit_preview_document( $post['post_content'] );
+			$this->render_layout_unit_preview_document( $this->strip_template_chrome_parts( $post['post_content'] ) );
 			$preview_html = ob_get_clean();
 
 			set_transient( $preview_cache_key, $preview_html, 10 * MINUTE_IN_SECONDS );
@@ -3928,7 +3990,7 @@ HTML;
 				$version,
 			);
 
-			return 'pixassist_ludtpv2_' . md5( implode( '|', $parts ) );
+			return 'pixassist_ludtpv3_' . md5( implode( '|', $parts ) );
 		}
 
 		/**
@@ -3968,12 +4030,18 @@ HTML;
 
 			if ( false === $html ) {
 				$response = wp_remote_get( $target_url, array( 'timeout' => 15, 'redirection' => 3, 'sslverify' => true ) );
-				if ( is_wp_error( $response ) || 200 !== (int) wp_remote_retrieve_response_code( $response ) ) {
-					$this->exit_layout_unit_preview_failure( 502 );
+				$fetch_failed = is_wp_error( $response ) || 200 !== (int) wp_remote_retrieve_response_code( $response );
+				if ( ! $fetch_failed ) {
+					$html = wp_remote_retrieve_body( $response );
+					$fetch_failed = '' === trim( $html );
 				}
-
-				$html = wp_remote_retrieve_body( $response );
-				if ( '' === trim( $html ) ) {
+				if ( $fetch_failed ) {
+					// A template still has a decent second-best preview: the local render seeded with the
+					// demo's content. Parts have no such fallback — fail fast so the card resolves.
+					if ( 'wp_template' === $unit_type ) {
+						$this->render_layout_unit_demo_template_preview( $base_url, $unit_type, $unit );
+						exit;
+					}
 					$this->exit_layout_unit_preview_failure( 502 );
 				}
 
@@ -4034,35 +4102,115 @@ HTML;
 				);
 			}
 
-			// Templates: load a demo URL that actually renders that template — keyed on the type_group so
-			// every variant in a family (single-magazine, single-split-header, an authored single-post…)
-			// is treated like its canonical sibling instead of falling through to the demo home.
-			$kind = $this->preview_template_kind( $unit );
-
-			if ( 'single' === $kind ) {
-				$post_id = $this->demo_first_post_id( $base_url, 'post' );
-				if ( $post_id ) {
-					return array( 'url' => add_query_arg( 'p', $post_id, $demo_base ), 'focus' => 'full' );
-				}
-			} elseif ( 'cpt-single' === $kind ) {
-				$portfolio_type = $this->demo_portfolio_post_type( $base_url );
-				$post_id        = $portfolio_type ? $this->demo_first_post_id( $base_url, $portfolio_type ) : 0;
-				if ( $post_id ) {
-					return array( 'url' => add_query_arg( array( 'p' => $post_id, 'post_type' => $portfolio_type ), $demo_base ), 'focus' => 'full' );
-				}
-			} elseif ( 'cpt-archive' === $kind ) {
-				$portfolio_type = $this->demo_portfolio_post_type( $base_url );
-				if ( $portfolio_type ) {
-					return array( 'url' => add_query_arg( 'post_type', $portfolio_type, $demo_base ), 'focus' => 'full' );
-				}
-			} elseif ( 'archive' === $kind ) {
-				return array( 'url' => add_query_arg( 'cat', 1, $demo_base ), 'focus' => 'full' );
-			} elseif ( 'search' === $kind ) {
-				return array( 'url' => add_query_arg( 's', 'a', $demo_base ), 'focus' => 'full' );
+			// Templates only reach the proxy when they have a real public route (the demo-mode router
+			// sends variants to the local demo-content render instead).
+			$target = $this->demo_template_proxy_target( $base_url, $demo_base, $unit );
+			if ( null !== $target ) {
+				return $target;
 			}
 
-			// home / front-page / index / page / fallbacks → the demo home.
 			return array( 'url' => $demo_base, 'focus' => 'full' );
+		}
+
+		/**
+		 * Strip the demo REST suffix from an SCE base URL, leaving the demo's public front-end base.
+		 *
+		 * @param string $base_url Source SCE REST base.
+		 *
+		 * @return string
+		 */
+		private function demo_base_from_rest_url( $base_url ) {
+			return trailingslashit( preg_replace( '#wp-json/sce/v[0-9]+/?$#i', '', trailingslashit( $base_url ) ) );
+		}
+
+		/**
+		 * The public demo URL that renders a CANONICAL template slug, or null for variants.
+		 *
+		 * A demo can only show whichever template is ACTIVE for a route, so proxying is accurate only
+		 * for the canonical route templates. Variants (single-magazine, archive-list, page-wide, …)
+		 * have no public URL that renders them and must fall back to the local demo-content render.
+		 * `home`/`index` are also excluded on purpose: on demos with a static front page the blog home
+		 * lives at an unguessable URL, and the local multi-post feed render is more representative
+		 * than proxying the front page would be.
+		 *
+		 * @param string $base_url  Source SCE REST base.
+		 * @param string $demo_base Demo front-end base URL.
+		 * @param string $unit      Template slug.
+		 *
+		 * @return array|null { url, focus } or null when the slug has no reliable public route.
+		 */
+		private function demo_template_proxy_target( $base_url, $demo_base, $unit ) {
+			$slug = sanitize_title( $unit );
+
+			if ( in_array( $slug, array( 'single', 'single-post', 'singular' ), true ) ) {
+				$post_id = $this->demo_first_post_id( $base_url, 'post' );
+
+				return $post_id ? array( 'url' => add_query_arg( 'p', $post_id, $demo_base ), 'focus' => 'content' ) : null;
+			}
+
+			if ( in_array( $slug, array( 'archive', 'category' ), true ) ) {
+				return array( 'url' => add_query_arg( 'cat', 1, $demo_base ), 'focus' => 'content' );
+			}
+
+			if ( 'search' === $slug ) {
+				return array( 'url' => add_query_arg( 's', 'a', $demo_base ), 'focus' => 'content' );
+			}
+
+			if ( 'front-page' === $slug ) {
+				return array( 'url' => $demo_base, 'focus' => 'content' );
+			}
+
+			if ( 'page' === $slug ) {
+				$page_id = $this->demo_first_content_page_id( $base_url );
+
+				return $page_id ? array( 'url' => add_query_arg( 'page_id', $page_id, $demo_base ), 'focus' => 'content' ) : null;
+			}
+
+			if ( 0 === strpos( $slug, 'single-' ) || 0 === strpos( $slug, 'archive-' ) ) {
+				$portfolio_type = $this->demo_portfolio_post_type( $base_url );
+				if ( $portfolio_type && in_array( $slug, array( 'single-' . $portfolio_type, 'archive-' . $portfolio_type ), true ) ) {
+					if ( 0 === strpos( $slug, 'archive-' ) ) {
+						return array( 'url' => add_query_arg( 'post_type', $portfolio_type, $demo_base ), 'focus' => 'content' );
+					}
+
+					$post_id = $this->demo_first_post_id( $base_url, $portfolio_type );
+
+					return $post_id ? array( 'url' => add_query_arg( array( 'p' => $post_id, 'post_type' => $portfolio_type ), $demo_base ), 'focus' => 'content' ) : null;
+				}
+			}
+
+			return null;
+		}
+
+		/**
+		 * The id of a representative CONTENT page from the demo, for `page` template previews.
+		 *
+		 * Skips slugs that render something other than the page template (WooCommerce endpoints, the
+		 * posts/front pages).
+		 *
+		 * @param string $base_url Source SCE REST base.
+		 *
+		 * @return int 0 when none found.
+		 */
+		private function demo_first_content_page_id( $base_url ) {
+			$posts = $this->fetch_layout_source_posts( $base_url, 'page' );
+			if ( is_wp_error( $posts ) ) {
+				return 0;
+			}
+
+			foreach ( (array) $posts as $post ) {
+				if ( empty( $post['ID'] ) || ( ! empty( $post['post_status'] ) && 'publish' !== $post['post_status'] ) ) {
+					continue;
+				}
+				$slug = isset( $post['post_name'] ) ? sanitize_title( $post['post_name'] ) : '';
+				if ( in_array( $slug, array( 'cart', 'checkout', 'my-account', 'shop', 'home', 'home-alt', 'blog' ), true ) ) {
+					continue;
+				}
+
+				return (int) $post['ID'];
+			}
+
+			return 0;
 		}
 
 		/**
