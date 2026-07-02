@@ -1105,43 +1105,52 @@ export function ContentPatterns() {
 		let nextLoadedSourceIds = { ...loadedSourceIds };
 		const failures = [];
 
-		for ( let index = 0; index < sourcesToLoad.length; index++ ) {
-			const source = sourcesToLoad[ index ];
-			const sourceTitle = source.title || source.id || '';
-			setLoadingStatus( sprintf( '%s (%d/%d)', sourceTitle || copy.loading, index + 1, sourcesToLoad.length ) );
+		// Load every source CONCURRENTLY and merge each response as it lands (JS is single-threaded,
+		// so the accumulator reassignments below never race). One awaited request at a time made the
+		// cold list phase the SUM of all sources (~9-10s); in parallel it is the slowest single
+		// source, and the grid still fills progressively as each source arrives.
+		let completedSources = 0;
 
-			try {
-				const response = await restRequest( data, 'contentUnits', {
-					sources: [ source ],
-				} );
-				const responseData = response && response.data ? response.data : {};
-				const result = flattenSourceResults( responseData.sources || [], sources );
+		await Promise.all(
+			sourcesToLoad.map( async ( source ) => {
+				const sourceTitle = source.title || source.id || '';
 
-				if ( result.failures.length ) {
-					failures.push( ...result.failures );
-				} else {
-					nextLoadedSourceIds = {
-						...nextLoadedSourceIds,
-						[ source.id ]: true,
-					};
+				try {
+					const response = await restRequest( data, 'contentUnits', {
+						sources: [ source ],
+					} );
+					const responseData = response && response.data ? response.data : {};
+					const result = flattenSourceResults( responseData.sources || [], sources );
+
+					if ( result.failures.length ) {
+						failures.push( ...result.failures );
+					} else {
+						nextLoadedSourceIds = {
+							...nextLoadedSourceIds,
+							[ source.id ]: true,
+						};
+					}
+
+					nextUnits = mergeUnitsForSources( nextUnits, result.units, [ source.id ] );
+					nextApplied = normalizeObject( responseData.applied || nextApplied );
+
+					setUnits( nextUnits );
+					setApplied( nextApplied );
+					setLoadedSourceIds( nextLoadedSourceIds );
+					setLoaded( true );
+					writeCache( nextUnits, nextApplied, nextLoadedSourceIds );
+				} catch ( error ) {
+					failures.push( {
+						id: source.id,
+						title: sourceTitle,
+						message: error && error.message ? error.message : '',
+					} );
+				} finally {
+					completedSources++;
+					setLoadingStatus( sprintf( '%s (%d/%d)', sourceTitle || copy.loading, completedSources, sourcesToLoad.length ) );
 				}
-
-				nextUnits = mergeUnitsForSources( nextUnits, result.units, [ source.id ] );
-				nextApplied = normalizeObject( responseData.applied || nextApplied );
-
-				setUnits( nextUnits );
-				setApplied( nextApplied );
-				setLoadedSourceIds( nextLoadedSourceIds );
-				setLoaded( true );
-				writeCache( nextUnits, nextApplied, nextLoadedSourceIds );
-			} catch ( error ) {
-				failures.push( {
-					id: source.id,
-					title: sourceTitle,
-					message: error && error.message ? error.message : '',
-				} );
-			}
-		}
+			} )
+		);
 
 		if ( failures.length ) {
 			const failedNames = Array.from(

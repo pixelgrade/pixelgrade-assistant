@@ -37,17 +37,28 @@ const MAX_FRAME_HEIGHT = 16000;
  * browser, so several previews miss the LOAD_TIMEOUT_MS height handshake and wrongly fall back to
  * "No preview".
  *
- * This semaphore lets at most MAX_CONCURRENT_PREVIEWS iframes LOAD at once; the rest wait in a FIFO
+ * This semaphore lets at most getPreviewSlotCap() iframes LOAD at once; the rest wait in a FIFO
  * queue and start as slots free up. A slot is held only for the duration of the load — it is freed
  * the moment the preview resolves (ready / error / final timeout / src change / unmount), so a
  * loaded card never keeps a slot from a queued one.
+ *
+ * The cap is mode-aware: site-mode renders are server-CPU-heavy (live Style Manager CSS gen +
+ * do_blocks), while demo-mode responses are served from a long-lived proxy cache and cost the
+ * server almost nothing — measured 8 parallel warm demo previews in ~0.3s — so demo mode can
+ * drain the grid with more parallelism without stampeding anyone.
  */
 const MAX_CONCURRENT_PREVIEWS = 4;
+const MAX_CONCURRENT_DEMO_PREVIEWS = 6;
 let activePreviewSlots = 0;
 const previewSlotQueue = []; // FIFO of pending grant callbacks.
 
+function getPreviewSlotCap() {
+	// currentPreviewMode is declared below; every call happens long after module evaluation.
+	return 'demo' === currentPreviewMode ? MAX_CONCURRENT_DEMO_PREVIEWS : MAX_CONCURRENT_PREVIEWS;
+}
+
 function pumpPreviewSlots() {
-	while ( activePreviewSlots < MAX_CONCURRENT_PREVIEWS && previewSlotQueue.length > 0 ) {
+	while ( activePreviewSlots < getPreviewSlotCap() && previewSlotQueue.length > 0 ) {
 		const grant = previewSlotQueue.shift();
 		activePreviewSlots += 1;
 		grant();
@@ -108,6 +119,8 @@ export function setPreviewMode( mode ) {
 	}
 	currentPreviewMode = savePreviewMode( mode );
 	previewModeListeners.forEach( ( fn ) => fn( mode ) );
+	// The slot cap is mode-aware — flipping to demo may open extra slots for queued cards.
+	pumpPreviewSlots();
 }
 
 export function usePreviewMode() {
@@ -464,7 +477,10 @@ export function LayoutPreview( props ) {
 					scrolling: 'no',
 					tabIndex: -1,
 					'aria-hidden': 'true',
-					loading: 'lazy',
+					// Deliberately NOT loading="lazy": laziness is handled by the IntersectionObserver +
+					// slot gate above. With the attribute, Chrome defers a granted below-the-fold iframe
+					// past its own (narrower) lazy threshold, so the card holds a slot doing nothing while
+					// its LOAD_TIMEOUT_MS clock runs — observed stalling queued cards for ~20s.
 					onError: () => setStatus( 'error' ),
 					style: {
 						position: 'absolute',

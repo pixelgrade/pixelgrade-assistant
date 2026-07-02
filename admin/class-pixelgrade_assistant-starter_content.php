@@ -1760,14 +1760,18 @@ class PixelgradeAssistant_StarterContent {
 			return $this->layout_unit_error_response( $source_data );
 		}
 
-		$units = array();
+		$units       = array();
+		$type_errors = array();
 		foreach ( $this->get_content_unit_post_types( $source_data ) as $post_type ) {
 			$ids   = ! empty( $source_data['post_types'][ $post_type ]['ids'] ) && is_array( $source_data['post_types'][ $post_type ]['ids'] )
 				? array_values( array_filter( array_map( 'absint', $source_data['post_types'][ $post_type ]['ids'] ) ) )
 				: array();
 			$posts = $this->fetch_layout_source_posts( $base_url, $post_type, $ids );
 			if ( is_wp_error( $posts ) ) {
-				return $this->layout_unit_error_response( $posts );
+				// One failing post type must not discard the whole source: a source-side error on (say)
+				// `post` would otherwise drop the pages/products/portfolio that fetched fine.
+				$type_errors[ $post_type ] = $posts;
+				continue;
 			}
 
 			foreach ( $posts as $post ) {
@@ -1778,14 +1782,19 @@ class PixelgradeAssistant_StarterContent {
 			}
 		}
 
+		if ( empty( $units ) && ! empty( $type_errors ) ) {
+			return $this->layout_unit_error_response( reset( $type_errors ) );
+		}
+
 		usort( $units, array( $this, 'sort_content_units' ) );
 
 		return array(
 			'code'    => 'success',
 			'message' => '',
 			'data'    => array(
-				'units'   => $units,
-				'applied' => $this->get_applied_content_units(),
+				'units'        => $units,
+				'applied'      => $this->get_applied_content_units(),
+				'skippedTypes' => array_keys( $type_errors ),
 			),
 		);
 	}
@@ -2924,8 +2933,7 @@ class PixelgradeAssistant_StarterContent {
 
 			$nonce = isset( $_GET['_pixprev'] ) ? sanitize_text_field( wp_unslash( $_GET['_pixprev'] ) ) : '';
 			if ( ! current_user_can( 'manage_options' ) || ! wp_verify_nonce( $nonce, 'pixassist_content_preview' ) ) {
-				status_header( 403 );
-				exit;
+				$this->exit_layout_unit_preview_failure( 403 );
 			}
 
 			$base_url  = isset( $_GET['url'] ) ? esc_url_raw( wp_unslash( $_GET['url'] ) ) : '';
@@ -2934,20 +2942,17 @@ class PixelgradeAssistant_StarterContent {
 			$mode      = isset( $_GET['mode'] ) ? sanitize_key( wp_unslash( $_GET['mode'] ) ) : 'site';
 
 			if ( empty( $base_url ) || empty( $unit_type ) || empty( $unit ) || ! in_array( $unit_type, $this->get_content_unit_post_types(), true ) || ! $this->is_allowed_demo_url( $base_url ) ) {
-				status_header( 400 );
-				exit;
+				$this->exit_layout_unit_preview_failure( 400 );
 			}
 
 			$posts = $this->fetch_layout_source_posts( $base_url, $unit_type );
 			if ( is_wp_error( $posts ) ) {
-				status_header( 502 );
-				exit;
+				$this->exit_layout_unit_preview_failure( 502 );
 			}
 
 			$post = $this->find_layout_unit_post( $posts, $unit );
 			if ( empty( $post ) || ! is_array( $post ) ) {
-				status_header( 404 );
-				exit;
+				$this->exit_layout_unit_preview_failure( 404 );
 			}
 
 			$availability = $this->get_content_unit_availability( $post );
@@ -2965,8 +2970,7 @@ class PixelgradeAssistant_StarterContent {
 			}
 
 			if ( empty( $post['post_content'] ) ) {
-				status_header( 404 );
-				exit;
+				$this->exit_layout_unit_preview_failure( 404 );
 			}
 
 			$preview_cache_key = $this->content_unit_preview_cache_key( $base_url, $unit_type, $unit );
@@ -3013,8 +3017,7 @@ class PixelgradeAssistant_StarterContent {
 			// Access control — capability + nonce, same bar as importing a layout.
 			$nonce = isset( $_GET['_pixprev'] ) ? sanitize_text_field( wp_unslash( $_GET['_pixprev'] ) ) : '';
 			if ( ! current_user_can( 'edit_theme_options' ) || ! wp_verify_nonce( $nonce, 'pixassist_layout_preview' ) ) {
-				status_header( 403 );
-				exit;
+				$this->exit_layout_unit_preview_failure( 403 );
 			}
 
 			$base_url  = isset( $_GET['url'] ) ? esc_url_raw( wp_unslash( $_GET['url'] ) ) : '';
@@ -3022,8 +3025,7 @@ class PixelgradeAssistant_StarterContent {
 			$unit      = isset( $_GET['unit'] ) ? sanitize_text_field( wp_unslash( $_GET['unit'] ) ) : '';
 
 			if ( empty( $base_url ) || empty( $unit_type ) || empty( $unit ) || ! $this->is_allowed_demo_url( $base_url ) ) {
-				status_header( 400 );
-				exit;
+				$this->exit_layout_unit_preview_failure( 400 );
 			}
 
 			// Commerce gate parity with import — never leak premium markup to non-entitled users.
@@ -3059,14 +3061,12 @@ class PixelgradeAssistant_StarterContent {
 
 			$posts = $this->fetch_layout_source_posts( $base_url, $unit_type );
 			if ( is_wp_error( $posts ) ) {
-				status_header( 502 );
-				exit;
+				$this->exit_layout_unit_preview_failure( 502 );
 			}
 
 			$post = $this->find_layout_unit_post( $posts, $unit );
 			if ( empty( $post['post_content'] ) ) {
-				status_header( 404 );
-				exit;
+				$this->exit_layout_unit_preview_failure( 404 );
 			}
 
 			// Render nav locations with the starter's intended demo menu, in the user's own design, so a
@@ -3118,6 +3118,33 @@ class PixelgradeAssistant_StarterContent {
 			// Short PRIVATE browser cache so re-scrolling / re-opening the tab is instant; once it lapses
 			// the re-request still hits the much longer server render cache (layout_unit_preview_cache_key).
 			header( 'Cache-Control: private, max-age=180' );
+		}
+
+		/**
+		 * Terminate a preview route request with a fast-fail document.
+		 *
+		 * Preview URLs only ever load inside a hub preview <iframe>. A bare error status has an empty
+		 * body, so the in-iframe runtime never runs, the host never receives its height/`empty`
+		 * handshake, and the card burns the full client load timeout — with retries — while HOLDING one
+		 * of the few concurrent preview slots; a handful of failed cards can freeze the whole grid for
+		 * minutes. Answer every failure with a tiny document that signals `empty` immediately, so the
+		 * host swaps in its "No preview" fallback at once and releases the slot. The real status code is
+		 * kept (browsers render an iframe body regardless of status); failures are never cacheable, so a
+		 * transient upstream error can succeed on the next retry.
+		 *
+		 * @param int $status HTTP status code.
+		 *
+		 * @return void
+		 */
+		private function exit_layout_unit_preview_failure( $status ) {
+			status_header( absint( $status ) );
+			nocache_headers();
+			header( 'Content-Type: text/html; charset=' . get_bloginfo( 'charset' ) );
+			header( 'X-Robots-Tag: noindex, nofollow', true );
+			echo '<!DOCTYPE html><html><head><meta charset="utf-8"></head><body>'
+				. '<script>if(window.parent){window.parent.postMessage({pixassistPreview:true,height:0,empty:true},"*");}</script>'
+				. '</body></html>';
+			exit;
 		}
 
 		/**
@@ -3189,26 +3216,34 @@ class PixelgradeAssistant_StarterContent {
 		 * @return string
 		 */
 		private function get_content_unit_demo_preview_url( $base_url, $post ) {
-			$preview_url = $this->get_content_unit_preview_url( $post );
-			if ( '' === $preview_url ) {
-				return '';
-			}
-
 			$demo_base = preg_replace( '#wp-json/sce/v[0-9]+/?$#i', '', rtrim( (string) $base_url, '/' ) . '/' );
 			$demo_base = rtrim( (string) $demo_base, '/' ) . '/';
 
-			$demo_parts    = parse_url( $demo_base );
-			$preview_parts = parse_url( $preview_url );
-
-			if ( empty( $demo_parts['scheme'] ) || empty( $demo_parts['host'] ) || empty( $preview_parts['scheme'] ) || empty( $preview_parts['host'] ) ) {
+			$demo_parts = parse_url( $demo_base );
+			if ( empty( $demo_parts['scheme'] ) || empty( $demo_parts['host'] ) ) {
 				return '';
 			}
 
-			if ( ! in_array( strtolower( $preview_parts['scheme'] ), array( 'http', 'https' ), true ) ) {
-				return '';
+			// ID-based URL FIRST. Exported links/guids are unreliable two ways: guids preserve their
+			// AUTHORING-time host forever (migrated demos export localhost/old-domain URLs), and even
+			// same-host exported permalinks go stale when slugs/permalink structure change after export
+			// (measured: 41 of felt-lt's 68 exported links 404 upstream). `?p=`/`?page_id=` always
+			// redirects to the record's CURRENT canonical permalink — the proxy follows it — and by
+			// construction can never point outside the allow-listed demo base.
+			$id_url = $this->build_content_unit_demo_url( $demo_base, $post );
+			if ( '' !== $id_url ) {
+				return $id_url;
 			}
 
-			if ( strtolower( $demo_parts['host'] ) !== strtolower( $preview_parts['host'] ) ) {
+			// No usable record ID — fall back to the exported link, accepted only under the demo base.
+			$preview_url   = $this->get_content_unit_preview_url( $post );
+			$preview_parts = '' !== $preview_url ? parse_url( $preview_url ) : array();
+
+			if (
+				empty( $preview_parts['scheme'] ) || empty( $preview_parts['host'] )
+				|| ! in_array( strtolower( $preview_parts['scheme'] ), array( 'http', 'https' ), true )
+				|| strtolower( $demo_parts['host'] ) !== strtolower( $preview_parts['host'] )
+			) {
 				return '';
 			}
 
@@ -3224,6 +3259,44 @@ class PixelgradeAssistant_StarterContent {
 		}
 
 		/**
+		 * Build an ID-based demo front-end URL for one source content record.
+		 *
+		 * `?p=` resolves posts and custom post types (with `post_type`), `?page_id=` resolves pages;
+		 * the demo redirects to the pretty permalink and the proxy follows it.
+		 *
+		 * @param string $demo_base Demo front-end base URL (validated by the caller).
+		 * @param array  $post      Source post record.
+		 *
+		 * @return string
+		 */
+		private function build_content_unit_demo_url( $demo_base, $post ) {
+			$post_id = ! empty( $post['ID'] ) ? absint( $post['ID'] ) : 0;
+			if ( ! $post_id ) {
+				return '';
+			}
+
+			$post_type = ! empty( $post['post_type'] ) ? sanitize_key( $post['post_type'] ) : 'post';
+
+			if ( 'page' === $post_type ) {
+				return esc_url_raw( add_query_arg( 'page_id', $post_id, $demo_base ) );
+			}
+
+			if ( 'post' === $post_type ) {
+				return esc_url_raw( add_query_arg( 'p', $post_id, $demo_base ) );
+			}
+
+			return esc_url_raw(
+				add_query_arg(
+					array(
+						'p'         => $post_id,
+						'post_type' => $post_type,
+					),
+					$demo_base
+				)
+			);
+		}
+
+		/**
 		 * Demo-content preview for Page Patterns: proxy the source record's public demo page.
 		 *
 		 * @param string $base_url Source SCE REST base.
@@ -3234,27 +3307,24 @@ class PixelgradeAssistant_StarterContent {
 		private function render_content_unit_demo_preview( $base_url, $post ) {
 			$target_url = $this->get_content_unit_demo_preview_url( $base_url, $post );
 			if ( '' === $target_url ) {
-				status_header( 404 );
-				exit;
+				$this->exit_layout_unit_preview_failure( 404 );
 			}
 
 			$demo_base = preg_replace( '#wp-json/sce/v[0-9]+/?$#i', '', rtrim( (string) $base_url, '/' ) . '/' );
 			$demo_base = rtrim( (string) $demo_base, '/' ) . '/';
 
-			$cache_key = 'pixassist_content_demo_prev_v3_' . md5( $target_url );
+			$cache_key = 'pixassist_content_demo_prev_v4_' . md5( $target_url );
 			$html      = get_transient( $cache_key );
 
 			if ( false === $html ) {
 				$response = wp_remote_get( $target_url, array( 'timeout' => 15, 'redirection' => 3, 'sslverify' => true ) );
 				if ( is_wp_error( $response ) || 200 !== (int) wp_remote_retrieve_response_code( $response ) ) {
-					status_header( 502 );
-					exit;
+					$this->exit_layout_unit_preview_failure( 502 );
 				}
 
 				$html = wp_remote_retrieve_body( $response );
 				if ( '' === trim( $html ) ) {
-					status_header( 502 );
-					exit;
+					$this->exit_layout_unit_preview_failure( 502 );
 				}
 
 				$head_inject = '<base href="' . esc_url( $demo_base ) . '">'
@@ -3271,7 +3341,8 @@ class PixelgradeAssistant_StarterContent {
 
 				$html = $this->strip_preview_script_modules( $html );
 
-				set_transient( $cache_key, $html, 10 * MINUTE_IN_SECONDS );
+				// Demo pages change rarely; long-lived like the part-proxy cache (bump prefix to invalidate).
+				set_transient( $cache_key, $html, 12 * HOUR_IN_SECONDS );
 			}
 
 			$focus_script = '<script>window.__pixassistPreviewFocus="full";</script>';
@@ -3280,7 +3351,7 @@ class PixelgradeAssistant_StarterContent {
 			show_admin_bar( false );
 			header( 'Content-Type: text/html; charset=' . get_bloginfo( 'charset' ) );
 			header( 'X-Robots-Tag: noindex, nofollow', true );
-			header( 'Cache-Control: private, max-age=300' );
+			header( 'Cache-Control: private, max-age=3600' );
 			echo $html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- proxied allow-listed demo HTML for an admin-only iframe preview.
 			exit;
 		}
@@ -3802,14 +3873,12 @@ HTML;
 
 			$posts = $this->fetch_layout_source_posts( $base_url, $unit_type );
 			if ( is_wp_error( $posts ) ) {
-				status_header( 502 );
-				exit;
+				$this->exit_layout_unit_preview_failure( 502 );
 			}
 
 			$post = $this->find_layout_unit_post( $posts, $unit );
 			if ( empty( $post['post_content'] ) ) {
-				status_header( 404 );
-				exit;
+				$this->exit_layout_unit_preview_failure( 404 );
 			}
 
 			// Keep source template-part navigation/menu intent while rendering through the local front-end
@@ -3890,22 +3959,22 @@ HTML;
 			$focus      = $target['focus'];
 
 			// Cache the fetched demo PAGE per URL (not the focus/runtime scripts — those are injected fresh
-			// below, so script changes take effect immediately and one cached page serves any focus). The
-			// `v2` prefix drops older cache entries that baked the script in.
-			$cache_key = 'pixassist_demo_prev_v4_' . md5( $target_url );
+			// below, so script changes take effect immediately and one cached page serves any focus). Demo
+			// pages change rarely, so the transient is LONG-lived: with one unique URL per demo the TTL is
+			// what decides whether anyone after the first visitor ever pays the cold upstream fetch. Bump
+			// the prefix to invalidate when the proxy pipeline changes.
+			$cache_key = 'pixassist_demo_prev_v5_' . md5( $target_url );
 			$html      = get_transient( $cache_key );
 
 			if ( false === $html ) {
 				$response = wp_remote_get( $target_url, array( 'timeout' => 15, 'redirection' => 3, 'sslverify' => true ) );
 				if ( is_wp_error( $response ) || 200 !== (int) wp_remote_retrieve_response_code( $response ) ) {
-					status_header( 502 );
-					exit;
+					$this->exit_layout_unit_preview_failure( 502 );
 				}
 
 				$html = wp_remote_retrieve_body( $response );
 				if ( '' === trim( $html ) ) {
-					status_header( 502 );
-					exit;
+					$this->exit_layout_unit_preview_failure( 502 );
 				}
 
 				// <base> keeps the demo's relative assets resolving to the demo root even on a deep URL.
@@ -3926,7 +3995,7 @@ HTML;
 
 				$html = $this->strip_preview_script_modules( $html );
 
-				set_transient( $cache_key, $html, 10 * MINUTE_IN_SECONDS );
+				set_transient( $cache_key, $html, 12 * HOUR_IN_SECONDS );
 			}
 
 			// Inject the focus hint (which part to crop to) + the shared runtime script FRESH on every
@@ -3939,7 +4008,7 @@ HTML;
 			header( 'X-Robots-Tag: noindex, nofollow', true );
 			// Demo pages change rarely; a slightly longer private browser cache on top of the per-demo
 			// server transient keeps the composer (many cards, same demo) snappy.
-			header( 'Cache-Control: private, max-age=300' );
+			header( 'Cache-Control: private, max-age=3600' );
 			echo $html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- proxied allow-listed demo HTML for an admin-only iframe preview.
 			exit;
 		}
@@ -8013,12 +8082,14 @@ HTML;
 		 *
 		 * @return mixed Cached value.
 		 */
-		private function set_cached_layout_source( $parts, $value, $is_object = false ) {
+		private function set_cached_layout_source( $parts, $value, $is_object = false, $expiration = 0 ) {
 			$key   = $this->get_layout_source_cache_key( $parts );
 			$store = $is_object ? 'layout_source_object_cache' : 'layout_source_cache';
 
 			$this->{$store}[ $key ] = $value;
-			$expiration = defined( 'MINUTE_IN_SECONDS' ) ? 15 * MINUTE_IN_SECONDS : 15 * 60;
+			if ( $expiration <= 0 ) {
+				$expiration = defined( 'MINUTE_IN_SECONDS' ) ? 15 * MINUTE_IN_SECONDS : 15 * 60;
+			}
 			set_transient( $key, $value, $expiration );
 
 			return $value;
@@ -8754,6 +8825,15 @@ HTML;
 				return $cached;
 			}
 
+			// Failures are negative-cached briefly (see below), so a source-side error on one post type
+			// does not get re-paid — a full remote round-trip per call site — until it can plausibly
+			// have recovered.
+			$error_cache  = array( 'posts-error', $base_url, $post_type, $include_ids );
+			$cached_error = $this->get_cached_layout_source( $error_cache );
+			if ( is_array( $cached_error ) && ! empty( $cached_error['code'] ) ) {
+				return new WP_Error( $cached_error['code'], isset( $cached_error['message'] ) ? $cached_error['message'] : '' );
+			}
+
 			$response = wp_remote_request(
 				$base_url . 'posts',
 				array(
@@ -8770,6 +8850,16 @@ HTML;
 
 		$data = $this->parse_layout_source_response( $response, 'posts' );
 			if ( is_wp_error( $data ) ) {
+				$this->set_cached_layout_source(
+					$error_cache,
+					array(
+						'code'    => $data->get_error_code(),
+						'message' => $data->get_error_message(),
+					),
+					false,
+					2 * MINUTE_IN_SECONDS
+				);
+
 				return $data;
 			}
 

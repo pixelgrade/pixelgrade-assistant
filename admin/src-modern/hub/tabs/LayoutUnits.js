@@ -583,6 +583,26 @@ function prewarmSourceUnits( data, source, units ) {
 	} ).catch( () => null );
 }
 
+// Bundle prewarm accelerates a LATER Apply — it is pure background work, best-effort by design
+// (Apply falls back to dynamic discovery when a bundle is not primed). Delay it past the first
+// preview wave and run ONE source at a time: firing all sources at once was measured occupying
+// every PHP worker for ~5s exactly while the first preview iframes want them.
+const PREWARM_DELAY_MS = 4000;
+
+function schedulePrewarm( thunks ) {
+	if ( ! thunks.length ) {
+		return;
+	}
+
+	window.setTimeout( async () => {
+		for ( const run of thunks ) {
+			try {
+				await run();
+			} catch ( e ) {} // eslint-disable-line no-empty
+		}
+	}, PREWARM_DELAY_MS );
+}
+
 function getPreviewUrl( unit ) {
 	return unit.thumbnail || unit.image || unit.previewImage || unit.previewUrl || '';
 }
@@ -1368,13 +1388,16 @@ export function LayoutUnits() {
 		setLoading( true );
 		setMessage( null );
 
+		// Bundle prewarm is NOT a visible load step anymore: it only accelerates a LATER Apply, and
+		// firing every source's prewarm at list time was measured occupying all PHP workers for ~5s
+		// exactly while the first preview iframes render. It now runs delayed, one source at a time,
+		// in the background — see schedulePrewarm().
 		const operationId = startOperationSteps( 'load', [
 			{ id: 'prepare', label: copy.loadStepPrepare },
 			{ id: 'list', label: copy.loadStepList },
-			{ id: 'prewarm', label: copy.loadStepPrewarm },
 			{ id: 'ready', label: copy.loadStepReady },
 		] );
-		const prewarmPromises = [];
+		const prewarmThunks = [];
 
 		try {
 			advanceOperationStep( operationId, 'prepare', 'list' );
@@ -1395,8 +1418,8 @@ export function LayoutUnits() {
 						const sourceUnits = result && 'success' === result.code && Array.isArray( result.units ) ? result.units : [];
 
 						if ( sourceUnits.length ) {
-							prewarmPromises.push(
-								prewarmSourceUnits( data, source, sourceUnits ).then( ( response ) => storePrewarmedJobs( source, response ) )
+							prewarmThunks.push(
+								() => prewarmSourceUnits( data, source, sourceUnits ).then( ( response ) => storePrewarmedJobs( source, response ) )
 							);
 						}
 
@@ -1427,8 +1450,8 @@ export function LayoutUnits() {
 								url: source.baseRestUrl,
 							} );
 							const sourceUnits = response && response.data && Array.isArray( response.data.units ) ? response.data.units : [];
-							prewarmPromises.push(
-								prewarmSourceUnits( data, source, sourceUnits ).then( ( response ) => storePrewarmedJobs( source, response ) )
+							prewarmThunks.push(
+								() => prewarmSourceUnits( data, source, sourceUnits ).then( ( response ) => storePrewarmedJobs( source, response ) )
 							);
 
 							return {
@@ -1465,21 +1488,12 @@ export function LayoutUnits() {
 
 			if ( failed.length && ! successful.length ) {
 				failOperationSteps( operationId );
-			} else if ( prewarmPromises.length ) {
-				advanceOperationStep( operationId, 'list', 'prewarm' );
-				Promise.all( prewarmPromises )
-					.then( () => {
-						advanceOperationStep( operationId, 'prewarm', 'ready' );
-						finishOperationSteps( operationId );
-					} )
-					.catch( () => {
-						advanceOperationStep( operationId, 'prewarm', 'ready' );
-						finishOperationSteps( operationId );
-					} );
 			} else {
 				advanceOperationStep( operationId, 'list', 'ready' );
 				finishOperationSteps( operationId );
 			}
+
+			schedulePrewarm( prewarmThunks );
 		} catch ( error ) {
 			setMessage( { type: 'error', text: error && error.message ? error.message : copy.failure } );
 			failOperationSteps( operationId );
