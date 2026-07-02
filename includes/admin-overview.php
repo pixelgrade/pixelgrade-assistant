@@ -74,14 +74,104 @@ if ( ! function_exists( 'pixassist_get_overview_data' ) ) {
 		$base_url   = isset( $hub['baseUrl'] ) ? $hub['baseUrl'] : '';
 		$is_block   = function_exists( 'wp_is_block_theme' ) ? (bool) wp_is_block_theme() : false;
 
+		$onboarding = pixassist_get_onboarding_data( $base_url );
+		$summary    = pixassist_get_overview_state_summary( $tabs, $base_url, $is_block );
+		$site       = pixassist_get_overview_site();
+
 		return array(
 			'theme'      => pixassist_get_overview_theme( $is_block ),
 			'links'      => pixassist_get_overview_links( $tabs, $base_url, $is_block ),
 			'plus'       => pixassist_get_overview_plus_card(),
 			'account'    => function_exists( 'pixassist_get_account' ) ? pixassist_get_account() : array( 'is_connected' => false ),
-			'onboarding' => pixassist_get_onboarding_data( $base_url ),
-			'stateSummary' => pixassist_get_overview_state_summary( $tabs, $base_url, $is_block ),
+			'onboarding' => $onboarding,
+			'stateSummary' => $summary,
+			'site'         => $site,
+			'greeting'     => pixassist_get_overview_greeting( $summary, $onboarding, $site['title'] ),
 		);
+	}
+}
+
+if ( ! function_exists( 'pixassist_get_overview_site' ) ) {
+	/**
+	 * The user's OWN site, for Home's live preview thumbnail and personalized copy.
+	 *
+	 * `previewUrl` is the homepage with `pixassist_site_preview=1`, which only strips the
+	 * logged-in admin bar (see pixassist_overview_site_preview_setup()) so the thumbnail shows
+	 * the page exactly as a visitor sees it. Guarded so it degrades to empties outside WP.
+	 *
+	 * @return array { url, previewUrl, title }
+	 */
+	function pixassist_get_overview_site() {
+		$url = function_exists( 'home_url' ) ? (string) home_url( '/' ) : '';
+
+		$preview = '';
+		if ( '' !== $url ) {
+			$preview = $url . ( false === strpos( $url, '?' ) ? '?' : '&' ) . 'pixassist_site_preview=1';
+		}
+
+		return array(
+			'url'        => $url,
+			'previewUrl' => $preview,
+			'title'      => function_exists( 'get_bloginfo' ) ? (string) get_bloginfo( 'name' ) : '',
+		);
+	}
+}
+
+if ( ! function_exists( 'pixassist_overview_site_preview_setup' ) ) {
+	/**
+	 * Render the homepage admin-bar-free for Home's thumbnail iframe.
+	 *
+	 * `?pixassist_site_preview=1` HIDES chrome only — the page is otherwise the public
+	 * front page exactly as any visitor gets it, so no capability or nonce is required.
+	 *
+	 * @return void
+	 */
+	function pixassist_overview_site_preview_setup() {
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only presentation flag, value unused.
+		if ( empty( $_GET['pixassist_site_preview'] ) ) {
+			return;
+		}
+
+		if ( function_exists( 'show_admin_bar' ) ) {
+			show_admin_bar( false );
+		}
+	}
+}
+
+if ( ! function_exists( 'pixassist_get_overview_greeting' ) ) {
+	/**
+	 * One calm, state-aware line above the At a glance rows — the page's voice.
+	 *
+	 * Three moods only, so the line stays trustworthy: something below carries the
+	 * needs-attention tone; onboarding is still in progress (the checklist above owns the
+	 * specifics); or everything is quiet — where the line greets the site by name.
+	 *
+	 * @param array  $items      State summary rows (tones are read from here).
+	 * @param array  $onboarding Onboarding payload (completion is read from here).
+	 * @param string $site_title Site title for the settled greeting; '' falls back to generic copy.
+	 *
+	 * @return string
+	 */
+	function pixassist_get_overview_greeting( $items, $onboarding, $site_title = '' ) {
+		foreach ( (array) $items as $item ) {
+			if ( isset( $item['tone'] ) && 'needs-attention' === $item['tone'] ) {
+				return esc_html__( 'One thing below needs your attention.', '__plugin_txtd' );
+			}
+		}
+
+		if ( empty( $onboarding['completed'] ) ) {
+			return esc_html__( 'Here is where your site stands.', '__plugin_txtd' );
+		}
+
+		if ( '' !== (string) $site_title ) {
+			return sprintf(
+				/* translators: %s: the site title. */
+				esc_html__( '%s is set up and ready to work on.', '__plugin_txtd' ),
+				(string) $site_title
+			);
+		}
+
+		return esc_html__( 'Your site is set up and ready to work on.', '__plugin_txtd' );
 	}
 }
 
@@ -986,4 +1076,9 @@ if ( ! function_exists( 'pixassist_get_onboarding_data' ) ) {
 // the time plugin files load.
 if ( function_exists( 'add_filter' ) ) {
 	add_filter( 'pixelgrade/admin_hub/tabs', 'pixassist_register_overview_tab' );
+}
+
+// Front-end affordance for Home's live site thumbnail (this file loads on every request).
+if ( function_exists( 'add_action' ) ) {
+	add_action( 'init', 'pixassist_overview_site_preview_setup' );
 }

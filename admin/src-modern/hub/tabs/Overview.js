@@ -4,10 +4,11 @@
  * Home is deliberately calm and holds exactly three things, top to bottom:
  *   1. The Get Started checklist (GetStartedCard) — the single onboarding spotlight. It carries
  *      the product orientation copy and self-hides once onboarding is complete or dismissed.
- *   2. One "At a glance" card — a few quiet label/value status rows (server-decided; see
- *      pixassist_get_overview_state_summary()) plus a quick-actions row into the sibling tabs.
- *      No badges, no recommendations: a row only speaks up (amber dot + one detail line) when
- *      something actually needs attention.
+ *   2. One "At a glance" card — a one-line state-aware greeting, a few quiet label/value status
+ *      rows (server-decided; see pixassist_get_overview_state_summary()), a live scaled preview
+ *      of the user's own homepage as the visual anchor, and a quick-actions row into the sibling
+ *      tabs. No badges, no recommendations: a row only speaks up (amber dot + one detail line)
+ *      when something actually needs attention.
  *   3. A small Pixelgrade Plus invitation — only while Plus is not installed. Once Plus is
  *      active its state lives in a quiet status row instead.
  *
@@ -28,7 +29,23 @@ const DEFAULT_OVERVIEW = {
 	plus: {},
 	account: { is_connected: false },
 	stateSummary: [],
+	site: {},
+	greeting: '',
 };
+
+// Interactive affordances inline styles cannot express: row hover/focus, the chevron that marks
+// rows as links, and hiding the theme screenshot on small screens (782px is the WP admin breakpoint).
+const GLANCE_CSS = `
+a.pixelgrade-overview__glance-row { transition: background-color .12s ease; }
+a.pixelgrade-overview__glance-row:hover,
+a.pixelgrade-overview__glance-row:focus { background-color: #f6f7f7; }
+a.pixelgrade-overview__glance-row:focus-visible { box-shadow: 0 0 0 1.5px #2271b1; outline: none; }
+a.pixelgrade-overview__glance-row::after { color: #a7aaad; content: '\\203A'; font-size: 16px; line-height: 1; position: absolute; right: 12px; top: 50%; transform: translateY(-50%); }
+a.pixelgrade-overview__glance-row:hover::after { color: #2271b1; }
+.pixelgrade-overview__glance-shot { display: block; transition: opacity .12s ease; }
+.pixelgrade-overview__glance-shot:hover { opacity: .85; }
+@media (max-width: 782px) { .pixelgrade-overview__glance-shot { display: none; } }
+`;
 
 function getOverview() {
 	if ( typeof window !== 'undefined' && window.pixelgradeOverview ) {
@@ -94,12 +111,17 @@ function renderGlanceRow( item, index ) {
 			href: hasUrl ? item.url : undefined,
 			style: {
 				alignItems: 'baseline',
+				borderRadius: '2px',
 				borderTop: 0 === index ? 'none' : '1px solid #f0f0f1',
 				color: 'inherit',
 				display: 'flex',
 				flexWrap: 'wrap',
 				gap: '4px 16px',
-				padding: '10px 0',
+				// Horizontal breathing room for the hover background + the link chevron (both from
+				// GLANCE_CSS); the negative margins keep the text aligned with the card body.
+				margin: '0 -12px',
+				padding: '10px 28px 10px 12px',
+				position: 'relative',
 				textDecoration: 'none',
 			},
 		},
@@ -166,6 +188,82 @@ function renderQuickActions( links, onboardingVisible ) {
 	);
 }
 
+// The live thumbnail renders the homepage at desktop width, scaled down into the frame.
+const PREVIEW_FRAME_WIDTH = 240;
+const PREVIEW_PAGE_WIDTH = 1200;
+const PREVIEW_PAGE_HEIGHT = 900;
+
+/**
+ * A live, scaled preview of the user's OWN homepage — the card's visual anchor. This is the
+ * actual site (admin-bar-free via `pixassist_site_preview=1`), not a stock theme screenshot, so
+ * it stays personal and current. Clicking it opens the site in a new tab; it hides below the WP
+ * admin breakpoint (GLANCE_CSS) and skips silently when no site URL is available.
+ */
+function renderSitePreview( site ) {
+	if ( ! site || ! site.previewUrl ) {
+		return null;
+	}
+
+	const scale = PREVIEW_FRAME_WIDTH / PREVIEW_PAGE_WIDTH;
+
+	const frame = createElement(
+		'span',
+		{
+			style: {
+				background: '#fff',
+				border: '1px solid #dcdcde',
+				borderRadius: '2px',
+				display: 'block',
+				height: Math.round( PREVIEW_PAGE_HEIGHT * scale ) + 'px',
+				overflow: 'hidden',
+				position: 'relative',
+			},
+		},
+		createElement( 'iframe', {
+			src: site.previewUrl,
+			title: __( 'Preview of your site', 'pixelgrade_assistant' ),
+			'aria-hidden': true,
+			tabIndex: -1,
+			loading: 'lazy',
+			scrolling: 'no',
+			style: {
+				border: 0,
+				height: PREVIEW_PAGE_HEIGHT + 'px',
+				left: 0,
+				pointerEvents: 'none',
+				position: 'absolute',
+				top: 0,
+				transform: 'scale(' + scale + ')',
+				transformOrigin: '0 0',
+				width: PREVIEW_PAGE_WIDTH + 'px',
+			},
+		} )
+	);
+
+	return createElement(
+		'a',
+		{
+			className: 'pixelgrade-overview__glance-shot',
+			href: site.url || site.previewUrl,
+			target: '_blank',
+			rel: 'noreferrer noopener',
+			// display lives in GLANCE_CSS so the small-screen media query can hide the preview.
+			style: {
+				color: '#50575e',
+				flex: '0 0 ' + PREVIEW_FRAME_WIDTH + 'px',
+				fontSize: '12px',
+				textDecoration: 'none',
+			},
+		},
+		frame,
+		createElement(
+			'span',
+			{ style: { display: 'block', marginTop: '6px' } },
+			( site.title ? site.title + ' — ' : '' ) + __( 'view your site', 'pixelgrade_assistant' )
+		)
+	);
+}
+
 function renderGlance( data ) {
 	const summary = Array.isArray( data.stateSummary ) ? data.stateSummary : [];
 	const links = Array.isArray( data.links ) ? data.links : [];
@@ -174,23 +272,42 @@ function renderGlance( data ) {
 		return null;
 	}
 
+	const content = createElement(
+		'div',
+		{ style: { flex: '1 1 320px', minWidth: 0 } },
+		createElement(
+			'h2',
+			{ style: { fontSize: '14px', margin: 0 } },
+			__( 'At a glance', 'pixelgrade_assistant' )
+		),
+		data.greeting
+			? createElement(
+					'p',
+					{ style: { color: '#50575e', margin: '2px 0 10px' } },
+					data.greeting
+			  )
+			: null,
+		createElement(
+			'div',
+			{ className: 'pixelgrade-overview__glance-rows' },
+			summary.map( renderGlanceRow ).filter( Boolean )
+		),
+		renderQuickActions( links, isOnboardingVisible( data ) )
+	);
+
 	return createElement(
 		Card,
 		{ className: 'pixelgrade-overview__glance', style: { margin: '0 0 24px' } },
 		createElement(
 			CardBody,
 			null,
-			createElement(
-				'h2',
-				{ style: { fontSize: '14px', margin: '0 0 8px' } },
-				__( 'At a glance', 'pixelgrade_assistant' )
-			),
+			createElement( 'style', null, GLANCE_CSS ),
 			createElement(
 				'div',
-				{ className: 'pixelgrade-overview__glance-rows' },
-				summary.map( renderGlanceRow ).filter( Boolean )
-			),
-			renderQuickActions( links, isOnboardingVisible( data ) )
+				{ style: { alignItems: 'flex-start', display: 'flex', flexWrap: 'wrap', gap: '24px' } },
+				content,
+				renderSitePreview( data.site || {} )
+			)
 		)
 	);
 }

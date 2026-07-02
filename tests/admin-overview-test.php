@@ -66,6 +66,14 @@ function admin_url( $path = '' ) {
 	return 'https://example.test/wp-admin/' . ltrim( (string) $path, '/' );
 }
 
+function home_url( $path = '' ) {
+	return 'https://example.test' . $path;
+}
+
+function get_bloginfo( $show = '' ) {
+	return 'name' === $show ? 'Example Site' : '';
+}
+
 function trailingslashit( $string ) {
 	return rtrim( (string) $string, '/' ) . '/';
 }
@@ -229,7 +237,12 @@ $overview = pixassist_get_overview_data();
 
 $keys = array_keys( $overview );
 sort( $keys );
-assert_same( array( 'account', 'links', 'onboarding', 'plus', 'stateSummary', 'theme' ), $keys, 'Overview payload is calm: theme/links/plus/account/onboarding/stateSummary — no next-action box, no safety bullets.' );
+assert_same( array( 'account', 'greeting', 'links', 'onboarding', 'plus', 'site', 'stateSummary', 'theme' ), $keys, 'Overview payload is calm: theme/links/plus/account/onboarding/stateSummary/site/greeting — no next-action box, no safety bullets.' );
+
+// The live site preview payload: the user's OWN homepage, plus the admin-bar-free preview route.
+assert_same( 'https://example.test/', $overview['site']['url'], 'The site payload carries the homepage URL.' );
+assert_same( 'https://example.test/?pixassist_site_preview=1', $overview['site']['previewUrl'], 'The preview URL is the homepage with the admin-bar-stripping flag.' );
+assert_same( 'Example Site', $overview['site']['title'], 'The site payload carries the site title for personalized copy.' );
 
 assert_same( false, $overview['theme']['isBlockTheme'], 'Classic theme must read isBlockTheme=false.' );
 
@@ -323,6 +336,19 @@ $library = paf_find_link( $overview['links'], 'design-library' );
 assert_true( null !== $library, 'A Design Library quick link appears when the merged tab is registered.' );
 assert_same( 'Browse the Design Library', $library['label'], 'The Design Library quick link label.' );
 assert_same( 'https://example.test/wp-admin/themes.php?page=pixelgrade&tab=design-library', $library['url'], 'The Design Library quick link resolves to the merged tab route.' );
+
+// The greeting mirrors the page mood: needs-attention wins; once setup is fixed but onboarding is
+// still in progress (starter not picked) it stays neutral.
+assert_same( 'One thing below needs your attention.', $overview['greeting'], 'Pending required setup drives the attention greeting.' );
+
+$GLOBALS['paf_plugins_data'] = array(
+	'plugins' => array(
+		array( 'slug' => 'nova-blocks', 'name' => 'Nova Blocks', 'status' => 'active', 'isActive' => true ),
+		array( 'slug' => 'style-manager', 'name' => 'Style Manager', 'status' => 'active', 'isActive' => true ),
+	),
+);
+$overview = pixassist_get_overview_data();
+assert_same( 'Here is where your site stands.', $overview['greeting'], 'Quiet-but-incomplete onboarding gets the neutral greeting (the checklist owns the specifics).' );
 
 /*
  * 5. At a glance with a starter applied: the row names the active starter, the retired Site Parts /
@@ -441,6 +467,9 @@ assert_same( 'Licensed', $plus_summary['value'], 'Licensed Plus reads as a plain
 assert_same( '', $plus_summary['detail'], 'Licensed Plus carries no detail line.' );
 assert_same( 'ok', $plus_summary['tone'], 'Licensed Plus is a quiet state.' );
 
+assert_same( 'Example Site is set up and ready to work on.', $overview['greeting'], 'A quiet, complete site gets the settled greeting, personalized with the site title.' );
+assert_same( 'Your site is set up and ready to work on.', pixassist_get_overview_greeting( $overview['stateSummary'], $overview['onboarding'], '' ), 'Without a site title the settled greeting falls back to generic copy.' );
+
 /*
  * 7. Block theme + Plus active-but-unlicensed, with sibling Starter Sites + Help tabs registered:
  *    canvas link is the Site Editor, Starter + Help resolve to in-hub `?tab=` deep links, and the
@@ -506,6 +535,11 @@ $overview_js = file_get_contents( __DIR__ . '/../admin/src-modern/hub/tabs/Overv
 assert_true( false !== strpos( $overview_js, 'renderGlance' ), 'Home must render the quiet At a glance card.' );
 assert_true( false !== strpos( $overview_js, 'stateSummary' ), 'Home must read the server state summary rows.' );
 assert_true( false !== strpos( $overview_js, 'renderQuickActions' ), 'Home must render the quick actions into the sibling tabs.' );
+assert_true( false !== strpos( $overview_js, 'data.greeting' ), 'Home must render the server-computed state-aware greeting.' );
+assert_true( false !== strpos( $overview_js, 'glance-row:hover' ), 'Glance rows must carry a visible hover affordance (stylesheet, not inline).' );
+assert_true( false !== strpos( $overview_js, 'renderSitePreview' ), 'Home must render the live preview of the user\'s own site as the visual anchor.' );
+assert_true( false !== strpos( $overview_js, 'site.previewUrl' ), 'The site preview must use the admin-bar-free preview route and degrade silently without one.' );
+assert_same( false, strpos( $overview_js, 'theme.screenshot' ), 'Home must not fall back to the generic theme screenshot — the anchor is the user\'s site.' );
 assert_true( false !== strpos( $overview_js, 'plus.isActive' ), 'Home must suppress the Plus invitation once Plus is already installed.' );
 assert_same( false, strpos( $overview_js, 'nextAction' ), 'Home renders no next-action box — the Get Started card is the only spotlight.' );
 assert_same( false, strpos( $overview_js, 'renderCommandCenter' ), 'The badge-tile command center stays retired.' );
