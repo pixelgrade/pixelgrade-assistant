@@ -490,7 +490,7 @@ $_GET['pixassist_account'] = 'connected';
 $payload                   = pixassist_get_account_data();
 $payload_keys              = array_keys( $payload );
 sort( $payload_keys );
-assert_same( array( 'account', 'accountValue', 'actions', 'copy', 'notice', 'oauth' ), $payload_keys, 'Account payload must expose exactly account/accountValue/actions/copy/notice/oauth.' );
+assert_same( array( 'account', 'accountValue', 'actions', 'copy', 'notice', 'oauth', 'plusJourney' ), $payload_keys, 'Account payload must expose exactly account/accountValue/actions/copy/notice/oauth/plusJourney.' );
 assert_true( false !== strpos( $payload['actions']['connectUrl'], 'admin-post.php' ), 'Connect URL must target admin-post.php.' );
 assert_true( false !== strpos( $payload['actions']['connectUrl'], 'action=pixassist_account_connect_init' ), 'Connect URL must carry the connect action.' );
 assert_same( 'pixassist_account_disconnect', $payload['actions']['disconnectAction'], 'Disconnect action must be explicit.' );
@@ -508,7 +508,12 @@ assert_same( 'available', $payload['accountValue']['products']['state'], 'Free i
 assert_same( 'Anima LT', $payload['accountValue']['products']['label'], 'The products/licenses summary should start with the active Pixelgrade product.' );
 assert_same( 'connect_account', $payload['accountValue']['nextAction']['id'], 'Disconnected users should get account connection as the next best action.' );
 assert_same( $payload['actions']['connectUrl'], $payload['accountValue']['nextAction']['url'], 'Disconnected next action should reuse the safe connect URL.' );
-assert_true( 3 <= count( $payload['accountValue']['enablements'] ), 'Account value should list what the connection enables.' );
+assert_true( ! isset( $payload['accountValue']['enablements'] ), 'The duplicate enablement rows are retired in favor of the deduped Support/Documentation rows.' );
+assert_true( false !== strpos( $payload['accountValue']['docs']['url'], 'docs' ), 'The Documentation row should link to the public docs.' );
+assert_same( 'Open Help', $payload['accountValue']['docs']['actionLabel'], 'The Documentation row should carry the Open Help action.' );
+assert_same( 'invite', $payload['plusJourney']['state'], 'With no Plus signal at all, the journey collapses to a gentle invite, not a step ladder.' );
+assert_same( 'Explore Pixelgrade Plus', $payload['plusJourney']['action']['label'], 'The Plus invite should hand off to Pixelgrade.com.' );
+assert_true( false !== strpos( $payload['plusJourney']['hint'], 'Already purchased' ), 'A disconnected invite should hint that connecting reveals owned licenses.' );
 assert_same( false, false !== strpos( (string) json_encode( $payload ), 'acc-secret' ), 'Account payload must not leak OAuth token secrets.' );
 unset( $_GET['pixassist_account'] );
 
@@ -567,6 +572,14 @@ assert_same( false, false !== strpos( $owned_plus_payload['accountValue']['produ
 assert_same( 'Download Pixelgrade Plus', $owned_plus_payload['accountValue']['products']['actionLabel'] ?? '', 'Account-owned Plus should get a download CTA while the plugin is missing.' );
 assert_same( 'https://pixelgrade.test/account/downloads/pixelgrade-plus/', $owned_plus_payload['accountValue']['products']['url'], 'Missing Plus should hand off directly to the safe Pixelgrade.com download/setup URL.' );
 assert_same( 'get_help', $owned_plus_payload['accountValue']['nextAction']['id'], 'Account-owned Plus should not duplicate the Products CTA through the Support row next action.' );
+assert_same( 'in_progress', $owned_plus_payload['plusJourney']['state'], 'Account-owned Plus with the plugin missing should show the guided setup journey.' );
+assert_same( 'done', $owned_plus_payload['plusJourney']['steps'][0]['state'], 'The connect step must show done for a connected account.' );
+assert_same( 'current', $owned_plus_payload['plusJourney']['steps'][1]['state'], 'Getting the plugin must be the single current step while Plus is missing.' );
+assert_same( 'Download Pixelgrade Plus', $owned_plus_payload['plusJourney']['steps'][1]['action']['label'], 'The current get-plugin step should carry the download hand-off.' );
+assert_same( 'https://pixelgrade.test/account/downloads/pixelgrade-plus/', $owned_plus_payload['plusJourney']['steps'][1]['action']['url'], 'The download hand-off must use the safe Pixelgrade.com URL.' );
+assert_true( false !== strpos( $owned_plus_payload['plusJourney']['steps'][1]['hint']['url'], 'plugin-install.php?tab=upload' ), 'The get-plugin step should guide users to the wp-admin upload screen.' );
+assert_same( null, $owned_plus_payload['plusJourney']['steps'][2]['action'], 'Only the current journey step may carry an action.' );
+assert_same( 'upcoming', $owned_plus_payload['plusJourney']['steps'][3]['state'], 'License validation stays upcoming until the plugin is active.' );
 assert_same( false, false !== strpos( (string) json_encode( $owned_plus_payload ), 'secret-plus-license' ), 'The account-license summary must not leak license hashes.' );
 assert_same( false, false !== strpos( (string) json_encode( $owned_plus_payload ), 'acc-secret' ), 'The account-license summary must not leak OAuth secrets.' );
 
@@ -653,8 +666,22 @@ assert_same( 'Installed', $installed_plus_payload['accountValue']['products']['s
 assert_same( 'Activate Pixelgrade Plus', $installed_plus_payload['accountValue']['products']['actionLabel'] ?? '', 'Installed inactive Plus should get a direct activation CTA.' );
 assert_true( false !== strpos( $installed_plus_payload['accountValue']['products']['url'], 'action=activate' ), 'Installed inactive Plus should link to WordPress plugin activation.' );
 assert_true( false !== strpos( $installed_plus_payload['accountValue']['products']['url'], 'plugin=pixelgrade-plus%2Fpixelgrade-plus.php' ), 'Installed inactive Plus activation URL should target the Plus plugin file.' );
+assert_same( 'in_progress', $installed_plus_payload['plusJourney']['state'], 'Installed-but-inactive Plus should show the guided setup journey.' );
+assert_same( 'done', $installed_plus_payload['plusJourney']['steps'][1]['state'], 'The get-plugin step must show done once the plugin is installed.' );
+assert_same( 'current', $installed_plus_payload['plusJourney']['steps'][2]['state'], 'Plugin activation must be the single current step while Plus is installed but inactive.' );
+assert_same( 'Activate Pixelgrade Plus', $installed_plus_payload['plusJourney']['steps'][2]['action']['label'], 'The activation step should carry the direct activate CTA.' );
+assert_true( false !== strpos( $installed_plus_payload['plusJourney']['steps'][2]['action']['url'], 'action=activate' ), 'The activation step should link to WordPress plugin activation.' );
 
 paf_reset_runtime();
+pixassist_save_account_connection(
+	array(
+		'pixelgrade_user_id'  => 42,
+		'email'               => 'customer@example.com',
+		'user_login'          => 'customer-login',
+		'oauth_token'         => 'acc-token',
+		'oauth_token_secret'  => 'acc-secret',
+	)
+);
 add_filter(
 	'pixelgrade_assistant_plus_status',
 	function ( $status ) {
@@ -677,6 +704,13 @@ assert_true( false !== strpos( $plus_payload['accountValue']['products']['descri
 assert_true( false !== strpos( $plus_payload['accountValue']['products']['description'], 'eligible license' ), 'Unlicensed Plus copy should point users at eligible license activation.' );
 assert_same( 'Validate Plus license', $plus_payload['accountValue']['products']['actionLabel'] ?? '', 'Unlicensed Plus should get an explicit validation CTA.' );
 assert_same( false, false !== strpos( (string) json_encode( $plus_payload ), 'license_hash' ), 'The products/licenses summary must not expose license internals.' );
+assert_same( 'in_progress', $plus_payload['plusJourney']['state'], 'Active-but-unlicensed Plus should show the guided setup journey.' );
+assert_same( 'done', $plus_payload['plusJourney']['steps'][0]['state'], 'The connect step must show done for a connected account.' );
+assert_same( 'done', $plus_payload['plusJourney']['steps'][2]['state'], 'The plugin-activation step must show done when Plus is active.' );
+assert_same( 'current', $plus_payload['plusJourney']['steps'][3]['state'], 'License validation must be the single current step for active-but-unlicensed Plus.' );
+assert_same( 'Open the Plus panel', $plus_payload['plusJourney']['steps'][3]['action']['label'], 'The validation step must honestly hand off to the on-page Plus panel, not mimic its button.' );
+assert_same( 'https://example.test/wp-admin/themes.php?page=pixelgrade&tab=account&section=plus', $plus_payload['plusJourney']['steps'][3]['action']['url'], 'The validation hand-off must use the Plus-reported panel URL.' );
+assert_same( '3 of 4 steps done', $plus_payload['plusJourney']['progressLabel'], 'The journey must report progress.' );
 
 paf_reset_runtime();
 add_filter(
@@ -698,6 +732,9 @@ assert_same( 'licensed', $licensed_plus_payload['accountValue']['products']['sta
 assert_same( 'Licensed', $licensed_plus_payload['accountValue']['products']['statusLabel'], 'Licensed Plus should use a human-readable status label.' );
 assert_true( false !== strpos( $licensed_plus_payload['accountValue']['products']['description'], 'benefits' ), 'Licensed Plus copy should point users at the benefits review in Plus.' );
 assert_same( 'Review Plus benefits', $licensed_plus_payload['accountValue']['products']['actionLabel'] ?? '', 'Licensed Plus should get an explicit benefits-review CTA.' );
+assert_same( 'complete', $licensed_plus_payload['plusJourney']['state'], 'Licensed Plus should collapse the journey to a quiet confirmation.' );
+assert_same( array(), $licensed_plus_payload['plusJourney']['steps'], 'A complete journey carries no step ladder.' );
+assert_true( false !== strpos( $licensed_plus_payload['plusJourney']['action']['url'], 'section=plus' ), 'The complete journey should quietly link to the Plus panel.' );
 
 paf_reset_runtime();
 pixassist_save_account_connection(
@@ -717,7 +754,9 @@ assert_true( false !== strpos( $connected_payload['accountValue']['accountDetail
 assert_same( false, false !== strpos( $connected_payload['accountValue']['accountDetails']['description'], '10:00:00' ), 'Connected account details should not show the full timestamp.' );
 assert_same( 'get_help', $connected_payload['accountValue']['nextAction']['id'], 'Connected users should get Help as the next best action.' );
 assert_same( 'https://example.test/wp-admin/themes.php?page=pixelgrade&tab=help', $connected_payload['accountValue']['nextAction']['url'], 'Connected next action should point to the Help tab.' );
-assert_same( 'Site connected. Everything is ready.', $connected_payload['copy']['connectedStatusLabel'], 'Connected account copy should keep the Care-inspired site-connected reassurance.' );
+assert_same( 'Site connected.', $connected_payload['copy']['connectedStatusLabel'], 'The connected hero must not claim everything is ready — the journey card owns progress.' );
+assert_same( 'invite', $connected_payload['plusJourney']['state'], 'A connected free account gets the gentle Plus invite, not a step ladder.' );
+assert_true( ! isset( $connected_payload['plusJourney']['hint'] ), 'A connected invite needs no already-purchased hint.' );
 assert_same( false, false !== strpos( (string) json_encode( $connected_payload ), 'acc-token' ), 'Connected Account payload must not expose OAuth tokens.' );
 
 $account_js = file_get_contents( __DIR__ . '/../admin/src-modern/hub/tabs/Account.js' );
@@ -731,10 +770,11 @@ assert_true( false !== strpos( $account_js, 'pixelgrade-account-value' ), 'The A
 assert_true( false !== strpos( $account_js, 'renderAccountValuePanel' ), 'The Account tab must condense value into one operations panel.' );
 assert_true( false !== strpos( $account_js, 'pixelgrade-account-value--operations' ), 'The Account value panel must use the dense operations layout class.' );
 assert_true( false !== strpos( $account_js, 'renderStatusText' ), 'The Account tab must render minimal dot-and-label status text.' );
-assert_true( false !== strpos( $account_js, 'Products & licenses' ), 'The Account value panel must show the products/licenses summary.' );
+assert_true( false !== strpos( $account_js, 'renderPlusJourney' ), 'The Account tab must render the guided Plus setup journey.' );
+assert_true( false !== strpos( $account_js, 'pixelgrade-plus-journey__step' ), 'The journey must render steps with stable class hooks.' );
+assert_same( false, false !== strpos( $account_js, 'Products & licenses' ), 'The old products/licenses row is retired — the journey card owns the Plus story.' );
 assert_true( false !== strpos( $account_js, 'renderAccountDetailsRow' ), 'The Account tab must render account details through a dedicated row.' );
 assert_true( false !== strpos( $account_js, "copy.disconnectLabel, 'link'" ), 'The Account disconnect action should be visually demoted to a link-style control.' );
-assert_same( false, false !== strpos( $account_js, 'renderDisconnectForm( actions, copy.disconnectLabel )' ), 'The connected identity hero must not render the disconnect form.' );
 assert_same( false, false !== strpos( $account_js, 'action: renderNextAction( value.nextAction )' ), 'The Account Support row must not render a generic support/next-action button.' );
 
 /*

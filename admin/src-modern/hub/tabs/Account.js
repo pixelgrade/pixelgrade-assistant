@@ -143,6 +143,7 @@ function renderDisconnectForm( actions, label, variant = 'secondary' ) {
 function renderConnected( data ) {
 	const account = data.account || {};
 	const copy = data.copy || {};
+	const actions = data.actions || {};
 	const avatar = renderAvatar( account, 48 );
 
 	return createElement(
@@ -172,7 +173,8 @@ function renderConnected( data ) {
 						avatar ? createElement( FlexItem, null, avatar ) : null,
 						createElement( FlexItem, null, renderAccountMeta( account ) )
 					)
-				)
+				),
+				renderDisconnectForm( actions, copy.disconnectLabel, 'link' )
 			),
 			copy.connectedStatusLabel
 				? createElement(
@@ -184,6 +186,176 @@ function renderConnected( data ) {
 			copy.connectedDescription
 				? createElement( 'p', { style: { margin: copy.connectedStatusLabel ? '6px 0 0' : '12px 0 0', color: '#50575e' } }, copy.connectedDescription )
 				: null
+		)
+	);
+}
+
+function renderJourneyStepMarker( state, index ) {
+	const isDone = 'done' === state;
+	const isCurrent = 'current' === state;
+	const accent = 'var(--wp-admin-theme-color, #3858e9)';
+
+	return createElement(
+		'span',
+		{
+			'aria-hidden': true,
+			style: {
+				alignItems: 'center',
+				background: isDone ? '#0a7a28' : '#fff',
+				border: '1.5px solid ' + ( isDone ? '#0a7a28' : isCurrent ? accent : '#c3c4c7' ),
+				borderRadius: '50%',
+				color: isDone ? '#fff' : isCurrent ? accent : '#8c8f94',
+				display: 'inline-flex',
+				flex: '0 0 auto',
+				fontSize: '12px',
+				fontWeight: 600,
+				height: '22px',
+				justifyContent: 'center',
+				lineHeight: 1,
+				width: '22px',
+			},
+		},
+		isDone ? '✓' : String( index + 1 )
+	);
+}
+
+function renderJourneyStep( step, index ) {
+	if ( ! step || ! step.label ) {
+		return null;
+	}
+
+	const isCurrent = 'current' === step.state;
+	const isDone = 'done' === step.state;
+	const labelColor = isDone ? '#50575e' : isCurrent ? '#1d2327' : '#8c8f94';
+
+	return createElement(
+		'div',
+		{
+			key: step.id || index,
+			className: 'pixelgrade-plus-journey__step pixelgrade-plus-journey__step--' + ( step.state || 'upcoming' ),
+			style: {
+				alignItems: 'flex-start',
+				borderTop: 0 === index ? 'none' : '1px solid #f0f0f1',
+				display: 'flex',
+				gap: '12px',
+				padding: 0 === index ? '2px 0 10px' : '10px 0',
+			},
+		},
+		renderJourneyStepMarker( step.state, index ),
+		createElement(
+			'div',
+			{ style: { flex: '1 1 auto', minWidth: 0 } },
+			createElement(
+				'div',
+				{ style: { alignItems: 'baseline', display: 'flex', flexWrap: 'wrap', gap: '4px 10px', justifyContent: 'space-between' } },
+				createElement( 'strong', { style: { color: labelColor, fontSize: '13px' } }, step.label ),
+				isDone ? renderStatusText( 'available', __( 'Done', 'pixelgrade_assistant' ) ) : null
+			),
+			isCurrent && step.description
+				? createElement( 'p', { style: { color: '#50575e', margin: '4px 0 0' } }, step.description )
+				: null,
+			isCurrent && step.action && step.action.url
+				? createElement(
+						'div',
+						{ style: { marginTop: '10px' } },
+						createElement( Button, { href: step.action.url, variant: 'primary' }, step.action.label )
+				  )
+				: null,
+			isCurrent && step.hint && step.hint.label
+				? createElement(
+						'p',
+						{ style: { color: '#646970', fontSize: '12px', margin: '8px 0 0' } },
+						step.hint.url
+							? createElement( 'a', { href: step.hint.url }, step.hint.label )
+							: step.hint.label
+				  )
+				: null
+		)
+	);
+}
+
+function renderPlusJourney( data ) {
+	const journey = data.plusJourney || {};
+
+	if ( ! journey.state ) {
+		return null;
+	}
+
+	if ( 'invite' === journey.state ) {
+		return createElement(
+			Card,
+			{ className: 'pixelgrade-plus-journey pixelgrade-plus-journey--invite', style: { marginTop: '12px' } },
+			createElement(
+				CardBody,
+				null,
+				createElement(
+					'div',
+					{ style: { alignItems: 'center', display: 'flex', flexWrap: 'wrap', gap: '12px 16px', justifyContent: 'space-between' } },
+					createElement(
+						'div',
+						{ style: { flex: '1 1 24rem', minWidth: 0 } },
+						createElement( 'strong', { style: { color: '#1d2327', fontSize: '13px' } }, journey.title || 'Pixelgrade Plus' ),
+						journey.description ? createElement( 'p', { style: { color: '#50575e', margin: '4px 0 0' } }, journey.description ) : null,
+						journey.hint ? createElement( 'p', { style: { color: '#646970', fontSize: '12px', margin: '6px 0 0' } }, journey.hint ) : null
+					),
+					journey.action && journey.action.url
+						? createElement( Button, { href: journey.action.url, variant: 'secondary' }, journey.action.label )
+						: null
+				)
+			)
+		);
+	}
+
+	if ( 'complete' === journey.state ) {
+		return createElement(
+			Card,
+			{ className: 'pixelgrade-plus-journey pixelgrade-plus-journey--complete', style: { marginTop: '12px' } },
+			createElement(
+				CardBody,
+				null,
+				createElement(
+					'div',
+					{ style: { alignItems: 'center', display: 'flex', flexWrap: 'wrap', gap: '12px 16px', justifyContent: 'space-between' } },
+					createElement(
+						'div',
+						{ style: { flex: '1 1 24rem', minWidth: 0 } },
+						createElement(
+							'div',
+							{ style: { alignItems: 'center', display: 'flex', gap: '10px' } },
+							createElement( 'strong', { style: { color: '#1d2327', fontSize: '13px' } }, journey.title || __( 'Pixelgrade Plus is set up', 'pixelgrade_assistant' ) ),
+							renderStatusText( 'licensed' )
+						),
+						journey.description ? createElement( 'p', { style: { color: '#50575e', margin: '4px 0 0' } }, journey.description ) : null
+					),
+					journey.action && journey.action.url
+						? createElement( Button, { href: journey.action.url, variant: 'link' }, journey.action.label )
+						: null
+				)
+			)
+		);
+	}
+
+	const steps = Array.isArray( journey.steps ) ? journey.steps : [];
+	if ( ! steps.length ) {
+		return null;
+	}
+
+	return createElement(
+		Card,
+		{ className: 'pixelgrade-plus-journey pixelgrade-plus-journey--in-progress', style: { marginTop: '12px' } },
+		createElement(
+			CardHeader,
+			null,
+			createElement( 'h2', { style: { fontSize: '15px', margin: 0 } }, journey.title || __( 'Set up Pixelgrade Plus', 'pixelgrade_assistant' ) ),
+			journey.progressLabel
+				? createElement( 'span', { style: { color: '#646970', fontSize: '12px', fontWeight: 600 } }, journey.progressLabel )
+				: null
+		),
+		createElement(
+			CardBody,
+			null,
+			journey.description ? createElement( 'p', { style: { color: '#50575e', margin: '0 0 12px' } }, journey.description ) : null,
+			steps.map( renderJourneyStep )
 		)
 	);
 }
@@ -350,14 +522,11 @@ function renderValueRow( { id, label, value, description, status, statusLabel, a
 	);
 }
 
-function renderAccountDetailsRow( accountDetails, data ) {
+function renderAccountDetailsRow( accountDetails ) {
 	const details = accountDetails || {};
 	if ( ! details.label && ! details.description ) {
 		return null;
 	}
-
-	const actions = data.actions || {};
-	const copy = data.copy || {};
 
 	return renderValueRow( {
 		id: 'account-details',
@@ -366,7 +535,6 @@ function renderAccountDetailsRow( accountDetails, data ) {
 		description: details.description,
 		status: details.state,
 		statusLabel: details.statusLabel,
-		action: renderDisconnectForm( actions, copy.disconnectLabel, 'link' ),
 	} );
 }
 
@@ -374,18 +542,17 @@ function renderAccountValuePanel( data ) {
 	const value = data.accountValue || {};
 	const support = value.support || {};
 	const site = value.site || {};
-	const products = value.products || {};
+	const docs = value.docs || {};
 	const accountDetails = value.accountDetails || {};
-	const enablements = Array.isArray( value.enablements ) ? value.enablements : [];
 
-	if ( ! support.label && ! site.themeName && ! products.label && ! accountDetails.label && ! enablements.length ) {
+	if ( ! support.label && ! site.themeName && ! docs.label && ! accountDetails.label ) {
 		return null;
 	}
 
 	return createElement(
 		Card,
 		{ className: 'pixelgrade-account-value pixelgrade-account-value--operations', style: { marginTop: '12px' } },
-		createElement( CardHeader, null, createElement( 'h2', { style: { fontSize: '15px', margin: 0 } }, __( 'Account value', 'pixelgrade_assistant' ) ) ),
+		createElement( CardHeader, null, createElement( 'h2', { style: { fontSize: '15px', margin: 0 } }, __( 'Account & support', 'pixelgrade_assistant' ) ) ),
 		createElement(
 			CardBody,
 			null,
@@ -397,55 +564,23 @@ function renderAccountValuePanel( data ) {
 				status: support.state,
 			} ),
 			renderValueRow( {
-				id: 'products',
-				label: __( 'Products & licenses', 'pixelgrade_assistant' ),
-				value: products.label,
-				description: products.description,
-				status: products.state,
-				statusLabel: products.statusLabel,
-				action: products.url
-					? createElement(
-							Button,
-							{
-								href: products.url,
-								variant:
-									'needs_license' === products.state ||
-									'plus_plugin_missing' === products.state ||
-									'plus_plugin_inactive' === products.state
-										? 'primary'
-										: 'secondary',
-							},
-							products.actionLabel || __( 'Review Plus', 'pixelgrade_assistant' )
-					  )
+				id: 'docs',
+				label: __( 'Documentation', 'pixelgrade_assistant' ),
+				value: __( 'Theme documentation', 'pixelgrade_assistant' ),
+				url: docs.url,
+				description: docs.label,
+				status: docs.state || 'available',
+				action: docs.helpUrl
+					? createElement( Button, { href: docs.helpUrl, variant: 'secondary' }, docs.actionLabel || __( 'Open Help', 'pixelgrade_assistant' ) )
 					: null,
-			} ),
-			renderValueRow( {
-				id: 'theme',
-				label: __( 'Theme', 'pixelgrade_assistant' ),
-				value: site.themeName,
 			} ),
 			renderValueRow( {
 				id: 'site',
 				label: __( 'Site', 'pixelgrade_assistant' ),
-				value: site.siteUrl,
-				url: site.siteUrl,
-				action: site.helpUrl ? createElement( Button, { href: site.helpUrl, variant: 'secondary' }, __( 'Open Help', 'pixelgrade_assistant' ) ) : null,
+				value: site.themeName,
+				description: site.siteUrl,
 			} ),
-			renderAccountDetailsRow( accountDetails, data ),
-			enablements.length
-				? createElement(
-						'div',
-						{ className: 'pixelgrade-account-value__enablements', style: { marginTop: '2px' } },
-						enablements.map( ( item ) =>
-							renderValueRow( {
-								id: item.id || item.label,
-								label: item.label,
-								description: item.description,
-								status: item.state,
-							} )
-						)
-				  )
-				: null
+			renderAccountDetailsRow( accountDetails )
 		)
 	);
 }
@@ -490,6 +625,16 @@ export function Account() {
 		if ( 'function' === typeof element.focus ) {
 			element.focus( { preventScroll: true } );
 		}
+
+		// Briefly highlight the linked panel so hand-offs from the setup journey visibly land.
+		element.style.transition = 'box-shadow .3s ease';
+		element.style.boxShadow = '0 0 0 2px var(--wp-admin-theme-color, #3858e9)';
+		element.style.borderRadius = '4px';
+		const timer = setTimeout( () => {
+			element.style.boxShadow = 'none';
+		}, 2000 );
+
+		return () => clearTimeout( timer );
 	}, [ section ] );
 
 	return createElement(
@@ -497,6 +642,7 @@ export function Account() {
 		null,
 		renderNotice( data.notice ),
 		account.is_connected ? renderConnected( data ) : renderDisconnected( data ),
+		renderPlusJourney( data ),
 		renderAccountValuePanel( data ),
 		renderAccountPanels( data )
 	);
