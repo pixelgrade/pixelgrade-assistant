@@ -24,6 +24,8 @@ class Pixassist_Nova_Menu {
 	public $_version  = '1.0.3';
 	public $_assets_version = '1.0.0';
 
+	public $menu_item_loop_markup = array();
+
 	protected $default_menu_item_loop_markup = array(
 		'menu_tag'               => 'section',
 		'menu_class'             => 'menu-list__section',
