@@ -116,7 +116,7 @@ function renderStep( step ) {
 				{ variant: 'secondary', href: step.url },
 				step.optional
 					? __( 'Set up', 'pixelgrade_assistant' )
-					: __( 'Go', 'pixelgrade_assistant' )
+					: __( 'Open', 'pixelgrade_assistant' )
 		  );
 
 	return createElement(
@@ -311,7 +311,6 @@ export function GetStartedCard() {
 	}
 
 	const steps = Array.isArray( onboarding.steps ) ? onboarding.steps : [];
-	const demosCount = Number( onboarding.demosCount || 0 );
 	const isWorking = 'working' === run.status;
 
 	const pushLog = ( entry ) =>
@@ -418,11 +417,12 @@ export function GetStartedCard() {
 		.replace( '%1$d', String( doneCount ) )
 		.replace( '%2$d', String( countedSteps.length ) );
 
-	const primaryLabel = hasIncompleteStep( steps, 'plugins' )
-		? __( 'Review setup', 'pixelgrade_assistant' )
-		: demosCount > 1
-			? __( 'Choose a starter site', 'pixelgrade_assistant' )
-			: __( 'Set up my site', 'pixelgrade_assistant' );
+	// Honest labeling: the primary either RUNS the remaining setup inline ("Set up my site") or —
+	// when only the multi-demo starter choice remains — routes to the chooser ("Choose a starter
+	// site"). It must never promise a review while performing installs.
+	const primaryLabel = shouldRouteToStarterChooser( onboarding, steps )
+		? __( 'Choose a starter site', 'pixelgrade_assistant' )
+		: __( 'Set up my site', 'pixelgrade_assistant' );
 
 	return createElement(
 		Card,
@@ -456,7 +456,9 @@ export function GetStartedCard() {
 			createElement(
 				'p',
 				{ style: { color: '#50575e', margin: '0 0 8px', maxWidth: '46em' } },
-				__( 'A few quick steps to get your site ready. Run them all at once, or do them one at a time.', 'pixelgrade_assistant' )
+				// Home's only orientation copy lives here, where a new user actually is — it leaves
+				// with the checklist once the site is set up.
+				__( 'Pixelgrade turns your theme into a design system — set colors, fonts, and spacing once, and your whole site follows. These quick steps get your site ready.', 'pixelgrade_assistant' )
 			),
 			createElement(
 				'ul',

@@ -8,9 +8,12 @@
  *   - pixassist_get_overview_data(): assembles the bootstrap payload the tab renders —
  *       * theme status (name / version / block-theme),
  *       * quick links (the canvas link is the Site Editor for block themes, the Customizer for
- *         classic ones; sibling Starter Sites / Help links resolve to `?tab=` deep links),
+ *         classic ones; the Design Library / Help links resolve to `?tab=` deep links),
+ *       * the quiet "At a glance" rows (theme / setup / starter / account, plus a Plus row only
+ *         once Plus is installed; detail copy only when actionable; `needs-attention` tone only
+ *         for pending required setup — Home renders no next-action box and no safety bullets),
  *       * the Pixelgrade Plus discovery card across the three 4-key states
- *         (discover / set up / manage), and
+ *         (discover / set up / manage; Home renders it only while Plus is not installed), and
  *       * the host account identity (read-only, graceful when disconnected).
  *
  * Standalone: run with `php tests/admin-overview-test.php` (no WordPress needed).
@@ -226,9 +229,13 @@ $overview = pixassist_get_overview_data();
 
 $keys = array_keys( $overview );
 sort( $keys );
-assert_same( array( 'account', 'links', 'nextAction', 'onboarding', 'plus', 'safety', 'stateSummary', 'theme' ), $keys, 'Overview payload must expose command-center state plus theme/links/plus/account/onboarding.' );
+assert_same( array( 'account', 'links', 'onboarding', 'plus', 'stateSummary', 'theme' ), $keys, 'Overview payload is calm: theme/links/plus/account/onboarding/stateSummary — no next-action box, no safety bullets.' );
 
 assert_same( false, $overview['theme']['isBlockTheme'], 'Classic theme must read isBlockTheme=false.' );
+
+// The quiet At a glance rows: theme, setup, starter, account — and NO Plus row while Plus is not
+// installed (the small invitation card is Home's single Plus presence then).
+assert_same( array( 'theme', 'setup', 'starter', 'account' ), array_column( $overview['stateSummary'], 'id' ), 'At a glance rows are theme/setup/starter/account, without a Plus row while Plus is absent.' );
 
 $canvas = $overview['links'][0];
 assert_same( 'styles', $canvas['id'], 'Home must route the style CTA to the in-hub Design System section when it exists.' );
@@ -236,7 +243,7 @@ assert_same( 'https://example.test/wp-admin/themes.php?page=pixelgrade&tab=style
 assert_same( 'Open Design System', $canvas['label'], 'The Home style CTA must read "Open Design System".' );
 assert_true( ! empty( $canvas['primary'] ), 'The canvas link must be the primary quick link.' );
 
-assert_same( null, paf_find_link( $overview['links'], 'starter-sites' ), 'No Starter Sites link without a Starter tab.' );
+assert_same( null, paf_find_link( $overview['links'], 'design-library' ), 'No Design Library link without a Design Library (or legacy Starter Sites) tab.' );
 
 $help = paf_find_link( $overview['links'], 'help' );
 assert_true( null !== $help, 'A Help link is always present.' );
@@ -252,8 +259,9 @@ assert_true( is_array( $overview['account'] ), 'Overview must carry the account 
 assert_same( false, $overview['account']['is_connected'], 'Account reads disconnected without a connection.' );
 
 /*
- * 4. Command-center state: setup gaps take priority before starter/content actions, and Home
- *    explains the immediate safety/reversibility of the recommended action.
+ * 4. At a glance: pending required setup is the ONLY state that raises the needs-attention tone,
+ *    and the only row that carries a detail line for it. Home stays quiet otherwise — there is no
+ *    next-action box and no safety-notes block in the payload at all.
  */
 paf_reset();
 add_filter( 'pixelgrade/admin_hub/tabs', 'pixassist_register_overview_tab' );
@@ -261,8 +269,8 @@ add_filter( 'pixelgrade/admin_hub/tabs', 'pixassist_register_styles_tab' );
 add_filter(
 	'pixelgrade/admin_hub/tabs',
 	function ( $tabs ) {
-		$tabs[] = array( 'id' => 'plugins', 'label' => 'Setup', 'component' => 'plugins', 'order' => 50 );
-		$tabs[] = array( 'id' => 'starter-sites', 'label' => 'Starter Sites', 'component' => 'starterSites', 'order' => 30 );
+		$tabs[] = array( 'id' => 'plugins', 'label' => 'Site Setup', 'component' => 'plugins', 'order' => 50 );
+		$tabs[] = array( 'id' => 'design-library', 'label' => 'Design Library', 'component' => 'designLibrary', 'order' => 30 );
 
 		return $tabs;
 	}
@@ -299,18 +307,27 @@ $GLOBALS['paf_starter_data'] = array(
 $overview = pixassist_get_overview_data();
 
 $setup_summary = paf_find_summary_item( $overview['stateSummary'], 'setup' );
-assert_true( null !== $setup_summary, 'Command-center summary must include recommended plugin readiness.' );
+assert_true( null !== $setup_summary, 'At a glance must include recommended plugin readiness.' );
 assert_same( '1 of 2 ready', $setup_summary['value'], 'Plugin readiness summary must count ready plugins.' );
 assert_same( 'needs-attention', $setup_summary['tone'], 'Plugin readiness should ask for attention when a plugin is missing.' );
-assert_same( 'setup', $overview['nextAction']['id'], 'Recommended next action should prioritize setup gaps.' );
-assert_same( 'Review setup', $overview['nextAction']['label'], 'Setup next action label should be concise.' );
-assert_same( 'https://example.test/wp-admin/themes.php?page=pixelgrade&tab=plugins', $overview['nextAction']['url'], 'Setup next action should route to the Setup tab.' );
-assert_true( ! empty( $overview['nextAction']['safety'] ), 'Next action must include safety/reversibility copy.' );
-assert_true( ! empty( $overview['safety']['items'] ), 'Overview payload must include reusable safety notes.' );
+assert_same( '1 plugin needs setup.', $setup_summary['detail'], 'Pending setup carries its one actionable detail line (singular).' );
+assert_same( 'https://example.test/wp-admin/themes.php?page=pixelgrade&tab=plugins', $setup_summary['url'], 'The setup row routes to the Site Setup tab.' );
+assert_true( ! array_key_exists( 'nextAction', $overview ), 'Home no longer computes a next-action box — the Get Started card is the only spotlight.' );
+assert_true( ! array_key_exists( 'safety', $overview ), 'Home no longer ships a safety-notes block.' );
+
+$starter_summary = paf_find_summary_item( $overview['stateSummary'], 'starter' );
+assert_same( 'Ready to choose', $starter_summary['value'], 'With starters available and none imported the starter row reads Ready to choose.' );
+assert_same( '', $starter_summary['detail'], 'The steady starter row carries no teaching detail.' );
+
+$library = paf_find_link( $overview['links'], 'design-library' );
+assert_true( null !== $library, 'A Design Library quick link appears when the merged tab is registered.' );
+assert_same( 'Browse the Design Library', $library['label'], 'The Design Library quick link label.' );
+assert_same( 'https://example.test/wp-admin/themes.php?page=pixelgrade&tab=design-library', $library['url'], 'The Design Library quick link resolves to the merged tab route.' );
 
 /*
- * 5. Command-center state: once setup is ready and a starter is applied, the product direction
- *    points users toward Page Patterns without requiring this branch to implement the Content tab.
+ * 5. At a glance with a starter applied: the row names the active starter, the retired Site Parts /
+ *    Content rows stay retired (Design Library owns those inventories), and installed-but-unlicensed
+ *    Plus earns a quiet row with its one actionable detail line — never a needs-attention tone.
  */
 paf_reset();
 add_filter( 'pixelgrade/admin_hub/tabs', 'pixassist_register_overview_tab' );
@@ -318,10 +335,8 @@ add_filter( 'pixelgrade/admin_hub/tabs', 'pixassist_register_styles_tab' );
 add_filter(
 	'pixelgrade/admin_hub/tabs',
 	function ( $tabs ) {
-		$tabs[] = array( 'id' => 'plugins', 'label' => 'Setup', 'component' => 'plugins', 'order' => 50 );
-		$tabs[] = array( 'id' => 'starter-sites', 'label' => 'Starter Sites', 'component' => 'starterSites', 'order' => 30 );
-		$tabs[] = array( 'id' => 'layouts', 'label' => 'Layouts', 'component' => 'layoutUnits', 'order' => 35 );
-		$tabs[] = array( 'id' => 'content', 'label' => 'Page Patterns', 'component' => 'contentPatterns', 'capability' => 'manage_options', 'order' => 40 );
+		$tabs[] = array( 'id' => 'plugins', 'label' => 'Site Setup', 'component' => 'plugins', 'order' => 50 );
+		$tabs[] = array( 'id' => 'design-library', 'label' => 'Design Library', 'component' => 'designLibrary', 'order' => 30 );
 
 		return $tabs;
 	}
@@ -366,36 +381,35 @@ $GLOBALS['paf_layout_data'] = array(
 
 $overview = pixassist_get_overview_data();
 
-$starter_summary = paf_find_summary_item( $overview['stateSummary'], 'starter' );
-assert_same( 'Felt LT applied', $starter_summary['value'], 'Starter summary should name the active starter when known.' );
+assert_same( array( 'theme', 'setup', 'starter', 'account', 'plus' ), array_column( $overview['stateSummary'], 'id' ), 'With Plus installed the At a glance rows are theme/setup/starter/account/plus.' );
 
-$layouts_summary = paf_find_summary_item( $overview['stateSummary'], 'layouts' );
-assert_same( '1 applied', $layouts_summary['value'], 'Layout summary should count currently applied layout units.' );
+$starter_summary = paf_find_summary_item( $overview['stateSummary'], 'starter' );
+assert_same( 'Felt LT applied', $starter_summary['value'], 'Starter row should name the active starter when known.' );
+
+assert_same( null, paf_find_summary_item( $overview['stateSummary'], 'layouts' ), 'Home carries no Site Parts inventory row — the Design Library owns it.' );
+assert_same( null, paf_find_summary_item( $overview['stateSummary'], 'content' ), 'Home carries no Content inventory row — the Design Library owns it.' );
+
+$setup_summary = paf_find_summary_item( $overview['stateSummary'], 'setup' );
+assert_same( 'All ready', $setup_summary['value'], 'Outdated-but-active plugins still count as ready.' );
+assert_same( '', $setup_summary['detail'], 'A ready setup row carries no detail line.' );
+assert_same( 'ok', $setup_summary['tone'], 'A ready setup row stays quiet.' );
 
 $plus_summary = paf_find_summary_item( $overview['stateSummary'], 'plus' );
-assert_same( 'Installed, not licensed', $plus_summary['value'], 'Plus summary should distinguish active unlicensed installs.' );
-
-assert_same( 'content', $overview['nextAction']['id'], 'After a starter is applied, Home should recommend adding page patterns.' );
-assert_same( 'Add a page pattern', $overview['nextAction']['label'], 'Content next-action label must match the shared product decision.' );
-assert_same( 'https://example.test/wp-admin/themes.php?page=pixelgrade&tab=content', $overview['nextAction']['url'], 'Content next-action must target the visible Page Patterns tab route.' );
-assert_true( false !== strpos( $overview['nextAction']['description'], 'starter' ), 'Content next-action should explain why this is the right next move.' );
-
-$GLOBALS['paf_denied_caps']['manage_options'] = true;
-$overview = pixassist_get_overview_data();
-assert_same( 'account', $overview['nextAction']['id'], 'Home must not recommend Page Patterns when the tab is hidden by manage_options.' );
-$content_summary = paf_find_summary_item( $overview['stateSummary'], 'content' );
-assert_same( '', $content_summary['url'], 'Content summary must not route to a hidden Page Patterns tab.' );
+assert_same( 'Installed, not licensed', $plus_summary['value'], 'Plus row should distinguish active unlicensed installs.' );
+assert_same( 'Activate a license to unlock premium features.', $plus_summary['detail'], 'Unlicensed Plus carries its one actionable detail line.' );
+assert_same( 'neutral', $plus_summary['tone'], 'Unlicensed Plus never presses with a needs-attention tone.' );
+assert_same( 'https://example.test/wp-admin/themes.php?page=pixelgrade&tab=account&section=plus', $plus_summary['url'], 'The Plus row routes to Plus-owned setup inside Account.' );
 
 /*
- * 6. Command-center state: installed-but-unlicensed Plus is actionable and should be clearer than a
- *    generic style-refinement nudge once setup/account/starter/layouts do not need attention.
+ * 6. At a glance in a bare steady state (no plugin requirements, no starters, connected account):
+ *    every row is quiet, values read as facts, and the licensed Plus row drops its detail line.
  */
 paf_reset();
 add_filter( 'pixelgrade/admin_hub/tabs', 'pixassist_register_overview_tab' );
 add_filter( 'pixelgrade/admin_hub/tabs', 'pixassist_register_styles_tab' );
 paf_set_plus_status( array(
 	'is_plus_active'     => true,
-	'is_plus_licensed'   => false,
+	'is_plus_licensed'   => true,
 	'plus_settings_url'  => 'https://example.test/wp-admin/themes.php?page=pixelgrade&tab=account&section=plus',
 	'plus_product_label' => 'Pixelgrade Plus',
 ) );
@@ -411,9 +425,21 @@ $GLOBALS['paf_layout_data']  = array( 'applied' => array() );
 
 $overview = pixassist_get_overview_data();
 
-assert_same( 'plus', $overview['nextAction']['id'], 'Installed-but-unlicensed Plus should be the next action when no setup/starter/layout/account work is pending.' );
-assert_same( 'Set up Pixelgrade Plus', $overview['nextAction']['label'], 'The Plus next action should use the setup CTA from the fixed Plus status read.' );
-assert_same( 'https://example.test/wp-admin/themes.php?page=pixelgrade&tab=account&section=plus', $overview['nextAction']['url'], 'The Plus next action must route to Plus-owned setup inside Account.' );
+$setup_summary = paf_find_summary_item( $overview['stateSummary'], 'setup' );
+assert_same( 'No plugin requirements', $setup_summary['value'], 'No recommended plugins reads as a plain fact.' );
+assert_same( 'ok', $setup_summary['tone'], 'No plugin requirements is a quiet state.' );
+
+$starter_summary = paf_find_summary_item( $overview['stateSummary'], 'starter' );
+assert_same( 'No starters available', $starter_summary['value'], 'A theme without starters reads as a plain fact.' );
+
+$account_summary = paf_find_summary_item( $overview['stateSummary'], 'account' );
+assert_same( 'Connected as test@example.test', $account_summary['value'], 'The connected account row carries the identity as its value.' );
+assert_same( '', $account_summary['detail'], 'The connected account row needs no detail line.' );
+
+$plus_summary = paf_find_summary_item( $overview['stateSummary'], 'plus' );
+assert_same( 'Licensed', $plus_summary['value'], 'Licensed Plus reads as a plain fact.' );
+assert_same( '', $plus_summary['detail'], 'Licensed Plus carries no detail line.' );
+assert_same( 'ok', $plus_summary['tone'], 'Licensed Plus is a quiet state.' );
 
 /*
  * 7. Block theme + Plus active-but-unlicensed, with sibling Starter Sites + Help tabs registered:
@@ -447,10 +473,10 @@ assert_same( 'styles', $canvas['id'], 'Block-theme Home must route the style CTA
 assert_same( 'https://example.test/wp-admin/themes.php?page=pixelgrade&tab=styles', $canvas['url'], 'Block-theme Home Design System CTA must resolve to the in-hub Styles route.' );
 assert_same( 'Open Design System', $canvas['label'], 'The block-theme Home style CTA must read "Open Design System".' );
 
-$starter = paf_find_link( $overview['links'], 'starter-sites' );
-assert_true( null !== $starter, 'Starter Sites link appears when the tab is registered.' );
-assert_same( 'https://example.test/wp-admin/themes.php?page=pixelgrade&tab=starter-sites', $starter['url'], 'Starter Sites resolves to its in-hub deep link.' );
-assert_same( 'Browse Starter Sites', $starter['label'], 'The Starter Sites CTA must read "Browse Starter Sites".' );
+$library = paf_find_link( $overview['links'], 'design-library' );
+assert_true( null !== $library, 'The Design Library quick link falls back to a legacy Starter Sites tab (a companion that has not moved to the merged tab yet).' );
+assert_same( 'https://example.test/wp-admin/themes.php?page=pixelgrade&tab=starter-sites', $library['url'], 'The legacy fallback resolves to the registered Starter Sites route.' );
+assert_same( 'Browse the Design Library', $library['label'], 'The quick link keeps the Design Library label.' );
 
 $help = paf_find_link( $overview['links'], 'help' );
 assert_same( 'https://example.test/wp-admin/themes.php?page=pixelgrade&tab=help', $help['url'], 'Help resolves to the Help hub tab when registered.' );
@@ -477,16 +503,20 @@ assert_same( 'manage', $overview['plus']['state'], 'Licensed Plus must be in the
 assert_same( true, $overview['plus']['isLicensed'], 'Licensed Plus must report isLicensed=true.' );
 
 $overview_js = file_get_contents( __DIR__ . '/../admin/src-modern/hub/tabs/Overview.js' );
-assert_true( false !== strpos( $overview_js, 'renderCommandCenter' ), 'Home must render the state-aware command center.' );
-assert_true( false !== strpos( $overview_js, 'stateSummary' ), 'Home must read the server state summary.' );
-assert_true( false !== strpos( $overview_js, 'nextAction' ), 'Home must render the server-prioritized next action.' );
-assert_true( false !== strpos( $overview_js, 'plus.isActive' ), 'Home must suppress the large Plus card once Plus is already active.' );
-assert_true( false !== strpos( $overview_js, 'tab=account&section=plus' ) || false !== strpos( $overview_js, 'renderPlusCard( plus )' ), 'Plus setup/manage routing must stay tied to the Account Plus section, not a standalone Home card.' );
+assert_true( false !== strpos( $overview_js, 'renderGlance' ), 'Home must render the quiet At a glance card.' );
+assert_true( false !== strpos( $overview_js, 'stateSummary' ), 'Home must read the server state summary rows.' );
+assert_true( false !== strpos( $overview_js, 'renderQuickActions' ), 'Home must render the quick actions into the sibling tabs.' );
+assert_true( false !== strpos( $overview_js, 'plus.isActive' ), 'Home must suppress the Plus invitation once Plus is already installed.' );
+assert_same( false, strpos( $overview_js, 'nextAction' ), 'Home renders no next-action box — the Get Started card is the only spotlight.' );
+assert_same( false, strpos( $overview_js, 'renderCommandCenter' ), 'The badge-tile command center stays retired.' );
+assert_same( false, strpos( $overview_js, 'renderOrientation' ), 'The standalone marketing hero stays retired (orientation lives in the Get Started intro).' );
 
 $get_started_js = file_get_contents( __DIR__ . '/../admin/src-modern/hub/tabs/GetStartedCard.js' );
 assert_true( false !== strpos( $get_started_js, 'shouldRouteToStarterChooser' ), 'Get started must decide multi-starter routing through an explicit helper.' );
 assert_true( false !== strpos( $get_started_js, "hasIncompleteStep( steps, 'plugins' )" ), 'Get started must prioritize incomplete plugin setup before routing to Starter Sites.' );
 assert_true( false !== strpos( $get_started_js, 'window.location.reload()' ), 'Get started must refresh after successful setup so plugin state is current.' );
+assert_true( false !== strpos( $get_started_js, 'Set up my site' ), 'The Get started primary must say what it does (runs setup inline).' );
+assert_same( false, strpos( $get_started_js, 'Review setup' ), 'The Get started primary must not promise a review while performing installs.' );
 
 /*
  * 9. Onboarding "Get started" state model.
