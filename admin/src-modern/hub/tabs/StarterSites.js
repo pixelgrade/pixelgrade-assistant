@@ -1958,7 +1958,7 @@ function getProgressHeadline( state, activePhase ) {
 	return sprintf( __( '%1$s — %2$d of %3$d', 'pixelgrade_assistant' ), activePhase.label, activePhase.count, activePhase.total );
 }
 
-function renderStatusNotice( state, copy, starterId = '', onInstallRequirements = null ) {
+function renderStatusNotice( state, copy, starterId = '', onInstallRequirements = null, onRetry = null ) {
 	if ( ! state || ! state.status || 'idle' === state.status ) {
 		return null;
 	}
@@ -2219,7 +2219,18 @@ function renderStatusNotice( state, copy, starterId = '', onInstallRequirements 
 			setupLabel: canInstallInline
 				? requirementsCopy.openSetup || __( 'Open Setup instead', 'pixelgrade_assistant' )
 				: manageLabel,
-		} )
+		} ),
+		isError && onRetry
+			? createElement(
+					'div',
+					{ style: { display: 'flex', flexWrap: 'wrap', gap: '10px', marginTop: '12px' } },
+					createElement(
+						Button,
+						{ variant: 'primary', onClick: onRetry },
+						( copy && copy.actions && copy.actions.retry ) || __( 'Retry', 'pixelgrade_assistant' )
+					)
+			  )
+			: null
 	);
 }
 
@@ -2657,6 +2668,7 @@ function renderComposerView( starter, context ) {
 		onTogglePart,
 		onApply,
 		onInstallRequirements,
+		onRetry,
 	} = context;
 	const presets = buildComposerPresets( starter, copy );
 	const summary = getComposerSummary( starter, copy, composerState );
@@ -2779,7 +2791,7 @@ function renderComposerView( starter, context ) {
 							copy.actions.cancel
 						)
 					),
-					renderStatusNotice( state, copy, starter.id, onInstallRequirements )
+					renderStatusNotice( state, copy, starter.id, onInstallRequirements, onRetry )
 				)
 			)
 		)
@@ -3027,7 +3039,7 @@ export function StarterSites() {
 				status: 'error',
 				phase: 'error',
 				message: error && error.message ? error.message : copy.error,
-				details: __( 'The apply process stopped before all selected parts finished.', 'pixelgrade_assistant' ),
+				details: __( 'The import stopped before finishing — usually a brief network hiccup. Retrying is safe: it resumes where it left off and never duplicates anything already imported.', 'pixelgrade_assistant' ),
 			}, { log: error && error.message ? error.message : copy.error, logType: 'error' } );
 		}
 	};
@@ -3120,6 +3132,7 @@ export function StarterSites() {
 			onTogglePart: ( partId, enabled ) => togglePart( activeStarter, partId, enabled ),
 			onApply: () => applyComposerSelection( activeStarter ),
 			onInstallRequirements: () => installRequirementsAndApply( activeStarter ),
+				onRetry: () => applyComposerSelection( activeStarter ),
 		} );
 	}
 
