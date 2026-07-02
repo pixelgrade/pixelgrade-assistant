@@ -1,6 +1,6 @@
 {
 	"name": "pixelgrade_assistant",
-	"version": "2.2.0",
+	"version": "2.2.1",
 	"description": "Caring is the coolest thing",
 	"main": "admin/js/setup_wizard.js",
 	"repository": "git+https://github.com/pixelgrade/pixelgrade-assistant.git",

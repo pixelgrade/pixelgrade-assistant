@@ -104,6 +104,14 @@ No. We are not tracking you or your site. Sharing is entirely optional and off b
 
 == Changelog ==
 
+= 2.2.1 =
+* Fix: remote theme-configuration lookups are now strictly rate-limited with a cached fallback, eliminating the excessive background requests to pixelgrade.com that some installs generated.
+* Fix: a PHP 8.2 deprecation notice (dynamic property) in the navigation menu integration.
+* Onboarding: a failed starter import can be retried right from the error state, without re-asking the "already imported?" confirmation.
+* Onboarding: after a full starter import, the default WordPress sample content is moved to trash and the Layouts card correctly reflects the import.
+* Onboarding: recommended plugins now install inline within the starter apply flow, a Get Started checklist guides the free path, and the duplicate "Install Plugins" menu item is gone.
+* Smaller release package — internal development docs are no longer bundled.
+
 = 2.2.0 =
 * Fix: Anima LT is now recognized out of the box — the free WordPress.org build no longer comes up unrecognized, so starter sites, recommended plugins, and the setup wizard all work as intended.
 * Style Manager now appears alongside Nova Blocks as a recommended companion, so the full free Pixelgrade LT stack sets up in one pass.
