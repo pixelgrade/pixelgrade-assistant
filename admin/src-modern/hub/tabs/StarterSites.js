@@ -2397,7 +2397,8 @@ function getUseStarterLabel( starter, copy ) {
 }
 
 function renderStarterCard( starter, context ) {
-	const { copy, imported, applied, plus, state, onOpenComposer } = context;
+	const { copy, imported, applied, plus, state, onOpenComposer, newIds } = context;
+	const isNew = Array.isArray( newIds ) && newIds.includes( starter.id );
 	const locked = isStarterLocked( starter, plus );
 	const isWorking = state && 'working' === state.status;
 	const actions = copy.actions;
@@ -2488,7 +2489,21 @@ function renderStarterCard( starter, context ) {
 			createElement(
 				Flex,
 				{ align: 'center', justify: 'space-between', gap: 3 },
-				createElement( FlexItem, null, createElement( 'h2', { style: { margin: 0 } }, starter.title ) ),
+				createElement(
+					FlexItem,
+					null,
+					createElement( 'h2', { style: { margin: 0 } }, starter.title ),
+					// The collection keeps growing: a quiet text note (never a badge) on designs the
+					// site has not seen before. It shows this one visit — the mount ping records the
+					// collection as seen, so the note self-quiets.
+					isNew
+						? createElement(
+								'span',
+								{ style: { color: '#2271b1', fontSize: '12px', fontWeight: 600, marginLeft: '8px' } },
+								__( 'New in the collection', 'pixelgrade_assistant' )
+						  )
+						: null
+				),
 				renderBadge( starter, locked, copy )
 			)
 		),
@@ -2839,6 +2854,18 @@ export function StarterSites() {
 		};
 	}, [] );
 
+	// "New in the collection" shows for exactly this visit: seeing the Design Library IS seeing the
+	// collection, so record it right away (best-effort — the note simply shows again if this fails).
+	const newIds =
+		data.collectionNews && Array.isArray( data.collectionNews.new ) ? data.collectionNews.new : [];
+	useEffect( () => {
+		if ( ! newIds.length ) {
+			return;
+		}
+
+		restRequest( data, 'collectionSeen', {} ).catch( () => {} );
+	}, [] );
+
 	const storeComposerState = ( starter, nextState ) => {
 		setComposerStates( ( current ) => ( {
 			...current,
@@ -3164,6 +3191,7 @@ export function StarterSites() {
 							plus: data.plus || {},
 							state: states[ starter.id ] || { status: 'idle', message: '' },
 							onOpenComposer: openComposer,
+							newIds,
 						} )
 					)
 			  )

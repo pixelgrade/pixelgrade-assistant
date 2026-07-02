@@ -179,17 +179,19 @@ if ( ! function_exists( 'pixassist_get_overview_state_summary' ) ) {
 	/**
 	 * Build the quiet "At a glance" rows for Home.
 	 *
-	 * Deliberately few and calm: Theme, Site setup, Starter, Account — plus a Pixelgrade Plus row
-	 * only once Plus is installed (while absent, the single Plus presence on Home is the small
-	 * invitation card, not a status row). `detail` is reserved for actionable situations (pending
-	 * plugin setup, a license waiting to be activated); steady rows carry the value alone. `tone`
-	 * is `needs-attention` only when required setup is pending — everything else stays quiet.
+	 * Deliberately few and calm: Theme, Site setup, Started from, Your style, Last change,
+	 * Diagnostics, Account — plus a Pixelgrade Plus row only once Plus is installed (while absent,
+	 * the single Plus presence on Home is the small invitation card, not a status row). The three
+	 * promise rows (style / last change / diagnostics) are conditional: each renders only when it
+	 * has a real fact to state, so the steady card never grows filler. `detail` is reserved for
+	 * actionable situations; `tone` is `needs-attention` only when required setup is pending or a
+	 * diagnostics check is blocked — everything else stays quiet.
 	 *
 	 * @param array  $tabs     Normalized hub tabs.
 	 * @param string $base_url Hub page URL.
 	 * @param bool   $is_block Whether the active theme is a block theme.
 	 *
-	 * @return array[] Summary items: id, label, value, detail, tone, url.
+	 * @return array[] Summary items: id, label, value, detail, tone, url (+ swatches on the style row).
 	 */
 	function pixassist_get_overview_state_summary( $tabs, $base_url, $is_block ) {
 		$theme         = pixassist_get_overview_theme( $is_block );
@@ -227,20 +229,37 @@ if ( ! function_exists( 'pixassist_get_overview_state_summary' ) ) {
 			),
 			array(
 				'id'     => 'starter',
-				'label'  => esc_html__( 'Starter', '__plugin_txtd' ),
+				'label'  => esc_html__( 'Started from', '__plugin_txtd' ),
 				'value'  => pixassist_get_overview_starter_state_value( $starter_state ),
 				'detail' => '',
 				'tone'   => $starter_state['has_imported'] ? 'ok' : 'neutral',
 				'url'    => pixassist_overview_tab_url_by_id( $tabs, $base_url, 'starter-sites' ),
 			),
-			array(
-				'id'     => 'account',
-				'label'  => esc_html__( 'Account', '__plugin_txtd' ),
-				'value'  => ! empty( $account['is_connected'] ) ? pixassist_get_overview_account_label( $account ) : esc_html__( 'Not connected', '__plugin_txtd' ),
-				'detail' => '',
-				'tone'   => ! empty( $account['is_connected'] ) ? 'ok' : 'neutral',
-				'url'    => pixassist_overview_tab_url_by_id( $tabs, $base_url, 'account' ),
-			),
+		);
+
+		// The promise rows render only when they have a real fact to state (never filler).
+		$style_row = pixassist_get_overview_style_row( $tabs, $base_url );
+		if ( null !== $style_row ) {
+			$items[] = $style_row;
+		}
+
+		$last_change_row = pixassist_get_overview_last_change_row( $tabs, $base_url );
+		if ( null !== $last_change_row ) {
+			$items[] = $last_change_row;
+		}
+
+		$diagnostics_row = pixassist_get_overview_diagnostics_row( $tabs, $base_url );
+		if ( null !== $diagnostics_row ) {
+			$items[] = $diagnostics_row;
+		}
+
+		$items[] = array(
+			'id'     => 'account',
+			'label'  => esc_html__( 'Account', '__plugin_txtd' ),
+			'value'  => ! empty( $account['is_connected'] ) ? pixassist_get_overview_account_label( $account ) : esc_html__( 'Not connected', '__plugin_txtd' ),
+			'detail' => '',
+			'tone'   => ! empty( $account['is_connected'] ) ? 'ok' : 'neutral',
+			'url'    => pixassist_overview_tab_url_by_id( $tabs, $base_url, 'account' ),
 		);
 
 		// Plus earns a status row only once it is installed; discovery stays with the invitation card.
@@ -574,11 +593,33 @@ if ( ! function_exists( 'pixassist_get_overview_starter_state' ) ) {
 			'has_imported'   => ! empty( $imported ) || '' !== $active_id,
 			'active_id'      => $active_id,
 			'active_title'   => pixassist_get_overview_starter_title( $starters, $active_id ),
+			'imported_at'    => pixassist_get_overview_starter_imported_at( $imported, $active_id ),
 			'imported_count' => count( $imported ),
 			'content_count'  => isset( $analysis['contentCount'] ) ? (int) $analysis['contentCount'] : 0,
 			'classification' => isset( $analysis['classification'] ) ? sanitize_key( $analysis['classification'] ) : '',
 			'applied'        => $applied,
 		);
+	}
+}
+
+if ( ! function_exists( 'pixassist_get_overview_starter_imported_at' ) ) {
+	/**
+	 * When the active starter's full-demo journal entry was written, if the entry is dated.
+	 *
+	 * Imports made before the `importedAt` field existed carry no date — the row then shows the
+	 * starter name alone. Never fabricate a date.
+	 *
+	 * @param array  $imported  Imported starter journal.
+	 * @param string $active_id Active starter id.
+	 *
+	 * @return int UNIX timestamp, or 0 when unknown.
+	 */
+	function pixassist_get_overview_starter_imported_at( $imported, $active_id ) {
+		if ( '' === (string) $active_id || empty( $imported[ $active_id ] ) || ! is_array( $imported[ $active_id ] ) ) {
+			return 0;
+		}
+
+		return ! empty( $imported[ $active_id ]['importedAt'] ) ? (int) $imported[ $active_id ]['importedAt'] : 0;
 	}
 }
 
@@ -626,28 +667,34 @@ if ( ! function_exists( 'pixassist_get_overview_starter_title' ) ) {
 
 if ( ! function_exists( 'pixassist_get_overview_starter_state_value' ) ) {
 	/**
-	 * Build the starter state value.
+	 * Build the "Started from" row value.
 	 *
-	 * @param array $state Starter state.
+	 * The row label carries the verb ("Started from"), so the value is the design's name alone —
+	 * dated when the import journal knows when it happened ("Rosa LT · 3 weeks ago"), undated for
+	 * imports that predate the `importedAt` journal field.
+	 *
+	 * @param array    $state Starter state.
+	 * @param int|null $now   Current UNIX timestamp; null reads the clock (injectable for tests).
 	 *
 	 * @return string
 	 */
-	function pixassist_get_overview_starter_state_value( $state ) {
+	function pixassist_get_overview_starter_state_value( $state, $now = null ) {
 		if ( ! empty( $state['has_imported'] ) ) {
-			$title = ! empty( $state['active_title'] ) ? (string) $state['active_title'] : esc_html__( 'Starter', '__plugin_txtd' );
+			$title = ! empty( $state['active_title'] ) ? (string) $state['active_title'] : esc_html__( 'A starter design', '__plugin_txtd' );
 
-			return sprintf(
-				/* translators: %s: starter site title. */
-				esc_html__( '%s applied', '__plugin_txtd' ),
-				$title
-			);
+			$imported_at = ! empty( $state['imported_at'] ) ? (int) $state['imported_at'] : 0;
+			if ( $imported_at > 0 ) {
+				return $title . ' · ' . pixassist_overview_relative_time( $imported_at, null === $now ? time() : (int) $now );
+			}
+
+			return $title;
 		}
 
 		if ( ! empty( $state['starters_count'] ) ) {
-			return esc_html__( 'Ready to choose', '__plugin_txtd' );
+			return esc_html__( 'Ready to choose a design', '__plugin_txtd' );
 		}
 
-		return esc_html__( 'No starters available', '__plugin_txtd' );
+		return esc_html__( 'No designs available', '__plugin_txtd' );
 	}
 }
 
@@ -770,6 +817,469 @@ if ( ! function_exists( 'pixassist_get_overview_plus_card' ) ) {
 		$card['isLicensed']   = ! empty( $status['is_plus_licensed'] );
 
 		return $card;
+	}
+}
+
+/*
+ * ---------------------------------------------------------------------------
+ * Promise rows (#hub-home-promises) — quiet facts backed by existing product reads.
+ *
+ * Each of the three conditional rows below maps one settled pixelgrade.com homepage promise to
+ * live data the plugin already has: "Your style" (set your style once — Style Manager / theme.json
+ * read), "Last change" (everything is reversible — the import/parts journals), and "Diagnostics"
+ * (catches problems — the Setup tab's readiness checks, minus the plugins check the Site Setup row
+ * already owns). PURE builders take injected data (unit-testable); guarded gatherers degrade to
+ * null — a row that has nothing real to say simply does not render.
+ * ---------------------------------------------------------------------------
+ */
+
+if ( ! function_exists( 'pixassist_overview_relative_time' ) ) {
+	/**
+	 * A calm, coarse relative-time phrase for journal timestamps. Pure.
+	 *
+	 * Coarse on purpose: Home states facts, not a stopwatch. Buckets keep every string
+	 * plural-safe without needing _n() ("2–13 days", "2–8 weeks", "2–12 months").
+	 *
+	 * @param int $timestamp Event UNIX timestamp.
+	 * @param int $now       Current UNIX timestamp.
+	 *
+	 * @return string
+	 */
+	function pixassist_overview_relative_time( $timestamp, $now ) {
+		$day  = 86400;
+		$diff = max( 0, (int) $now - (int) $timestamp );
+
+		if ( $diff < $day ) {
+			return esc_html__( 'today', '__plugin_txtd' );
+		}
+
+		if ( $diff < 2 * $day ) {
+			return esc_html__( 'yesterday', '__plugin_txtd' );
+		}
+
+		if ( $diff < 14 * $day ) {
+			/* translators: %d: number of days (always 2 or more). */
+			return sprintf( esc_html__( '%d days ago', '__plugin_txtd' ), (int) floor( $diff / $day ) );
+		}
+
+		if ( $diff < 61 * $day ) {
+			/* translators: %d: number of weeks (always 2 or more). */
+			return sprintf( esc_html__( '%d weeks ago', '__plugin_txtd' ), (int) floor( $diff / ( 7 * $day ) ) );
+		}
+
+		if ( $diff < 365 * $day ) {
+			/* translators: %d: number of months (always 2 or more). */
+			return sprintf( esc_html__( '%d months ago', '__plugin_txtd' ), (int) floor( $diff / ( 30 * $day ) ) );
+		}
+
+		if ( $diff < 730 * $day ) {
+			return esc_html__( 'a year ago', '__plugin_txtd' );
+		}
+
+		/* translators: %d: number of years (always 2 or more). */
+		return sprintf( esc_html__( '%d years ago', '__plugin_txtd' ), (int) floor( $diff / ( 365 * $day ) ) );
+	}
+}
+
+if ( ! function_exists( 'pixassist_get_overview_last_change_entry' ) ) {
+	/**
+	 * Pick the most recent dated design change across the journals. Pure.
+	 *
+	 * Sources are the shapes the existing journals already expose: applied layout units, content
+	 * units, and recipe bundles (all carry `appliedAt`), plus full-demo imports (dated only once
+	 * the `importedAt` field exists — undated imports are silently skipped, never guessed).
+	 *
+	 * @param array $sources { layoutUnits, contentUnits, recipes, imports, starters }.
+	 * @param int   $now     Current UNIX timestamp (for the relative phrase).
+	 *
+	 * @return array|null { value, timestamp }, or null when no dated change exists.
+	 */
+	function pixassist_get_overview_last_change_entry( $sources, $now ) {
+		$sources = is_array( $sources ) ? $sources : array();
+		$best    = null;
+
+		$collections = array(
+			/* translators: %s: layout part title (a header, footer, or template). */
+			'layoutUnits'  => esc_html__( '%s applied', '__plugin_txtd' ),
+			/* translators: %s: page/content pattern title. */
+			'contentUnits' => esc_html__( '%s added', '__plugin_txtd' ),
+			/* translators: %s: layout recipe title. */
+			'recipes'      => esc_html__( '%s applied', '__plugin_txtd' ),
+		);
+
+		foreach ( $collections as $key => $template ) {
+			$collection = isset( $sources[ $key ] ) && is_array( $sources[ $key ] ) ? $sources[ $key ] : array();
+			foreach ( $collection as $slot => $entry ) {
+				if ( ! is_array( $entry ) || empty( $entry['appliedAt'] ) ) {
+					continue;
+				}
+
+				$timestamp = (int) $entry['appliedAt'];
+				if ( null !== $best && $timestamp <= $best['timestamp'] ) {
+					continue;
+				}
+
+				$title = '';
+				foreach ( array( 'title', 'sourceTitle' ) as $title_key ) {
+					if ( ! empty( $entry[ $title_key ] ) ) {
+						$title = (string) $entry[ $title_key ];
+						break;
+					}
+				}
+				if ( '' === $title ) {
+					$title = (string) $slot;
+				}
+
+				$best = array(
+					'timestamp' => $timestamp,
+					'text'      => sprintf( $template, $title ),
+				);
+			}
+		}
+
+		$imports  = isset( $sources['imports'] ) && is_array( $sources['imports'] ) ? $sources['imports'] : array();
+		$starters = isset( $sources['starters'] ) && is_array( $sources['starters'] ) ? $sources['starters'] : array();
+		foreach ( $imports as $demo_key => $entry ) {
+			if ( ! is_array( $entry ) || empty( $entry['importedAt'] ) ) {
+				continue;
+			}
+
+			$timestamp = (int) $entry['importedAt'];
+			if ( null !== $best && $timestamp <= $best['timestamp'] ) {
+				continue;
+			}
+
+			$title = pixassist_get_overview_starter_title( $starters, sanitize_key( (string) $demo_key ) );
+			if ( '' === $title ) {
+				$title = (string) $demo_key;
+			}
+
+			$best = array(
+				'timestamp' => $timestamp,
+				/* translators: %s: starter design title. */
+				'text'      => sprintf( esc_html__( '%s imported', '__plugin_txtd' ), $title ),
+			);
+		}
+
+		if ( null === $best ) {
+			return null;
+		}
+
+		return array(
+			'value'     => $best['text'] . ' · ' . pixassist_overview_relative_time( $best['timestamp'], $now ),
+			'timestamp' => $best['timestamp'],
+		);
+	}
+}
+
+if ( ! function_exists( 'pixassist_get_overview_last_change_row' ) ) {
+	/**
+	 * The "Last change" row — quiet proof the design journal exists ("everything is reversible").
+	 *
+	 * Guarded gatherer over the existing journals; returns null (no row) until a dated change
+	 * exists. Undo itself stays where each change was made (Design Library) — Home only states
+	 * the fact.
+	 *
+	 * @param array  $tabs     Normalized hub tabs.
+	 * @param string $base_url Hub page URL.
+	 *
+	 * @return array|null Summary row, or null.
+	 */
+	function pixassist_get_overview_last_change_row( $tabs, $base_url ) {
+		if ( ! function_exists( 'pixassist_get_starter_sites_data' ) ) {
+			return null;
+		}
+
+		$data    = pixassist_get_starter_sites_data();
+		$applied = isset( $data['applied'] ) && is_array( $data['applied'] ) ? $data['applied'] : array();
+
+		$entry = pixassist_get_overview_last_change_entry(
+			array(
+				'layoutUnits'  => isset( $applied['layoutUnits'] ) ? $applied['layoutUnits'] : array(),
+				'recipes'      => isset( $applied['recipes'] ) ? $applied['recipes'] : array(),
+				'contentUnits' => function_exists( 'pixassist_get_content_patterns_applied' ) ? pixassist_get_content_patterns_applied() : array(),
+				'imports'      => isset( $data['imported'] ) ? $data['imported'] : array(),
+				'starters'     => isset( $data['starters'] ) ? $data['starters'] : array(),
+			),
+			time()
+		);
+
+		if ( null === $entry ) {
+			return null;
+		}
+
+		$library = pixassist_find_overview_tab( $tabs, array( 'design-library', 'starter-sites', 'starter', 'starters' ) );
+
+		return array(
+			'id'     => 'last-change',
+			'label'  => esc_html__( 'Last change', '__plugin_txtd' ),
+			'value'  => $entry['value'],
+			'detail' => '',
+			'tone'   => 'ok',
+			'url'    => $library ? pixassist_overview_tab_url( $library, $base_url ) : $base_url . '&tab=design-library',
+		);
+	}
+}
+
+if ( ! function_exists( 'pixassist_overview_sample_swatches' ) ) {
+	/**
+	 * Keep valid hex colors and sample them evenly down to a display handful. Pure.
+	 *
+	 * @param array $colors Candidate color strings.
+	 * @param int   $count  How many swatches to keep.
+	 *
+	 * @return string[] Up to $count hex colors, source order preserved.
+	 */
+	function pixassist_overview_sample_swatches( $colors, $count = 5 ) {
+		$valid = array();
+		foreach ( (array) $colors as $color ) {
+			if ( is_string( $color ) && preg_match( '/^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/', $color ) ) {
+				$valid[] = $color;
+			}
+		}
+
+		$count = max( 1, (int) $count );
+		$total = count( $valid );
+		if ( $total <= $count ) {
+			return $valid;
+		}
+
+		$sampled = array();
+		for ( $i = 0; $i < $count; $i ++ ) {
+			$sampled[] = $valid[ (int) round( $i * ( $total - 1 ) / ( $count - 1 ) ) ];
+		}
+
+		return $sampled;
+	}
+}
+
+if ( ! function_exists( 'pixassist_get_overview_style_facts' ) ) {
+	/**
+	 * Read the site's current style — Style Manager first, theme.json truth otherwise. Guarded.
+	 *
+	 * Style Manager's derived palette (`sm_get_saved_palettes()`, the Brand Primary group) is the
+	 * live design system when SM is active; without SM, WordPress global settings surface the
+	 * theme.json palette, which is honestly labeled "Theme defaults". Font names are deliberately
+	 * absent for now: SM stores only a preset slug and resolving it to family names needs a small
+	 * SM-side display-safe accessor (cross-repo follow-up).
+	 *
+	 * @return array|null { swatches (string[]), source ('sm'|'theme') }, or null when unreadable.
+	 */
+	function pixassist_get_overview_style_facts() {
+		// Style Manager's live palette.
+		if ( function_exists( 'sm_get_saved_palettes' ) ) {
+			$palettes = sm_get_saved_palettes();
+			if ( is_array( $palettes ) ) {
+				foreach ( $palettes as $palette ) {
+					// SM json-decodes its palettes without assoc, so entries arrive as stdClass.
+					if ( is_object( $palette ) ) {
+						$palette = (array) $palette;
+					}
+
+					// The user's palette group carries a numeric id; semantic groups use '_info' etc.
+					if ( ! is_array( $palette ) || ! isset( $palette['id'] ) || ! is_numeric( $palette['id'] ) ) {
+						continue;
+					}
+
+					$colors   = isset( $palette['colors'] ) && is_array( $palette['colors'] ) ? $palette['colors'] : array();
+					$swatches = pixassist_overview_sample_swatches( $colors );
+					if ( count( $swatches ) < 2 && isset( $palette['source'] ) && is_array( $palette['source'] ) ) {
+						$swatches = pixassist_overview_sample_swatches( $palette['source'] );
+					}
+
+					if ( count( $swatches ) >= 2 ) {
+						return array( 'swatches' => $swatches, 'source' => 'sm' );
+					}
+				}
+			}
+		}
+
+		// Theme truth: the theme.json palette via core global settings.
+		if ( function_exists( 'wp_get_global_settings' ) ) {
+			$palette = wp_get_global_settings( array( 'color', 'palette' ) );
+			$colors  = array();
+
+			if ( is_array( $palette ) ) {
+				// Origin-keyed shape: prefer user customizations, then the theme's own palette —
+				// core defaults are not "your style", so they never power the row.
+				$entries = array();
+				foreach ( array( 'custom', 'theme' ) as $origin ) {
+					if ( ! empty( $palette[ $origin ] ) && is_array( $palette[ $origin ] ) ) {
+						$entries = $palette[ $origin ];
+						break;
+					}
+				}
+				// Flat shape (no origin keys): a plain list of palette entries.
+				if ( empty( $entries ) && isset( $palette[0] ) ) {
+					$entries = $palette;
+				}
+
+				foreach ( $entries as $entry ) {
+					if ( is_array( $entry ) && ! empty( $entry['color'] ) ) {
+						$colors[] = (string) $entry['color'];
+					}
+				}
+			}
+
+			$swatches = pixassist_overview_sample_swatches( $colors );
+			if ( count( $swatches ) >= 2 ) {
+				return array( 'swatches' => $swatches, 'source' => 'theme' );
+			}
+		}
+
+		return null;
+	}
+}
+
+if ( ! function_exists( 'pixassist_get_overview_style_row' ) ) {
+	/**
+	 * The "Your style" row — the user's own palette ("set your style once, everything follows").
+	 *
+	 * Returns null when no truthful palette is readable (row simply absent — never placeholder
+	 * swatches). The row routes to the Design System tab where the style is actually edited.
+	 *
+	 * @param array  $tabs     Normalized hub tabs.
+	 * @param string $base_url Hub page URL.
+	 *
+	 * @return array|null Summary row (with the extra `swatches` key), or null.
+	 */
+	function pixassist_get_overview_style_row( $tabs, $base_url ) {
+		$facts = pixassist_get_overview_style_facts();
+		if ( null === $facts ) {
+			return null;
+		}
+
+		return array(
+			'id'       => 'style',
+			'label'    => esc_html__( 'Your style', '__plugin_txtd' ),
+			'value'    => 'sm' === $facts['source'] ? esc_html__( 'Your palette', '__plugin_txtd' ) : esc_html__( 'Theme defaults', '__plugin_txtd' ),
+			'detail'   => '',
+			'tone'     => 'ok',
+			'url'      => pixassist_overview_tab_url_by_id( $tabs, $base_url, 'styles' ),
+			'swatches' => $facts['swatches'],
+		);
+	}
+}
+
+if ( ! function_exists( 'pixassist_get_overview_diagnostics_parts' ) ) {
+	/**
+	 * Roll the readiness checks (minus the plugins check) into one quiet diagnostics fact. Pure.
+	 *
+	 * The plugins check is excluded because the Site Setup row already owns that fact — one fact
+	 * never appears twice on Home. "No known conflicts" is precise, not a vague all-clear: it means
+	 * no Care conflict, companions within their theme-tested ranges, and no environment blocker.
+	 *
+	 * @param array[] $checks Checks from pixassist_build_setup_checks() (id/status/label/value).
+	 *
+	 * @return array|null { value, detail, tone }, or null when there is nothing to report on.
+	 */
+	function pixassist_get_overview_diagnostics_parts( $checks ) {
+		$relevant = array();
+		foreach ( (array) $checks as $check ) {
+			if ( ! is_array( $check ) || ( isset( $check['id'] ) && 'plugins' === $check['id'] ) ) {
+				continue;
+			}
+			$relevant[] = $check;
+		}
+
+		if ( empty( $relevant ) ) {
+			return null;
+		}
+
+		$blocked  = array();
+		$warnings = array();
+		foreach ( $relevant as $check ) {
+			$status = isset( $check['status'] ) ? (string) $check['status'] : 'ok';
+			if ( 'blocked' === $status ) {
+				$blocked[] = $check;
+			} elseif ( 'warning' === $status ) {
+				$warnings[] = $check;
+			}
+		}
+
+		if ( ! empty( $blocked ) ) {
+			return array(
+				'value'  => esc_html__( 'Needs your attention', '__plugin_txtd' ),
+				'detail' => pixassist_overview_diagnostics_check_summary( $blocked[0] ),
+				'tone'   => 'needs-attention',
+			);
+		}
+
+		if ( ! empty( $warnings ) ) {
+			$count = count( $warnings );
+
+			return array(
+				'value'  => 1 === $count
+					? esc_html__( '1 check to review', '__plugin_txtd' )
+					/* translators: %d: number of readiness checks with warnings (always 2 or more). */
+					: sprintf( esc_html__( '%d checks to review', '__plugin_txtd' ), $count ),
+				'detail' => pixassist_overview_diagnostics_check_summary( $warnings[0] ),
+				'tone'   => 'neutral',
+			);
+		}
+
+		return array(
+			'value'  => esc_html__( 'No known conflicts', '__plugin_txtd' ),
+			'detail' => '',
+			'tone'   => 'ok',
+		);
+	}
+}
+
+if ( ! function_exists( 'pixassist_overview_diagnostics_check_summary' ) ) {
+	/**
+	 * One-line summary of a readiness check ("Companion plugin versions — 1 outside the tested
+	 * range"). Pure.
+	 *
+	 * @param array $check Check descriptor.
+	 *
+	 * @return string
+	 */
+	function pixassist_overview_diagnostics_check_summary( $check ) {
+		$label = isset( $check['label'] ) ? (string) $check['label'] : '';
+		$value = isset( $check['value'] ) ? (string) $check['value'] : '';
+
+		if ( '' !== $label && '' !== $value ) {
+			return $label . ' — ' . $value;
+		}
+
+		return '' !== $value ? $value : $label;
+	}
+}
+
+if ( ! function_exists( 'pixassist_get_overview_diagnostics_row' ) ) {
+	/**
+	 * The "Diagnostics" row — the free tier's promise ("catches problems") as a quiet fact.
+	 *
+	 * Reads the Setup tab's existing readiness engine (setup-readiness.php — real, local checks
+	 * only; no new detection is built here). Absent when the engine is unavailable.
+	 *
+	 * @param array  $tabs     Normalized hub tabs.
+	 * @param string $base_url Hub page URL.
+	 *
+	 * @return array|null Summary row, or null.
+	 */
+	function pixassist_get_overview_diagnostics_row( $tabs, $base_url ) {
+		if ( ! function_exists( 'pixassist_get_setup_readiness_data' ) ) {
+			return null;
+		}
+
+		$readiness = pixassist_get_setup_readiness_data();
+		$checks    = isset( $readiness['checks'] ) && is_array( $readiness['checks'] ) ? $readiness['checks'] : array();
+
+		$parts = pixassist_get_overview_diagnostics_parts( $checks );
+		if ( null === $parts ) {
+			return null;
+		}
+
+		return array(
+			'id'     => 'diagnostics',
+			'label'  => esc_html__( 'Diagnostics', '__plugin_txtd' ),
+			'value'  => $parts['value'],
+			'detail' => $parts['detail'],
+			'tone'   => $parts['tone'],
+			'url'    => pixassist_overview_tab_url_by_id( $tabs, $base_url, 'system-status' ),
+		);
 	}
 }
 

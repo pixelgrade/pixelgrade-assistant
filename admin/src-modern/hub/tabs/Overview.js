@@ -99,6 +99,40 @@ function renderGlanceRow( item, index ) {
 		);
 	}
 
+	// The "Your style" row carries the user's own palette as small swatches before its value.
+	if ( Array.isArray( item.swatches ) && item.swatches.length ) {
+		valueChildren.push(
+			createElement(
+				'span',
+				{
+					key: 'swatches',
+					'aria-hidden': true,
+					style: {
+						alignItems: 'center',
+						alignSelf: 'center',
+						display: 'inline-flex',
+						flex: '0 0 auto',
+						gap: '4px',
+						marginRight: '8px',
+					},
+				},
+				item.swatches.map( ( color, index ) =>
+					createElement( 'span', {
+						key: index,
+						style: {
+							background: color,
+							border: '1px solid rgba(0, 0, 0, .14)',
+							borderRadius: '3px',
+							display: 'block',
+							height: '14px',
+							width: '14px',
+						},
+					} )
+				)
+			)
+		);
+	}
+
 	valueChildren.push(
 		createElement( 'span', { key: 'value', style: { color: '#1d2327' } }, item.value || '—' )
 	);

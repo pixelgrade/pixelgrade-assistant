@@ -6723,6 +6723,15 @@ HTML;
 			// imported (the reset feature needs that), so it must not double as the active-site marker.
 			PixelgradeAssistant_Admin::set_option( 'active_starter', $demo_key );
 
+			// Date the journal entry so Home can say when the site started from this design. Only an
+			// entry the import actually wrote gets a date — re-imports refresh it.
+			$journal = PixelgradeAssistant_Admin::get_option( 'imported_starter_content', array() );
+			if ( is_array( $journal ) && isset( $journal[ $demo_key ] ) && is_array( $journal[ $demo_key ] ) ) {
+				$journal[ $demo_key ]['importedAt'] = time();
+				PixelgradeAssistant_Admin::set_option( 'imported_starter_content', $journal );
+			}
+			PixelgradeAssistant_Admin::save_options();
+
 			return array(
 				'code'    => 'success',
 				'message' => esc_html__( 'Starter content imported.', '__plugin_txtd' ),

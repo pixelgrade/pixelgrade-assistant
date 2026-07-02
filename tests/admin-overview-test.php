@@ -25,13 +25,14 @@ define( 'ABSPATH', __DIR__ . '/' );
 
 define( 'PIXELGRADE_ASSISTANT__SHOP_BASE', 'https://pixelgrade.com/' );
 
-$GLOBALS['paf_filters']        = array();
-$GLOBALS['paf_denied_caps']    = array();
-$GLOBALS['paf_is_block_theme'] = false;
-$GLOBALS['paf_plugins_data']   = array( 'plugins' => array( array( 'slug' => 'fixture', 'status' => 'missing' ) ) );
-$GLOBALS['paf_starter_data']   = array();
-$GLOBALS['paf_layout_data']    = array();
-$GLOBALS['paf_account']        = array( 'is_connected' => false );
+$GLOBALS['paf_filters']         = array();
+$GLOBALS['paf_denied_caps']     = array();
+$GLOBALS['paf_is_block_theme']  = false;
+$GLOBALS['paf_plugins_data']    = array( 'plugins' => array( array( 'slug' => 'fixture', 'status' => 'missing' ) ) );
+$GLOBALS['paf_starter_data']    = array();
+$GLOBALS['paf_layout_data']     = array();
+$GLOBALS['paf_account']         = array( 'is_connected' => false );
+$GLOBALS['paf_global_settings'] = array();
 
 function add_filter( $hook, $callback, $priority = 10, $args = 1 ) {
 	$GLOBALS['paf_filters'][ $hook ][] = $callback;
@@ -82,6 +83,12 @@ function wp_is_block_theme() {
 	return ! empty( $GLOBALS['paf_is_block_theme'] );
 }
 
+// Core global-settings fixture (the "Your style" row's theme.json fallback). Defaults to an empty
+// palette so the style row stays absent unless a case opts in.
+function wp_get_global_settings( $path = array() ) {
+	return $GLOBALS['paf_global_settings'];
+}
+
 function __( $text, $domain = 'default' ) {
 	return $text;
 }
@@ -91,13 +98,14 @@ function esc_html__( $text, $domain = 'default' ) {
 }
 
 function paf_reset() {
-	$GLOBALS['paf_filters']        = array();
-	$GLOBALS['paf_denied_caps']    = array();
-	$GLOBALS['paf_is_block_theme'] = false;
-	$GLOBALS['paf_plugins_data']   = array( 'plugins' => array( array( 'slug' => 'fixture', 'status' => 'missing' ) ) );
-	$GLOBALS['paf_starter_data']   = array();
-	$GLOBALS['paf_layout_data']    = array();
-	$GLOBALS['paf_account']        = array( 'is_connected' => false );
+	$GLOBALS['paf_filters']         = array();
+	$GLOBALS['paf_denied_caps']     = array();
+	$GLOBALS['paf_is_block_theme']  = false;
+	$GLOBALS['paf_plugins_data']    = array( 'plugins' => array( array( 'slug' => 'fixture', 'status' => 'missing' ) ) );
+	$GLOBALS['paf_starter_data']    = array();
+	$GLOBALS['paf_layout_data']     = array();
+	$GLOBALS['paf_account']         = array( 'is_connected' => false );
+	$GLOBALS['paf_global_settings'] = array();
 }
 
 /**
@@ -329,7 +337,8 @@ assert_true( ! array_key_exists( 'nextAction', $overview ), 'Home no longer comp
 assert_true( ! array_key_exists( 'safety', $overview ), 'Home no longer ships a safety-notes block.' );
 
 $starter_summary = paf_find_summary_item( $overview['stateSummary'], 'starter' );
-assert_same( 'Ready to choose', $starter_summary['value'], 'With starters available and none imported the starter row reads Ready to choose.' );
+assert_same( 'Started from', $starter_summary['label'], 'The starter row speaks the homepage vocabulary: its label is "Started from" (the id stays `starter`).' );
+assert_same( 'Ready to choose a design', $starter_summary['value'], 'With starters available and none imported the Started-from row reads Ready to choose a design.' );
 assert_same( '', $starter_summary['detail'], 'The steady starter row carries no teaching detail.' );
 
 $library = paf_find_link( $overview['links'], 'design-library' );
@@ -410,7 +419,7 @@ $overview = pixassist_get_overview_data();
 assert_same( array( 'theme', 'setup', 'starter', 'account', 'plus' ), array_column( $overview['stateSummary'], 'id' ), 'With Plus installed the At a glance rows are theme/setup/starter/account/plus.' );
 
 $starter_summary = paf_find_summary_item( $overview['stateSummary'], 'starter' );
-assert_same( 'Felt LT applied', $starter_summary['value'], 'Starter row should name the active starter when known.' );
+assert_same( 'Felt LT', $starter_summary['value'], 'The Started-from row names the active design; an import that predates the importedAt journal field stays undated (never a fabricated date).' );
 
 assert_same( null, paf_find_summary_item( $overview['stateSummary'], 'layouts' ), 'Home carries no Site Parts inventory row — the Design Library owns it.' );
 assert_same( null, paf_find_summary_item( $overview['stateSummary'], 'content' ), 'Home carries no Content inventory row — the Design Library owns it.' );
@@ -456,7 +465,7 @@ assert_same( 'No plugin requirements', $setup_summary['value'], 'No recommended 
 assert_same( 'ok', $setup_summary['tone'], 'No plugin requirements is a quiet state.' );
 
 $starter_summary = paf_find_summary_item( $overview['stateSummary'], 'starter' );
-assert_same( 'No starters available', $starter_summary['value'], 'A theme without starters reads as a plain fact.' );
+assert_same( 'No designs available', $starter_summary['value'], 'A theme without starters reads as a plain fact, in design vocabulary.' );
 
 $account_summary = paf_find_summary_item( $overview['stateSummary'], 'account' );
 assert_same( 'Connected as test@example.test', $account_summary['value'], 'The connected account row carries the identity as its value.' );
@@ -636,5 +645,189 @@ assert_same( '', $onboarding['dismissEndpoint']['url'], 'The dismiss endpoint ur
 // 6h. demosCount degrades to 0 when the Starter Sites module is absent (this harness). It drives the
 //     "Set up my site" action: 1 ⇒ import inline, >1 ⇒ route to the Starter Sites tab to choose.
 assert_same( 0, $onboarding['demosCount'], 'demosCount degrades to 0 without the Starter Sites module.' );
+
+/*
+ * 10. Promise rows (#hub-home-promises): "Your style", "Last change", and "Diagnostics" are
+ *     conditional quiet facts — absent unless backed by real data, never placeholder rows.
+ */
+
+// 10a. Relative time: calm, coarse, plural-safe buckets.
+$now = 1750000000;
+assert_same( 'today', pixassist_overview_relative_time( $now - 3600, $now ), 'Under a day reads today.' );
+assert_same( 'yesterday', pixassist_overview_relative_time( $now - 30 * 3600, $now ), 'Between 1 and 2 days reads yesterday.' );
+assert_same( '3 days ago', pixassist_overview_relative_time( $now - 3 * 86400, $now ), 'Days bucket.' );
+assert_same( '3 weeks ago', pixassist_overview_relative_time( $now - 22 * 86400, $now ), 'Weeks bucket.' );
+assert_same( '3 months ago', pixassist_overview_relative_time( $now - 100 * 86400, $now ), 'Months bucket.' );
+assert_same( 'a year ago', pixassist_overview_relative_time( $now - 400 * 86400, $now ), 'A single year is phrased, not numbered.' );
+assert_same( '2 years ago', pixassist_overview_relative_time( $now - 800 * 86400, $now ), 'Years bucket.' );
+
+// 10b. The Started-from value dates the import when the journal knows (injectable clock).
+assert_same(
+	'Rosa LT · 3 weeks ago',
+	pixassist_get_overview_starter_state_value(
+		array( 'has_imported' => true, 'active_title' => 'Rosa LT', 'imported_at' => $now - 22 * 86400 ),
+		$now
+	),
+	'A dated import reads "<design> · <relative time>".'
+);
+assert_same(
+	'Rosa LT',
+	pixassist_get_overview_starter_state_value( array( 'has_imported' => true, 'active_title' => 'Rosa LT', 'imported_at' => 0 ), $now ),
+	'An undated import reads the design name alone.'
+);
+
+// 10c. Last change: newest dated entry wins across journals; undated imports are skipped.
+$last_change = pixassist_get_overview_last_change_entry(
+	array(
+		'layoutUnits'  => array(
+			'wp_template_part:header' => array( 'title' => 'Pile LT Header', 'appliedAt' => $now - 86400 - 3600 ),
+		),
+		'contentUnits' => array(
+			'page:recipes' => array( 'title' => 'Recipes Page', 'appliedAt' => $now - 5 * 86400 ),
+		),
+		'recipes'      => array(),
+		'imports'      => array(
+			'felt-lt' => array( 'post_types' => array() ), // undated (pre-importedAt) — skipped.
+			'rosa-lt' => array( 'importedAt' => $now - 20 * 86400 ),
+		),
+		'starters'     => array( array( 'id' => 'rosa-lt', 'title' => 'Rosa LT' ) ),
+	),
+	$now
+);
+assert_same( 'Pile LT Header applied · yesterday', $last_change['value'], 'The newest dated change wins and carries the calm relative time.' );
+
+assert_same(
+	null,
+	pixassist_get_overview_last_change_entry(
+		array( 'imports' => array( 'felt-lt' => array( 'post_types' => array() ) ) ),
+		$now
+	),
+	'No dated journal entry => no Last change row (undated history is never guessed).'
+);
+
+// 10d. Swatch sampling: invalid values dropped, long palettes sampled evenly, short ones kept.
+assert_same(
+	array( '#111111', '#333333', '#555555' ),
+	pixassist_overview_sample_swatches( array( '#111111', 'oops', '#333333', 'var(--x)', '#555555' ) ),
+	'Only valid hex colors survive; short lists pass through.'
+);
+assert_same(
+	array( '#000000', '#333333', '#666666', '#888888', '#cccccc' ),
+	pixassist_overview_sample_swatches(
+		array( '#000000', '#111111', '#222222', '#333333', '#444444', '#555555', '#666666', '#777777', '#888888', '#999999', '#aaaaaa', '#cccccc' ),
+		5
+	),
+	'Long palettes sample evenly from first to last.'
+);
+
+// 10e. Diagnostics parts: the plugins check is excluded (Site Setup owns it); tones map to the
+//      calm contract (ok / neutral-with-detail / needs-attention only when blocked).
+$paf_checks_ok = array(
+	array( 'id' => 'care', 'status' => 'ok', 'label' => 'Plugin coexistence', 'value' => 'No conflicting Pixelgrade plugins' ),
+	array( 'id' => 'plugins', 'status' => 'blocked', 'label' => 'Recommended plugins', 'value' => '0 of 2 active' ),
+	array( 'id' => 'companions', 'status' => 'ok', 'label' => 'Companion plugin versions', 'value' => 'Within the versions your theme is tested against' ),
+);
+$parts = pixassist_get_overview_diagnostics_parts( $paf_checks_ok );
+assert_same( 'No known conflicts', $parts['value'], 'All non-plugin checks ok => No known conflicts (the blocked plugins check is Site Setup business, not Diagnostics).' );
+assert_same( 'ok', $parts['tone'], 'A clean diagnostics row stays quiet.' );
+assert_same( '', $parts['detail'], 'A clean diagnostics row carries no detail line.' );
+
+$parts = pixassist_get_overview_diagnostics_parts( array(
+	array( 'id' => 'care', 'status' => 'ok', 'label' => 'Plugin coexistence', 'value' => 'No conflicting Pixelgrade plugins' ),
+	array( 'id' => 'companions', 'status' => 'warning', 'label' => 'Companion plugin versions', 'value' => '1 outside the tested range' ),
+) );
+assert_same( '1 check to review', $parts['value'], 'A single warning reads as one check to review.' );
+assert_same( 'neutral', $parts['tone'], 'Warnings never raise the needs-attention tone.' );
+assert_same( 'Companion plugin versions — 1 outside the tested range', $parts['detail'], 'The detail names the specific finding.' );
+
+$parts = pixassist_get_overview_diagnostics_parts( array(
+	array( 'id' => 'care', 'status' => 'blocked', 'label' => 'Plugin coexistence', 'value' => 'Pixelgrade Care is active' ),
+) );
+assert_same( 'Needs your attention', $parts['value'], 'A blocked check asks for attention.' );
+assert_same( 'needs-attention', $parts['tone'], 'Only blocked checks may raise the amber tone.' );
+
+assert_same( null, pixassist_get_overview_diagnostics_parts( array() ), 'No checks => no diagnostics row.' );
+
+// 10f. Through the full payload: a dated layout unit surfaces the Last change row (routed to the
+//      Design Library) and a theme.json palette surfaces the Your style row with swatches.
+paf_reset();
+add_filter( 'pixelgrade/admin_hub/tabs', 'pixassist_register_overview_tab' );
+add_filter( 'pixelgrade/admin_hub/tabs', 'pixassist_register_styles_tab' );
+add_filter(
+	'pixelgrade/admin_hub/tabs',
+	function ( $tabs ) {
+		$tabs[] = array( 'id' => 'design-library', 'label' => 'Design Library', 'component' => 'designLibrary', 'order' => 30 );
+
+		return $tabs;
+	}
+);
+$GLOBALS['paf_starter_data'] = array(
+	'starters' => array( array( 'id' => 'felt-lt', 'title' => 'Felt LT' ) ),
+	'imported' => array( 'felt-lt' => array( 'post_types' => array( 'page' => array( 12 ) ) ) ),
+	'applied'  => array(
+		'activeStarter' => 'felt-lt',
+		'layoutUnits'   => array(
+			'wp_template_part:header' => array( 'title' => 'Felt Header', 'appliedAt' => time() - 3 * 86400 ),
+		),
+		'recipes'       => array(),
+	),
+	'siteAnalysis' => array( 'contentCount' => 3 ),
+);
+$GLOBALS['paf_global_settings'] = array(
+	'theme' => array(
+		array( 'color' => '#eef0ea', 'name' => 'Base', 'slug' => 'base' ),
+		array( 'color' => '#dcdfd3', 'name' => 'Tertiary', 'slug' => 'tertiary' ),
+		array( 'color' => '#5663d5', 'name' => 'Primary', 'slug' => 'primary' ),
+	),
+);
+
+$overview = pixassist_get_overview_data();
+
+$style_summary = paf_find_summary_item( $overview['stateSummary'], 'style' );
+assert_true( null !== $style_summary, 'A readable palette earns the Your style row.' );
+assert_same( 'Theme defaults', $style_summary['value'], 'Without Style Manager the row is honestly labeled Theme defaults.' );
+assert_same( array( '#eef0ea', '#dcdfd3', '#5663d5' ), $style_summary['swatches'], 'The row carries the theme.json palette as swatches.' );
+assert_same( 'https://example.test/wp-admin/themes.php?page=pixelgrade&tab=styles', $style_summary['url'], 'The style row routes to the Design System tab.' );
+assert_same( 'ok', $style_summary['tone'], 'The style row is a quiet fact.' );
+
+$last_change_summary = paf_find_summary_item( $overview['stateSummary'], 'last-change' );
+assert_true( null !== $last_change_summary, 'A dated journal entry earns the Last change row.' );
+assert_same( 'Felt Header applied · 3 days ago', $last_change_summary['value'], 'The Last change row states the newest dated change.' );
+assert_same( 'https://example.test/wp-admin/themes.php?page=pixelgrade&tab=design-library', $last_change_summary['url'], 'The Last change row routes to the Design Library.' );
+
+assert_same(
+	array( 'theme', 'setup', 'starter', 'style', 'last-change', 'account' ),
+	array_column( $overview['stateSummary'], 'id' ),
+	'Row order: theme, setup, started-from, style, last-change, (diagnostics when readable,) account.'
+);
+
+// The diagnostics row stays absent in this harness (setup-readiness is not loaded) — the row only
+// exists when the real readiness engine is available; its logic is pinned in 10e.
+assert_same( null, paf_find_summary_item( $overview['stateSummary'], 'diagnostics' ), 'No readiness engine => no Diagnostics row (never a hollow claim).' );
+
+// 10g. The style row is absent when no truthful palette exists — never placeholder swatches.
+$GLOBALS['paf_global_settings'] = array();
+$overview = pixassist_get_overview_data();
+assert_same( null, paf_find_summary_item( $overview['stateSummary'], 'style' ), 'No readable palette => no Your style row.' );
+
+// 10h. The Overview JS renders the swatches affordance for the style row.
+assert_true( false !== strpos( $overview_js, 'item.swatches' ), 'Glance rows must render the style row palette swatches.' );
+
+// 10i. Style Manager palettes arrive as stdClass entries (SM json-decodes without assoc) — the
+//      reader must handle objects, prefer the Brand group's grades, and win over theme.json.
+//      Defined conditionally so the fixture only exists from this point on (no hoisting).
+if ( ! function_exists( 'sm_get_saved_palettes' ) ) {
+	function sm_get_saved_palettes() {
+		return json_decode( '[{"id":1,"label":"Brand Primary","source":["#FFE01B","#ffffff","#000000"],"colors":["#fffdf0","#ffe01b","#8a7a0e","#000000"]},{"id":"_info","colors":["#0000ff"]}]' );
+	}
+}
+$facts = pixassist_get_overview_style_facts();
+assert_same( 'sm', $facts['source'], 'With Style Manager readable the row reads the live SM palette.' );
+assert_same( array( '#fffdf0', '#ffe01b', '#8a7a0e', '#000000' ), $facts['swatches'], 'The SM branch samples the Brand group grades (stdClass entries handled).' );
+
+$GLOBALS['paf_global_settings'] = array();
+$overview = pixassist_get_overview_data();
+$style_summary = paf_find_summary_item( $overview['stateSummary'], 'style' );
+assert_same( 'Your palette', $style_summary['value'], 'With SM readable the row is labeled Your palette.' );
 
 echo "Admin overview data OK\n";

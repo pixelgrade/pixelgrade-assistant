@@ -185,6 +185,10 @@ class PixelgradeAssistant_Admin {
 		$GLOBALS['paf_options'][ $key ] = $value;
 	}
 
+	public static function save_options() {
+		return true;
+	}
+
 	public static function get_theme_support() {
 		return array(
 			'theme_name'  => 'anima-lt',
@@ -381,7 +385,7 @@ $GLOBALS['paf_options']['imported_starter_content'] = array(
 $payload = pixassist_get_starter_sites_data();
 $keys    = array_keys( $payload );
 sort( $keys );
-assert_same( array( 'applied', 'copy', 'endpoints', 'imported', 'plus', 'siteAnalysis', 'starters' ), $keys, 'Starter Sites payload must expose starters, site analysis, unified applied state, endpoints, imported, and Plus state.' );
+assert_same( array( 'applied', 'collectionNews', 'copy', 'endpoints', 'imported', 'plus', 'siteAnalysis', 'starters' ), $keys, 'Starter Sites payload must expose starters, site analysis, unified applied state, endpoints, imported, collection news, and Plus state.' );
 assert_same( 4, count( $payload['starters'] ), 'Payload starters must come from the same normalized free + injected list.' );
 assert_same( 'Starter Sites', $payload['copy']['title'], 'Payload copy must include a tab title.' );
 assert_same( 'Pick a free starter design, then choose how much of it to apply. (“LT” is our Anima LT theme line — each starter is built on it.)', $payload['copy']['description'], 'Starter Sites description must frame the gallery as a chooser (not a legacy demo-content import) and explain the "LT" lineage naming. Quotes must be curly so esc_html does not emit &quot; into React text.' );
@@ -412,6 +416,33 @@ assert_same( 'https://example.test/wp-json/pixassist/v1/import_starter', $payloa
 assert_same( 'https://example.test/wp-json/pixassist/v1/apply_recipe', $payload['endpoints']['applyRecipe']['url'], 'Payload must expose the recipe apply endpoint for layout-only starter actions.' );
 assert_same( 'https://example.test/wp-json/pixassist/v1/import_unit', $payload['endpoints']['importUnit']['url'], 'Payload must expose the layout-unit endpoint for feature starter actions.' );
 assert_same( true, $payload['imported']['main']['pre_settings'], 'Payload must include existing starter import state.' );
+
+/*
+ * "New in the collection" (Design Library note): first observation seeds the baseline SILENTLY —
+ * an existing catalog is never announced as new; only designs that arrive after the baseline are.
+ */
+assert_same( array( 'new' => array() ), $payload['collectionNews'], 'The first-ever observation announces nothing (baseline seeding, the honesty guard).' );
+$seeded = $GLOBALS['paf_options']['seen_starters'];
+sort( $seeded );
+assert_same( 4, count( $seeded ), 'Baseline seeding records every current design id as seen.' );
+assert_true( in_array( 'main', $seeded, true ), 'The seeded baseline contains the current design ids.' );
+
+// A design that arrives after the baseline is news — by id, display-only.
+$news = pixassist_get_collection_news( array_merge(
+	pixassist_get_admin_hub_starters(),
+	array( array( 'id' => 'julia-lt', 'title' => 'Julia LT', 'url' => 'https://demos.example.test/julia/' ) )
+) );
+assert_same( array( 'julia-lt' ), $news['new'], 'A design added after the baseline is reported as new.' );
+
+// An empty collection (config outage / no-demos theme) never touches the baseline, never reports.
+$before = $GLOBALS['paf_options']['seen_starters'];
+assert_same( array( 'new' => array() ), pixassist_get_collection_news( array() ), 'An empty collection reports no news.' );
+assert_same( $before, $GLOBALS['paf_options']['seen_starters'], 'An empty collection must not rewrite the seen baseline.' );
+
+// The mark-seen union: ids stay seen even if later removed from the collection (no re-announce).
+assert_same( array( 'a', 'b' ), pixassist_collection_news_new_ids( array( 'a', 'b', 'c' ), array( 'c' ) ), 'The pure diff reports only unseen ids.' );
+
+assert_same( 'https://example.test/wp-json/pixassist/v1/collection_seen', $payload['endpoints']['collectionSeen']['url'], 'Payload must expose the collection-seen endpoint for the mount ping.' );
 assert_same( true, $payload['applied']['fullDemos']['main']['pre_settings'], 'Unified applied state must expose imported full demos.' );
 assert_same( 'already-imported', $payload['siteAnalysis']['classification'], 'Starter Sites payload must expose already-imported state when the journal exists.' );
 assert_same( true, $payload['siteAnalysis']['hasImportedStarterContent'], 'Payload site analysis must expose the starter journal flag.' );

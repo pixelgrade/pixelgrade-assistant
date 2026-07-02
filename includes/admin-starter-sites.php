@@ -53,13 +53,16 @@ if ( ! function_exists( 'pixassist_get_starter_sites_data' ) ) {
 	 * }
 	 */
 	function pixassist_get_starter_sites_data() {
+		$starters = pixassist_get_admin_hub_starters();
+
 		return array(
-			'starters'  => pixassist_get_admin_hub_starters(),
+			'starters'  => $starters,
 			'siteAnalysis' => pixassist_get_starter_site_analysis(),
 			'copy'      => pixassist_get_starter_sites_copy( pixassist_get_starter_sites_config() ),
 			'endpoints' => pixassist_get_starter_sites_endpoints(),
 			'imported'  => pixassist_get_starter_sites_imported_state(),
 			'applied'   => pixassist_get_starter_sites_applied_state(),
+			'collectionNews' => pixassist_get_collection_news( $starters ),
 			'plus'      => function_exists( 'pixassist_get_plus_status' ) ? pixassist_get_plus_status() : array(
 				'is_plus_active'     => false,
 				'is_plus_licensed'   => false,
@@ -67,6 +70,116 @@ if ( ! function_exists( 'pixassist_get_starter_sites_data' ) ) {
 				'plus_product_label' => 'Pixelgrade Plus',
 			),
 		);
+	}
+}
+
+if ( ! function_exists( 'pixassist_get_seen_starter_ids' ) ) {
+	/**
+	 * The persisted set of starter/design ids this site has already seen in the collection.
+	 *
+	 * `null` means the marker has never been seeded — a meaningfully different state from an empty
+	 * list: it triggers the silent baseline seeding so an existing catalog is never announced as
+	 * "new" on first render (the honesty guard).
+	 *
+	 * @return string[]|null Sanitized ids, or null when never seeded.
+	 */
+	function pixassist_get_seen_starter_ids() {
+		if ( ! class_exists( 'PixelgradeAssistant_Admin' ) || ! method_exists( 'PixelgradeAssistant_Admin', 'get_option' ) ) {
+			return null;
+		}
+
+		$seen = PixelgradeAssistant_Admin::get_option( 'seen_starters', null );
+		if ( ! is_array( $seen ) ) {
+			return null;
+		}
+
+		$ids = array();
+		foreach ( $seen as $id ) {
+			$id = function_exists( 'sanitize_key' ) ? sanitize_key( (string) $id ) : strtolower( (string) $id );
+			if ( '' !== $id ) {
+				$ids[] = $id;
+			}
+		}
+
+		return array_values( array_unique( $ids ) );
+	}
+}
+
+if ( ! function_exists( 'pixassist_save_seen_starter_ids' ) ) {
+	/**
+	 * Persist the seen-starters set inside `pixassist_options`.
+	 *
+	 * @param string[] $ids Starter ids.
+	 *
+	 * @return bool
+	 */
+	function pixassist_save_seen_starter_ids( $ids ) {
+		if ( ! class_exists( 'PixelgradeAssistant_Admin' )
+			|| ! method_exists( 'PixelgradeAssistant_Admin', 'set_option' )
+			|| ! method_exists( 'PixelgradeAssistant_Admin', 'save_options' ) ) {
+			return false;
+		}
+
+		PixelgradeAssistant_Admin::set_option( 'seen_starters', array_values( array_unique( (array) $ids ) ) );
+
+		return false !== PixelgradeAssistant_Admin::save_options();
+	}
+}
+
+if ( ! function_exists( 'pixassist_collection_news_new_ids' ) ) {
+	/**
+	 * Which current collection ids the site has not seen yet. Pure.
+	 *
+	 * @param string[] $current_ids Current normalized starter ids.
+	 * @param string[] $seen_ids    Previously seen ids.
+	 *
+	 * @return string[]
+	 */
+	function pixassist_collection_news_new_ids( $current_ids, $seen_ids ) {
+		return array_values( array_diff( (array) $current_ids, (array) $seen_ids ) );
+	}
+}
+
+if ( ! function_exists( 'pixassist_get_collection_news' ) ) {
+	/**
+	 * The quiet "new in the collection" payload for the Design Library ("the collection keeps
+	 * growing" made visible where collection news is contextual — never a Home interruption).
+	 *
+	 * Honesty rules: the first-ever observation seeds the baseline silently (announce nothing);
+	 * an empty starters list (config outage, no-demos theme) never touches the baseline and never
+	 * reports news; ids stay in the seen set once recorded, so a removed-then-restored design does
+	 * not re-announce.
+	 *
+	 * @param array[]|null $starters Normalized starters, or null to read them fresh.
+	 *
+	 * @return array { new: string[] }
+	 */
+	function pixassist_get_collection_news( $starters = null ) {
+		if ( null === $starters ) {
+			$starters = function_exists( 'pixassist_get_admin_hub_starters' ) ? pixassist_get_admin_hub_starters() : array();
+		}
+
+		$current = array();
+		foreach ( (array) $starters as $starter ) {
+			if ( is_array( $starter ) && ! empty( $starter['id'] ) ) {
+				$current[] = (string) $starter['id'];
+			}
+		}
+
+		if ( empty( $current ) ) {
+			return array( 'new' => array() );
+		}
+
+		$seen = pixassist_get_seen_starter_ids();
+
+		// First observation ever: seed the baseline silently — the existing catalog is not news.
+		if ( null === $seen ) {
+			pixassist_save_seen_starter_ids( $current );
+
+			return array( 'new' => array() );
+		}
+
+		return array( 'new' => pixassist_collection_news_new_ids( $current, $seen ) );
 	}
 }
 
@@ -945,12 +1058,16 @@ if ( ! function_exists( 'pixassist_get_starter_sites_endpoints' ) ) {
 					'method' => 'POST',
 					'url'    => function_exists( 'rest_url' ) ? pixassist_starter_sites_esc_url_raw( rest_url( 'pixassist/v1/upload_media' ) ) : '',
 				),
+				'collectionSeen' => array(
+					'method' => 'POST',
+					'url'    => function_exists( 'rest_url' ) ? pixassist_starter_sites_esc_url_raw( rest_url( 'pixassist/v1/collection_seen' ) ) : '',
+				),
 		);
 
 		if ( class_exists( 'PixelgradeAssistant_Admin' )
 			&& isset( PixelgradeAssistant_Admin::$internalApiEndpoints )
 			&& is_array( PixelgradeAssistant_Admin::$internalApiEndpoints ) ) {
-				foreach ( array( 'import', 'importStarter', 'applyRecipe', 'importUnit', 'uploadMedia' ) as $key ) {
+				foreach ( array( 'import', 'importStarter', 'applyRecipe', 'importUnit', 'uploadMedia', 'collectionSeen' ) as $key ) {
 					if ( ! empty( PixelgradeAssistant_Admin::$internalApiEndpoints[ $key ] ) && is_array( PixelgradeAssistant_Admin::$internalApiEndpoints[ $key ] ) ) {
 						$endpoints[ $key ] = PixelgradeAssistant_Admin::$internalApiEndpoints[ $key ];
 					}

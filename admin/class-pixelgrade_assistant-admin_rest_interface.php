@@ -97,6 +97,15 @@ class PixelgradeAssistant_AdminRestInterface {
 			'permission_callback' => array( $this, 'permission_nonce_callback' ),
 			'show_in_index'       => false, // We don't need others to know about this (API discovery)
 		) );
+
+		// Design Library "new in the collection": record the current designs as seen so the quiet
+		// "New" note shows once and then stays quiet.
+		register_rest_route( $namespace, '/collection_seen', array(
+			'methods'             => WP_REST_Server::CREATABLE,
+			'callback'            => array( $this, 'mark_collection_seen' ),
+			'permission_callback' => array( $this, 'permission_nonce_callback' ),
+			'show_in_index'       => false, // We don't need others to know about this (API discovery)
+		) );
 	}
 
 	/**
@@ -134,6 +143,49 @@ class PixelgradeAssistant_AdminRestInterface {
 			'message' => esc_html__( 'Guide dismissed.', '__plugin_txtd' ),
 			'data'    => array(
 				'dismissed' => true,
+			),
+		) );
+	}
+
+	/**
+	 * Record the current collection (normalized starter ids) as seen.
+	 *
+	 * Writes only into `pixassist_options['seen_starters']`. Ids are merged (union), never pruned —
+	 * a design removed from the collection and later restored must not re-announce as new.
+	 *
+	 * @param WP_REST_Request $request Request object.
+	 *
+	 * @return WP_REST_Response
+	 */
+	public function mark_collection_seen( $request ) {
+
+		$current = array();
+		if ( function_exists( 'pixassist_get_admin_hub_starters' ) ) {
+			foreach ( pixassist_get_admin_hub_starters() as $starter ) {
+				if ( is_array( $starter ) && ! empty( $starter['id'] ) ) {
+					$current[] = sanitize_key( (string) $starter['id'] );
+				}
+			}
+		}
+
+		$seen = function_exists( 'pixassist_get_seen_starter_ids' ) ? pixassist_get_seen_starter_ids() : null;
+		$seen = is_array( $seen ) ? $seen : array();
+
+		$merged = array_values( array_unique( array_merge( $seen, $current ) ) );
+
+		if ( ! function_exists( 'pixassist_save_seen_starter_ids' ) || ! pixassist_save_seen_starter_ids( $merged ) ) {
+			return rest_ensure_response( array(
+				'code'    => 'error_saving',
+				'message' => esc_html__( 'Something went wrong. Could not record the collection as seen.', '__plugin_txtd' ),
+				'data'    => array(),
+			) );
+		}
+
+		return rest_ensure_response( array(
+			'code'    => 'success',
+			'message' => esc_html__( 'Collection recorded as seen.', '__plugin_txtd' ),
+			'data'    => array(
+				'seenCount' => count( $merged ),
 			),
 		) );
 	}
