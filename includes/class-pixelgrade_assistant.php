@@ -244,6 +244,13 @@ class PixelgradeAssistant {
 		require_once plugin_dir_path( $this->file ) . 'includes/onboarding-redirect.php';
 
 		/**
+		 * Starter cleanup: trash the default WordPress sample content ("Hello world!" post,
+		 * "Sample Page") after a full-demo import, so a launched site does not ship the samples
+		 * the demo never had. Self-contained; hooks `pixassist_sce_import_end`.
+		 */
+		require_once plugin_dir_path( $this->file ) . 'includes/starter-cleanup.php';
+
+		/**
 		 * Fires once Pixelgrade Assistant has loaded all of its core modules.
 		 *
 		 * This is the extension point for companion plugins (e.g. Pixelgrade Plus): hook in here to
