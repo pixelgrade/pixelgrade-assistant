@@ -12,6 +12,7 @@ import { Overview } from './Overview';
 import { Styles } from './Styles';
 import { Account } from './Account';
 import { Plugins } from './Plugins';
+import { DesignLibrary } from './DesignLibrary';
 import { StarterSites } from './StarterSites';
 import { Recipes } from './Recipes';
 import { LayoutUnits } from './LayoutUnits';
@@ -47,6 +48,14 @@ addFilter( 'pixelgrade.adminHub.tabs', 'pixelgrade-assistant/plugins', ( map ) =
 
 	return map;
 }, 100 );
+
+// The merged Design Library tab hosts the former Starter Sites / Site Parts (layouts) /
+// Page Patterns tabs as sections routed via ?tab=design-library&section=….
+addFilter( 'pixelgrade.adminHub.tabs', 'pixelgrade-assistant/design-library', ( map ) => {
+	map.designLibrary = { component: DesignLibrary };
+
+	return map;
+} );
 
 addFilter( 'pixelgrade.adminHub.tabs', 'pixelgrade-assistant/starter-sites', ( map ) => {
 	map.starterSites = { component: StarterSites };

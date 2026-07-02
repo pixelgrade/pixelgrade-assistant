@@ -20,25 +20,21 @@ require_once __DIR__ . '/starter-segments.php';
 
 if ( ! function_exists( 'pixassist_register_starter_sites_tab' ) ) {
 	/**
-	 * Register the mixed Starter Sites tab on the Appearance -> Pixelgrade hub registry.
+	 * Preserve the legacy registration callback without exposing Starter Sites in navigation.
+	 *
+	 * Starter Sites now surface as a section of the merged Design Library tab
+	 * (`?tab=design-library&section=starter-sites`; legacy `?tab=starter-sites` links are aliased —
+	 * see pixassist_get_admin_hub_data()). The payload and REST descriptors below remain available;
+	 * this callback no longer appends a visible hub tab.
 	 *
 	 * @param array $tabs Tab descriptors collected so far.
 	 *
-	 * @return array Tab descriptors with the Starter Sites tab appended.
+	 * @return array Unchanged tab descriptors.
 	 */
 	function pixassist_register_starter_sites_tab( $tabs ) {
 		if ( ! is_array( $tabs ) ) {
 			$tabs = array();
 		}
-
-		$tabs[] = array(
-			'id'         => 'starter-sites',
-			'label'      => esc_html__( 'Starter Sites', '__plugin_txtd' ),
-			'capability' => 'edit_theme_options',
-			'component'  => 'starterSites',
-			'gate'       => '',
-			'order'      => 30,
-		);
 
 		return $tabs;
 	}
@@ -354,7 +350,14 @@ if ( ! function_exists( 'pixassist_get_starter_site_analysis' ) ) {
 
 		$imported_starter_content = pixassist_get_starter_sites_imported_state();
 		$has_imported            = ! empty( $imported_starter_content );
+		$is_fresh_site           = function_exists( 'get_option' ) ? (bool) get_option( 'fresh_site', false ) : false;
 		$content_threshold        = (int) apply_filters( 'pixassist_starter_site_content_heavy_threshold', 5 );
+		if ( ! $has_imported && $is_fresh_site ) {
+			foreach ( $counts as $post_type => $count ) {
+				$counts[ $post_type ] = 0;
+			}
+			$total = 0;
+		}
 
 		if ( $has_imported ) {
 			$classification = 'already-imported';

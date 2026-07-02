@@ -1349,6 +1349,508 @@ if ( ! function_exists( 'pixassist_get_account_site_context' ) ) {
 	}
 }
 
+if ( ! function_exists( 'pixassist_account_plus_license_skus' ) ) {
+	/**
+	 * Returns Plus-family license SKUs in tier-preference order.
+	 *
+	 * Keep this display-only mirror in sync with Pixelgrade Plus's PlusProduct::license_skus().
+	 *
+	 * @return array
+	 */
+	function pixassist_account_plus_license_skus() {
+		return array(
+			'pixelgrade-plus-studio',
+			'pixelgrade-plus-single',
+			'pixelgrade-plus',
+		);
+	}
+}
+
+if ( ! function_exists( 'pixassist_account_license_default_summary' ) ) {
+	/**
+	 * Builds the default display-safe account-license summary.
+	 *
+	 * @param string $state Summary state.
+	 *
+	 * @return array
+	 */
+	function pixassist_account_license_default_summary( $state = 'unknown' ) {
+		return array(
+			'state'          => pixassist_account_sanitize_string( $state ),
+			'hasPlusLicense' => false,
+			'productLabel'   => 'Pixelgrade Plus',
+			'productSku'     => '',
+			'tierLabel'      => '',
+			'setupUrl'       => '',
+			'source'         => 'account',
+		);
+	}
+}
+
+if ( ! function_exists( 'pixassist_account_license_summary_cache_key' ) ) {
+	/**
+	 * Builds the transient key for an account-license summary.
+	 *
+	 * @param array $account     Identity payload.
+	 * @param array $credentials PHP-only credentials.
+	 *
+	 * @return string
+	 */
+	function pixassist_account_license_summary_cache_key( $account, $credentials ) {
+		$user_id = isset( $account['pixelgrade_user_id'] ) ? absint( $account['pixelgrade_user_id'] ) : 0;
+		$token   = isset( $credentials['token'] ) && is_scalar( $credentials['token'] ) ? (string) $credentials['token'] : '';
+
+		return 'pixassist_account_license_' . md5( $user_id . '|' . $token );
+	}
+}
+
+if ( ! function_exists( 'pixassist_account_license_summary_cache_ttl' ) ) {
+	/**
+	 * Returns the account-license summary cache TTL.
+	 *
+	 * @return int
+	 */
+	function pixassist_account_license_summary_cache_ttl() {
+		$minute = defined( 'MINUTE_IN_SECONDS' ) ? (int) MINUTE_IN_SECONDS : 60;
+		$ttl    = 5 * $minute;
+
+		/**
+		 * Filters the account-license summary cache TTL.
+		 *
+		 * @param int $ttl Cache TTL in seconds.
+		 */
+		return max( 0, (int) apply_filters( 'pixassist_account_license_summary_cache_ttl', $ttl ) );
+	}
+}
+
+if ( ! function_exists( 'pixassist_account_license_stringify' ) ) {
+	/**
+	 * Stringifies scalar request params for OAuth signing.
+	 *
+	 * @param array $params Raw params.
+	 *
+	 * @return array
+	 */
+	function pixassist_account_license_stringify( $params ) {
+		$stringified = array();
+
+		foreach ( (array) $params as $key => $value ) {
+			if ( ! is_scalar( $value ) ) {
+				continue;
+			}
+
+			if ( is_bool( $value ) ) {
+				$value = $value ? '1' : '0';
+			}
+
+			$stringified[ (string) $key ] = (string) $value;
+		}
+
+		return $stringified;
+	}
+}
+
+if ( ! function_exists( 'pixassist_account_licenses_endpoint' ) ) {
+	/**
+	 * Builds the account licenses endpoint URL.
+	 *
+	 * @return string
+	 */
+	function pixassist_account_licenses_endpoint() {
+		$config   = pixassist_account_oauth_config();
+		$base_url = ! empty( $config['base_url'] ) ? (string) $config['base_url'] : PIXELGRADE_ASSISTANT__API_BASE;
+
+		return trailingslashit( $base_url ) . 'wp-json/wupl/v2/front/get_licenses';
+	}
+}
+
+if ( ! function_exists( 'pixassist_account_get_licenses_response' ) ) {
+	/**
+	 * Retrieves the connected account's license response from pixelgrade.com.
+	 *
+	 * This is a server-side, display-only read. The returned response is parsed immediately into a
+	 * safe summary; license hashes, OAuth credentials, and WUpdates package URLs are never localized.
+	 *
+	 * @param array $account     Identity payload.
+	 * @param array $credentials PHP-only credentials.
+	 *
+	 * @return array|null
+	 */
+	function pixassist_account_get_licenses_response( $account, $credentials ) {
+		$user_id = isset( $account['pixelgrade_user_id'] ) ? absint( $account['pixelgrade_user_id'] ) : 0;
+		if ( 0 >= $user_id || empty( $credentials['token'] ) ) {
+			return null;
+		}
+
+		$config       = pixassist_account_oauth_config();
+		$request_data = array( 'user_id' => (string) $user_id );
+		$url          = pixassist_account_licenses_endpoint();
+		$oauth_params = array_merge(
+			pixassist_account_license_stringify( $request_data ),
+			pixassist_account_oauth_base_params( isset( $config['consumer_key'] ) ? (string) $config['consumer_key'] : '' ),
+			array( 'oauth_token' => (string) $credentials['token'] )
+		);
+		$auth_header  = pixassist_oauth1_authorization_header(
+			'POST',
+			$url,
+			$oauth_params,
+			isset( $config['consumer_secret'] ) ? (string) $config['consumer_secret'] : '',
+			isset( $credentials['token_secret'] ) ? (string) $credentials['token_secret'] : ''
+		);
+
+		/**
+		 * Short-circuits the connected account license response.
+		 *
+		 * @param array|null $response     Decoded response.
+		 * @param array      $request_data Request body.
+		 * @param array      $config       OAuth config.
+		 * @param string     $auth_header  OAuth Authorization header.
+		 */
+		$pre_response = apply_filters( 'pre_pixassist_account_licenses_response', null, $request_data, $config, $auth_header );
+		if ( null !== $pre_response ) {
+			return is_array( $pre_response ) ? $pre_response : null;
+		}
+
+		if ( ! function_exists( 'wp_remote_request' ) || empty( $config['consumer_secret'] ) ) {
+			return null;
+		}
+
+		$args = array(
+			'method'   => 'POST',
+			'timeout'  => 6,
+			'blocking' => true,
+			'body'     => $request_data,
+		);
+		if ( '' !== $auth_header ) {
+			$args['headers'] = array( 'Authorization' => $auth_header );
+		}
+
+		$response = wp_remote_request( $url, $args );
+		if ( function_exists( 'is_wp_error' ) && is_wp_error( $response ) ) {
+			return null;
+		}
+		if ( function_exists( 'wp_remote_retrieve_response_code' ) && 400 <= wp_remote_retrieve_response_code( $response ) ) {
+			return null;
+		}
+		if ( ! function_exists( 'wp_remote_retrieve_body' ) ) {
+			return null;
+		}
+
+		$data = json_decode( (string) wp_remote_retrieve_body( $response ), true );
+
+		return is_array( $data ) ? $data : null;
+	}
+}
+
+if ( ! function_exists( 'pixassist_account_licenses_response_is_success' ) ) {
+	/**
+	 * Whether a license response succeeded.
+	 *
+	 * @param array|null $response Response data.
+	 *
+	 * @return bool
+	 */
+	function pixassist_account_licenses_response_is_success( $response ) {
+		return is_array( $response ) && isset( $response['code'] ) && 'success' === (string) $response['code'];
+	}
+}
+
+if ( ! function_exists( 'pixassist_account_license_status_code' ) ) {
+	/**
+	 * Retrieves a license status code.
+	 *
+	 * @param array $license License data.
+	 *
+	 * @return int
+	 */
+	function pixassist_account_license_status_code( $license ) {
+		return isset( $license['license_status_code'] ) ? absint( $license['license_status_code'] ) : 0;
+	}
+}
+
+if ( ! function_exists( 'pixassist_account_select_plus_license' ) ) {
+	/**
+	 * Selects the best Plus-family license from a WUPL customer-orders response.
+	 *
+	 * @param array $orders Customer orders.
+	 *
+	 * @return array Selected license or empty array.
+	 */
+	function pixassist_account_select_plus_license( $orders ) {
+		$priority = array();
+		foreach ( pixassist_account_plus_license_skus() as $index => $sku ) {
+			$priority[ $sku ] = $index;
+		}
+
+		$best = array();
+		foreach ( (array) $orders as $order ) {
+			if ( empty( $order['licenses'] ) || ! is_array( $order['licenses'] ) ) {
+				continue;
+			}
+
+			foreach ( $order['licenses'] as $license ) {
+				if ( ! is_array( $license ) ) {
+					continue;
+				}
+
+				$status = pixassist_account_license_status_code( $license );
+				$sku    = isset( $license['main_product_sku'] ) ? (string) $license['main_product_sku'] : '';
+
+				if ( 0 >= $status || ! isset( $priority[ $sku ] ) ) {
+					continue;
+				}
+
+				if ( empty( $best ) ) {
+					$best = $license;
+					continue;
+				}
+
+				$best_status = pixassist_account_license_status_code( $best );
+				$best_sku    = isset( $best['main_product_sku'] ) ? (string) $best['main_product_sku'] : '';
+
+				if ( $status < $best_status || ( $status === $best_status && $priority[ $sku ] < ( isset( $priority[ $best_sku ] ) ? $priority[ $best_sku ] : PHP_INT_MAX ) ) ) {
+					$best = $license;
+				}
+			}
+		}
+
+		return $best;
+	}
+}
+
+if ( ! function_exists( 'pixassist_account_plus_tier_label' ) ) {
+	/**
+	 * Builds a safe Plus tier label.
+	 *
+	 * @param array $license Selected Plus-family license.
+	 *
+	 * @return string
+	 */
+	function pixassist_account_plus_tier_label( $license ) {
+		$sku  = isset( $license['main_product_sku'] ) ? (string) $license['main_product_sku'] : '';
+		$tier = '';
+		if ( ! empty( $license['pixelgrade_plus']['tier'] ) && is_scalar( $license['pixelgrade_plus']['tier'] ) ) {
+			$tier = sanitize_key( (string) $license['pixelgrade_plus']['tier'] );
+		}
+
+		if ( 'studio' === $tier || 'pixelgrade-plus-studio' === $sku ) {
+			return esc_html__( 'Pixelgrade Plus Studio', '__plugin_txtd' );
+		}
+
+		if ( 'single' === $tier || 'pixelgrade-plus-single' === $sku ) {
+			return esc_html__( 'Pixelgrade Plus Single', '__plugin_txtd' );
+		}
+
+		return esc_html__( 'Pixelgrade Plus', '__plugin_txtd' );
+	}
+}
+
+if ( ! function_exists( 'pixassist_account_plus_setup_url' ) ) {
+	/**
+	 * Retrieves the Pixelgrade.com hand-off URL for setting up Plus.
+	 *
+	 * The URL should point to a Pixelgrade.com/account flow, not to a raw executable package. Assistant
+	 * renders it as a hand-off link in the WordPress.org build.
+	 *
+	 * @param array $license Selected Plus-family license.
+	 *
+	 * @return string
+	 */
+	function pixassist_account_plus_setup_url( $license = array() ) {
+		$url = '';
+		if ( ! empty( $license['pixelgrade_plus']['setup_url'] ) && is_scalar( $license['pixelgrade_plus']['setup_url'] ) ) {
+			$url = (string) $license['pixelgrade_plus']['setup_url'];
+		}
+
+		$fallback_url = trailingslashit( defined( 'PIXELGRADE_ASSISTANT__SHOP_BASE' ) ? PIXELGRADE_ASSISTANT__SHOP_BASE : 'https://pixelgrade.com/' ) . 'plus/';
+		if ( '' === $url || ! pixassist_account_is_allowed_plus_setup_url( $url ) ) {
+			$url = $fallback_url;
+		}
+
+		/**
+		 * Filters the Pixelgrade Plus setup hand-off URL.
+		 *
+		 * @param string $url     Setup URL.
+		 * @param array  $license Selected Plus-family license.
+		 */
+		$url = apply_filters( 'pixassist_account_plus_setup_url', $url, $license );
+
+		return function_exists( 'esc_url_raw' ) ? esc_url_raw( (string) $url ) : (string) $url;
+	}
+}
+
+if ( ! function_exists( 'pixassist_is_plus_plugin_installed' ) ) {
+	/**
+	 * Whether Pixelgrade Plus appears to be installed locally.
+	 *
+	 * @return bool
+	 */
+	function pixassist_is_plus_plugin_installed() {
+		$installed = false;
+
+		if ( defined( 'PIXELGRADE_PLUS_PLUGIN_FILE' ) ) {
+			$installed = true;
+		}
+
+		if ( ! $installed && defined( 'WP_PLUGIN_DIR' ) && file_exists( WP_PLUGIN_DIR . '/pixelgrade-plus/pixelgrade-plus.php' ) ) {
+			$installed = true;
+		}
+
+		/**
+		 * Filters whether Pixelgrade Plus is installed locally.
+		 *
+		 * @param bool $installed Whether Plus appears installed.
+		 */
+		return (bool) apply_filters( 'pixassist_is_plus_plugin_installed', $installed );
+	}
+}
+
+if ( ! function_exists( 'pixassist_get_plus_plugin_activate_url' ) ) {
+	/**
+	 * Builds a local activation URL for an installed Pixelgrade Plus plugin.
+	 *
+	 * @param string $plugin_file Plugin basename.
+	 *
+	 * @return string
+	 */
+	function pixassist_get_plus_plugin_activate_url( $plugin_file ) {
+		if ( ! function_exists( 'admin_url' ) || ! function_exists( 'add_query_arg' ) || ! function_exists( 'wp_nonce_url' ) ) {
+			return '';
+		}
+
+		return wp_nonce_url(
+			add_query_arg(
+				array(
+					'action' => 'activate',
+					'plugin' => $plugin_file,
+				),
+				admin_url( 'plugins.php' )
+			),
+			'activate-plugin_' . $plugin_file
+		);
+	}
+}
+
+if ( ! function_exists( 'pixassist_account_is_allowed_plus_setup_url' ) ) {
+	/**
+	 * Whether a Plus setup URL is a safe Pixelgrade hand-off, not a raw package URL.
+	 *
+	 * @param string $url URL to check.
+	 *
+	 * @return bool
+	 */
+	function pixassist_account_is_allowed_plus_setup_url( $url ) {
+		$host = parse_url( (string) $url, PHP_URL_HOST );
+		if ( empty( $host ) ) {
+			return false;
+		}
+
+		$allowed_hosts = array( 'pixelgrade.com' );
+		foreach ( array( 'PIXELGRADE_ASSISTANT__SHOP_BASE', 'PIXELGRADE_ASSISTANT__API_BASE' ) as $constant ) {
+			if ( defined( $constant ) ) {
+				$constant_host = parse_url( (string) constant( $constant ), PHP_URL_HOST );
+				if ( ! empty( $constant_host ) ) {
+					$allowed_hosts[] = strtolower( $constant_host );
+				}
+			}
+		}
+
+		/**
+		 * Filters allowed hosts for Plus setup hand-off URLs.
+		 *
+		 * @param array  $allowed_hosts Allowed hosts.
+		 * @param string $url           Candidate URL.
+		 */
+		$allowed_hosts = apply_filters( 'pixassist_account_plus_setup_url_allowed_hosts', array_unique( array_filter( $allowed_hosts ) ), $url );
+		$allowed_hosts = array_map( 'strtolower', array_filter( (array) $allowed_hosts ) );
+
+		return in_array( strtolower( $host ), $allowed_hosts, true );
+	}
+}
+
+if ( ! function_exists( 'pixassist_account_normalize_license_summary' ) ) {
+	/**
+	 * Normalizes a display-safe account-license summary.
+	 *
+	 * @param array $summary Raw summary.
+	 *
+	 * @return array
+	 */
+	function pixassist_account_normalize_license_summary( $summary ) {
+		$summary = wp_parse_args( is_array( $summary ) ? $summary : array(), pixassist_account_license_default_summary() );
+
+		return array(
+			'state'          => pixassist_account_sanitize_string( $summary['state'] ),
+			'hasPlusLicense' => ! empty( $summary['hasPlusLicense'] ),
+			'productLabel'   => pixassist_account_sanitize_string( $summary['productLabel'] ),
+			'productSku'     => pixassist_account_sanitize_string( $summary['productSku'] ),
+			'tierLabel'      => pixassist_account_sanitize_string( $summary['tierLabel'] ),
+			'setupUrl'       => function_exists( 'esc_url_raw' ) ? esc_url_raw( (string) $summary['setupUrl'] ) : (string) $summary['setupUrl'],
+			'source'         => pixassist_account_sanitize_string( $summary['source'] ),
+		);
+	}
+}
+
+if ( ! function_exists( 'pixassist_get_account_license_summary' ) ) {
+	/**
+	 * Builds a display-safe connected-account license summary.
+	 *
+	 * This is account-owned guidance, not local Plus plugin status. It answers whether the connected
+	 * account appears to own a Plus-family license so Assistant can guide setup when Plus is absent.
+	 *
+	 * @return array
+	 */
+	function pixassist_get_account_license_summary() {
+		$account = function_exists( 'pixassist_get_account' ) ? pixassist_get_account() : array();
+		if ( empty( $account['is_connected'] ) ) {
+			return pixassist_account_license_default_summary( 'not_connected' );
+		}
+
+		$credentials = function_exists( 'pixassist_get_account_credentials' ) ? pixassist_get_account_credentials() : null;
+		if ( ! is_array( $credentials ) || empty( $credentials['token'] ) ) {
+			return pixassist_account_license_default_summary( 'unknown' );
+		}
+
+		$cache_key = pixassist_account_license_summary_cache_key( $account, $credentials );
+		if ( function_exists( 'get_site_transient' ) ) {
+			$cached = get_site_transient( $cache_key );
+			if ( is_array( $cached ) ) {
+				return pixassist_account_normalize_license_summary( $cached );
+			}
+		}
+
+		$response = pixassist_account_get_licenses_response( $account, $credentials );
+		if ( ! pixassist_account_licenses_response_is_success( $response ) ) {
+			return pixassist_account_license_default_summary( 'unknown' );
+		}
+
+		$orders  = isset( $response['data']['licenses'] ) && is_array( $response['data']['licenses'] ) ? $response['data']['licenses'] : array();
+		$license = pixassist_account_select_plus_license( $orders );
+
+		if ( empty( $license ) ) {
+			$summary = pixassist_account_license_default_summary( 'free' );
+		} else {
+			$summary = array(
+				'state'          => 'plus',
+				'hasPlusLicense' => true,
+				'productLabel'   => 'Pixelgrade Plus',
+				'productSku'     => isset( $license['main_product_sku'] ) ? (string) $license['main_product_sku'] : 'pixelgrade-plus',
+				'tierLabel'      => pixassist_account_plus_tier_label( $license ),
+				'setupUrl'       => pixassist_account_plus_setup_url( $license ),
+				'source'         => 'pixelgrade-account',
+			);
+		}
+
+		$summary = pixassist_account_normalize_license_summary( $summary );
+
+		if ( function_exists( 'set_site_transient' ) ) {
+			set_site_transient( $cache_key, $summary, pixassist_account_license_summary_cache_ttl() );
+		}
+
+		return $summary;
+	}
+}
+
 if ( ! function_exists( 'pixassist_get_account_products_summary' ) ) {
 	/**
 	 * Builds a secret-free products and licenses summary for the Account cockpit.
@@ -1365,17 +1867,23 @@ if ( ! function_exists( 'pixassist_get_account_products_summary' ) ) {
 		$theme_name = ! empty( $site['themeName'] ) ? (string) $site['themeName'] : '';
 		$product    = ! empty( $site['productSku'] ) ? (string) $site['productSku'] : '';
 
-		$plus_status = function_exists( 'pixassist_get_plus_status' ) ? pixassist_get_plus_status() : array();
-		$plus_active = ! empty( $plus_status['is_plus_active'] );
-		$plus_label  = ! empty( $plus_status['plus_product_label'] ) && is_scalar( $plus_status['plus_product_label'] )
+		$plus_status  = function_exists( 'pixassist_get_plus_status' ) ? pixassist_get_plus_status() : array();
+		$plus_license = function_exists( 'pixassist_get_account_license_summary' ) ? pixassist_get_account_license_summary() : pixassist_account_license_default_summary();
+		$plus_active  = ! empty( $plus_status['is_plus_active'] );
+		$plus_owned   = ! empty( $plus_license['hasPlusLicense'] );
+		$plus_label   = ! empty( $plus_status['plus_product_label'] ) && is_scalar( $plus_status['plus_product_label'] )
 			? pixassist_account_sanitize_string( $plus_status['plus_product_label'] )
-			: 'Pixelgrade Plus';
+			: ( ! empty( $plus_license['productLabel'] ) ? pixassist_account_sanitize_string( $plus_license['productLabel'] ) : 'Pixelgrade Plus' );
 		$plus_url    = ! empty( $plus_status['plus_settings_url'] ) && is_scalar( $plus_status['plus_settings_url'] )
 			? ( function_exists( 'esc_url_raw' ) ? esc_url_raw( (string) $plus_status['plus_settings_url'] ) : (string) $plus_status['plus_settings_url'] )
 			: '';
+		$plus_setup_url = ! empty( $plus_license['setupUrl'] ) && is_scalar( $plus_license['setupUrl'] )
+			? ( function_exists( 'esc_url_raw' ) ? esc_url_raw( (string) $plus_license['setupUrl'] ) : (string) $plus_license['setupUrl'] )
+			: pixassist_account_plus_setup_url();
+		$plus_installed = function_exists( 'pixassist_is_plus_plugin_installed' ) ? pixassist_is_plus_plugin_installed() : false;
 
 		$labels = array_filter( array( $theme_name ? $theme_name : $product ) );
-		if ( $plus_active ) {
+		if ( $plus_active || $plus_owned ) {
 			$labels[] = $plus_label;
 		}
 
@@ -1384,27 +1892,46 @@ if ( ! function_exists( 'pixassist_get_account_products_summary' ) ) {
 			'statusLabel' => esc_html__( 'Available', '__plugin_txtd' ),
 			'label'       => implode( ' + ', array_filter( $labels ) ),
 			'description' => esc_html__( 'This account can use the free Pixelgrade support and documentation available for the active theme.', '__plugin_txtd' ),
-			'plusLabel'   => $plus_active ? $plus_label : '',
+			'plusLabel'   => ( $plus_active || $plus_owned ) ? $plus_label : '',
 			'url'         => '',
+			'actionLabel' => '',
 		);
 
 		if ( '' === $summary['label'] ) {
 			$summary['label'] = esc_html__( 'Pixelgrade products', '__plugin_txtd' );
 		}
 
-		if ( $plus_active ) {
+		if ( ! $plus_active && $plus_owned ) {
+			if ( $plus_installed ) {
+				$summary['state']       = 'plus_plugin_inactive';
+				$summary['statusLabel'] = esc_html__( 'Installed', '__plugin_txtd' );
+				$summary['url']         = pixassist_get_plus_plugin_activate_url( 'pixelgrade-plus/pixelgrade-plus.php' );
+				/* translators: %s: Pixelgrade Plus product label. */
+				$summary['description'] = sprintf( esc_html__( 'Your connected Pixelgrade account includes %s and the companion plugin is installed. Activate it to enable the Plus benefits for this site.', '__plugin_txtd' ), $plus_label );
+				$summary['actionLabel'] = esc_html__( 'Activate Pixelgrade Plus', '__plugin_txtd' );
+			} else {
+				$summary['state']       = 'plus_plugin_missing';
+				$summary['statusLabel'] = esc_html__( 'Plus available', '__plugin_txtd' );
+				$summary['url']         = $plus_setup_url;
+				/* translators: %s: Pixelgrade Plus product label. */
+				$summary['description'] = sprintf( esc_html__( 'Your connected Pixelgrade account includes %s. Download the companion plugin from Pixelgrade.com, install it, then activate it for this site.', '__plugin_txtd' ), $plus_label );
+				$summary['actionLabel'] = esc_html__( 'Download Pixelgrade Plus', '__plugin_txtd' );
+			}
+		} elseif ( $plus_active ) {
 			$summary['url'] = $plus_url;
 
 			if ( ! empty( $plus_status['is_plus_licensed'] ) ) {
 				$summary['state']       = 'licensed';
 				$summary['statusLabel'] = esc_html__( 'Licensed', '__plugin_txtd' );
 				/* translators: %s: Pixelgrade Plus product label. */
-				$summary['description'] = sprintf( esc_html__( '%s license is active. The Plus panel shows entitlement and add-on details.', '__plugin_txtd' ), $plus_label );
+				$summary['description'] = sprintf( esc_html__( '%s license is active. Open the Plus panel to review the benefits validated for this site, or refresh them after a new purchase.', '__plugin_txtd' ), $plus_label );
+				$summary['actionLabel'] = esc_html__( 'Review Plus benefits', '__plugin_txtd' );
 			} else {
 				$summary['state']       = 'needs_license';
 				$summary['statusLabel'] = esc_html__( 'Needs license', '__plugin_txtd' );
 				/* translators: %s: Pixelgrade Plus product label. */
-				$summary['description'] = sprintf( esc_html__( '%s is installed. Use the Plus panel to activate any eligible license found on this account.', '__plugin_txtd' ), $plus_label );
+				$summary['description'] = sprintf( esc_html__( '%s is installed. Open the Plus panel to validate your Pixelgrade account and activate any eligible license for this site.', '__plugin_txtd' ), $plus_label );
+				$summary['actionLabel'] = esc_html__( 'Validate Plus license', '__plugin_txtd' );
 			}
 		}
 
@@ -1500,6 +2027,7 @@ if ( ! function_exists( 'pixassist_get_account_value_data' ) ) {
 		$help_url   = pixassist_get_account_help_url();
 		$docs_url   = pixassist_get_account_docs_url();
 		$site       = pixassist_get_account_site_context();
+		$products   = pixassist_get_account_products_summary( $site );
 		$can_oauth  = pixassist_account_oauth_is_configured();
 		$support    = array(
 			'state'       => $connected ? 'available' : 'connect_required',
@@ -1528,7 +2056,7 @@ if ( ! function_exists( 'pixassist_get_account_value_data' ) ) {
 		return array(
 			'support'        => $support,
 			'site'           => $site,
-			'products'       => pixassist_get_account_products_summary( $site ),
+			'products'       => $products,
 			'accountDetails' => pixassist_get_account_details_summary( $account ),
 			'enablements'    => array(
 				array(

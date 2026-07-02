@@ -143,7 +143,7 @@ if ( ! function_exists( 'pixassist_get_overview_state_summary' ) ) {
 			),
 			array(
 				'id'     => 'setup',
-				'label'  => esc_html__( 'Setup', '__plugin_txtd' ),
+				'label'  => esc_html__( 'Site Setup', '__plugin_txtd' ),
 				'value'  => pixassist_get_overview_plugin_state_value( $plugin_state ),
 				'detail' => pixassist_get_overview_plugin_state_detail( $plugin_state ),
 				'tone'   => $plugin_state['ready'] ? 'ok' : 'needs-attention',
@@ -159,7 +159,7 @@ if ( ! function_exists( 'pixassist_get_overview_state_summary' ) ) {
 			),
 			array(
 				'id'     => 'layouts',
-				'label'  => esc_html__( 'Layouts', '__plugin_txtd' ),
+				'label'  => esc_html__( 'Site Parts', '__plugin_txtd' ),
 				'value'  => pixassist_get_overview_layout_state_value( $layout_state, $starter_state ),
 				'detail' => pixassist_get_overview_layout_state_detail( $layout_state, $starter_state ),
 				'tone'   => ( $layout_state['count'] > 0 || ! empty( $starter_state['has_imported'] ) ) ? 'ok' : 'neutral',
@@ -235,11 +235,11 @@ if ( ! function_exists( 'pixassist_get_overview_next_action' ) ) {
 			return array(
 				'id'          => 'layouts',
 				'kind'        => 'layouts',
-				'label'       => esc_html__( 'Browse layouts', '__plugin_txtd' ),
-				'title'       => esc_html__( 'Try one reusable layout', '__plugin_txtd' ),
+				'label'       => esc_html__( 'Browse site parts', '__plugin_txtd' ),
+				'title'       => esc_html__( 'Try one reusable site part', '__plugin_txtd' ),
 				'description' => esc_html__( 'Apply a header, footer, or template without importing a whole starter site.', '__plugin_txtd' ),
 				'url'         => pixassist_overview_tab_url_by_id( $tabs, $base_url, 'layouts' ),
-				'safety'      => esc_html__( 'Layouts are journaled and can be replaced or removed from the Layouts tab.', '__plugin_txtd' ),
+				'safety'      => esc_html__( 'Site parts are journaled and can be replaced or removed from the Site Parts section.', '__plugin_txtd' ),
 			);
 		}
 

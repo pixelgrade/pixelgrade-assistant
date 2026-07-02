@@ -6327,6 +6327,8 @@ HTML;
 				);
 			}
 
+			$source_data = $this->normalize_starter_source_data_for_import( $source_data, $base_url, $demo_key );
+
 			if ( function_exists( 'set_time_limit' ) ) {
 				@set_time_limit( 0 );
 			}
@@ -6342,6 +6344,7 @@ HTML;
 					'pre'  => false,
 					'post' => false,
 				),
+				'defaultContentDeleted' => 0,
 			);
 
 			wp_defer_term_counting( true );
@@ -6349,6 +6352,8 @@ HTML;
 			wp_suspend_cache_invalidation( true );
 
 			try {
+				$summary['defaultContentDeleted'] = $this->delete_default_wordpress_content_before_starter_import( $demo_key );
+
 				if ( ! empty( $source_data['pre_settings'] ) ) {
 					// Free/default full import excludes commerce: strip WooCommerce settings unless commerce is authorized.
 					$pre_settings = $this->maybeCastNumbersDeep( $source_data['pre_settings'] );
@@ -6488,6 +6493,598 @@ HTML;
 					'imported' => PixelgradeAssistant_Admin::get_option( 'imported_starter_content', array() ),
 				),
 			);
+		}
+
+		/**
+		 * Normalize source data before running a full starter import.
+		 *
+		 * @param array $source_data Source `/data` payload.
+		 *
+		 * @return array
+		 */
+		private function normalize_starter_source_data_for_import( $source_data, $base_url, $demo_key ) {
+			$source_data = $this->include_nav_menu_location_terms_in_source_data( $source_data );
+			$source_data = $this->include_nav_menu_location_items_in_source_data( $source_data, $base_url );
+			$source_data = $this->include_source_site_frame_options_in_source_data( $source_data, $base_url, $demo_key );
+
+			return $this->include_source_site_identity_options_in_source_data( $source_data, $base_url, $demo_key );
+		}
+
+		/**
+		 * Import menus referenced only by post-settings nav menu locations.
+		 *
+		 * The modern Starter Sites UI imports a full starter as discrete REST steps:
+		 * taxonomies, post types, then post settings. Some starter sources expose generated Nova
+		 * header menus only in `post_settings.mods.nav_menu_locations`, not in the taxonomy/post-type
+		 * manifest. The single `import_starter()` route normalizes the manifest before importing; this
+		 * mirrors that dependency import for the step-by-step UI path before `import_settings()` saves
+		 * the menu-location theme mod.
+		 *
+		 * @param string $demo_key Demo/starter key.
+		 * @param string $base_url Source SCE REST base URL.
+		 * @param array  $settings Post settings payload.
+		 *
+		 * @return array|WP_Error|WP_REST_Response Dependency summary or import error.
+		 */
+		private function import_nav_menu_location_dependencies_for_settings( $demo_key, $base_url, $settings ) {
+			if ( empty( $settings['mods']['nav_menu_locations'] )
+				|| ! is_array( $settings['mods']['nav_menu_locations'] ) ) {
+				return array(
+					'navMenus'  => 0,
+					'menuItems' => 0,
+				);
+			}
+
+			$starter_content = PixelgradeAssistant_Admin::get_option( 'imported_starter_content' );
+			$existing_menu_ids = ! empty( $starter_content[ $demo_key ]['taxonomies']['nav_menu'] )
+				&& is_array( $starter_content[ $demo_key ]['taxonomies']['nav_menu'] )
+				? array_map( 'absint', array_keys( $starter_content[ $demo_key ]['taxonomies']['nav_menu'] ) )
+				: array();
+			$existing_menu_item_ids = ! empty( $starter_content[ $demo_key ]['post_types']['nav_menu_item'] )
+				&& is_array( $starter_content[ $demo_key ]['post_types']['nav_menu_item'] )
+				? array_map( 'absint', array_keys( $starter_content[ $demo_key ]['post_types']['nav_menu_item'] ) )
+				: array();
+
+			$source_data = array(
+				'taxonomies'    => array(
+					array(
+						'name'     => 'nav_menu',
+						'ids'      => $existing_menu_ids,
+						'priority' => 10,
+					),
+				),
+				'post_types'    => array(
+					array(
+						'name'     => 'nav_menu_item',
+						'ids'      => $existing_menu_item_ids,
+						'priority' => 900,
+					),
+				),
+				'post_settings' => array(
+					'mods' => array(
+						'nav_menu_locations' => $settings['mods']['nav_menu_locations'],
+					),
+				),
+			);
+
+			$source_data = $this->include_nav_menu_location_terms_in_source_data( $source_data );
+			$source_data = $this->include_nav_menu_location_items_in_source_data( $source_data, $base_url );
+
+			$nav_menu_ids = $this->get_manifest_entry_ids( isset( $source_data['taxonomies'] ) ? $source_data['taxonomies'] : array(), 'nav_menu' );
+			if ( ! empty( $nav_menu_ids ) ) {
+				$result = $this->import_taxonomy( $demo_key, $base_url, array(
+					'tax' => 'nav_menu',
+					'ids' => $nav_menu_ids,
+				) );
+				if ( is_wp_error( $result ) || $result instanceof WP_REST_Response ) {
+					return $result;
+				}
+			}
+
+			$nav_menu_item_ids = $this->get_manifest_entry_ids( isset( $source_data['post_types'] ) ? $source_data['post_types'] : array(), 'nav_menu_item' );
+			if ( ! empty( $nav_menu_item_ids ) ) {
+				$result = $this->import_post_type( $demo_key, $base_url, array(
+					'post_type' => 'nav_menu_item',
+					'ids'       => $nav_menu_item_ids,
+				) );
+				if ( is_wp_error( $result ) || $result instanceof WP_REST_Response ) {
+					return $result;
+				}
+			}
+
+			return array(
+				'navMenus'  => count( $nav_menu_ids ),
+				'menuItems' => count( $nav_menu_item_ids ),
+			);
+		}
+
+		/**
+		 * Read source IDs for one manifest entry by name.
+		 *
+		 * @param array  $entries Manifest entries.
+		 * @param string $name    Entry name.
+		 *
+		 * @return int[]
+		 */
+		private function get_manifest_entry_ids( $entries, $name ) {
+			$ids = array();
+			foreach ( (array) $entries as $key => $entry ) {
+				if ( ! is_array( $entry ) ) {
+					continue;
+				}
+
+				$entry_name = ! empty( $entry['name'] ) ? sanitize_key( $entry['name'] ) : '';
+				if ( '' === $entry_name && is_string( $key ) ) {
+					$entry_name = sanitize_key( $key );
+				}
+				if ( $entry_name !== $name ) {
+					continue;
+				}
+
+				$ids = array_merge(
+					$ids,
+					isset( $entry['ids'] ) && is_array( $entry['ids'] ) ? $entry['ids'] : array()
+				);
+			}
+
+			return array_values( array_unique( array_filter( array_map( 'absint', $ids ) ) ) );
+		}
+
+		/**
+		 * Ensure menus referenced only by `nav_menu_locations` are imported too.
+		 *
+		 * Some sources expose a generated menu in `post_settings.mods.nav_menu_locations` but omit the
+		 * same term from the taxonomy manifest. If we import only the manifest, the later location remap
+		 * keeps the stale source term ID and the frontend renders without that menu.
+		 *
+		 * @param array $source_data Source `/data` payload.
+		 *
+		 * @return array
+		 */
+		private function include_nav_menu_location_terms_in_source_data( $source_data ) {
+			if ( empty( $source_data['post_settings']['mods']['nav_menu_locations'] )
+				|| ! is_array( $source_data['post_settings']['mods']['nav_menu_locations'] ) ) {
+				return $source_data;
+			}
+
+			$location_ids = array_values( array_unique( array_filter( array_map( 'absint', array_values( $source_data['post_settings']['mods']['nav_menu_locations'] ) ) ) ) );
+			if ( empty( $location_ids ) ) {
+				return $source_data;
+			}
+
+			if ( empty( $source_data['taxonomies'] ) || ! is_array( $source_data['taxonomies'] ) ) {
+				$source_data['taxonomies'] = array();
+			}
+
+			$found_nav_menu = false;
+			foreach ( $source_data['taxonomies'] as $key => &$entry ) {
+				if ( ! is_array( $entry ) ) {
+					continue;
+				}
+
+				$name = ! empty( $entry['name'] ) ? sanitize_key( $entry['name'] ) : '';
+				if ( '' === $name && is_string( $key ) ) {
+					$name = sanitize_key( $key );
+				}
+				if ( 'nav_menu' !== $name ) {
+					continue;
+				}
+
+				$entry['name'] = 'nav_menu';
+				$entry['ids']  = array_values( array_unique( array_filter( array_map( 'absint', array_merge(
+					isset( $entry['ids'] ) && is_array( $entry['ids'] ) ? $entry['ids'] : array(),
+					$location_ids
+				) ) ) ) );
+				if ( empty( $entry['priority'] ) ) {
+					$entry['priority'] = 10;
+				}
+				$found_nav_menu = true;
+				break;
+			}
+			unset( $entry );
+
+			if ( ! $found_nav_menu ) {
+				$source_data['taxonomies'][] = array(
+					'name'     => 'nav_menu',
+					'ids'      => $location_ids,
+					'priority' => 10,
+				);
+			}
+
+			return $source_data;
+		}
+
+		/**
+		 * Ensure menu items for location-only menus are imported too.
+		 *
+		 * Generated menus can be present in `nav_menu_locations` while their `nav_menu_item`
+		 * posts are absent from the `/data` post-type manifest. Importing the term alone leaves
+		 * the location mapped to an empty menu, so discover the menu items from the source posts
+		 * endpoint and merge them into the normal full-import queue.
+		 *
+		 * @param array  $source_data Source `/data` payload.
+		 * @param string $base_url    Source SCE REST base URL.
+		 *
+		 * @return array
+		 */
+		private function include_nav_menu_location_items_in_source_data( $source_data, $base_url ) {
+			if ( empty( $source_data['post_settings']['mods']['nav_menu_locations'] )
+				|| ! is_array( $source_data['post_settings']['mods']['nav_menu_locations'] ) ) {
+				return $source_data;
+			}
+
+			$location_ids = array_values( array_unique( array_filter( array_map( 'absint', array_values( $source_data['post_settings']['mods']['nav_menu_locations'] ) ) ) ) );
+			if ( empty( $location_ids ) ) {
+				return $source_data;
+			}
+
+			$source_terms = $this->fetch_layout_source_terms( $base_url, 'nav_menu', $location_ids );
+			if ( is_wp_error( $source_terms ) ) {
+				return $source_data;
+			}
+
+			$term_names = array();
+			foreach ( (array) $source_terms as $source_term ) {
+				if ( ! empty( $source_term['name'] ) ) {
+					$term_names[] = (string) $source_term['name'];
+				}
+				if ( ! empty( $source_term['slug'] ) ) {
+					$term_names[] = (string) $source_term['slug'];
+				}
+			}
+			$term_names = array_values( array_unique( array_filter( $term_names ) ) );
+
+			$source_items = $this->fetch_layout_source_posts( $base_url, 'nav_menu_item' );
+			if ( is_wp_error( $source_items ) ) {
+				return $source_data;
+			}
+
+			$menu_item_ids = array();
+			foreach ( (array) $source_items as $source_item ) {
+				if ( ! empty( $source_item['ID'] ) && $this->layout_post_belongs_to_nav_terms( $source_item, $location_ids, $term_names ) ) {
+					$menu_item_ids[] = absint( $source_item['ID'] );
+				}
+			}
+			$menu_item_ids = array_values( array_unique( array_filter( $menu_item_ids ) ) );
+			if ( empty( $menu_item_ids ) ) {
+				return $source_data;
+			}
+
+			if ( empty( $source_data['post_types'] ) || ! is_array( $source_data['post_types'] ) ) {
+				$source_data['post_types'] = array();
+			}
+
+			$found_nav_menu_item = false;
+			foreach ( $source_data['post_types'] as $key => &$entry ) {
+				if ( ! is_array( $entry ) ) {
+					continue;
+				}
+
+				$name = ! empty( $entry['name'] ) ? sanitize_key( $entry['name'] ) : '';
+				if ( '' === $name && is_string( $key ) ) {
+					$name = sanitize_key( $key );
+				}
+				if ( 'nav_menu_item' !== $name ) {
+					continue;
+				}
+
+				$entry['name'] = 'nav_menu_item';
+				$entry['ids']  = array_values( array_unique( array_filter( array_map( 'absint', array_merge(
+					isset( $entry['ids'] ) && is_array( $entry['ids'] ) ? $entry['ids'] : array(),
+					$menu_item_ids
+				) ) ) ) );
+				if ( empty( $entry['priority'] ) ) {
+					$entry['priority'] = 900;
+				}
+				$found_nav_menu_item = true;
+				break;
+			}
+			unset( $entry );
+
+			if ( ! $found_nav_menu_item ) {
+				$source_data['post_types'][] = array(
+					'name'     => 'nav_menu_item',
+					'ids'      => $menu_item_ids,
+					'priority' => 900,
+				);
+			}
+
+			return $source_data;
+		}
+
+		/**
+		 * Add Site Frame options from the source front-end markup when the exporter omitted them.
+		 *
+		 * @param array  $source_data Source `/data` payload.
+		 * @param string $base_url    Source SCE REST base URL.
+		 * @param string $demo_key    Starter/demo key.
+		 *
+		 * @return array
+		 */
+		private function include_source_site_frame_options_in_source_data( $source_data, $base_url, $demo_key ) {
+			if ( ! apply_filters( 'pixassist_sce_import_source_site_frame_options', true, $demo_key, $base_url ) ) {
+				return $source_data;
+			}
+
+			if ( empty( $source_data['post_settings'] ) || ! is_array( $source_data['post_settings'] ) ) {
+				$source_data['post_settings'] = array();
+			}
+			if ( empty( $source_data['post_settings']['options'] ) || ! is_array( $source_data['post_settings']['options'] ) ) {
+				$source_data['post_settings']['options'] = array();
+			}
+
+			$keys = array( 'sm_site_frame_style', 'sm_site_frame_palette', 'sm_site_frame_variation' );
+			$needs = array();
+			foreach ( $keys as $key ) {
+				if ( ! array_key_exists( $key, $source_data['post_settings']['options'] ) ) {
+					$needs[] = $key;
+				}
+			}
+			if ( empty( $needs ) ) {
+				return $source_data;
+			}
+
+			$options = $this->fetch_source_site_frame_options( $base_url );
+			foreach ( $needs as $key ) {
+				if ( array_key_exists( $key, $options ) ) {
+					$source_data['post_settings']['options'][ $key ] = $options[ $key ];
+				}
+			}
+
+			return $source_data;
+		}
+
+		/**
+		 * Infer Site Frame settings from the source front page classes.
+		 *
+		 * This is a legacy compatibility fallback for sources whose SCE payload predates explicit
+		 * `sm_site_frame_*` exports. Explicit SCE settings always win.
+		 *
+		 * @param string $base_url Source SCE REST base URL.
+		 *
+		 * @return array
+		 */
+		private function fetch_source_site_frame_options( $base_url ) {
+			$site_root = $this->get_source_site_root_from_sce_base( $base_url );
+			if ( empty( $site_root ) ) {
+				return array();
+			}
+
+			$response = wp_remote_request( $site_root, array(
+				'method'    => 'GET',
+				'timeout'   => 5,
+				'blocking'  => true,
+				'sslverify' => true,
+			) );
+			if ( is_wp_error( $response ) ) {
+				return array();
+			}
+
+			$html = wp_remote_retrieve_body( $response );
+			if ( empty( $html ) || false === strpos( $html, 'site-frame' ) ) {
+				return array();
+			}
+
+			$options = array();
+			if ( false !== strpos( $html, 'has-site-frame' ) || false !== strpos( $html, 'c-site-frame' ) ) {
+				$options['sm_site_frame_style'] = 'editorial';
+			}
+
+			if ( preg_match_all( '#class=(["\'])(.*?)\1#s', $html, $matches ) ) {
+				foreach ( $matches[2] as $class_attr ) {
+					if ( false === strpos( $class_attr, 'c-site-frame' ) ) {
+						continue;
+					}
+
+					if ( preg_match( '#\bsm-palette-([0-9]+)\b#', $class_attr, $palette_match ) ) {
+						$options['sm_site_frame_palette'] = absint( $palette_match[1] );
+					}
+					if ( preg_match( '#\bsm-variation-([0-9]+)\b#', $class_attr, $variation_match ) ) {
+						$options['sm_site_frame_variation'] = absint( $variation_match[1] );
+					}
+					break;
+				}
+			}
+
+			return $options;
+		}
+
+		/**
+		 * Add source site title/tagline to post settings when the exporter omitted them.
+		 *
+		 * @param array  $source_data Source `/data` payload.
+		 * @param string $base_url    Source SCE REST base URL.
+		 * @param string $demo_key    Starter/demo key.
+		 *
+		 * @return array
+		 */
+		private function include_source_site_identity_options_in_source_data( $source_data, $base_url, $demo_key ) {
+			if ( ! apply_filters( 'pixassist_sce_import_source_site_identity_options', true, $demo_key, $base_url ) ) {
+				return $source_data;
+			}
+
+			if ( empty( $source_data['post_settings'] ) || ! is_array( $source_data['post_settings'] ) ) {
+				$source_data['post_settings'] = array();
+			}
+			if ( empty( $source_data['post_settings']['options'] ) || ! is_array( $source_data['post_settings']['options'] ) ) {
+				$source_data['post_settings']['options'] = array();
+			}
+
+			$needs_blogname        = ! array_key_exists( 'blogname', $source_data['post_settings']['options'] );
+			$needs_blogdescription = ! array_key_exists( 'blogdescription', $source_data['post_settings']['options'] );
+			if ( ! $needs_blogname && ! $needs_blogdescription ) {
+				return $source_data;
+			}
+
+			$identity = $this->fetch_source_site_identity( $base_url );
+			if ( $needs_blogname && array_key_exists( 'blogname', $identity ) ) {
+				$source_data['post_settings']['options']['blogname'] = $identity['blogname'];
+			}
+			if ( $needs_blogdescription && array_key_exists( 'blogdescription', $identity ) ) {
+				$source_data['post_settings']['options']['blogdescription'] = $identity['blogdescription'];
+			}
+
+			return $source_data;
+		}
+
+		/**
+		 * Fetch the source site's public title/tagline from the WP REST root.
+		 *
+		 * @param string $base_url Source SCE REST base URL.
+		 *
+		 * @return array Option keys: blogname, blogdescription.
+		 */
+		private function fetch_source_site_identity( $base_url ) {
+			$rest_root = $this->get_source_wp_rest_root_from_sce_base( $base_url );
+			if ( empty( $rest_root ) ) {
+				return array();
+			}
+
+			$response = wp_remote_request( $rest_root, array(
+				'method'    => 'GET',
+				'timeout'   => 5,
+				'blocking'  => true,
+				'sslverify' => true,
+			) );
+			if ( is_wp_error( $response ) ) {
+				return array();
+			}
+
+			$data = json_decode( wp_remote_retrieve_body( $response ), true );
+			if ( empty( $data ) || ! is_array( $data ) ) {
+				return array();
+			}
+
+			$identity = array();
+			if ( array_key_exists( 'name', $data ) ) {
+				$identity['blogname'] = wp_strip_all_tags( html_entity_decode( (string) $data['name'], ENT_QUOTES, 'UTF-8' ) );
+			}
+			if ( array_key_exists( 'description', $data ) ) {
+				$identity['blogdescription'] = wp_strip_all_tags( html_entity_decode( (string) $data['description'], ENT_QUOTES, 'UTF-8' ) );
+			}
+
+			return $identity;
+		}
+
+		/**
+		 * Delete untouched WordPress starter content before importing a full starter.
+		 *
+		 * This only targets the exact default "Hello world!" post and "Sample Page" content. Any edit to
+		 * the title, slug, content, or a Pixassist import marker makes the record ineligible.
+		 *
+		 * @param string $demo_key Starter/demo key.
+		 *
+		 * @return int Number of deleted default posts/pages.
+		 */
+		private function delete_default_wordpress_content_before_starter_import( $demo_key ) {
+			if ( ! apply_filters( 'pixassist_sce_delete_default_content_before_starter_import', true, $demo_key ) ) {
+				return 0;
+			}
+
+			$targets = array(
+				array(
+					'post_type' => 'post',
+					'slug'      => 'hello-world',
+					'title'     => 'Hello world!',
+					'snippets'  => array( 'Welcome to WordPress', 'This is your first post' ),
+				),
+				array(
+					'post_type' => 'page',
+					'slug'      => 'sample-page',
+					'title'     => 'Sample Page',
+					'snippets'  => array( 'This is an example page', 'different from a blog post' ),
+				),
+			);
+
+			$deleted = 0;
+			foreach ( $targets as $target ) {
+				$post = $this->get_default_wordpress_content_post( $target['post_type'], $target['slug'] );
+				if ( empty( $post ) || empty( $post->ID ) ) {
+					continue;
+				}
+
+				if ( ! $this->is_untouched_default_wordpress_content( $post, $target ) ) {
+					continue;
+				}
+
+				$result = wp_delete_post( absint( $post->ID ), true );
+				if ( false !== $result && null !== $result ) {
+					$deleted++;
+				}
+			}
+
+			return $deleted;
+		}
+
+		/**
+		 * Find a default WordPress post/page by slug and type.
+		 *
+		 * @param string $post_type Post type.
+		 * @param string $slug      Post slug.
+		 *
+		 * @return object|null
+		 */
+		private function get_default_wordpress_content_post( $post_type, $slug ) {
+			if ( function_exists( 'get_page_by_path' ) ) {
+				$post = get_page_by_path( $slug, OBJECT, $post_type );
+				if ( ! empty( $post ) ) {
+					return $post;
+				}
+			}
+
+			if ( ! function_exists( 'get_posts' ) ) {
+				return null;
+			}
+
+			$args = array(
+				'post_type'      => $post_type,
+				'post_status'    => 'any',
+				'posts_per_page' => 1,
+			);
+			if ( 'page' === $post_type ) {
+				$args['pagename'] = $slug;
+			} else {
+				$args['name'] = $slug;
+			}
+
+			$posts = get_posts( $args );
+			if ( empty( $posts ) || ! is_array( $posts ) ) {
+				return null;
+			}
+
+			return reset( $posts );
+		}
+
+		/**
+		 * Whether a local record still matches WordPress' untouched default content.
+		 *
+		 * @param object $post   Post object.
+		 * @param array  $target Default-content descriptor.
+		 *
+		 * @return bool
+		 */
+		private function is_untouched_default_wordpress_content( $post, $target ) {
+			if ( empty( $post->post_type ) || $post->post_type !== $target['post_type'] ) {
+				return false;
+			}
+			if ( empty( $post->post_name ) || $post->post_name !== $target['slug'] ) {
+				return false;
+			}
+			if ( ! isset( $post->post_title ) || $post->post_title !== $target['title'] ) {
+				return false;
+			}
+			if ( function_exists( 'get_post_meta' ) && ! empty( $post->ID ) && get_post_meta( $post->ID, 'imported_with_pixassist', true ) ) {
+				return false;
+			}
+
+			$content = isset( $post->post_content ) ? wp_strip_all_tags( (string) $post->post_content ) : '';
+			foreach ( $target['snippets'] as $snippet ) {
+				if ( false === stripos( $content, $snippet ) ) {
+					return false;
+				}
+			}
+
+			return true;
 		}
 
 		/**
@@ -7306,6 +7903,12 @@ HTML;
 				}
 
 				$args['data'] = $this->maybeCastNumbersDeep( $args['data'] );
+
+				$dependencies = $this->import_nav_menu_location_dependencies_for_settings( $demo_key, $base_url, $args['data'] );
+				if ( is_wp_error( $dependencies ) || $dependencies instanceof WP_REST_Response ) {
+					$response = $dependencies;
+					break;
+				}
 
 				$result = $this->import_settings( $demo_key, 'post', $args['data'] );
 				if ( ! is_wp_error( $result ) && ! $result instanceof WP_REST_Response ) {
@@ -10255,174 +10858,179 @@ HTML;
 			return rest_ensure_response( $response_data );
 		}
 
-		// Source records already skipped as commerce (shop/cart pages, products) so a later nav menu
-		// item that targets one of them by object type + id is also recognized as commerce. Pages/
-		// products (priority 10) import before nav menu items (priority 900), so the set is populated
-		// in time.
-		$commerce_context = function_exists( 'pixassist_starter_post_record_is_authorized' )
-			? array( 'commerce_object_ids' => $this->get_commerce_source_ids( $demo_key ) )
-			: array();
+			// Source records already skipped as commerce (shop/cart pages, products) so a later nav menu
+			// item that targets one of them by object type + id is also recognized as commerce. Pages/
+			// products (priority 10) import before nav menu items (priority 900), so the set is populated
+			// in time.
+			$commerce_context = function_exists( 'pixassist_starter_post_record_is_authorized' )
+				? array( 'commerce_object_ids' => $this->get_commerce_source_ids( $demo_key ) )
+				: array();
 
-		foreach ( $response_data['data']['posts'] as $i => $post ) {
-			// Per-record capability-segment guard: WooCommerce pages (shop/cart/checkout/my-account),
-			// commerce templates, and commerce-targeting nav menu items ship inside a `page`/`wp_template`/
-			// `nav_menu_item` step whose step-level type is `base`, so they pass the operation-level gate.
-			// Classify each record intrinsically and skip commerce records unless commerce is authorized —
-			// this is how the free/default import excludes all WooCommerce/shop content while still
-			// importing base pages/posts/templates. Skipped ids are recorded so later menu items that
-			// target them by id are caught too.
-			if ( function_exists( 'pixassist_starter_post_record_is_authorized' )
-				&& ! pixassist_starter_post_record_is_authorized( $post, $commerce_context ) ) {
-				if ( isset( $post['ID'] ) ) {
-					// Record under the record's own object type (e.g. "page:4" for a shop page) so a
-					// page-targeting nav item matches only a skipped page, never an editorial term.
-					$this->record_commerce_source_ids( $demo_key, isset( $post['post_type'] ) ? $post['post_type'] : '', $post['ID'] );
-					$commerce_context['commerce_object_ids'] = $this->get_commerce_source_ids( $demo_key );
-				}
-				continue;
-			}
+			$source_post_formats = $this->get_source_post_format_fallbacks( $base_url, isset( $args['post_type'] ) ? $args['post_type'] : '', $response_data['data']['posts'] );
 
-			$post_args = array(
-				'import_id'             => $post['ID'],
-				'post_title'            => wp_strip_all_tags( $post['post_title'] ),
-				'post_content'          => $post['post_content'],
-				'post_content_filtered' => $post['post_content_filtered'],
-				'post_excerpt'          => $post['post_excerpt'],
-				'post_status'           => $post['post_status'],
-				'post_name'             => $post['post_name'],
-				'post_type'             => $post['post_type'],
-				'post_date'             => $post['post_date'],
-				'post_date_gmt'         => $post['post_date_gmt'],
-				'post_modified'         => $post['post_modified'],
-				'post_modified_gmt'     => $post['post_modified_gmt'],
-				'menu_order'            => $post['menu_order'],
-				'meta_input'            => array(
-					'imported_with_pixassist' => true
-				)
-			);
-
-			// Now decide what to do if the post slug already exists
-			if ( $existing_post_id = $this->the_slug_exists( $post['post_name'], $post['post_type'] ) ) {
-
-				if ( apply_filters( 'pixassist_sce_should_overwrite_existing_post', false, $existing_post_id, $post, $demo_key ) ) {
-					$post_args['ID'] = $existing_post_id;
-				} else {
-					if ( isset( $starter_content[ $demo_key ]['post_types'][ $args['post_type'] ][ $post['ID'] ] ) ) {
-						// If the we have already imported this post, keep the data
-						$imported_ids[ $post['ID'] ] = $starter_content[ $demo_key ]['post_types'][ $args['post_type'] ][ $post['ID'] ];
-					} else {
-						// The slug already exists locally and we are not overwriting it, so treat the
-						// existing post as the imported one. Mapping to the existing LOCAL id (not the
-						// remote demo id) keeps `page_on_front` / `page_for_posts` / nav-menu remaps
-						// pointing at a real page — otherwise the front page resolves to a non-existent
-						// id and renders blank with an unset "Front page displays" setting.
-						$imported_ids[ $post['ID'] ] = absint( $existing_post_id );
+			foreach ( $response_data['data']['posts'] as $i => $post ) {
+				// Per-record capability-segment guard: WooCommerce pages (shop/cart/checkout/my-account),
+				// commerce templates, and commerce-targeting nav menu items ship inside a `page`/`wp_template`/
+				// `nav_menu_item` step whose step-level type is `base`, so they pass the operation-level gate.
+				// Classify each record intrinsically and skip commerce records unless commerce is authorized —
+				// this is how the free/default import excludes all WooCommerce/shop content while still
+				// importing base pages/posts/templates. Skipped ids are recorded so later menu items that
+				// target them by id are caught too.
+				if ( function_exists( 'pixassist_starter_post_record_is_authorized' )
+					&& ! pixassist_starter_post_record_is_authorized( $post, $commerce_context ) ) {
+					if ( isset( $post['ID'] ) ) {
+						// Record under the record's own object type (e.g. "page:4" for a shop page) so a
+						// page-targeting nav item matches only a skipped page, never an editorial term.
+						$this->record_commerce_source_ids( $demo_key, isset( $post['post_type'] ) ? $post['post_type'] : '', $post['ID'] );
+						$commerce_context['commerce_object_ids'] = $this->get_commerce_source_ids( $demo_key );
 					}
 					continue;
 				}
-			}
 
-			if ( ! empty( $post['meta'] ) ) {
+				$post_args = array(
+					'import_id'             => $post['ID'],
+					'post_title'            => wp_strip_all_tags( $post['post_title'] ),
+					'post_content'          => $post['post_content'],
+					'post_content_filtered' => $post['post_content_filtered'],
+					'post_excerpt'          => $post['post_excerpt'],
+					'post_status'           => $post['post_status'],
+					'post_name'             => $post['post_name'],
+					'post_type'             => $post['post_type'],
+					'post_date'             => $post['post_date'],
+					'post_date_gmt'         => $post['post_date_gmt'],
+					'post_modified'         => $post['post_modified'],
+					'post_modified_gmt'     => $post['post_modified_gmt'],
+					'menu_order'            => $post['menu_order'],
+					'meta_input'            => array(
+						'imported_with_pixassist' => true
+					)
+				);
+				$source_post_format = $this->get_source_post_format( $post, $source_post_formats );
 
-				$must_break = false;
+				// Now decide what to do if the post slug already exists
+				if ( $existing_post_id = $this->the_slug_exists( $post['post_name'], $post['post_type'] ) ) {
 
-				foreach ( $post['meta'] as $key => $meta ) {
-
-					if ( $meta === null || $meta === array(null) ) {
+					if ( apply_filters( 'pixassist_sce_should_overwrite_existing_post', false, $existing_post_id, $post, $demo_key ) ) {
+						$post_args['ID'] = $existing_post_id;
+					} else {
+						if ( isset( $starter_content[ $demo_key ]['post_types'][ $args['post_type'] ][ $post['ID'] ] ) ) {
+							// If the we have already imported this post, keep the data
+							$imported_ids[ $post['ID'] ] = $starter_content[ $demo_key ]['post_types'][ $args['post_type'] ][ $post['ID'] ];
+						} else {
+							// The slug already exists locally and we are not overwriting it, so treat the
+							// existing post as the imported one. Mapping to the existing LOCAL id (not the
+							// remote demo id) keeps `page_on_front` / `page_for_posts` / nav-menu remaps
+							// pointing at a real page — otherwise the front page resolves to a non-existent
+							// id and renders blank with an unset "Front page displays" setting.
+							$imported_ids[ $post['ID'] ] = absint( $existing_post_id );
+						}
 						continue;
 					}
+				}
 
-					if ( ! empty( $meta ) ) {
-						// we only need  the first value
-						if ( isset( $meta[0] ) ) {
-							$meta = $meta[0];
+				if ( ! empty( $post['meta'] ) ) {
+
+					$must_break = false;
+
+					foreach ( $post['meta'] as $key => $meta ) {
+
+						if ( $meta === null || $meta === array(null) ) {
+							continue;
 						}
 
-						$meta = maybe_unserialize( $meta );
-					}
+						if ( ! empty( $meta ) ) {
+							// we only need  the first value
+							if ( isset( $meta[0] ) ) {
+								$meta = $meta[0];
+							}
 
-					if ( $key === '_menu_item_object' && $meta === 'post_format' ) {
-						$must_break = true;
-						break;
-					}
+							$meta = maybe_unserialize( $meta );
+						}
 
-					if ( ! empty( $meta ) ) {
-						$post_args['meta_input'][ $key ] = apply_filters( 'sce_pre_postmeta', $meta, $key, $demo_key );
+						if ( $key === '_menu_item_object' && $meta === 'post_format' ) {
+							$must_break = true;
+							break;
+						}
 
-						// Preserve the raw source featured-image id so end_import() can backfill it if the
-						// referenced media was not yet imported when this post was inserted (interrupted /
-						// out-of-order import). See backfill_pending_thumbnails().
-						if ( '_thumbnail_id' === $key ) {
-							$pending_thumbnail = $this->first_numeric_media_id( $meta );
-							if ( $pending_thumbnail ) {
-								$post_args['meta_input']['_pixassist_pending_thumbnail'] = $pending_thumbnail;
-							} else {
-								// The source gave a non-numeric featured-image id (e.g. a corrupt "Array" string
-								// from a misbehaving exporter). Never persist a broken _thumbnail_id — it would
-								// leave a dangling featured image. Drop it so the post simply has none.
-								unset( $post_args['meta_input']['_thumbnail_id'] );
+						if ( ! empty( $meta ) ) {
+							$post_args['meta_input'][ $key ] = apply_filters( 'sce_pre_postmeta', $meta, $key, $demo_key );
+
+							// Preserve the raw source featured-image id so end_import() can backfill it if the
+							// referenced media was not yet imported when this post was inserted (interrupted /
+							// out-of-order import). See backfill_pending_thumbnails().
+							if ( '_thumbnail_id' === $key ) {
+								$pending_thumbnail = $this->first_numeric_media_id( $meta );
+								if ( $pending_thumbnail ) {
+									$post_args['meta_input']['_pixassist_pending_thumbnail'] = $pending_thumbnail;
+								} else {
+									// The source gave a non-numeric featured-image id (e.g. a corrupt "Array" string
+									// from a misbehaving exporter). Never persist a broken _thumbnail_id — it would
+									// leave a dangling featured image. Drop it so the post simply has none.
+									unset( $post_args['meta_input']['_thumbnail_id'] );
+								}
 							}
 						}
 					}
-				}
 
-				if ( $must_break ) {
-					continue;
-				}
-			}
-
-			if ( ! empty( $post['taxonomies'] ) ) {
-				$post_args['post_category'] = array();
-				$post_args['tax_input']     = array();
-
-				foreach ( $post['taxonomies'] as $taxonomy => $terms ) {
-
-					if ( ! taxonomy_exists( $taxonomy ) ) {
-						// @TODO inform the user that the taxonomy doesn't exist and maybe he should install a plugin
+					if ( $must_break ) {
 						continue;
 					}
-
-					$post_args['tax_input'][ $taxonomy ] = array();
-
-					foreach ( $terms as $term ) {
-						if ( is_numeric( $term ) && isset( $starter_content[ $demo_key ]['taxonomies'][ $taxonomy ][ $term ] ) ) {
-							$term = $starter_content[ $demo_key ]['taxonomies'][ $taxonomy ][ $term ];
-						}
-
-						$post_args['tax_input'][ $taxonomy ][] = $term;
-					}
 				}
-			}
 
-			// Allow others to have a say in it.
-			$post_args = apply_filters( 'pixassist_sce_insert_post_args', $post_args, $post, $demo_key );
+				if ( ! empty( $post['taxonomies'] ) ) {
+					$post_args['post_category'] = array();
+					$post_args['tax_input']     = array();
 
-			// Since wp_insert_post() at post.php@L3884 does a wp_unslash() on the whole post data, we need to do a wp_slash() to prevent things from breaking.
-			$post_args = wp_slash_strings_only( $post_args );
+					foreach ( $post['taxonomies'] as $taxonomy => $terms ) {
 
-			$post_id = wp_insert_post( $post_args );
-
-			if ( is_wp_error( $post_id ) || empty( $post_id ) ) {
-				// well ... error
-				$imported_ids[ $post['ID'] ] = $post_id;
-			} else {
-				$imported_ids[ $post['ID'] ] = $post_id;
-
-				// wp_insert_post()'s tax_input is silently dropped for any taxonomy the current user lacks
-				// the `assign_terms` cap for (the case for custom taxonomies like `portfolio_type` when the
-				// import runs without a privileged user). Re-apply the already-mapped terms directly with
-				// wp_set_object_terms(), which bypasses that capability check, so CPT taxonomies attach
-				// regardless of the caller's auth context.
-				if ( ! empty( $post_args['tax_input'] ) && is_array( $post_args['tax_input'] ) ) {
-					foreach ( $post_args['tax_input'] as $taxonomy => $term_ids ) {
-						if ( empty( $term_ids ) || ! taxonomy_exists( $taxonomy ) ) {
+						if ( ! taxonomy_exists( $taxonomy ) ) {
+							// @TODO inform the user that the taxonomy doesn't exist and maybe he should install a plugin
 							continue;
 						}
-						wp_set_object_terms( $post_id, $term_ids, $taxonomy, false );
+
+						$post_args['tax_input'][ $taxonomy ] = array();
+
+						foreach ( $terms as $term ) {
+							if ( is_numeric( $term ) && isset( $starter_content[ $demo_key ]['taxonomies'][ $taxonomy ][ $term ] ) ) {
+								$term = $starter_content[ $demo_key ]['taxonomies'][ $taxonomy ][ $term ];
+							}
+
+							$post_args['tax_input'][ $taxonomy ][] = $term;
+						}
 					}
 				}
+
+				// Allow others to have a say in it.
+				$post_args = apply_filters( 'pixassist_sce_insert_post_args', $post_args, $post, $demo_key );
+
+				// Since wp_insert_post() at post.php@L3884 does a wp_unslash() on the whole post data, we need to do a wp_slash() to prevent things from breaking.
+				$post_args = wp_slash_strings_only( $post_args );
+
+				$post_id = wp_insert_post( $post_args );
+
+				if ( is_wp_error( $post_id ) || empty( $post_id ) ) {
+					// well ... error
+					$imported_ids[ $post['ID'] ] = $post_id;
+				} else {
+					$imported_ids[ $post['ID'] ] = $post_id;
+
+					// wp_insert_post()'s tax_input is silently dropped for any taxonomy the current user lacks
+					// the `assign_terms` cap for (the case for custom taxonomies like `portfolio_type` when the
+					// import runs without a privileged user). Re-apply the already-mapped terms directly with
+					// wp_set_object_terms(), which bypasses that capability check, so CPT taxonomies attach
+					// regardless of the caller's auth context.
+					if ( ! empty( $post_args['tax_input'] ) && is_array( $post_args['tax_input'] ) ) {
+						foreach ( $post_args['tax_input'] as $taxonomy => $term_ids ) {
+							if ( empty( $term_ids ) || ! taxonomy_exists( $taxonomy ) ) {
+								continue;
+							}
+							wp_set_object_terms( $post_id, $term_ids, $taxonomy, false );
+						}
+					}
+
+					$this->set_imported_post_format( $post_id, $source_post_format );
+				}
 			}
-		}
 
 		// Post processing to handle parents and guid changes
 		foreach ( $response_data['data']['posts'] as $i => $post ) {
@@ -10496,10 +11104,223 @@ HTML;
 
 		// Return the imported post IDs
 		return $imported_ids;
-	}
+		}
 
-	/**
-	 * Remap term IDs inside a core/query block's taxQuery, supporting both the standard flat shape
+		/**
+		 * Fetch post-format fallbacks from core WP REST when SCE omits them.
+		 *
+		 * @param string $base_url  Source SCE REST base URL.
+		 * @param string $post_type Current post type.
+		 * @param array  $posts     Source SCE post records.
+		 *
+		 * @return array Source post ID => post format slug.
+		 */
+		private function get_source_post_format_fallbacks( $base_url, $post_type, $posts ) {
+			if ( 'post' !== sanitize_key( $post_type ) || empty( $posts ) || ! is_array( $posts ) ) {
+				return array();
+			}
+
+			if ( ! apply_filters( 'pixassist_sce_fetch_source_post_format_fallbacks', true, $base_url, $post_type ) ) {
+				return array();
+			}
+
+			$ids = array();
+			foreach ( $posts as $post ) {
+				if ( empty( $post['ID'] ) || $this->get_source_post_format( $post, array() ) ) {
+					continue;
+				}
+				$ids[] = absint( $post['ID'] );
+			}
+			$ids = array_values( array_unique( array_filter( $ids ) ) );
+			if ( empty( $ids ) ) {
+				return array();
+			}
+
+			$rest_base = $this->get_source_wp_rest_base_from_sce_base( $base_url );
+			if ( empty( $rest_base ) ) {
+				return array();
+			}
+
+			$formats = array();
+			foreach ( array_chunk( $ids, 100 ) as $chunk ) {
+				$query = http_build_query(
+					array(
+						'include'  => implode( ',', $chunk ),
+						'per_page' => min( 100, count( $chunk ) ),
+						'_fields'  => 'id,format',
+					),
+					'',
+					'&',
+					PHP_QUERY_RFC3986
+				);
+
+				$response = wp_remote_request( trailingslashit( $rest_base ) . 'posts?' . $query, array(
+					'method'    => 'GET',
+					'timeout'   => 5,
+					'blocking'  => true,
+					'sslverify' => true,
+				) );
+				if ( is_wp_error( $response ) ) {
+					continue;
+				}
+
+				$data = json_decode( wp_remote_retrieve_body( $response ), true );
+				if ( empty( $data ) || ! is_array( $data ) ) {
+					continue;
+				}
+
+				foreach ( $data as $record ) {
+					if ( empty( $record['id'] ) || empty( $record['format'] ) ) {
+						continue;
+					}
+
+					$format = $this->normalize_post_format_slug( $record['format'] );
+					if ( $format ) {
+						$formats[ absint( $record['id'] ) ] = $format;
+					}
+				}
+			}
+
+			return $formats;
+		}
+
+		/**
+		 * Resolve a source post's post format from SCE fields or a fallback map.
+		 *
+		 * @param array $post             Source post record.
+		 * @param array $fallback_formats Source post ID => post format slug.
+		 *
+		 * @return string Empty for standard/no format.
+		 */
+		private function get_source_post_format( $post, $fallback_formats ) {
+			if ( ! empty( $post['format'] ) ) {
+				$format = $this->normalize_post_format_slug( $post['format'] );
+				if ( $format ) {
+					return $format;
+				}
+			}
+
+			if ( ! empty( $post['taxonomies']['post_format'] ) && is_array( $post['taxonomies']['post_format'] ) ) {
+				foreach ( $post['taxonomies']['post_format'] as $term ) {
+					$format = $this->normalize_post_format_slug( $term );
+					if ( $format ) {
+						return $format;
+					}
+				}
+			}
+
+			if ( ! empty( $post['ID'] ) && ! empty( $fallback_formats[ absint( $post['ID'] ) ] ) ) {
+				return $this->normalize_post_format_slug( $fallback_formats[ absint( $post['ID'] ) ] );
+			}
+
+			return '';
+		}
+
+		/**
+		 * Normalize and validate a post-format slug.
+		 *
+		 * @param mixed $format Format candidate.
+		 *
+		 * @return string Empty for standard/invalid formats.
+		 */
+		private function normalize_post_format_slug( $format ) {
+			if ( is_array( $format ) ) {
+				if ( ! empty( $format['slug'] ) ) {
+					$format = $format['slug'];
+				} elseif ( ! empty( $format['name'] ) ) {
+					$format = $format['name'];
+				} else {
+					return '';
+				}
+			}
+
+			$format = sanitize_key( (string) $format );
+			if ( '' === $format || 'standard' === $format ) {
+				return '';
+			}
+			if ( 0 === strpos( $format, 'post-format-' ) ) {
+				$format = substr( $format, strlen( 'post-format-' ) );
+			}
+
+			$allowed = function_exists( 'get_post_format_slugs' )
+				? get_post_format_slugs()
+				: array( 'aside', 'gallery', 'link', 'image', 'quote', 'status', 'video', 'audio', 'chat' );
+
+			return in_array( $format, $allowed, true ) ? $format : '';
+		}
+
+		/**
+		 * Apply a resolved source post format to an imported post.
+		 *
+		 * @param int    $post_id Imported local post ID.
+		 * @param string $format  Post format slug.
+		 */
+		private function set_imported_post_format( $post_id, $format ) {
+			$format = $this->normalize_post_format_slug( $format );
+			if ( empty( $post_id ) || empty( $format ) || ! function_exists( 'set_post_format' ) ) {
+				return;
+			}
+
+			set_post_format( $post_id, $format );
+		}
+
+		/**
+		 * Convert an SCE REST base URL to the standard WP REST v2 base URL.
+		 *
+		 * @param string $base_url Source SCE REST base URL.
+		 *
+		 * @return string
+		 */
+		private function get_source_wp_rest_base_from_sce_base( $base_url ) {
+			$base_url = trailingslashit( esc_url_raw( $base_url ) );
+			$rest_root = $this->get_source_wp_rest_root_from_sce_base( $base_url );
+			if ( empty( $rest_root ) ) {
+				return '';
+			}
+
+			$rest_base = trailingslashit( $rest_root ) . 'wp/v2/';
+
+			return trailingslashit( $rest_base );
+		}
+
+		/**
+		 * Convert an SCE REST base URL to the source WP REST root URL.
+		 *
+		 * @param string $base_url Source SCE REST base URL.
+		 *
+		 * @return string
+		 */
+		private function get_source_wp_rest_root_from_sce_base( $base_url ) {
+			$base_url = trailingslashit( esc_url_raw( $base_url ) );
+			$rest_root = preg_replace( '#/sce/v[0-9]+/?$#i', '/', $base_url );
+
+			if ( empty( $rest_root ) || $rest_root === $base_url ) {
+				return '';
+			}
+
+			return trailingslashit( $rest_root );
+		}
+
+		/**
+		 * Convert an SCE REST base URL to the source site root URL.
+		 *
+		 * @param string $base_url Source SCE REST base URL.
+		 *
+		 * @return string
+		 */
+		private function get_source_site_root_from_sce_base( $base_url ) {
+			$base_url = trailingslashit( esc_url_raw( $base_url ) );
+			$site_root = preg_replace( '#wp-json/sce/v[0-9]+/?$#i', '', $base_url );
+
+			if ( empty( $site_root ) || $site_root === $base_url ) {
+				return '';
+			}
+
+			return trailingslashit( $site_root );
+		}
+
+		/**
+		 * Remap term IDs inside a core/query block's taxQuery, supporting both the standard flat shape
 	 * ({ taxonomy: [ids] }) and the Nova Blocks include/exclude shape ({ include: { taxonomy: [ids] } }).
 	 * Unimported term IDs are dropped so the query never targets a stale demo term.
 	 *
@@ -11885,14 +12706,16 @@ HTML;
 		// survive the replace above. Derive the site root and remap those too, keeping the import
 		// self-contained (no links pointing back at the demo site).
 		$demo_site = preg_replace( '#wp-json/.*$#', '', $demo_url );
-		if ( ! empty( $demo_site ) && $demo_site !== $demo_url ) {
-			$search_site  = trailingslashit( $demo_site );
-			$replace_site = trailingslashit( site_url() );
-			$wpdb->query( $wpdb->prepare( "UPDATE {$wpdb->posts} SET post_content = REPLACE(post_content, %s, %s)", $search_site, $replace_site ) );
-		}
+			if ( ! empty( $demo_site ) && $demo_site !== $demo_url ) {
+				$search_site  = trailingslashit( $demo_site );
+				$replace_site = trailingslashit( site_url() );
+				$wpdb->query( $wpdb->prepare( "UPDATE {$wpdb->posts} SET post_content = REPLACE(post_content, %s, %s)", $search_site, $replace_site ) );
+				$wpdb->query( $wpdb->prepare( "UPDATE {$wpdb->postmeta} SET meta_value = REPLACE(meta_value, %s, %s) WHERE meta_key='enclosure'", $search_site, $replace_site ) );
+				$wpdb->query( $wpdb->prepare( "UPDATE {$wpdb->postmeta} SET meta_value = REPLACE(meta_value, %s, %s) WHERE meta_key='_menu_item_url'", $search_site, $replace_site ) );
+			}
 
-		// remap enclosure urls
-		$wpdb->query( $wpdb->prepare( "UPDATE {$wpdb->postmeta} SET meta_value = REPLACE(meta_value, %s, %s) WHERE meta_key='enclosure'", $search, $replace ) );
+			// remap enclosure urls
+			$wpdb->query( $wpdb->prepare( "UPDATE {$wpdb->postmeta} SET meta_value = REPLACE(meta_value, %s, %s) WHERE meta_key='enclosure'", $search, $replace ) );
 
 		// remap custom-link menu item urls (e.g. a "Home" item that still points at the theme demo)
 		$wpdb->query( $wpdb->prepare( "UPDATE {$wpdb->postmeta} SET meta_value = REPLACE(meta_value, %s, %s) WHERE meta_key='_menu_item_url'", $search, $replace ) );

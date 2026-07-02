@@ -36,7 +36,7 @@ if ( ! function_exists( 'pixassist_register_plugins_tab' ) ) {
 
 		$tabs[] = array(
 			'id'         => 'plugins',
-			'label'      => esc_html__( 'Setup', '__plugin_txtd' ),
+			'label'      => esc_html__( 'Site Setup', '__plugin_txtd' ),
 			'capability' => 'edit_theme_options',
 			'component'  => 'plugins',
 			'gate'       => '',
@@ -159,7 +159,7 @@ if ( ! function_exists( 'pixassist_get_plugins_copy' ) ) {
 			? $config['pluginManager']['l10n']
 			: array();
 		return array(
-			'title'            => esc_html__( 'Setup', '__plugin_txtd' ),
+			'title'            => esc_html__( 'Site Setup', '__plugin_txtd' ),
 			'content'          => esc_html__( 'Check the recommended plugins and activate anything Pixelgrade Design needs before you start working.', '__plugin_txtd' ),
 			'validatedTitle'   => pixassist_plugins_replace_tokens( isset( $recommended['validatedTitle'] ) ? (string) $recommended['validatedTitle'] : esc_html__( 'Setup ready', '__plugin_txtd' ) ),
 			'validatedContent' => pixassist_plugins_replace_tokens( isset( $recommended['validatedContent'] ) ? (string) $recommended['validatedContent'] : esc_html__( 'The recommended plugins are active.', '__plugin_txtd' ) ),

@@ -19,22 +19,38 @@ function readTabFromUrl() {
 }
 
 /**
+ * Normalize an alias target: either a plain tab-id string, or `{ tab, section }` when the legacy id
+ * maps to a section inside a merged tab (e.g. `layouts` → the Design Library's layouts section).
+ *
+ * @param {string|Object} value Alias target as provided by the server.
+ *
+ * @return {{tab: string, section: string}} Normalized target.
+ */
+function normalizeAliasTarget( value ) {
+	if ( value && 'object' === typeof value ) {
+		return {
+			tab: 'string' === typeof value.tab ? value.tab : '',
+			section: 'string' === typeof value.section ? value.section : '',
+		};
+	}
+
+	return { tab: 'string' === typeof value ? value : '', section: '' };
+}
+
+/**
  * @param {string[]} validIds   Ids of the currently visible tabs.
  * @param {string}   defaultTab Tab to fall back to when the URL tab is missing/unknown.
- * @param {Object}   aliases    Legacy tab ids mapped to current tab ids.
+ * @param {Object}   aliases    Legacy tab ids mapped to current tab ids (string or {tab, section}).
  *
  * @return {[string, Function]} The active tab id and a navigate( id ) setter.
  */
 export function useTabRouting( validIds, defaultTab, aliases = {} ) {
 	const key = validIds.join( ',' );
-	const aliasKey = Object.keys( aliases )
-		.sort()
-		.map( ( alias ) => alias + ':' + aliases[ alias ] )
-		.join( ',' );
+	const aliasKey = JSON.stringify( aliases );
 
 	const resolve = useCallback(
 		( id ) => {
-			const target = id && aliases[ id ] ? aliases[ id ] : id;
+			const target = id && aliases[ id ] ? normalizeAliasTarget( aliases[ id ] ).tab : id;
 
 			return target && validIds.indexOf( target ) !== -1 ? target : defaultTab;
 		},
@@ -45,15 +61,20 @@ export function useTabRouting( validIds, defaultTab, aliases = {} ) {
 
 	const canonicalizeAlias = useCallback(
 		( id ) => {
-			if ( ! id || ! aliases[ id ] || aliases[ id ] !== resolve( id ) ) {
+			if ( ! id || ! aliases[ id ] ) {
+				return;
+			}
+
+			const target = normalizeAliasTarget( aliases[ id ] );
+			if ( target.tab !== resolve( id ) ) {
 				return;
 			}
 
 			const params = new URLSearchParams( window.location.search );
-			params.set( 'tab', aliases[ id ] );
+			params.set( 'tab', target.tab );
 
-			if ( 'account-license' === id && 'account' === aliases[ id ] && ! params.get( 'section' ) ) {
-				params.set( 'section', 'plus' );
+			if ( target.section && ! params.get( 'section' ) ) {
+				params.set( 'section', target.section );
 			}
 
 			window.history.replaceState( {}, '', window.location.pathname + '?' + params.toString() );

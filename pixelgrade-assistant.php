@@ -62,7 +62,11 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/admin-overview.php';
 // Free Plugins tab: recommended plugin management inside the hub.
 require_once plugin_dir_path( __FILE__ ) . 'includes/admin-plugins.php';
 
-// Free Starter Sites tab: existing free demos plus Plus-injected premium starters.
+// Free Design Library tab: one destination for the three content granularities (whole site /
+// reusable part / single page); the section modules below keep their payloads + REST surfaces.
+require_once plugin_dir_path( __FILE__ ) . 'includes/admin-design-library.php';
+
+// Free Starter Sites section: existing free demos plus Plus-injected premium starters.
 require_once plugin_dir_path( __FILE__ ) . 'includes/admin-starter-sites.php';
 
 // Free Recipes tab: source-as-recipe bundles over granular starter layouts.

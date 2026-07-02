@@ -14,6 +14,7 @@ $GLOBALS['paf_denied_caps']  = array();
 $GLOBALS['paf_plugin_config'] = array();
 $GLOBALS['paf_options']       = array();
 $GLOBALS['paf_post_counts']   = array();
+$GLOBALS['paf_wp_options']    = array();
 
 function add_filter( $hook, $callback, $priority = 10, $args = 1 ) {
 	$GLOBALS['paf_filters'][ $hook ][] = array(
@@ -94,6 +95,10 @@ function wp_count_posts( $post_type = 'post' ) {
 		),
 		$counts
 	);
+}
+
+function get_option( $key, $default = false ) {
+	return array_key_exists( $key, $GLOBALS['paf_wp_options'] ) ? $GLOBALS['paf_wp_options'][ $key ] : $default;
 }
 
 function get_post_types( $args = array(), $output = 'names' ) {
@@ -198,23 +203,21 @@ assert_true( function_exists( 'pixassist_register_starter_sites_tab' ), 'The Sta
 assert_true( function_exists( 'pixassist_get_admin_hub_starters' ), 'The starter normalizer accessor must be defined.' );
 assert_true( function_exists( 'pixassist_get_starter_sites_data' ), 'The Starter Sites payload function must be defined.' );
 
+/*
+ * Starter Sites merged into the Design Library tab (?tab=design-library&section=starter-sites);
+ * the legacy registration callback stays defined but appends no visible tab. Legacy ?tab= links
+ * route through the hub tabAliases (pinned in tests/admin-hub-test.php).
+ */
 $registered = pixassist_register_starter_sites_tab( array() );
-assert_same( 1, count( $registered ), 'Starter Sites registration must append exactly one tab.' );
+assert_same( 0, count( $registered ), 'Starter Sites registration must no longer append a visible hub tab (merged into Design Library).' );
 
-$tab = $registered[0];
-assert_same( 'starter-sites', $tab['id'], 'Starter Sites tab id must be `starter-sites`.' );
-assert_same( 'Starter Sites', $tab['label'], 'Starter Sites tab label must be `Starter Sites`.' );
-assert_same( 'edit_theme_options', $tab['capability'], 'Starter Sites tab must require edit_theme_options.' );
-assert_same( 'starterSites', $tab['component'], 'Starter Sites tab must bind the `starterSites` JS component.' );
-assert_same( '', $tab['gate'], 'Starter Sites tab is mixed but host-visible/free - no tab-level gate.' );
-assert_same( 30, $tab['order'], 'Starter Sites tab must sort after Plugins and before Help (order 30).' );
+$registered = pixassist_register_starter_sites_tab( array( array( 'id' => 'overview' ) ) );
+assert_same( 1, count( $registered ), 'Starter Sites registration must keep existing tabs unchanged.' );
 
 $GLOBALS['paf_filters'] = array();
 add_filter( 'pixelgrade/admin_hub/tabs', 'pixassist_register_starter_sites_tab' );
 $tabs = pixassist_get_admin_hub_tabs();
-assert_same( 1, count( $tabs ), 'The normalized hub registry must include the Starter Sites tab.' );
-assert_same( 'starter-sites', $tabs[0]['id'], 'The normalized Starter Sites tab must retain id `starter-sites`.' );
-assert_same( '', $tabs[0]['gate'], 'The normalized Starter Sites tab must remain host-visible/free.' );
+assert_same( 0, count( $tabs ), 'The normalized hub registry must not carry a standalone Starter Sites tab.' );
 
 $GLOBALS['paf_plugin_config'] = array(
 	'starterContent' => array(
@@ -347,6 +350,27 @@ assert_same( array( 'layout_only' ), array_column( $main['applyPlan']['secondary
 $empty_analysis = pixassist_get_starter_site_analysis();
 assert_same( 'empty', $empty_analysis['classification'], 'A site without local content or starter journal must classify as empty.' );
 assert_same( true, $empty_analysis['isEmpty'], 'Empty-site analysis must expose isEmpty=true.' );
+
+$GLOBALS['paf_post_counts'] = array(
+	'post' => array( 'publish' => 1 ),
+	'page' => array( 'publish' => 2 ),
+);
+$GLOBALS['paf_wp_options']['fresh_site'] = '1';
+$fresh_analysis = pixassist_get_starter_site_analysis();
+assert_same( 'empty', $fresh_analysis['classification'], 'A fresh WordPress install must classify as empty even when default content exists.' );
+assert_same( 0, $fresh_analysis['contentCount'], 'Fresh-site default content must not push the starter plan toward layouts-only.' );
+
+$fresh_starters = pixassist_get_admin_hub_starters();
+$fresh_main     = null;
+foreach ( $fresh_starters as $candidate ) {
+	if ( 'main' === $candidate['id'] ) {
+		$fresh_main = $candidate;
+		break;
+	}
+}
+assert_same( 'full_demo', $fresh_main['applyPlan']['primaryAction']['type'], 'Fresh sites with default content must default each starter to the full-demo import plan.' );
+$GLOBALS['paf_post_counts'] = array();
+$GLOBALS['paf_wp_options']  = array();
 
 $GLOBALS['paf_options']['imported_starter_content'] = array(
 	'main' => array(
@@ -532,6 +556,7 @@ assert_true( isset( $gate_copy['actions']['managePlugins'] ), 'Starter Sites cop
 
 $starter_sites_js = file_get_contents( __DIR__ . '/../admin/src-modern/hub/tabs/StarterSites.js' );
 assert_true( false !== strpos( $starter_sites_js, 'applyPlan' ), 'Starter Sites JS must render from the server-generated apply plan.' );
+assert_true( false !== strpos( $starter_sites_js, 'primaryAction.type' ), 'Starter Sites JS must default composer presets from the server primary action before local heuristics.' );
 assert_true( false !== strpos( $starter_sites_js, 'applyRecipe' ), 'Starter Sites JS must keep the recipe endpoint available for server-generated actions.' );
 assert_true( false !== strpos( $starter_sites_js, 'importUnit' ), 'Starter Sites JS must call the layout-unit endpoint for feature actions.' );
 assert_true( false !== strpos( $starter_sites_js, 'include_look' ), 'Starter Sites JS must pass the include-look decision to recipe apply.' );

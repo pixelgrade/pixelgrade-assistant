@@ -483,6 +483,11 @@ assert_true( false !== strpos( $overview_js, 'nextAction' ), 'Home must render t
 assert_true( false !== strpos( $overview_js, 'plus.isActive' ), 'Home must suppress the large Plus card once Plus is already active.' );
 assert_true( false !== strpos( $overview_js, 'tab=account&section=plus' ) || false !== strpos( $overview_js, 'renderPlusCard( plus )' ), 'Plus setup/manage routing must stay tied to the Account Plus section, not a standalone Home card.' );
 
+$get_started_js = file_get_contents( __DIR__ . '/../admin/src-modern/hub/tabs/GetStartedCard.js' );
+assert_true( false !== strpos( $get_started_js, 'shouldRouteToStarterChooser' ), 'Get started must decide multi-starter routing through an explicit helper.' );
+assert_true( false !== strpos( $get_started_js, "hasIncompleteStep( steps, 'plugins' )" ), 'Get started must prioritize incomplete plugin setup before routing to Starter Sites.' );
+assert_true( false !== strpos( $get_started_js, 'window.location.reload()' ), 'Get started must refresh after successful setup so plugin state is current.' );
+
 /*
  * 9. Onboarding "Get started" state model.
  *
@@ -501,15 +506,15 @@ $steps_with_demos = pixassist_get_onboarding_steps( array(
 	'plugins_ready'     => false,
 ) );
 $step_ids = array_map( function ( $s ) { return $s['id']; }, $steps_with_demos );
-assert_same( array( 'account', 'starter', 'plugins' ), $step_ids, 'With demos, the steps are account, starter, plugins (in order).' );
+assert_same( array( 'account', 'plugins', 'starter' ), $step_ids, 'With demos, the steps are account, plugins, starter (in order).' );
 
 $account_step = $steps_with_demos[0];
 assert_same( true, $account_step['done'], 'Connected account marks the account step done.' );
 assert_same( true, $account_step['optional'], 'The account step is optional (never blocks completion).' );
 assert_same( 'https://example.test/wp-admin/themes.php?page=pixelgrade&tab=account', $account_step['url'], 'Account step links to the Account tab.' );
-assert_same( 'https://example.test/wp-admin/themes.php?page=pixelgrade&tab=starter-sites', $steps_with_demos[1]['url'], 'Starter step links to the Starter Sites tab.' );
-assert_same( 'https://example.test/wp-admin/themes.php?page=pixelgrade&tab=plugins', $steps_with_demos[2]['url'], 'Plugins step links to the Plugins tab.' );
-assert_same( false, $steps_with_demos[2]['optional'], 'The plugins step is required.' );
+assert_same( 'https://example.test/wp-admin/themes.php?page=pixelgrade&tab=plugins', $steps_with_demos[1]['url'], 'Plugins step links to the Plugins tab.' );
+assert_same( false, $steps_with_demos[1]['optional'], 'The plugins step is required.' );
+assert_same( 'https://example.test/wp-admin/themes.php?page=pixelgrade&tab=starter-sites', $steps_with_demos[2]['url'], 'Starter step links to the Starter Sites tab.' );
 
 // 6b. No demos → the starter step is omitted (mirrors the wizard hiding it).
 $steps_no_demos = pixassist_get_onboarding_steps( array(

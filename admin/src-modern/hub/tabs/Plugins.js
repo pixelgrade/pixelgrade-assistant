@@ -13,7 +13,7 @@ import { Button, Card, CardBody, Flex, FlexItem, Notice, Spinner } from '@wordpr
 const DEFAULT_PLUGINS = {
 	plugins: [],
 	copy: {
-		title: __( 'Setup', 'pixelgrade_assistant' ),
+		title: __( 'Site Setup', 'pixelgrade_assistant' ),
 		content: __(
 			'Check the recommended plugins and activate anything Pixelgrade Design needs before you start working.',
 			'pixelgrade_assistant'
@@ -56,6 +56,14 @@ function getAdminUrl( path ) {
 
 function normalizeActionUrl( url ) {
 	return ( url || '' ).replace( /&amp;/g, '&' );
+}
+
+function scheduleStatusRefresh() {
+	if ( typeof window === 'undefined' || ! window.location || typeof window.setTimeout !== 'function' ) {
+		return;
+	}
+
+	window.setTimeout( () => window.location.reload(), 700 );
 }
 
 function getActions( copy ) {
@@ -191,6 +199,7 @@ function installPlugin( plugin, event, updatePlugin, copy, setNotice ) {
 				isInstalled: true,
 			} );
 			setNotice( { type: 'info', message: actions.refresh } );
+			scheduleStatusRefresh();
 		},
 		error: () => {
 			updatePlugin( plugin.slug, { status: 'failed' } );
@@ -228,6 +237,7 @@ function activatePlugin( plugin, url, updatePlugin, copy, setNotice ) {
 				isActive: true,
 			} );
 			setNotice( { type: 'success', message: actions.refresh } );
+			scheduleStatusRefresh();
 		} )
 		.catch( () => {
 			updatePlugin( plugin.slug, { status: 'failed' } );
@@ -281,6 +291,11 @@ export function ensurePluginActive( plugin ) {
 			return;
 		}
 
+		if ( plugin.actionType === 'external' ) {
+			reject( new Error( 'external_action_required' ) );
+			return;
+		}
+
 		// Needs installing first. Without the wp.updates API we cannot do this silently.
 		if ( ! hasUpdatesApi() ) {
 			reject( new Error( 'install_unavailable' ) );
@@ -328,6 +343,19 @@ function renderAction( plugin, updatePlugin, copy, setNotice ) {
 			Button,
 			{ variant: 'secondary', href: getAdminUrl( 'plugins.php' ) },
 			actions.update || __( 'Update', 'pixelgrade_assistant' )
+		);
+	}
+
+	if ( plugin.actionType === 'external' && plugin.externalActionUrl && ! plugin.isInstalled ) {
+		return createElement(
+			Button,
+			{
+				variant: 'primary',
+				href: normalizeActionUrl( plugin.externalActionUrl ),
+				target: '_blank',
+				rel: 'noreferrer',
+			},
+			plugin.externalActionLabel || __( 'Open', 'pixelgrade_assistant' )
 		);
 	}
 

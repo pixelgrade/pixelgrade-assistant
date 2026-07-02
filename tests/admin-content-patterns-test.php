@@ -143,28 +143,22 @@ require $module;
 assert_true( function_exists( 'pixassist_register_content_patterns_tab' ), 'The Page Patterns tab registration function must be defined.' );
 assert_true( function_exists( 'pixassist_get_content_patterns_data' ), 'The Page Patterns payload function must be defined.' );
 
+/*
+ * Page Patterns merged into the Design Library tab (?tab=design-library&section=content); the
+ * legacy registration callback stays defined but appends no visible tab. Legacy ?tab= links route
+ * through the hub tabAliases (pinned in tests/admin-hub-test.php); the privileged import REST
+ * endpoints keep their own manage_options checks.
+ */
 $registered = pixassist_register_content_patterns_tab( array() );
-assert_same( 1, count( $registered ), 'Page Patterns registration must append exactly one tab.' );
+assert_same( 0, count( $registered ), 'Page Patterns registration must no longer append a visible hub tab (merged into Design Library).' );
 
-$tab = $registered[0];
-assert_same( 'content', $tab['id'], 'Page Patterns tab id must be `content`.' );
-assert_same( 'Page Patterns', $tab['label'], 'Page Patterns tab label must be `Page Patterns`.' );
-assert_same( 'manage_options', $tab['capability'], 'Page Patterns tab must require manage_options because it imports content and media.' );
-assert_same( 'contentPatterns', $tab['component'], 'Page Patterns tab must bind the `contentPatterns` JS component.' );
-assert_same( 40, $tab['order'], 'Page Patterns tab must sit after Layouts and before Plugins.' );
+$registered = pixassist_register_content_patterns_tab( array( array( 'id' => 'overview' ) ) );
+assert_same( 1, count( $registered ), 'Page Patterns registration must keep existing tabs unchanged.' );
 
 $GLOBALS['paf_filters'] = array();
 add_filter( 'pixelgrade/admin_hub/tabs', 'pixassist_register_content_patterns_tab' );
 $tabs = pixassist_get_admin_hub_tabs();
-assert_same( 1, count( $tabs ), 'The normalized hub registry must include the Page Patterns tab.' );
-assert_same( 'content', $tabs[0]['id'], 'The normalized Page Patterns tab must retain id `content`.' );
-
-$GLOBALS['paf_filters'] = array();
-$GLOBALS['paf_denied_caps']['manage_options'] = true;
-add_filter( 'pixelgrade/admin_hub/tabs', 'pixassist_register_content_patterns_tab' );
-$tabs = pixassist_get_admin_hub_tabs();
-assert_same( 0, count( $tabs ), 'The normalized hub registry must hide Page Patterns when manage_options is unavailable.' );
-$GLOBALS['paf_denied_caps'] = array();
+assert_same( 0, count( $tabs ), 'The normalized hub registry must not carry a standalone Page Patterns tab.' );
 
 $data = pixassist_get_content_patterns_data();
 assert_same( 'Page Patterns', $data['copy']['title'], 'Page Patterns payload must carry tab copy.' );

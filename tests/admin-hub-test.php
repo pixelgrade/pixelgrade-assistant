@@ -81,8 +81,11 @@ assert_same( array( 'baseUrl', 'defaultTab', 'tabAliases', 'tabs' ), $keys, 'Hub
 assert_same( array(), $data['tabs'], 'With no registered tabs, tabs must be an empty array.' );
 assert_same( '', $data['defaultTab'], 'With no registered tabs, defaultTab must be empty.' );
 assert_same( 'https://example.test/wp-admin/themes.php?page=pixelgrade', $data['baseUrl'], 'baseUrl must point at the Appearance hub page.' );
-assert_same( 'account', $data['tabAliases']['account-license'], 'Legacy Account & License links must route to Account.' );
-assert_same( 'starter-sites', $data['tabAliases']['recipes'], 'Legacy Recipes links must route to Starter Sites because recipes now live in that flow.' );
+assert_same( array( 'tab' => 'account', 'section' => 'plus' ), $data['tabAliases']['account-license'], 'Legacy Account & License links must route to the Account Plus section.' );
+assert_same( array( 'tab' => 'design-library', 'section' => 'starter-sites' ), $data['tabAliases']['starter-sites'], 'Legacy Starter Sites links must route to the Design Library starter-sites section.' );
+assert_same( array( 'tab' => 'design-library', 'section' => 'layouts' ), $data['tabAliases']['layouts'], 'Legacy Layouts links must route to the Design Library layouts (Site Parts) section.' );
+assert_same( array( 'tab' => 'design-library', 'section' => 'content' ), $data['tabAliases']['content'], 'Legacy Page Patterns links must route to the Design Library content section.' );
+assert_same( array( 'tab' => 'design-library', 'section' => 'starter-sites' ), $data['tabAliases']['recipes'], 'Legacy Recipes links must route to the Design Library starter-sites section because recipes live in that flow.' );
 
 /*
  * With registered tabs, the hub data carries the normalized + sorted registry and defaults to the
@@ -131,7 +134,8 @@ assert_true( false !== strpos( $tabbar_js, 'tab.badge' ), 'The tab bar must read
 assert_true( false !== strpos( $tabbar_js, 'aria-current' ), 'The active tab must expose aria-current for navigation clarity.' );
 assert_true( false === strpos( $tabbar_js, "variant: isActive ? 'primary' : 'tertiary'" ), 'The active tab must not use the primary action button variant.' );
 assert_true( false !== strpos( $routing_js, 'aliases' ), 'Tab routing must resolve legacy aliases.' );
-assert_true( false !== strpos( $routing_js, "params.set( 'section', 'plus' )" ), 'Legacy Account & License routes must canonicalize to the Plus Account section.' );
+assert_true( false !== strpos( $routing_js, 'normalizeAliasTarget' ), 'Tab routing must normalize string and {tab, section} alias targets.' );
+assert_true( false !== strpos( $routing_js, "params.set( 'section', target.section )" ), 'Section-carrying aliases must canonicalize the section into the URL.' );
 assert_true( false !== strpos( $routing_js, "params.get( 'section' )" ), 'Direct section=plus links must select Account rather than falling back to Home.' );
 
 echo "Admin hub data OK\n";

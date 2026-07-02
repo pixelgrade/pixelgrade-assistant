@@ -152,6 +152,10 @@ function wp_verify_nonce( $nonce, $action ) {
 	return 'nonce-' . $action === $nonce;
 }
 
+function wp_nonce_url( $url, $action = '', $name = '_wpnonce' ) {
+	return add_query_arg( array( $name => 'nonce-' . $action ), $url );
+}
+
 function wp_unslash( $value ) {
 	return $value;
 }
@@ -509,6 +513,148 @@ assert_same( false, false !== strpos( (string) json_encode( $payload ), 'acc-sec
 unset( $_GET['pixassist_account'] );
 
 paf_reset_runtime();
+pixassist_save_account_connection(
+	array(
+		'pixelgrade_user_id'  => 42,
+		'email'               => 'customer@example.com',
+		'display_name'        => 'Customer',
+		'user_login'          => 'customer-login',
+		'oauth_token'         => 'acc-token',
+		'oauth_token_secret'  => 'acc-secret',
+	)
+);
+add_filter(
+	'pre_pixassist_account_licenses_response',
+	function ( $response, $request_data ) {
+		assert_same( '42', $request_data['user_id'], 'The account-license lookup must scope requests to the connected Pixelgrade user.' );
+
+		return array(
+			'code' => 'success',
+			'data' => array(
+				'licenses' => array(
+					array(
+						'licenses' => array(
+							array(
+								'license_hash'        => 'secret-plus-license',
+								'license_status_code' => 1,
+								'license_status'      => 'active',
+								'main_product_sku'    => 'pixelgrade-plus-studio',
+								'pixelgrade_plus'     => array(
+									'tier'      => 'studio',
+									'setup_url' => 'https://pixelgrade.test/account/downloads/pixelgrade-plus/',
+								),
+							),
+						),
+					),
+				),
+			),
+		);
+	},
+	10,
+	2
+);
+$account_license = pixassist_get_account_license_summary();
+assert_same( 'plus', $account_license['state'], 'A connected account with a Plus-family license should expose the Plus account-license state.' );
+assert_same( true, $account_license['hasPlusLicense'], 'The account-license summary should expose only a safe Plus ownership boolean.' );
+assert_same( 'pixelgrade-plus-studio', $account_license['productSku'], 'The account-license summary should preserve the safe concrete Plus tier SKU.' );
+assert_same( 'https://pixelgrade.test/account/downloads/pixelgrade-plus/', $account_license['setupUrl'], 'The account-license summary should accept a server-provided setup hand-off URL.' );
+
+$owned_plus_payload = pixassist_get_account_data();
+assert_same( 'plus_plugin_missing', $owned_plus_payload['accountValue']['products']['state'], 'Account-owned Plus should be visible even when the Plus plugin is absent.' );
+assert_same( 'Pixelgrade Plus', $owned_plus_payload['accountValue']['products']['plusLabel'], 'Account-owned Plus should expose the safe Plus product label.' );
+assert_true( false !== strpos( $owned_plus_payload['accountValue']['products']['label'], 'Pixelgrade Plus' ), 'Account-owned Plus should appear in the products/licenses label.' );
+assert_same( false, false !== strpos( $owned_plus_payload['accountValue']['products']['description'], 'Setup' ), 'Account-owned Plus copy should not use ambiguous Setup wording before Plus is installed.' );
+assert_same( 'Download Pixelgrade Plus', $owned_plus_payload['accountValue']['products']['actionLabel'] ?? '', 'Account-owned Plus should get a download CTA while the plugin is missing.' );
+assert_same( 'https://pixelgrade.test/account/downloads/pixelgrade-plus/', $owned_plus_payload['accountValue']['products']['url'], 'Missing Plus should hand off directly to the safe Pixelgrade.com download/setup URL.' );
+assert_same( 'get_help', $owned_plus_payload['accountValue']['nextAction']['id'], 'Account-owned Plus should not duplicate the Products CTA through the Support row next action.' );
+assert_same( false, false !== strpos( (string) json_encode( $owned_plus_payload ), 'secret-plus-license' ), 'The account-license summary must not leak license hashes.' );
+assert_same( false, false !== strpos( (string) json_encode( $owned_plus_payload ), 'acc-secret' ), 'The account-license summary must not leak OAuth secrets.' );
+
+paf_reset_runtime();
+pixassist_save_account_connection(
+	array(
+		'pixelgrade_user_id'  => 42,
+		'email'               => 'customer@example.com',
+		'user_login'          => 'customer-login',
+		'oauth_token'         => 'acc-token',
+		'oauth_token_secret'  => 'acc-secret',
+	)
+);
+add_filter(
+	'pre_pixassist_account_licenses_response',
+	function () {
+		return array(
+			'code' => 'success',
+			'data' => array(
+				'licenses' => array(
+					array(
+						'licenses' => array(
+							array(
+								'license_hash'        => 'secret-plus-license',
+								'license_status_code' => 1,
+								'main_product_sku'    => 'pixelgrade-plus-single',
+								'pixelgrade_plus'     => array(
+									'setup_url' => 'https://wupdates.com/dldcv/plugins/private-package',
+								),
+							),
+						),
+					),
+				),
+			),
+		);
+	}
+);
+$unsafe_setup_url_summary = pixassist_get_account_license_summary();
+assert_same( 'https://pixelgrade.test/plus/', $unsafe_setup_url_summary['setupUrl'], 'Raw WUpdates/package URLs must be ignored in favor of the Pixelgrade.com hand-off.' );
+
+paf_reset_runtime();
+pixassist_save_account_connection(
+	array(
+		'pixelgrade_user_id'  => 42,
+		'email'               => 'customer@example.com',
+		'user_login'          => 'customer-login',
+		'oauth_token'         => 'acc-token',
+		'oauth_token_secret'  => 'acc-secret',
+	)
+);
+add_filter(
+	'pixassist_is_plus_plugin_installed',
+	function () {
+		return true;
+	}
+);
+add_filter(
+	'pre_pixassist_account_licenses_response',
+	function () {
+		return array(
+			'code' => 'success',
+			'data' => array(
+				'licenses' => array(
+					array(
+						'licenses' => array(
+							array(
+								'license_hash'        => 'secret-plus-license',
+								'license_status_code' => 1,
+								'main_product_sku'    => 'pixelgrade-plus-single',
+								'pixelgrade_plus'     => array(
+									'setup_url' => 'https://pixelgrade.test/account/downloads/pixelgrade-plus/',
+								),
+							),
+						),
+					),
+				),
+			),
+		);
+	}
+);
+$installed_plus_payload = pixassist_get_account_data();
+assert_same( 'plus_plugin_inactive', $installed_plus_payload['accountValue']['products']['state'], 'Account-owned Plus should detect an installed but inactive Plus plugin.' );
+assert_same( 'Installed', $installed_plus_payload['accountValue']['products']['statusLabel'], 'Installed inactive Plus should use a human-readable Installed status.' );
+assert_same( 'Activate Pixelgrade Plus', $installed_plus_payload['accountValue']['products']['actionLabel'] ?? '', 'Installed inactive Plus should get a direct activation CTA.' );
+assert_true( false !== strpos( $installed_plus_payload['accountValue']['products']['url'], 'action=activate' ), 'Installed inactive Plus should link to WordPress plugin activation.' );
+assert_true( false !== strpos( $installed_plus_payload['accountValue']['products']['url'], 'plugin=pixelgrade-plus%2Fpixelgrade-plus.php' ), 'Installed inactive Plus activation URL should target the Plus plugin file.' );
+
+paf_reset_runtime();
 add_filter(
 	'pixelgrade_assistant_plus_status',
 	function ( $status ) {
@@ -527,7 +673,9 @@ $plus_payload = pixassist_get_account_data();
 assert_same( 'needs_license', $plus_payload['accountValue']['products']['state'], 'Installed but unlicensed Plus should be visible in the products/licenses summary.' );
 assert_same( 'Pixelgrade Plus', $plus_payload['accountValue']['products']['plusLabel'], 'The products/licenses summary should expose the safe Plus product label.' );
 assert_true( false !== strpos( $plus_payload['accountValue']['products']['label'], 'Pixelgrade Plus' ), 'The products/licenses summary should include Plus when it is active.' );
+assert_true( false !== strpos( $plus_payload['accountValue']['products']['description'], 'validate' ), 'Unlicensed Plus copy should point users at license validation in Plus.' );
 assert_true( false !== strpos( $plus_payload['accountValue']['products']['description'], 'eligible license' ), 'Unlicensed Plus copy should point users at eligible license activation.' );
+assert_same( 'Validate Plus license', $plus_payload['accountValue']['products']['actionLabel'] ?? '', 'Unlicensed Plus should get an explicit validation CTA.' );
 assert_same( false, false !== strpos( (string) json_encode( $plus_payload ), 'license_hash' ), 'The products/licenses summary must not expose license internals.' );
 
 paf_reset_runtime();
@@ -548,6 +696,8 @@ add_filter(
 $licensed_plus_payload = pixassist_get_account_data();
 assert_same( 'licensed', $licensed_plus_payload['accountValue']['products']['state'], 'Licensed Plus should be visible in the products/licenses summary.' );
 assert_same( 'Licensed', $licensed_plus_payload['accountValue']['products']['statusLabel'], 'Licensed Plus should use a human-readable status label.' );
+assert_true( false !== strpos( $licensed_plus_payload['accountValue']['products']['description'], 'benefits' ), 'Licensed Plus copy should point users at the benefits review in Plus.' );
+assert_same( 'Review Plus benefits', $licensed_plus_payload['accountValue']['products']['actionLabel'] ?? '', 'Licensed Plus should get an explicit benefits-review CTA.' );
 
 paf_reset_runtime();
 pixassist_save_account_connection(
@@ -585,6 +735,7 @@ assert_true( false !== strpos( $account_js, 'Products & licenses' ), 'The Accoun
 assert_true( false !== strpos( $account_js, 'renderAccountDetailsRow' ), 'The Account tab must render account details through a dedicated row.' );
 assert_true( false !== strpos( $account_js, "copy.disconnectLabel, 'link'" ), 'The Account disconnect action should be visually demoted to a link-style control.' );
 assert_same( false, false !== strpos( $account_js, 'renderDisconnectForm( actions, copy.disconnectLabel )' ), 'The connected identity hero must not render the disconnect form.' );
+assert_same( false, false !== strpos( $account_js, 'action: renderNextAction( value.nextAction )' ), 'The Account Support row must not render a generic support/next-action button.' );
 
 /*
  * OAuth consumer resolution: the consumer key + secret resolve together, as a pair. The shipped build

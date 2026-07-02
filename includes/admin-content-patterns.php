@@ -12,25 +12,22 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 if ( ! function_exists( 'pixassist_register_content_patterns_tab' ) ) {
 	/**
-	 * Register the Page Patterns tab on the Appearance -> Pixelgrade hub registry.
+	 * Preserve the legacy registration callback without exposing Page Patterns in navigation.
+	 *
+	 * Page Patterns now surface as a section of the merged Design Library tab
+	 * (`?tab=design-library&section=content`; legacy `?tab=content` links are aliased — see
+	 * pixassist_get_admin_hub_data()). The payload and REST descriptors below remain available (the
+	 * privileged import endpoints keep their own manage_options checks); this callback no longer
+	 * appends a visible hub tab.
 	 *
 	 * @param array $tabs Tab descriptors collected so far.
 	 *
-	 * @return array Tab descriptors with the Page Patterns tab appended.
+	 * @return array Unchanged tab descriptors.
 	 */
 	function pixassist_register_content_patterns_tab( $tabs ) {
 		if ( ! is_array( $tabs ) ) {
 			$tabs = array();
 		}
-
-		$tabs[] = array(
-			'id'         => 'content',
-			'label'      => esc_html__( 'Page Patterns', '__plugin_txtd' ),
-			'capability' => 'manage_options',
-			'component'  => 'contentPatterns',
-			'gate'       => '',
-			'order'      => 40,
-		);
 
 		return $tabs;
 	}
@@ -78,7 +75,7 @@ if ( ! function_exists( 'pixassist_get_content_patterns_copy' ) ) {
 	function pixassist_get_content_patterns_copy() {
 		return array(
 			'title'          => esc_html__( 'Page Patterns', '__plugin_txtd' ),
-			'description'    => esc_html__( 'Add ready-made content — a single page or post from a starter — instead of importing a whole starter site. For reusable parts like headers, footers, and templates, use the Layouts tab.', '__plugin_txtd' ),
+			'description'    => esc_html__( 'Add ready-made content — a single page or post from a starter — instead of importing a whole starter site. For reusable parts like headers, footers, and templates, use the Site Parts section.', '__plugin_txtd' ),
 			'sourceLabel'    => esc_html__( 'Source', '__plugin_txtd' ),
 			'typeLabel'      => esc_html__( 'Type', '__plugin_txtd' ),
 			'allSources'     => esc_html__( 'All sources', '__plugin_txtd' ),

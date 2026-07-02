@@ -241,7 +241,14 @@ function getStatusTone( state ) {
 	if ( 'available' === state || 'active' === state || 'licensed' === state ) {
 		return '#0a7a28';
 	}
-	if ( 'connect_required' === state || 'needs_account' === state || 'needs_license' === state || 'locked' === state ) {
+	if (
+		'connect_required' === state ||
+		'needs_account' === state ||
+		'needs_license' === state ||
+		'plus_plugin_missing' === state ||
+		'plus_plugin_inactive' === state ||
+		'locked' === state
+	) {
 		return '#996800';
 	}
 
@@ -254,6 +261,8 @@ function renderStatusText( state, label ) {
 		licensed: __( 'Licensed', 'pixelgrade_assistant' ),
 		active: __( 'Active', 'pixelgrade_assistant' ),
 		needs_license: __( 'Needs license', 'pixelgrade_assistant' ),
+		plus_plugin_missing: __( 'Plus available', 'pixelgrade_assistant' ),
+		plus_plugin_inactive: __( 'Installed', 'pixelgrade_assistant' ),
 		connect_required: __( 'Connect account', 'pixelgrade_assistant' ),
 		optional: __( 'Optional', 'pixelgrade_assistant' ),
 	};
@@ -285,21 +294,6 @@ function renderStatusText( state, label ) {
 			},
 		} ),
 		label || labelMap[ state ] || state || __( 'Ready', 'pixelgrade_assistant' )
-	);
-}
-
-function renderNextAction( action ) {
-	if ( ! action || ! action.url || ! action.label ) {
-		return null;
-	}
-
-	return createElement(
-		Button,
-		{
-			href: action.url,
-			variant: action.variant || 'primary',
-		},
-		action.label
 	);
 }
 
@@ -401,7 +395,6 @@ function renderAccountValuePanel( data ) {
 				value: support.label || __( 'Support access', 'pixelgrade_assistant' ),
 				description: support.description,
 				status: support.state,
-				action: renderNextAction( value.nextAction ),
 			} ),
 			renderValueRow( {
 				id: 'products',
@@ -410,7 +403,21 @@ function renderAccountValuePanel( data ) {
 				description: products.description,
 				status: products.state,
 				statusLabel: products.statusLabel,
-				action: products.url ? createElement( Button, { href: products.url, variant: 'secondary' }, __( 'Review Plus', 'pixelgrade_assistant' ) ) : null,
+				action: products.url
+					? createElement(
+							Button,
+							{
+								href: products.url,
+								variant:
+									'needs_license' === products.state ||
+									'plus_plugin_missing' === products.state ||
+									'plus_plugin_inactive' === products.state
+										? 'primary'
+										: 'secondary',
+							},
+							products.actionLabel || __( 'Review Plus', 'pixelgrade_assistant' )
+					  )
+					: null,
 			} ),
 			renderValueRow( {
 				id: 'theme',

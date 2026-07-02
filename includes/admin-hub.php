@@ -26,7 +26,9 @@ if ( ! function_exists( 'pixassist_get_admin_hub_data' ) ) {
 	 *     @type array[] $tabs       Normalized visible tabs (see pixassist_get_admin_hub_tabs()).
 	 *     @type string  $defaultTab Id of the first visible tab (lowest order), or '' when none.
 	 *     @type string  $baseUrl    Admin URL of the hub page (for `?tab=` deep links).
-	 *     @type array   $tabAliases Legacy tab ids mapped to current ids.
+	 *     @type array   $tabAliases Legacy tab ids mapped to current ids — either a plain target id
+	 *                               string, or `array( 'tab' => …, 'section' => … )` when the legacy
+	 *                               id maps to a section inside a merged tab.
 	 * }
 	 */
 	function pixassist_get_admin_hub_data() {
@@ -38,8 +40,13 @@ if ( ! function_exists( 'pixassist_get_admin_hub_data' ) ) {
 			'defaultTab' => $default_tab,
 			'baseUrl'    => admin_url( 'themes.php?page=pixelgrade' ),
 			'tabAliases' => array(
-				'account-license' => 'account',
-				'recipes'         => 'starter-sites',
+				'account-license' => array( 'tab' => 'account', 'section' => 'plus' ),
+				// The three content granularities merged into the Design Library tab; their old
+				// tab ids live on as its section ids so external deep links keep working.
+				'starter-sites'   => array( 'tab' => 'design-library', 'section' => 'starter-sites' ),
+				'layouts'         => array( 'tab' => 'design-library', 'section' => 'layouts' ),
+				'content'         => array( 'tab' => 'design-library', 'section' => 'content' ),
+				'recipes'         => array( 'tab' => 'design-library', 'section' => 'starter-sites' ),
 			),
 		);
 	}

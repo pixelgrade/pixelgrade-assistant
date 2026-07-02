@@ -147,24 +147,25 @@ require $module;
 assert_true( function_exists( 'pixassist_register_layout_units_tab' ), 'The Layouts tab registration function must be defined.' );
 assert_true( function_exists( 'pixassist_get_layout_units_data' ), 'The Layouts payload function must be defined.' );
 
+/*
+ * Site Parts (formerly Layouts) merged into the Design Library tab
+ * (?tab=design-library&section=layouts); the legacy registration callback stays defined but
+ * appends no visible tab, and the `layouts` id/route survives as a section id + alias (pinned in
+ * tests/admin-hub-test.php).
+ */
 $registered = pixassist_register_layout_units_tab( array() );
-assert_same( 1, count( $registered ), 'Layouts registration must append exactly one tab.' );
+assert_same( 0, count( $registered ), 'Layouts registration must no longer append a visible hub tab (merged into Design Library).' );
 
-$tab = $registered[0];
-assert_same( 'layouts', $tab['id'], 'Layouts tab id must be `layouts`.' );
-assert_same( 'Layouts', $tab['label'], 'Layouts tab label must be `Layouts`.' );
-assert_same( 'edit_theme_options', $tab['capability'], 'Layouts tab must require edit_theme_options.' );
-assert_same( 'layoutUnits', $tab['component'], 'Layouts tab must bind the `layoutUnits` JS component.' );
-assert_same( 35, $tab['order'], 'Layouts tab must sort after Starter Sites.' );
+$registered = pixassist_register_layout_units_tab( array( array( 'id' => 'overview' ) ) );
+assert_same( 1, count( $registered ), 'Layouts registration must keep existing tabs unchanged.' );
 
 $GLOBALS['paf_filters'] = array();
 add_filter( 'pixelgrade/admin_hub/tabs', 'pixassist_register_layout_units_tab' );
 $tabs = pixassist_get_admin_hub_tabs();
-assert_same( 1, count( $tabs ), 'The normalized hub registry must include the Layouts tab.' );
-assert_same( 'layouts', $tabs[0]['id'], 'The normalized Layouts tab must retain id `layouts`.' );
+assert_same( 0, count( $tabs ), 'The normalized hub registry must not carry a standalone Layouts tab.' );
 
 $data = pixassist_get_layout_units_data();
-assert_same( 'Layouts', $data['copy']['title'], 'Layouts payload must carry tab copy.' );
+assert_same( 'Site Parts', $data['copy']['title'], 'The section payload must carry the Site Parts title.' );
 assert_same( 'Features', $data['copy']['features'], 'Layouts payload must carry the Features group label.' );
 assert_same( 'Include sample projects', $data['copy']['sampleLabel'], 'Layouts payload must carry the feature sample-toggle label.' );
 assert_same( 2, count( $data['sources'] ), 'Layouts payload must expose starter sources.' );

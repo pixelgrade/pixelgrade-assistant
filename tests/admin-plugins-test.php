@@ -8,11 +8,19 @@
  */
 
 define( 'ABSPATH', __DIR__ . '/' );
+define( 'PIXELGRADE_ASSISTANT__SHOP_BASE', 'https://pixelgrade.test/' );
 
 $GLOBALS['paf_filters']      = array();
 $GLOBALS['paf_denied_caps']  = array();
 $GLOBALS['paf_plugin_config'] = array();
 $GLOBALS['paf_tgmpa_plugins'] = array();
+$GLOBALS['paf_plus_status']  = array(
+	'is_plus_active'     => false,
+	'is_plus_licensed'   => false,
+	'plus_settings_url'  => '',
+	'plus_product_label' => 'Pixelgrade Plus',
+);
+$GLOBALS['paf_account_license_summary'] = array();
 
 function add_filter( $hook, $callback, $priority = 10, $args = 1 ) {
 	$GLOBALS['paf_filters'][ $hook ][] = $callback;
@@ -48,8 +56,59 @@ function esc_html__( $text, $domain = 'default' ) {
 	return $text;
 }
 
+function esc_url_raw( $value ) {
+	return (string) $value;
+}
+
+function admin_url( $path = '' ) {
+	return 'https://example.test/wp-admin/' . ltrim( (string) $path, '/' );
+}
+
+function add_query_arg( $args, $url = '' ) {
+	$separator = ( false === strpos( $url, '?' ) ) ? '?' : '&';
+	$pairs     = array();
+
+	foreach ( (array) $args as $key => $value ) {
+		$pairs[] = rawurlencode( (string) $key ) . '=' . rawurlencode( (string) $value );
+	}
+
+	return $url . $separator . implode( '&', $pairs );
+}
+
+function wp_nonce_url( $url, $action = '', $name = '_wpnonce' ) {
+	return add_query_arg( array( $name => 'nonce-' . $action ), $url );
+}
+
+function trailingslashit( $string ) {
+	return rtrim( (string) $string, '/' ) . '/';
+}
+
 function wp_strip_all_tags( $text ) {
 	return trim( preg_replace( '/<[^>]*>/', '', (string) $text ) );
+}
+
+function pixassist_get_plus_status() {
+	return array_merge(
+		array(
+			'is_plus_active'     => false,
+			'is_plus_licensed'   => false,
+			'plus_settings_url'  => '',
+			'plus_product_label' => 'Pixelgrade Plus',
+		),
+		is_array( $GLOBALS['paf_plus_status'] ) ? $GLOBALS['paf_plus_status'] : array()
+	);
+}
+
+function pixassist_get_account_license_summary() {
+	return array_merge(
+		array(
+			'state'          => 'free',
+			'hasPlusLicense' => false,
+			'productLabel'   => 'Pixelgrade Plus',
+			'setupUrl'       => '',
+		),
+		is_array( $GLOBALS['paf_account_license_summary'] ) ? $GLOBALS['paf_account_license_summary'] : array()
+	);
 }
 
 function assert_same( $expected, $actual, $message ) {
@@ -92,7 +151,7 @@ assert_same( 1, count( $registered ), 'Plugins registration must append exactly 
 
 $tab = $registered[0];
 assert_same( 'plugins', $tab['id'], 'Plugins tab id must be `plugins`.' );
-assert_same( 'Setup', $tab['label'], 'Plugins tab visible label must be renamed to Setup while keeping id `plugins`.' );
+assert_same( 'Site Setup', $tab['label'], 'Plugins tab visible label must be renamed to Site Setup while keeping id `plugins`.' );
 assert_same( 'edit_theme_options', $tab['capability'], 'Plugins tab must require edit_theme_options.' );
 assert_same( 'plugins', $tab['component'], 'Plugins tab must bind the `plugins` JS component.' );
 assert_same( '', $tab['gate'], 'Plugins tab is free - no upsell gate.' );
@@ -106,7 +165,7 @@ add_filter( 'pixelgrade/admin_hub/tabs', 'pixassist_register_plugins_tab' );
 $tabs = pixassist_get_admin_hub_tabs();
 assert_same( 1, count( $tabs ), 'The normalized hub registry must include the Plugins tab.' );
 assert_same( 'plugins', $tabs[0]['id'], 'The normalized Plugins tab must retain id `plugins`.' );
-assert_same( 'Setup', $tabs[0]['label'], 'The normalized Plugins tab must be visible as Setup.' );
+assert_same( 'Site Setup', $tabs[0]['label'], 'The normalized Plugins tab must be visible as Site Setup.' );
 assert_same( '', $tabs[0]['gate'], 'The normalized Plugins tab must remain free.' );
 assert_same( 50, $tabs[0]['order'], 'The normalized Setup tab must retain order 50.' );
 
@@ -195,7 +254,7 @@ assert_true( in_array( 'plugins', $readiness_ids, true ), 'Readiness checks must
 assert_true( in_array( 'php', $readiness_ids, true ), 'Readiness checks must include the PHP environment check.' );
 assert_true( in_array( 'theme', $readiness_ids, true ), 'Readiness checks must include the active-theme check.' );
 
-assert_same( 'Setup', $payload['copy']['title'], 'Setup copy title must frame the screen as Pixelgrade Design readiness, not generic plugin management.' );
+assert_same( 'Site Setup', $payload['copy']['title'], 'Site Setup copy title must frame the screen as Pixelgrade Design readiness, not generic plugin management.' );
 assert_same( 'Check the recommended plugins and activate anything Pixelgrade Design needs before you start working.', $payload['copy']['content'], 'Setup copy must describe readiness for Pixelgrade Design.' );
 assert_true( false === strpos( $payload['copy']['title'], 'Plugins' ), 'Setup title must not use the old Plugins wording.' );
 assert_same( 'No recommended plugins.', $payload['copy']['empty'], 'Plugins empty copy comes from pluginManager l10n.' );
@@ -231,12 +290,60 @@ $payload                      = pixassist_get_plugins_data();
 assert_same( 0, count( $payload['plugins'] ), 'Plugins payload must allow a deliberate empty recommended-plugin state.' );
 assert_same( 'You are all set. There are no recommended plugins for this theme right now.', $payload['copy']['empty'], 'Empty plugin copy must read like a deliberate state, not a broken list.' );
 
+$GLOBALS['paf_plugin_config'] = array();
+$GLOBALS['paf_tgmpa_plugins'] = array();
+$GLOBALS['paf_account_license_summary'] = array(
+	'state'          => 'plus',
+	'hasPlusLicense' => true,
+	'productLabel'   => 'Pixelgrade Plus',
+	'productSku'     => 'pixelgrade-plus-studio',
+	'setupUrl'       => 'https://pixelgrade.test/account/downloads/pixelgrade-plus/',
+);
+$payload = pixassist_get_plugins_data();
+$plugins = $payload['plugins'];
+assert_same( 1, count( $plugins ), 'Setup should add Pixelgrade Plus when the connected account owns Plus and the plugin is absent.' );
+assert_same( 'pixelgrade-plus', $plugins[0]['slug'], 'The account-owned Plus setup row should use the Plus plugin slug.' );
+assert_same( 'missing', $plugins[0]['status'], 'Missing Plus should stay a missing local plugin, not pretend to be installable from wp.org.' );
+assert_same( 'external', $plugins[0]['actionType'], 'The WordPress.org-safe Plus action must be an external hand-off, not an install action.' );
+assert_same( 'https://pixelgrade.test/account/downloads/pixelgrade-plus/', $plugins[0]['externalActionUrl'], 'The Plus setup row should use the server-provided Pixelgrade.com hand-off URL.' );
+assert_same( 'Download Pixelgrade Plus', $plugins[0]['externalActionLabel'], 'The Plus setup row should label the external action as a download hand-off.' );
+assert_same( '', $plugins[0]['source'], 'The WordPress.org build must not ship or synthesize a WUpdates package source for Plus.' );
+assert_same( '', $plugins[0]['installUrl'], 'The WordPress.org-safe Plus row must not expose a TGMPA install URL while missing.' );
+
+$GLOBALS['paf_plugin_config'] = array();
+$GLOBALS['paf_tgmpa_plugins'] = array();
+$GLOBALS['paf_account_license_summary'] = array(
+	'state'          => 'plus',
+	'hasPlusLicense' => true,
+	'productLabel'   => 'Pixelgrade Plus',
+	'productSku'     => 'pixelgrade-plus-studio',
+	'setupUrl'       => 'https://pixelgrade.test/account/downloads/pixelgrade-plus/',
+);
+add_filter(
+	'pixassist_is_plus_plugin_installed',
+	function () {
+		return true;
+	}
+);
+$payload = pixassist_get_plugins_data();
+$plugins = $payload['plugins'];
+assert_same( 1, count( $plugins ), 'Setup should still add Pixelgrade Plus when the account owns Plus and the plugin is installed inactive.' );
+assert_same( 'inactive', $plugins[0]['status'], 'Installed inactive Plus should render as an activation-ready local plugin.' );
+assert_same( '', $plugins[0]['actionType'], 'Installed inactive Plus should not render the external download action.' );
+assert_same( '', $plugins[0]['externalActionUrl'], 'Installed inactive Plus should not keep the external hand-off URL.' );
+assert_same( '', $plugins[0]['externalActionLabel'], 'Installed inactive Plus should use the standard Activate action label.' );
+assert_true( false !== strpos( $plugins[0]['activateUrl'], 'action=activate' ), 'Installed inactive Plus should expose a local plugin activation URL.' );
+assert_true( false !== strpos( $plugins[0]['activateUrl'], 'plugin=pixelgrade-plus%2Fpixelgrade-plus.php' ), 'Installed inactive Plus activation URL should target the Plus plugin file.' );
+
 $wizard_source = file_get_contents( __DIR__ . '/../admin/src/components/plugin_manager.js' );
 assert_true( false !== strpos( $wizard_source, 'plugin-manager__empty' ), 'Setup wizard plugin manager must render a styled empty state.' );
 assert_true( false !== strpos( $wizard_source, 'noPluginsTitle' ), 'Setup wizard plugin manager must support a title for the empty state.' );
 
 $plugins_js = file_get_contents( __DIR__ . '/../admin/src-modern/hub/tabs/Plugins.js' );
-assert_true( false !== strpos( $plugins_js, "title: __( 'Setup'" ), 'Setup JS fallback copy must use the new Setup title.' );
+assert_true( false !== strpos( $plugins_js, "title: __( 'Site Setup'" ), 'Site Setup JS fallback copy must use the Site Setup title.' );
 assert_true( false === strpos( $plugins_js, "title: __( 'Manage plugins'" ), 'Setup JS fallback copy must not use the old Manage plugins title.' );
+assert_true( false !== strpos( $plugins_js, 'scheduleStatusRefresh' ), 'Setup JS must schedule a status refresh after plugin install/activation succeeds.' );
+assert_true( false !== strpos( $plugins_js, 'window.location.reload()' ), 'Setup JS must reload the page so stale plugin status is replaced automatically.' );
+assert_true( false !== strpos( $plugins_js, "plugin.actionType === 'external'" ), 'Setup JS must render external Plus hand-offs without calling wp.updates.installPlugin.' );
 
 echo "Admin Plugins tab OK\n";
