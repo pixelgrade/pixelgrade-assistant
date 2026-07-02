@@ -2907,7 +2907,7 @@ export function StarterSites() {
 		}
 	};
 
-	const applyComposerSelection = async ( starter ) => {
+	const applyComposerSelection = async ( starter, options = {} ) => {
 		const missing = getMissingRequiredPlugins( starter );
 		if ( missing.length ) {
 			const names = missing.map( ( plugin ) => plugin.name || plugin.slug );
@@ -2933,7 +2933,9 @@ export function StarterSites() {
 			return;
 		}
 
-		if ( hasFullDemoOperation && isStarterImported( imported, starter.id ) && typeof window !== 'undefined' && window.confirm ) {
+		// A genuine Retry of a failed import already reflects the user's intent — don't re-prompt the
+		// "already imported?" confirm on retry (options.skipConfirm). The normal re-apply path keeps it.
+		if ( ! options.skipConfirm && hasFullDemoOperation && isStarterImported( imported, starter.id ) && typeof window !== 'undefined' && window.confirm ) {
 			const sure = window.confirm( copy.confirm );
 			if ( ! sure ) {
 				return;
@@ -3132,7 +3134,7 @@ export function StarterSites() {
 			onTogglePart: ( partId, enabled ) => togglePart( activeStarter, partId, enabled ),
 			onApply: () => applyComposerSelection( activeStarter ),
 			onInstallRequirements: () => installRequirementsAndApply( activeStarter ),
-				onRetry: () => applyComposerSelection( activeStarter ),
+				onRetry: () => applyComposerSelection( activeStarter, { skipConfirm: true } ),
 		} );
 	}
 
