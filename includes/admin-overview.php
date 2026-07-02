@@ -511,6 +511,37 @@ if ( ! function_exists( 'pixassist_get_overview_content_url' ) ) {
 	}
 }
 
+if ( ! function_exists( 'pixassist_filter_overview_setup_plugins' ) ) {
+	/**
+	 * Keep only the plugins that count toward required free-path setup readiness.
+	 *
+	 * External-action hand-offs (the optional Pixelgrade Plus download row) can never be installed in
+	 * wp-admin, so they must not gate setup completion — otherwise a free user with Nova Blocks + Style
+	 * Manager active can never reach 100% and the Home "Setup" card nags forever. Guarded so the
+	 * standalone Overview test (which does not load includes/admin-plugins.php) keeps its behavior.
+	 *
+	 * @param array[] $plugins Normalized plugin rows.
+	 *
+	 * @return array[]
+	 */
+	function pixassist_filter_overview_setup_plugins( $plugins ) {
+		$plugins = is_array( $plugins ) ? $plugins : array();
+
+		if ( ! function_exists( 'pixassist_plugin_counts_for_setup' ) ) {
+			return $plugins;
+		}
+
+		$counted = array();
+		foreach ( $plugins as $plugin ) {
+			if ( pixassist_plugin_counts_for_setup( $plugin ) ) {
+				$counted[] = $plugin;
+			}
+		}
+
+		return $counted;
+	}
+}
+
 if ( ! function_exists( 'pixassist_get_overview_plugin_state' ) ) {
 	/**
 	 * Summarize recommended plugin readiness.
@@ -520,6 +551,9 @@ if ( ! function_exists( 'pixassist_get_overview_plugin_state' ) ) {
 	function pixassist_get_overview_plugin_state() {
 		$data    = function_exists( 'pixassist_get_plugins_data' ) ? pixassist_get_plugins_data() : array();
 		$plugins = isset( $data['plugins'] ) && is_array( $data['plugins'] ) ? $data['plugins'] : array();
+		// Only the required free-path plugins count toward readiness — the optional Pixelgrade Plus
+		// hand-off row is excluded so the Home "Setup" card is not stuck in "needs attention".
+		$plugins = pixassist_filter_overview_setup_plugins( $plugins );
 		$total   = count( $plugins );
 		$ready   = 0;
 
@@ -974,6 +1008,14 @@ if ( ! function_exists( 'pixassist_get_onboarding_steps' ) ) {
 				'done'        => ! empty( $facts['account_connected'] ),
 				'optional'    => true,
 			),
+			array(
+				'id'          => 'plugins',
+				'title'       => esc_html__( 'Install recommended plugins', '__plugin_txtd' ),
+				'description' => esc_html__( 'Add the plugins this theme is designed to use.', '__plugin_txtd' ),
+				'url'         => $base_url . '&tab=plugins',
+				'done'        => ! empty( $facts['plugins_ready'] ),
+				'optional'    => false,
+			),
 		);
 
 		// Starter step only when the theme exposes demos (the wizard hides it otherwise).
@@ -987,15 +1029,6 @@ if ( ! function_exists( 'pixassist_get_onboarding_steps' ) ) {
 				'optional'    => false,
 			);
 		}
-
-		$steps[] = array(
-			'id'          => 'plugins',
-			'title'       => esc_html__( 'Install recommended plugins', '__plugin_txtd' ),
-			'description' => esc_html__( 'Add the plugins this theme is designed to use.', '__plugin_txtd' ),
-			'url'         => $base_url . '&tab=plugins',
-			'done'        => ! empty( $facts['plugins_ready'] ),
-			'optional'    => false,
-		);
 
 		return $steps;
 	}
@@ -1150,6 +1183,10 @@ if ( ! function_exists( 'pixassist_onboarding_plugins_ready' ) ) {
 
 		$data    = pixassist_get_plugins_data();
 		$plugins = isset( $data['plugins'] ) && is_array( $data['plugins'] ) ? $data['plugins'] : array();
+		// Exclude the optional Pixelgrade Plus hand-off row (an external-action download that cannot be
+		// installed in wp-admin) so the free-path "Install recommended plugins" step is completable once
+		// Nova Blocks + Style Manager are active.
+		$plugins = pixassist_filter_overview_setup_plugins( $plugins );
 
 		if ( empty( $plugins ) ) {
 			return true;

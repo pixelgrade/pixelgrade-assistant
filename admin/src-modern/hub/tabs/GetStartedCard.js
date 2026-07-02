@@ -52,6 +52,16 @@ function getStarterTabUrl( steps ) {
 	return starterStep && starterStep.url ? starterStep.url : '';
 }
 
+function hasIncompleteStep( steps, id ) {
+	return Boolean( ( steps || [] ).find( ( step ) => step && id === step.id && ! step.done ) );
+}
+
+function shouldRouteToStarterChooser( onboarding, steps ) {
+	return Number( onboarding.demosCount || 0 ) > 1 &&
+		hasIncompleteStep( steps, 'starter' ) &&
+		! hasIncompleteStep( steps, 'plugins' );
+}
+
 function renderCheck( done ) {
 	return createElement(
 		'span',
@@ -335,8 +345,8 @@ export function GetStartedCard() {
 	};
 
 	const runSetup = async () => {
-		// Multi-demo: never auto-pick. Route the user to the Starter Sites tab to choose.
-		if ( demosCount > 1 ) {
+		// Multi-demo: never auto-pick, but finish plugin setup before routing to the chooser.
+		if ( shouldRouteToStarterChooser( onboarding, steps ) ) {
 			const url = getStarterTabUrl( steps );
 			if ( url && typeof window !== 'undefined' ) {
 				window.location.href = url;
@@ -390,17 +400,27 @@ export function GetStartedCard() {
 			...current,
 			status: 'done',
 			current: tasks.length,
-			message: __( 'All set! Reload the page to see the latest status.', 'pixelgrade_assistant' ),
+			message: __( 'All set! Refreshing the page to show the latest status.', 'pixelgrade_assistant' ),
 		} ) );
+
+		if ( typeof window !== 'undefined' && window.location && typeof window.setTimeout === 'function' ) {
+			window.setTimeout( () => window.location.reload(), 700 );
+		}
 	};
 
-	const doneCount = steps.filter( ( step ) => step && step.done ).length;
+	// Progress counts the REQUIRED steps only: optional steps (e.g. "Connect your account") never
+	// block completion, so they must not drag the tally below 100% on the free path. This mirrors the
+	// server-side completion rule (pixassist_onboarding_is_complete), which also ignores optional steps.
+	const requiredSteps = steps.filter( ( step ) => step && ! step.optional );
+	const countedSteps = requiredSteps.length ? requiredSteps : steps;
+	const doneCount = countedSteps.filter( ( step ) => step && step.done ).length;
 	const progressLabel = ( __( '%1$d of %2$d done', 'pixelgrade_assistant' ) )
 		.replace( '%1$d', String( doneCount ) )
-		.replace( '%2$d', String( steps.length ) );
+		.replace( '%2$d', String( countedSteps.length ) );
 
-	const primaryLabel =
-		demosCount > 1
+	const primaryLabel = hasIncompleteStep( steps, 'plugins' )
+		? __( 'Review setup', 'pixelgrade_assistant' )
+		: demosCount > 1
 			? __( 'Choose a starter site', 'pixelgrade_assistant' )
 			: __( 'Set up my site', 'pixelgrade_assistant' );
 

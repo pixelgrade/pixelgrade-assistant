@@ -9,6 +9,9 @@ import { createElement, Fragment, useEffect, useState } from '@wordpress/element
 import { __, sprintf } from '@wordpress/i18n';
 import { Button, Card, CardBody, CardHeader, CheckboxControl, Flex, FlexItem, Spinner } from '@wordpress/components';
 import { LayoutPreview, PreviewModeToggle } from '../LayoutPreview';
+// Reuse the Setup tab's proven install/activate path (wp.updates + the custom pixassist install flow)
+// so the starter apply flow can install its missing required plugins inline — no tab-bounce.
+import { getPluginsData, ensurePluginActive, hasUpdatesApi } from './Plugins';
 
 const STARTER_PROGRESS_TICK_INTERVAL = 1000;
 const STARTER_PROGRESS_HEARTBEAT_AFTER = 1500;
@@ -104,6 +107,20 @@ const DEFAULT_STARTER_SITES = {
 			),
 			separator: __( ', ', 'pixelgrade_assistant' ),
 			and: __( ' and ', 'pixelgrade_assistant' ),
+			// Inline install: keep the honest requirements copy, but let the user install + activate the
+			// missing free plugins right here and continue with the import — no tab change.
+			installAndContinue: __( 'Install & continue', 'pixelgrade_assistant' ),
+			installing: __( 'Installing %s…', 'pixelgrade_assistant' ),
+			installed: __( '%s is ready.', 'pixelgrade_assistant' ),
+			installFailed: __(
+				'We could not install %s automatically. Open Setup to finish, then try again.',
+				'pixelgrade_assistant'
+			),
+			installUnavailable: __(
+				'Automatic install is not available here. Open Setup to install the required plugins, then try again.',
+				'pixelgrade_assistant'
+			),
+			openSetup: __( 'Open Setup instead', 'pixelgrade_assistant' ),
 		},
 		pluginsTabUrl: '',
 	},
@@ -791,7 +808,79 @@ function getAppliedStatusLabels( starter, imported, applied ) {
 export function getMissingRequiredPlugins( starter ) {
 	const required = Array.isArray( starter.requiredPlugins ) ? starter.requiredPlugins : [];
 
-	return required.filter( ( plugin ) => plugin && plugin.slug && ! plugin.isActive );
+	// Server-stamped `isActive` is a snapshot from page load. When we install + activate a plugin
+	// inline during this session, record it so the gate self-clears without a reload (and so the same
+	// starter can be re-applied without re-triggering the requirements gate).
+	return required.filter(
+		( plugin ) => plugin && plugin.slug && ! plugin.isActive && ! sessionActivatedPlugins[ plugin.slug ]
+	);
+}
+
+// Plugins we installed + activated inline during this page session, keyed by slug. See the note above.
+const sessionActivatedPlugins = {};
+
+/**
+ * Resolve a starter's required-plugin descriptor to a rich install target.
+ *
+ * The starter descriptor only carries { slug, name, isInstalled, isActive }. The Setup tab data
+ * (`window.pixelgradePlugins`) carries the full install/activate URLs + source type for the same
+ * plugins, so prefer it. Fall back to a minimal repo descriptor keyed by slug.
+ *
+ * @param {Object} requiredPlugin Starter required-plugin descriptor.
+ * @return {Object} A descriptor ensurePluginActive() understands.
+ */
+function resolveInstallablePlugin( requiredPlugin ) {
+	const pluginsData = getPluginsData();
+	const list = Array.isArray( pluginsData.plugins ) ? pluginsData.plugins : [];
+	const match = list.find( ( plugin ) => plugin && plugin.slug === requiredPlugin.slug );
+
+	if ( match ) {
+		return match;
+	}
+
+	return {
+		slug: requiredPlugin.slug,
+		name: requiredPlugin.name || requiredPlugin.slug,
+		status: requiredPlugin.isActive ? 'active' : requiredPlugin.isInstalled ? 'inactive' : 'missing',
+		isActive: Boolean( requiredPlugin.isActive ),
+		isInstalled: Boolean( requiredPlugin.isInstalled ),
+		sourceType: 'repo',
+	};
+}
+
+/**
+ * A plugin is an external hand-off (e.g. a Plus-family download from Pixelgrade.com) when it cannot
+ * be installed inside wp-admin. Those must keep the Setup-tab fallback, never the inline installer.
+ *
+ * @param {Object} descriptor Resolved install descriptor.
+ * @return {boolean}
+ */
+function isExternalHandoffPlugin( descriptor ) {
+	return descriptor && ( 'external' === descriptor.actionType || 'external-action' === descriptor.sourceType );
+}
+
+/**
+ * Split a starter's missing required plugins into the ones we can install here (wp.org) vs the ones
+ * that are external hand-offs. In practice the free Anima starters only require Nova Blocks + Style
+ * Manager, so `installable` covers everything and the inline path fully succeeds.
+ *
+ * @param {Array} missing Missing required plugins (from getMissingRequiredPlugins).
+ * @return {{ installable: Array, handoff: Array }}
+ */
+function classifyMissingRequiredPlugins( missing ) {
+	const installable = [];
+	const handoff = [];
+
+	( missing || [] ).forEach( ( requiredPlugin ) => {
+		const descriptor = resolveInstallablePlugin( requiredPlugin );
+		if ( isExternalHandoffPlugin( descriptor ) ) {
+			handoff.push( descriptor );
+		} else {
+			installable.push( descriptor );
+		}
+	} );
+
+	return { installable, handoff };
 }
 
 /**
@@ -1446,6 +1535,17 @@ function getAllPartIds( starter, copy ) {
 }
 
 function getDefaultPresetId( starter, siteAnalysis ) {
+	const primaryAction = starter && starter.applyPlan && starter.applyPlan.primaryAction ? starter.applyPlan.primaryAction : {};
+	if ( 'full_demo' === primaryAction.type ) {
+		return 'fullSite';
+	}
+	if ( 'layout_only' === primaryAction.type ) {
+		return 'layoutsOnly';
+	}
+	if ( 'feature' === primaryAction.type && 'portfolio' === primaryAction.unit ) {
+		return 'portfolioOnly';
+	}
+
 	const portfolioEnabled = Boolean(
 		siteAnalysis &&
 			siteAnalysis.features &&
@@ -1858,7 +1958,7 @@ function getProgressHeadline( state, activePhase ) {
 	return sprintf( __( '%1$s — %2$d of %3$d', 'pixelgrade_assistant' ), activePhase.label, activePhase.count, activePhase.total );
 }
 
-function renderStatusNotice( state, copy, starterId = '' ) {
+function renderStatusNotice( state, copy, starterId = '', onInstallRequirements = null ) {
 	if ( ! state || ! state.status || 'idle' === state.status ) {
 		return null;
 	}
@@ -1878,6 +1978,12 @@ function renderStatusNotice( state, copy, starterId = '' ) {
 	const requirementsCopy = ( copy && copy.requirements ) || {};
 	const pluginsTabUrl = copy && copy.pluginsTabUrl;
 	const manageLabel = ( copy && copy.actions && copy.actions.managePlugins ) || __( 'Install required plugins', 'pixelgrade_assistant' );
+	// Inline requirements install: the missing plugins we can install here (wp.org), the live install
+	// progress, and whether the installer can run at all.
+	const installing = ( isRequirements && state.installing ) || null;
+	const isInstalling = Boolean( installing && installing.active );
+	const installableMissing = isRequirements ? classifyMissingRequiredPlugins( state.missing ).installable : [];
+	const canInstallInline = Boolean( onInstallRequirements && installableMissing.length && hasUpdatesApi() );
 	const total = Number( state.total || 0 );
 	const current = Number( state.current || 0 );
 	const ratio = total > 0 ? Math.max( 0, Math.min( 1, current / total ) ) : 0;
@@ -2100,15 +2206,136 @@ function renderStatusNotice( state, copy, starterId = '' ) {
 									},
 									state.details
 							  )
-						: null
+						: null,
+					renderRequirementsInstallProgress( installing )
 			  ),
-		isRequirements && pluginsTabUrl
-			? createElement(
-					Button,
-					{ href: pluginsTabUrl, style: { marginTop: '10px' }, variant: 'primary' },
-					manageLabel
-			  )
-			: null
+		renderRequirementsActions( {
+			isRequirements,
+			canInstallInline,
+			isInstalling,
+			onInstallRequirements,
+			pluginsTabUrl,
+			installLabel: requirementsCopy.installAndContinue || __( 'Install & continue', 'pixelgrade_assistant' ),
+			setupLabel: canInstallInline
+				? requirementsCopy.openSetup || __( 'Open Setup instead', 'pixelgrade_assistant' )
+				: manageLabel,
+		} )
+	);
+}
+
+/**
+ * Render the inline install progress (spinner + status line + per-plugin log + failure) shown inside
+ * the requirements notice while we install the missing free plugins.
+ *
+ * @param {Object|null} installing Install sub-state ({ active, message, log, error }).
+ * @return {Object|null}
+ */
+function renderRequirementsInstallProgress( installing ) {
+	if ( ! installing || ( ! installing.active && ! installing.error && ! ( installing.log && installing.log.length ) ) ) {
+		return null;
+	}
+
+	const children = [];
+
+	if ( installing.active ) {
+		children.push(
+			createElement(
+				'div',
+				{ key: 'status', style: { alignItems: 'center', display: 'flex', gap: '8px', marginTop: '8px' } },
+				createElement( Spinner, { style: { margin: 0 } } ),
+				createElement( 'span', null, installing.message || __( 'Installing…', 'pixelgrade_assistant' ) )
+			)
+		);
+	}
+
+	if ( installing.log && installing.log.length ) {
+		children.push(
+			createElement(
+				'ul',
+				{ key: 'log', style: { listStyle: 'none', margin: '8px 0 0', padding: 0 } },
+				installing.log.map( ( entry, index ) =>
+					createElement( 'li', { key: index, style: { margin: '2px 0' } }, '✓ ' + entry )
+				)
+			)
+		);
+	}
+
+	if ( installing.error ) {
+		children.push(
+			createElement(
+				'p',
+				{ key: 'error', style: { color: '#8a2424', fontSize: '12px', lineHeight: 1.5, margin: '8px 0 0' } },
+				installing.error
+			)
+		);
+	}
+
+	return createElement( 'div', null, children );
+}
+
+/**
+ * Render the requirements action buttons: the inline "Install & continue" (when we can install the
+ * missing free plugins here) plus the Setup-tab link, which stays as an honest fallback.
+ *
+ * @param {Object} context Button context.
+ * @return {Object|null}
+ */
+function renderRequirementsActions( context ) {
+	const {
+		isRequirements,
+		canInstallInline,
+		isInstalling,
+		onInstallRequirements,
+		pluginsTabUrl,
+		installLabel,
+		setupLabel,
+	} = context;
+
+	if ( ! isRequirements ) {
+		return null;
+	}
+
+	const buttons = [];
+
+	if ( canInstallInline ) {
+		buttons.push(
+			createElement(
+				Button,
+				{
+					key: 'install',
+					variant: 'primary',
+					onClick: onInstallRequirements,
+					isBusy: isInstalling,
+					disabled: isInstalling,
+				},
+				installLabel
+			)
+		);
+	}
+
+	if ( pluginsTabUrl ) {
+		buttons.push(
+			createElement(
+				Button,
+				{
+					key: 'setup',
+					href: pluginsTabUrl,
+					variant: canInstallInline ? 'secondary' : 'primary',
+					disabled: isInstalling,
+				},
+				setupLabel
+			)
+		);
+	}
+
+	if ( ! buttons.length ) {
+		return null;
+	}
+
+	return createElement(
+		'div',
+		{ style: { display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '10px' } },
+		buttons
 	);
 }
 
@@ -2429,6 +2656,7 @@ function renderComposerView( starter, context ) {
 		onPresetChange,
 		onTogglePart,
 		onApply,
+		onInstallRequirements,
 	} = context;
 	const presets = buildComposerPresets( starter, copy );
 	const summary = getComposerSummary( starter, copy, composerState );
@@ -2551,7 +2779,7 @@ function renderComposerView( starter, context ) {
 							copy.actions.cancel
 						)
 					),
-					renderStatusNotice( state, copy, starter.id )
+					renderStatusNotice( state, copy, starter.id, onInstallRequirements )
 				)
 			)
 		)
@@ -2804,6 +3032,79 @@ export function StarterSites() {
 		}
 	};
 
+	// Inline requirements install: install + activate the starter's missing free plugins right here,
+	// then continue with the import the user already selected — no tab-bounce. Reuses the Setup tab's
+	// ensurePluginActive() (wp.updates + the custom pixassist install flow). External hand-offs (e.g.
+	// Plus-family downloads) can't be installed in wp-admin, so they keep the Setup-tab fallback.
+	const installRequirementsAndApply = async ( starter ) => {
+		const missing = getMissingRequiredPlugins( starter );
+		const { installable, handoff } = classifyMissingRequiredPlugins( missing );
+		const requirementsCopy = copy.requirements || {};
+
+		// Nothing we can install here (e.g. everything is an external hand-off), or the install API is
+		// unavailable — keep the honest requirements state + the Setup-tab fallback link.
+		if ( ! installable.length || ! hasUpdatesApi() ) {
+			setStarterState( starter.id, ( previous ) => ( {
+				...previous,
+				status: 'requirements',
+				installing: {
+					active: false,
+					log: [],
+					error: requirementsCopy.installUnavailable || __( 'Automatic install is not available here. Open Setup to install the required plugins, then try again.', 'pixelgrade_assistant' ),
+				},
+			} ) );
+			return;
+		}
+
+		const log = [];
+		for ( const plugin of installable ) {
+			const name = plugin.name || plugin.slug;
+
+			setStarterState( starter.id, ( previous ) => ( {
+				...previous,
+				status: 'requirements',
+				installing: {
+					active: true,
+					message: sprintf( requirementsCopy.installing || __( 'Installing %s…', 'pixelgrade_assistant' ), name ),
+					log: log.slice(),
+					error: '',
+				},
+			} ) );
+
+			try {
+				// eslint-disable-next-line no-await-in-loop
+				await ensurePluginActive( plugin );
+				sessionActivatedPlugins[ plugin.slug ] = true;
+				log.push( sprintf( requirementsCopy.installed || __( '%s is ready.', 'pixelgrade_assistant' ), name ) );
+			} catch ( error ) {
+				setStarterState( starter.id, ( previous ) => ( {
+					...previous,
+					status: 'requirements',
+					installing: {
+						active: false,
+						log: log.slice(),
+						error: sprintf(
+							requirementsCopy.installFailed || __( 'We could not install %s automatically. Open Setup to finish, then try again.', 'pixelgrade_assistant' ),
+							name
+						),
+					},
+				} ) );
+				return;
+			}
+		}
+
+		// Some required plugins are external hand-offs we can't install here — the starter still isn't
+		// ready, so re-run apply, which re-gates and names what's left (with the Setup-tab link).
+		if ( handoff.length ) {
+			applyComposerSelection( starter );
+			return;
+		}
+
+		// All required free plugins are active now — the gate self-clears (sessionActivatedPlugins), so
+		// this proceeds straight into the normal import progress the user already selected.
+		applyComposerSelection( starter );
+	};
+
 	if ( activeStarter ) {
 		const composerState = getComposerState( activeStarter, composerStates, data, copy );
 		const state = states[ activeStarter.id ] || { status: 'idle', message: '' };
@@ -2818,6 +3119,7 @@ export function StarterSites() {
 			onPresetChange: ( presetId ) => changePreset( activeStarter, presetId ),
 			onTogglePart: ( partId, enabled ) => togglePart( activeStarter, partId, enabled ),
 			onApply: () => applyComposerSelection( activeStarter ),
+			onInstallRequirements: () => installRequirementsAndApply( activeStarter ),
 		} );
 	}
 

@@ -87,7 +87,42 @@ if ( ! function_exists( 'pixassist_get_recommended_plugins_list' ) ) {
 			$plugins = $config['requiredPlugins']['plugins'];
 		}
 
-		return pixassist_normalize_plugins_payload( $plugins );
+		$plugins = pixassist_normalize_plugins_payload( $plugins );
+
+		return pixassist_maybe_append_plus_setup_plugin( $plugins );
+	}
+}
+
+if ( ! function_exists( 'pixassist_plugin_counts_for_setup' ) ) {
+	/**
+	 * Whether a normalized recommended-plugin row counts toward required free-path setup readiness.
+	 *
+	 * External-action hand-offs (the WordPress.org-safe Pixelgrade Plus setup row, which can only be
+	 * downloaded from Pixelgrade.com and never installed inside wp-admin) are OPTIONAL upsells, not
+	 * required free-path setup. They must never keep the Get Started checklist or the Home "Setup"
+	 * command-center card in a permanent "needs attention" state — a free user with the free plugins
+	 * (Nova Blocks + Style Manager) active must be able to reach 100%. Everything else (the wp.org
+	 * free plugins) counts.
+	 *
+	 * @param array $plugin Normalized plugin row (camelCase keys from pixassist_normalize_plugin_payload()).
+	 *
+	 * @return bool
+	 */
+	function pixassist_plugin_counts_for_setup( $plugin ) {
+		if ( ! is_array( $plugin ) ) {
+			return false;
+		}
+
+		$source_type = isset( $plugin['sourceType'] ) ? (string) $plugin['sourceType'] : '';
+		$action_type = isset( $plugin['actionType'] ) ? (string) $plugin['actionType'] : '';
+
+		// The Pixelgrade Plus setup row is always an external hand-off (source_type 'external-action'),
+		// whether it is a missing Pixelgrade.com download or an installed-but-inactive local plugin.
+		if ( 'external-action' === $source_type || 'external' === $action_type ) {
+			return false;
+		}
+
+		return true;
 	}
 }
 
@@ -262,6 +297,163 @@ if ( ! function_exists( 'pixassist_normalize_plugin_payload' ) ) {
 			'activateUrl'      => isset( $plugin['activate_url'] ) ? (string) $plugin['activate_url'] : '',
 			'source'           => isset( $plugin['source'] ) ? (string) $plugin['source'] : '',
 			'sourceType'       => isset( $plugin['source_type'] ) ? sanitize_key( $plugin['source_type'] ) : 'repo',
+			'actionType'       => isset( $plugin['action_type'] ) ? sanitize_key( $plugin['action_type'] ) : '',
+			'externalActionUrl' => isset( $plugin['external_action_url'] ) ? ( function_exists( 'esc_url_raw' ) ? esc_url_raw( (string) $plugin['external_action_url'] ) : (string) $plugin['external_action_url'] ) : '',
+			'externalActionLabel' => isset( $plugin['external_action_label'] ) ? pixassist_plugins_strip_tags( $plugin['external_action_label'] ) : '',
+		);
+	}
+}
+
+if ( ! function_exists( 'pixassist_maybe_append_plus_setup_plugin' ) ) {
+	/**
+	 * Adds a WordPress.org-safe Pixelgrade Plus setup row when the connected account owns Plus.
+	 *
+	 * Missing Plus is an external Pixelgrade.com hand-off, not a TGMPA/WUpdates install. Already
+	 * installed but inactive Plus can still use WordPress's normal local activation link.
+	 *
+	 * @param array[] $plugins Normalized plugin rows.
+	 *
+	 * @return array[]
+	 */
+	function pixassist_maybe_append_plus_setup_plugin( $plugins ) {
+		$plugins = is_array( $plugins ) ? $plugins : array();
+
+		foreach ( $plugins as $plugin ) {
+			if ( isset( $plugin['slug'] ) && 'pixelgrade-plus' === $plugin['slug'] ) {
+				return $plugins;
+			}
+		}
+
+		$plus = pixassist_get_plus_setup_plugin_payload();
+		if ( empty( $plus ) ) {
+			return $plugins;
+		}
+
+		$plugins[] = pixassist_normalize_plugin_payload( $plus, 'pixelgrade-plus' );
+
+		usort(
+			$plugins,
+			function ( $a, $b ) {
+				if ( $a['required'] !== $b['required'] ) {
+					return $a['required'] ? -1 : 1;
+				}
+
+				if ( $a['order'] === $b['order'] ) {
+					return strcmp( $a['name'], $b['name'] );
+				}
+
+				return ( $a['order'] < $b['order'] ) ? -1 : 1;
+			}
+		);
+
+		return $plugins;
+	}
+}
+
+if ( ! function_exists( 'pixassist_get_plus_setup_plugin_payload' ) ) {
+	/**
+	 * Builds the raw Pixelgrade Plus setup row for the Setup tab.
+	 *
+	 * @return array
+	 */
+	function pixassist_get_plus_setup_plugin_payload() {
+		$license = function_exists( 'pixassist_get_account_license_summary' ) ? pixassist_get_account_license_summary() : array();
+		$status  = function_exists( 'pixassist_get_plus_status' ) ? pixassist_get_plus_status() : array();
+
+		$has_plus_license = ! empty( $license['hasPlusLicense'] );
+		$plus_active      = ! empty( $status['is_plus_active'] );
+		$installed        = pixassist_is_plus_plugin_installed();
+
+		if ( ! $has_plus_license && ! $plus_active && ! $installed ) {
+			return array();
+		}
+
+		$label     = ! empty( $status['plus_product_label'] ) && is_scalar( $status['plus_product_label'] )
+			? pixassist_plugins_strip_tags( $status['plus_product_label'] )
+			: ( ! empty( $license['productLabel'] ) ? pixassist_plugins_strip_tags( $license['productLabel'] ) : 'Pixelgrade Plus' );
+		$setup_url = ! empty( $license['setupUrl'] ) && is_scalar( $license['setupUrl'] )
+			? (string) $license['setupUrl']
+			: trailingslashit( defined( 'PIXELGRADE_ASSISTANT__SHOP_BASE' ) ? PIXELGRADE_ASSISTANT__SHOP_BASE : 'https://pixelgrade.com/' ) . 'plus/';
+
+		$payload = array(
+			'name'          => $label,
+			'slug'          => 'pixelgrade-plus',
+			'file_path'     => 'pixelgrade-plus/pixelgrade-plus.php',
+			'required'      => false,
+			'selected'      => false,
+			'order'         => 30,
+			'description'   => $has_plus_license
+				? esc_html__( 'Your connected Pixelgrade account includes Pixelgrade Plus. Download the companion plugin from Pixelgrade.com, install it, then activate it here.', '__plugin_txtd' )
+				: esc_html__( 'Pixelgrade Plus adds advanced design tools for Pixelgrade LT sites.', '__plugin_txtd' ),
+			'author'        => 'Pixelgrade',
+			'is_installed'  => $installed || $plus_active,
+			'is_active'     => $plus_active,
+			'is_up_to_date' => true,
+			'source'        => '',
+			'source_type'   => 'external-action',
+		);
+
+		if ( ! $payload['is_installed'] ) {
+			$payload['action_type']           = 'external';
+			$payload['external_action_url']   = function_exists( 'esc_url_raw' ) ? esc_url_raw( $setup_url ) : $setup_url;
+			$payload['external_action_label'] = esc_html__( 'Download Pixelgrade Plus', '__plugin_txtd' );
+			$payload['install_url']           = '';
+		} elseif ( ! $payload['is_active'] ) {
+			$payload['activate_url'] = pixassist_get_plus_plugin_activate_url( $payload['file_path'] );
+		}
+
+		return $payload;
+	}
+}
+
+if ( ! function_exists( 'pixassist_is_plus_plugin_installed' ) ) {
+	/**
+	 * Whether Pixelgrade Plus appears to be installed locally.
+	 *
+	 * @return bool
+	 */
+	function pixassist_is_plus_plugin_installed() {
+		$installed = false;
+
+		if ( defined( 'PIXELGRADE_PLUS_PLUGIN_FILE' ) ) {
+			$installed = true;
+		}
+
+		if ( ! $installed && defined( 'WP_PLUGIN_DIR' ) && file_exists( WP_PLUGIN_DIR . '/pixelgrade-plus/pixelgrade-plus.php' ) ) {
+			$installed = true;
+		}
+
+		/**
+		 * Filters whether Pixelgrade Plus is installed locally.
+		 *
+		 * @param bool $installed Whether Plus appears installed.
+		 */
+		return (bool) apply_filters( 'pixassist_is_plus_plugin_installed', $installed );
+	}
+}
+
+if ( ! function_exists( 'pixassist_get_plus_plugin_activate_url' ) ) {
+	/**
+	 * Builds a local activation URL for an installed Pixelgrade Plus plugin.
+	 *
+	 * @param string $plugin_file Plugin basename.
+	 *
+	 * @return string
+	 */
+	function pixassist_get_plus_plugin_activate_url( $plugin_file ) {
+		if ( ! function_exists( 'admin_url' ) || ! function_exists( 'add_query_arg' ) || ! function_exists( 'wp_nonce_url' ) ) {
+			return '';
+		}
+
+		return wp_nonce_url(
+			add_query_arg(
+				array(
+					'action' => 'activate',
+					'plugin' => $plugin_file,
+				),
+				admin_url( 'plugins.php' )
+			),
+			'activate-plugin_' . $plugin_file
 		);
 	}
 }

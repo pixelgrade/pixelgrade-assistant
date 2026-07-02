@@ -165,6 +165,20 @@ if ( ! function_exists( 'pixassist_build_setup_plugins_check' ) ) {
 	function pixassist_build_setup_plugins_check( $plugins ) {
 		$plugins = is_array( $plugins ) ? $plugins : array();
 
+		// The optional Pixelgrade Plus hand-off row is an external-action download that cannot be
+		// installed in wp-admin, so it must not turn the free-path readiness into a permanent
+		// "needs attention". Drop it before counting. Guarded so the standalone readiness test (which
+		// does not load the helper) keeps its behavior.
+		if ( function_exists( 'pixassist_plugin_counts_for_setup' ) ) {
+			$counted = array();
+			foreach ( $plugins as $plugin ) {
+				if ( pixassist_plugin_counts_for_setup( $plugin ) ) {
+					$counted[] = $plugin;
+				}
+			}
+			$plugins = $counted;
+		}
+
 		$required_missing = array();
 		$optional_missing = array();
 		$outdated         = array();
