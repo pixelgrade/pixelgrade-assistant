@@ -745,7 +745,7 @@ assert_true( false !== strpos( $licensed_plus_payload['accountValue']['products'
 assert_same( 'Review Plus benefits', $licensed_plus_payload['accountValue']['products']['actionLabel'] ?? '', 'Licensed Plus should get an explicit benefits-review CTA.' );
 assert_same( 'complete', $licensed_plus_payload['plusJourney']['state'], 'Licensed Plus should collapse the journey to a quiet confirmation.' );
 assert_same( array(), $licensed_plus_payload['plusJourney']['steps'], 'A complete journey carries no step ladder.' );
-assert_true( false !== strpos( $licensed_plus_payload['plusJourney']['action']['url'], 'section=plus' ), 'The complete journey should quietly link to the Plus panel.' );
+assert_same( null, $licensed_plus_payload['plusJourney']['action'], 'The complete journey carries no link — the Plus panel sits directly below, and no benefits list exists to review.' );
 
 paf_reset_runtime();
 pixassist_save_account_connection(

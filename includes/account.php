@@ -1999,10 +1999,9 @@ if ( ! function_exists( 'pixassist_get_account_plus_journey' ) ) {
 				'title'       => esc_html__( 'Pixelgrade Plus is set up', '__plugin_txtd' ),
 				/* translators: %s: Pixelgrade Plus product label. */
 				'description' => sprintf( esc_html__( 'Your %s license is validated on this site. Everything Plus adds is on.', '__plugin_txtd' ), $plus_label ),
-				'action'      => array(
-					'label' => esc_html__( 'Review Plus benefits below', '__plugin_txtd' ),
-					'url'   => $panel_url,
-				),
+				// No action on purpose: the Plus panel sits directly below this row, and it no
+				// longer lists "benefits" — a scroll link would promise something that isn't there.
+				'action'      => null,
 				'steps'       => array(),
 			);
 		}
