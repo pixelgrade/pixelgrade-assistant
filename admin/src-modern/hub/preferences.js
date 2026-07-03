@@ -1,5 +1,6 @@
-const PREVIEW_SIZE_MIN_COLUMNS = 1;
-const PREVIEW_SIZE_MAX_COLUMNS = 4;
+export const PREVIEW_SIZE_MIN_COLUMNS = 1;
+export const PREVIEW_SIZE_MAX_COLUMNS = 4;
+export const PREVIEW_SIZE_DEFAULT_COLUMNS = 2;
 
 export const LAYOUT_UNIT_PREFERENCES_STORAGE_KEY = 'pixassist_layout_units_preferences';
 export const CONTENT_PATTERN_PREFERENCES_STORAGE_KEY = 'pixassist_content_patterns_preferences';

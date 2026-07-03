@@ -6,9 +6,10 @@
  */
 import { createElement, Fragment, useEffect, useMemo, useRef, useState } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
-import { Button, CheckboxControl, Dropdown, Icon, Modal, Notice, RangeControl, SearchControl, SelectControl } from '@wordpress/components';
-import { check, fullscreen, grid, listView, settings, update } from '@wordpress/icons';
+import { Button, CheckboxControl, Icon, Modal, Notice } from '@wordpress/components';
+import { check, fullscreen } from '@wordpress/icons';
 import { DemoLiveLink, LayoutPreview, PreviewModeToggle } from '../LayoutPreview';
+import { LibraryToolbar } from '../LibraryToolbar';
 import { getLayoutUnitPreferences, saveLayoutUnitPreferences } from '../preferences';
 
 const DEFAULT_LAYOUT_UNITS = {
@@ -977,138 +978,6 @@ function UnitPreviewModal( { unit, previewConfig, copy, onClose } ) {
 	);
 }
 
-// Preview-size slider steps map (right = larger previews = fewer columns), default 2 columns.
-const PREVIEW_SIZE_MAX = 4;
-const PREVIEW_SIZE_DEFAULT_COLUMNS = 2;
-
-function LayoutToolbar( { search, onSearch, typeFilter, onTypeFilter, sourceFilter, onSourceFilter, viewMode, onViewMode, columns, onColumns, sources, templateSectionKeys, templateTitles, copy } ) {
-	// Each available template type is an indented sub-item under "Templates" (e.g. "— Single Post"),
-	// so the filter mirrors the per-slug sections.
-	const templateSubOptions = ( templateSectionKeys || [] ).map( ( key ) => ( {
-		label: '— ' + getSectionLabel( key, copy, templateTitles ),
-		value: key,
-	} ) );
-	const typeOptions = [
-		{ label: __( 'All types', 'pixelgrade_assistant' ), value: 'all' },
-		{ label: copy.headers, value: 'headers' },
-		{ label: copy.footers, value: 'footers' },
-		{ label: copy.templatesType, value: 'templates' },
-		...templateSubOptions,
-		{ label: copy.features, value: 'features' },
-		{ label: copy.templateParts, value: 'templateParts' },
-	];
-	const sourceOptions = [ { label: __( 'All starters', 'pixelgrade_assistant' ), value: 'all' } ].concat(
-		sources.map( ( source ) => ( { label: source.title, value: source.id } ) )
-	);
-
-	return createElement(
-		'div',
-		{
-			style: {
-				alignItems: 'center',
-				display: 'flex',
-				flexWrap: 'wrap',
-				gap: '12px',
-				margin: '16px 0',
-			},
-		},
-		createElement(
-			'div',
-			{ style: { flex: '1 1 220px', minWidth: '180px' } },
-			createElement( SearchControl, {
-				__nextHasNoMarginBottom: true,
-				value: search,
-				onChange: onSearch,
-				label: __( 'Search layouts', 'pixelgrade_assistant' ),
-				placeholder: __( 'Search layouts', 'pixelgrade_assistant' ),
-				hideLabelFromVision: true,
-			} )
-		),
-		createElement(
-			'div',
-			{ style: { alignItems: 'center', display: 'flex', flexWrap: 'wrap', gap: '8px', marginLeft: 'auto' } },
-			createElement(
-				'div',
-				{ style: { minWidth: '150px' } },
-				createElement( SelectControl, {
-					__next40pxDefaultSize: true,
-					__nextHasNoMarginBottom: true,
-					hideLabelFromVision: true,
-					label: __( 'Filter by type', 'pixelgrade_assistant' ),
-					value: typeFilter,
-					options: typeOptions,
-					onChange: onTypeFilter,
-				} )
-			),
-			createElement(
-				'div',
-				{ style: { minWidth: '150px' } },
-				createElement( SelectControl, {
-					__next40pxDefaultSize: true,
-					__nextHasNoMarginBottom: true,
-					hideLabelFromVision: true,
-					label: __( 'Filter by starter', 'pixelgrade_assistant' ),
-					value: sourceFilter,
-					options: sourceOptions,
-					onChange: onSourceFilter,
-				} )
-			),
-			createElement(
-				'div',
-				{ style: { display: 'inline-flex', border: '1px solid #dcdcde', borderRadius: '4px' } },
-				createElement( Button, {
-					icon: grid,
-					isPressed: 'grid' === viewMode,
-					label: __( 'Grid view', 'pixelgrade_assistant' ),
-					showTooltip: true,
-					onClick: () => onViewMode( 'grid' ),
-				} ),
-				createElement( Button, {
-					icon: listView,
-					isPressed: 'list' === viewMode,
-					label: __( 'List view', 'pixelgrade_assistant' ),
-					showTooltip: true,
-					onClick: () => onViewMode( 'list' ),
-				} )
-			),
-			'grid' === viewMode
-				? createElement( Dropdown, {
-						popoverProps: { placement: 'bottom-end' },
-						renderToggle: ( { isOpen, onToggle } ) =>
-							createElement( Button, {
-								icon: settings,
-								isPressed: isOpen,
-								'aria-expanded': isOpen,
-								label: __( 'Preview size', 'pixelgrade_assistant' ),
-								showTooltip: true,
-								onClick: onToggle,
-							} ),
-						renderContent: () =>
-							createElement(
-								'div',
-								{ style: { minWidth: '220px', padding: '4px 8px 0' } },
-								createElement( RangeControl, {
-									__nextHasNoMarginBottom: true,
-									__next40pxDefaultSize: true,
-									label: __( 'Preview size', 'pixelgrade_assistant' ),
-									value: PREVIEW_SIZE_MAX + 1 - columns,
-									onChange: ( value ) =>
-										onColumns( PREVIEW_SIZE_MAX + 1 - ( value || PREVIEW_SIZE_MAX + 1 - PREVIEW_SIZE_DEFAULT_COLUMNS ) ),
-									min: 1,
-									max: PREVIEW_SIZE_MAX,
-									step: 1,
-									marks: true,
-									withInputField: false,
-									showTooltip: false,
-								} )
-							),
-				  } )
-				: null,
-			'grid' === viewMode ? createElement( PreviewModeToggle, null ) : null
-		)
-	);
-}
-
 // One Site-Editor-style section: a labelled header with a divider, then the section's cards. The
 // active-source caption (single-slot sections only) reads from `applied`, so it survives filtering.
 function LayoutSection( { groupKey, units, applied, viewMode, columns, busyKey, copy, featureSamples, operation, previewConfig, templateTitles, onFeatureSampleChange, onImport, onPreview, onUndo } ) {
@@ -1276,6 +1145,30 @@ export function LayoutUnits() {
 
 		return keys.sort( compareTemplateSectionKeys );
 	}, [ ordered ] );
+	// Each available template type is an indented sub-item under "Templates" (e.g. "— Single Post"),
+	// so the filter mirrors the per-slug sections.
+	const typeOptions = useMemo(
+		() => [
+			{ label: __( 'All types', 'pixelgrade_assistant' ), value: 'all' },
+			{ label: copy.headers, value: 'headers' },
+			{ label: copy.footers, value: 'footers' },
+			{ label: copy.templatesType, value: 'templates' },
+			...templateSectionKeys.map( ( key ) => ( {
+				label: '— ' + getSectionLabel( key, copy, templateTitles ),
+				value: key,
+			} ) ),
+			{ label: copy.features, value: 'features' },
+			{ label: copy.templateParts, value: 'templateParts' },
+		],
+		[ templateSectionKeys, templateTitles, copy ]
+	);
+	const sourceOptions = useMemo(
+		() =>
+			[ { label: __( 'All starters', 'pixelgrade_assistant' ), value: 'all' } ].concat(
+				sources.map( ( source ) => ( { label: source.title, value: source.id } ) )
+			),
+		[ sources ]
+	);
 
 	const startOperationSteps = ( key, steps ) => {
 		const operationId = operationIdRef.current + 1;
@@ -1690,46 +1583,35 @@ export function LayoutUnits() {
 		createElement( 'h1', null, copy.title ),
 		createElement( 'p', null, copy.description ),
 		renderMessage( message ),
-		createElement(
-			'div',
-			{ style: { alignItems: 'center', display: 'flex', gap: '12px', margin: '16px 0 4px' } },
-			createElement(
-				Button,
-				{
-					variant: 'secondary',
-					icon: update,
-					isBusy: loading,
-					disabled: loading || Boolean( busyKey ),
-					onClick: loadUnits,
-					label: copy.refreshTitle,
-					showTooltip: true,
-				},
-				copy.refreshLabel
-			),
-			loading ? createElement( 'span', { style: { color: '#646970', fontSize: '13px' } }, loadStatusText ) : null
-		),
+		createElement( LibraryToolbar, {
+			search,
+			onSearch: setSearch,
+			searchLabel: __( 'Search layouts', 'pixelgrade_assistant' ),
+			typeFilter,
+			onTypeFilter: ( value ) => setLayoutPreference( 'typeFilter', value ),
+			typeOptions,
+			typeFilterLabel: __( 'Filter by type', 'pixelgrade_assistant' ),
+			sourceFilter,
+			onSourceFilter: ( value ) => setLayoutPreference( 'sourceFilter', value ),
+			sourceOptions,
+			sourceFilterLabel: __( 'Filter by starter', 'pixelgrade_assistant' ),
+			viewMode,
+			onViewMode: ( value ) => setLayoutPreference( 'viewMode', value ),
+			columns,
+			onColumns: ( value ) => setLayoutPreference( 'columns', value ),
+			onRefresh: () => loadUnits(),
+			refreshLabel: copy.refreshLabel,
+			refreshTitle: copy.refreshTitle,
+			refreshDisabled: Boolean( busyKey ),
+			loading,
+			loadingStatus: loadStatusText,
+		} ),
 		showSkeleton ? createElement( LayoutsSkeleton, { columns, copy } ) : null,
 		loaded && ! units.length ? createElement( 'p', null, copy.empty ) : null,
 		loaded && units.length
 			? createElement(
 					Fragment,
 					null,
-					createElement( LayoutToolbar, {
-						search,
-						onSearch: setSearch,
-						typeFilter,
-						onTypeFilter: ( value ) => setLayoutPreference( 'typeFilter', value ),
-						sourceFilter,
-						onSourceFilter: ( value ) => setLayoutPreference( 'sourceFilter', value ),
-						viewMode,
-						onViewMode: ( value ) => setLayoutPreference( 'viewMode', value ),
-						columns,
-						onColumns: ( value ) => setLayoutPreference( 'columns', value ),
-						sources,
-						templateSectionKeys,
-						templateTitles,
-						copy,
-					} ),
 					sections.length
 						? sections.map( ( section ) =>
 								createElement( LayoutSection, {

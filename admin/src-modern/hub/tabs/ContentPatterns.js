@@ -5,9 +5,10 @@
  */
 import { createElement, Fragment, useEffect, useMemo, useRef, useState } from '@wordpress/element';
 import { __, sprintf } from '@wordpress/i18n';
-import { Button, Dropdown, Icon, Modal, Notice, RangeControl, SearchControl, SelectControl } from '@wordpress/components';
-import { check, fullscreen, grid, listView, settings, update } from '@wordpress/icons';
+import { Button, Icon, Modal, Notice } from '@wordpress/components';
+import { check, fullscreen } from '@wordpress/icons';
 import { DemoLiveLink, LayoutPreview, PreviewModeToggle } from '../LayoutPreview';
+import { LibraryToolbar } from '../LibraryToolbar';
 import { getContentPatternPreferences, saveContentPatternPreferences } from '../preferences';
 
 const DEFAULT_CONTENT_PATTERNS = {
@@ -63,8 +64,6 @@ const DEFAULT_CONTENT_PATTERNS = {
 	preview: null,
 };
 
-const PREVIEW_SIZE_MAX = 4;
-const PREVIEW_SIZE_DEFAULT_COLUMNS = 2;
 const TYPE_ORDER = [ 'page', 'post', 'portfolio', 'product', 'other' ];
 
 let contentPatternsCache = null;
@@ -796,130 +795,6 @@ function UnitPreviewModal( { unit, previewConfig, copy, onClose } ) {
 	);
 }
 
-function ContentToolbar( { search, onSearch, typeFilter, onTypeFilter, sourceFilter, onSourceFilter, viewMode, onViewMode, columns, onColumns, sources, typeOptions, sourceOptions, loading, loadingStatus, busyKey, copy, onRefresh } ) {
-	return createElement(
-		'div',
-		{
-			className: 'pixassist-content-patterns__toolbar',
-			style: {
-				alignItems: 'center',
-				display: 'flex',
-				flexWrap: 'wrap',
-				gap: '12px',
-				margin: '16px 0',
-			},
-		},
-		createElement(
-			'div',
-			{ className: 'pixassist-content-patterns__toolbar-search', style: { flex: '1 1 220px', minWidth: '180px' } },
-			createElement( SearchControl, {
-				__nextHasNoMarginBottom: true,
-				value: search,
-				onChange: onSearch,
-				label: copy.searchLabel,
-				placeholder: copy.searchLabel,
-				hideLabelFromVision: true,
-			} )
-		),
-		createElement(
-			'div',
-			{ className: 'pixassist-content-patterns__toolbar-controls', style: { alignItems: 'center', display: 'flex', flexWrap: 'wrap', gap: '8px', marginLeft: 'auto' } },
-			createElement(
-				'div',
-				{ className: 'pixassist-content-patterns__toolbar-control', style: { minWidth: '150px' } },
-				createElement( SelectControl, {
-					__next40pxDefaultSize: true,
-					__nextHasNoMarginBottom: true,
-					hideLabelFromVision: true,
-					label: copy.typeLabel,
-					value: typeFilter,
-					options: typeOptions,
-					onChange: onTypeFilter,
-				} )
-			),
-			createElement(
-				'div',
-				{ className: 'pixassist-content-patterns__toolbar-control', style: { minWidth: '150px' } },
-				createElement( SelectControl, {
-					__next40pxDefaultSize: true,
-					__nextHasNoMarginBottom: true,
-					hideLabelFromVision: true,
-					label: copy.sourceLabel,
-					value: sourceFilter,
-					options: sourceOptions,
-					onChange: onSourceFilter,
-				} )
-			),
-			createElement( PreviewModeToggle, null ),
-			createElement(
-				'div',
-				{ style: { display: 'inline-flex', border: '1px solid #dcdcde', borderRadius: '4px' } },
-				createElement( Button, {
-					icon: grid,
-					isPressed: 'grid' === viewMode,
-					label: __( 'Grid view', 'pixelgrade_assistant' ),
-					showTooltip: true,
-					onClick: () => onViewMode( 'grid' ),
-				} ),
-				createElement( Button, {
-					icon: listView,
-					isPressed: 'list' === viewMode,
-					label: __( 'List view', 'pixelgrade_assistant' ),
-					showTooltip: true,
-					onClick: () => onViewMode( 'list' ),
-				} )
-			),
-			'grid' === viewMode
-				? createElement( Dropdown, {
-						popoverProps: { placement: 'bottom-end' },
-						renderToggle: ( { isOpen, onToggle } ) =>
-							createElement( Button, {
-								icon: settings,
-								isPressed: isOpen,
-								'aria-expanded': isOpen,
-								label: __( 'Preview size', 'pixelgrade_assistant' ),
-								showTooltip: true,
-								onClick: onToggle,
-							} ),
-						renderContent: () =>
-							createElement(
-								'div',
-								{ style: { minWidth: '220px', padding: '4px 8px 0' } },
-								createElement( RangeControl, {
-									__nextHasNoMarginBottom: true,
-									__next40pxDefaultSize: true,
-									label: __( 'Preview size', 'pixelgrade_assistant' ),
-									value: PREVIEW_SIZE_MAX + 1 - columns,
-									onChange: ( value ) =>
-										onColumns( PREVIEW_SIZE_MAX + 1 - ( value || PREVIEW_SIZE_MAX + 1 - PREVIEW_SIZE_DEFAULT_COLUMNS ) ),
-									min: 1,
-									max: PREVIEW_SIZE_MAX,
-									step: 1,
-									marks: true,
-									withInputField: false,
-									showTooltip: false,
-								} )
-							),
-				  } )
-				: null,
-			createElement(
-				Button,
-				{
-					variant: 'secondary',
-					icon: update,
-					isBusy: loading,
-					disabled: loading || Boolean( busyKey ) || ! sources.length,
-					onClick: onRefresh,
-					label: copy.refreshTitle,
-					showTooltip: true,
-				},
-				copy.refreshLabel
-			),
-			loading ? createElement( 'span', { style: { color: '#646970', fontSize: '13px' } }, loadingStatus || copy.loading ) : null
-		)
-	);
-}
-
 function ContentSection( { groupKey, units, applied, viewMode, columns, busyKey, copy, previewConfig, onApply, onPreview, onUndo } ) {
 	const activeCount = units.filter( ( unit ) => isUnitCurrent( unit, applied ) ).length;
 	const caption = activeCount
@@ -978,15 +853,13 @@ function ContentSection( { groupKey, units, applied, viewMode, columns, busyKey,
 	);
 }
 
+// The toolbar's own small-screen stacking now ships with the shared LibraryToolbar; only the
+// grid collapse stays tab-local.
 function ContentPatternsResponsiveStyles() {
 	return createElement(
 		'style',
 		null,
 		'@media (max-width: 782px) {' +
-			'.pixelgrade-content-patterns .pixassist-content-patterns__toolbar { align-items: stretch; }' +
-			'.pixelgrade-content-patterns .pixassist-content-patterns__toolbar-search { flex-basis: 100% !important; min-width: 0 !important; }' +
-			'.pixelgrade-content-patterns .pixassist-content-patterns__toolbar-controls { margin-left: 0 !important; width: 100%; }' +
-			'.pixelgrade-content-patterns .pixassist-content-patterns__toolbar-control { flex: 1 1 140px; min-width: 0 !important; }' +
 			'.pixelgrade-content-patterns .pixassist-content-patterns__grid { grid-template-columns: 1fr !important; }' +
 		'}'
 	);
@@ -1310,25 +1183,28 @@ export function ContentPatterns() {
 		createElement( 'h1', null, copy.title ),
 		createElement( 'p', null, copy.description ),
 		renderMessage( message ),
-		createElement( ContentToolbar, {
+		createElement( LibraryToolbar, {
 			search,
 			onSearch: setSearch,
+			searchLabel: copy.searchLabel,
 			typeFilter,
 			onTypeFilter: ( value ) => setContentPreference( 'typeFilter', value ),
+			typeOptions,
+			typeFilterLabel: copy.typeLabel,
 			sourceFilter,
 			onSourceFilter: ( value ) => setContentPreference( 'sourceFilter', value ),
+			sourceOptions,
+			sourceFilterLabel: copy.sourceLabel,
 			viewMode,
 			onViewMode: ( value ) => setContentPreference( 'viewMode', value ),
 			columns,
 			onColumns: ( value ) => setContentPreference( 'columns', value ),
-			sources,
-			typeOptions,
-			sourceOptions,
-			loading,
-			loadingStatus,
-			busyKey,
-			copy,
 			onRefresh: () => loadUnits( { sourceFilter, force: true } ),
+			refreshLabel: copy.refreshLabel,
+			refreshTitle: copy.refreshTitle,
+			refreshDisabled: Boolean( busyKey ) || ! sources.length,
+			loading,
+			loadingStatus: loadingStatus || copy.loading,
 		} ),
 		showSkeleton ? createElement( ContentSkeleton, { columns, copy } ) : null,
 		loaded && ! loading && ! units.length ? createElement( 'p', null, copy.empty ) : null,
