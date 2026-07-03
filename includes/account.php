@@ -2213,16 +2213,13 @@ if ( ! function_exists( 'pixassist_get_account_value_data' ) ) {
 		$products   = pixassist_get_account_products_summary( $site );
 		$can_oauth  = pixassist_account_oauth_is_configured();
 		// Honest support story (settled model): guides + diagnostics are free with no account;
-		// human assisted help runs on Pixelgrade Credits. Connecting is never required for the
-		// free lane, so this row must not nag for a connection.
+		// human assisted help runs on Pixelgrade Credits. This row renders only for connected
+		// users (sidebar) — the disconnected panel gives the free lane instead of a Credits pitch,
+		// since the hero already names Credits as a reason to connect exactly once.
 		$support    = array(
 			'state'       => 'available',
-			'label'       => $connected
-				? esc_html__( 'Assisted help is ready when you need it', '__plugin_txtd' )
-				: esc_html__( 'Guides and diagnostics are free for everyone', '__plugin_txtd' ),
-			'description' => $connected
-				? esc_html__( 'Guides and diagnostics stay free. Assisted help — us digging into your actual site — uses Pixelgrade Credits, pay as you go.', '__plugin_txtd' )
-				: esc_html__( 'No account needed. If you ever want us to dig into your actual site, that is assisted help — it uses Pixelgrade Credits with a connected account, pay as you go.', '__plugin_txtd' ),
+			'label'       => esc_html__( 'Assisted help is ready when you need it', '__plugin_txtd' ),
+			'description' => esc_html__( 'Guides and diagnostics stay free. Assisted help — us digging into your actual site — uses Pixelgrade Credits when you choose it.', '__plugin_txtd' ),
 		);
 
 		$next_action = $connected
@@ -2247,11 +2244,18 @@ if ( ! function_exists( 'pixassist_get_account_value_data' ) ) {
 			'products'       => $products,
 			'accountDetails' => pixassist_get_account_details_summary( $account ),
 			'docs'           => array(
-				'label'       => esc_html__( 'Browse guides for the active Pixelgrade theme anytime — no account needed.', '__plugin_txtd' ),
+				'label'       => esc_html__( 'Browse guides for the active Pixelgrade theme anytime — no account needed. They also open right where you work, from the Design Docs button in the editor toolbar and the admin bar.', '__plugin_txtd' ),
 				'state'       => 'available',
 				'url'         => $docs_url,
 				'actionLabel' => esc_html__( 'Open Help', '__plugin_txtd' ),
 				'helpUrl'     => $help_url,
+			),
+			'diagnostics'    => array(
+				'label'       => esc_html__( 'System Status checks your setup', '__plugin_txtd' ),
+				'description' => esc_html__( 'When something looks off, System Status reviews your theme, plugins, and configuration and points at the next safe step.', '__plugin_txtd' ),
+				'state'       => 'available',
+				'url'         => function_exists( 'esc_url_raw' ) ? esc_url_raw( admin_url( 'themes.php?page=pixelgrade&tab=system-status' ) ) : admin_url( 'themes.php?page=pixelgrade&tab=system-status' ),
+				'actionLabel' => esc_html__( 'View System Status', '__plugin_txtd' ),
 			),
 			'nextAction'  => $next_action,
 		);

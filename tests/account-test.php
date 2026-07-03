@@ -505,6 +505,8 @@ assert_true( false !== strpos( $payload['accountValue']['support']['description'
 assert_same( false, false !== strpos( (string) json_encode( $payload['accountValue']['support'] ), 'send support requests' ), 'The Care-era "connect to send support requests" claim stays retired.' );
 assert_true( false !== strpos( $payload['copy']['disconnectedDescription'], 'work without an account' ), 'The disconnected hero must lead with the everything-works-without-an-account fact.' );
 assert_true( false !== strpos( $payload['copy']['disconnectedDescription'], 'validate a Pixelgrade Plus license' ), 'The disconnected hero must name the real reasons to connect (license, Credits).' );
+assert_true( false !== strpos( $payload['accountValue']['diagnostics']['url'], 'tab=system-status' ), 'The free panel must hand the user something real: the System Status diagnostics.' );
+assert_true( false !== strpos( $payload['accountValue']['docs']['label'], 'editor toolbar' ), 'The docs row must explain the in-editor Design Docs access, not just the Help tab.' );
 assert_same( 'Anima LT', $payload['accountValue']['site']['themeName'], 'Account value site context should expose the active theme name.' );
 assert_same( 'anima-lt', $payload['accountValue']['site']['productSku'], 'Account value site context should expose the docs/support product SKU.' );
 assert_same( 'https://example.test/wp-admin/themes.php?page=pixelgrade&tab=help', $payload['accountValue']['site']['helpUrl'], 'Account value site context should deep-link to the Help tab.' );

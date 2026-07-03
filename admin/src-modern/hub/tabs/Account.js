@@ -599,29 +599,24 @@ function renderAccountDetailsRow( accountDetails ) {
 
 function renderAccountValuePanel( data ) {
 	const value = data.accountValue || {};
-	const support = value.support || {};
 	const site = value.site || {};
 	const docs = value.docs || {};
+	const diagnostics = value.diagnostics || {};
 	const accountDetails = value.accountDetails || {};
 
-	if ( ! support.label && ! site.themeName && ! docs.label && ! accountDetails.label ) {
+	if ( ! site.themeName && ! docs.label && ! diagnostics.label && ! accountDetails.label ) {
 		return null;
 	}
 
+	// Disconnected panel: give the free user what they already have (docs everywhere, diagnostics)
+	// instead of pitching Credits — the hero names the reasons to connect exactly once.
 	return createElement(
 		Card,
 		{ className: 'pixelgrade-account-value pixelgrade-account-value--operations', style: { marginTop: '12px' } },
-		createElement( CardHeader, null, createElement( 'h2', { style: { fontSize: '15px', margin: 0 } }, __( 'Account & support', 'pixelgrade_assistant' ) ) ),
+		createElement( CardHeader, null, createElement( 'h2', { style: { fontSize: '15px', margin: 0 } }, __( 'Help & docs', 'pixelgrade_assistant' ) ) ),
 		createElement(
 			CardBody,
 			null,
-			renderValueRow( {
-				id: 'support',
-				label: __( 'Support', 'pixelgrade_assistant' ),
-				value: support.label || __( 'Support access', 'pixelgrade_assistant' ),
-				description: support.description,
-				status: support.state,
-			} ),
 			renderValueRow( {
 				id: 'docs',
 				label: __( 'Documentation', 'pixelgrade_assistant' ),
@@ -633,6 +628,18 @@ function renderAccountValuePanel( data ) {
 					? createElement( Button, { href: docs.helpUrl, variant: 'secondary' }, docs.actionLabel || __( 'Open Help', 'pixelgrade_assistant' ) )
 					: null,
 			} ),
+			diagnostics.label
+				? renderValueRow( {
+						id: 'diagnostics',
+						label: __( 'Diagnostics', 'pixelgrade_assistant' ),
+						value: diagnostics.label,
+						description: diagnostics.description,
+						status: diagnostics.state || 'available',
+						action: diagnostics.url
+							? createElement( Button, { href: diagnostics.url, variant: 'secondary' }, diagnostics.actionLabel || __( 'View System Status', 'pixelgrade_assistant' ) )
+							: null,
+				  } )
+				: null,
 			renderValueRow( {
 				id: 'site',
 				label: __( 'Site', 'pixelgrade_assistant' ),
