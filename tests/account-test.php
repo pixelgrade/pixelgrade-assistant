@@ -501,7 +501,7 @@ assert_same( true, $payload['oauth']['isConfigured'], 'The shipped build reports
 assert_same( 'Pixelgrade account', $payload['copy']['title'], 'Account tab copy must live in PHP.' );
 assert_same( 'Disconnect account', $payload['copy']['disconnectLabel'], 'Disconnect copy should describe the quiet account-detail action.' );
 assert_same( 'available', $payload['accountValue']['support']['state'], 'The free support lane (guides + diagnostics) is available without an account — the row must not nag for a connection.' );
-assert_true( false !== strpos( $payload['accountValue']['support']['description'], 'Pixelgrade Credits' ), 'The support row must attribute assisted help to Pixelgrade Credits, never promise free ticket support.' );
+assert_same( false, false !== strpos( $payload['accountValue']['support']['description'], 'Credits' ), 'The support row stays short and price-free — Credits are mentioned at the point of use (opening a ticket), not here.' );
 assert_same( false, false !== strpos( (string) json_encode( $payload['accountValue']['support'] ), 'send support requests' ), 'The Care-era "connect to send support requests" claim stays retired.' );
 assert_true( false !== strpos( $payload['copy']['disconnectedDescription'], 'work without an account' ), 'The disconnected hero must lead with the everything-works-without-an-account fact.' );
 assert_true( false !== strpos( $payload['copy']['disconnectedDescription'], 'validate a Pixelgrade Plus license' ), 'The disconnected hero must name the real reasons to connect (license, Credits).' );

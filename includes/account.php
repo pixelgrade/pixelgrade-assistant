@@ -2213,12 +2213,12 @@ if ( ! function_exists( 'pixassist_get_account_value_data' ) ) {
 		$can_oauth  = pixassist_account_oauth_is_configured();
 		// Honest support story (settled model): guides + diagnostics are free with no account;
 		// human assisted help runs on Pixelgrade Credits. This row renders only for connected
-		// users (sidebar) — the disconnected panel gives the free lane instead of a Credits pitch,
-		// since the hero already names Credits as a reason to connect exactly once.
+		// users (sidebar). Pricing (Credits) is deliberately NOT mentioned here — it belongs at
+		// the point of use, when opening a ticket.
 		$support    = array(
 			'state'       => 'available',
 			'label'       => esc_html__( 'Assisted help is ready when you need it', '__plugin_txtd' ),
-			'description' => esc_html__( 'Guides and diagnostics stay free. Assisted help — us digging into your actual site — uses Pixelgrade Credits when you choose it.', '__plugin_txtd' ),
+			'description' => esc_html__( 'For when you want us in your actual site.', '__plugin_txtd' ),
 		);
 
 		$next_action = $connected
