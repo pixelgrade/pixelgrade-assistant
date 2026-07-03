@@ -1998,7 +1998,7 @@ if ( ! function_exists( 'pixassist_get_account_plus_journey' ) ) {
 				'state'       => 'complete',
 				'title'       => esc_html__( 'Pixelgrade Plus is set up', '__plugin_txtd' ),
 				/* translators: %s: Pixelgrade Plus product label. */
-				'description' => sprintf( esc_html__( 'Your %s license is validated on this site. All premium benefits are on.', '__plugin_txtd' ), $plus_label ),
+				'description' => sprintf( esc_html__( 'Your %s license is validated on this site. Everything Plus adds is on.', '__plugin_txtd' ), $plus_label ),
 				'action'      => array(
 					'label' => esc_html__( 'Review Plus benefits below', '__plugin_txtd' ),
 					'url'   => $panel_url,
@@ -2011,7 +2011,7 @@ if ( ! function_exists( 'pixassist_get_account_plus_journey' ) ) {
 			$invite = array(
 				'state'       => 'invite',
 				'title'       => 'Pixelgrade Plus',
-				'description' => esc_html__( 'Premium design packs, priority support, and premium starter flows for your Pixelgrade theme — one license for this site.', '__plugin_txtd' ),
+				'description' => esc_html__( 'Everything free stays free. Plus adds the deeper end of the design system, for sites with more riding on them — one-time purchase, no subscription.', '__plugin_txtd' ),
 				'action'      => array(
 					'label' => esc_html__( 'Explore Pixelgrade Plus', '__plugin_txtd' ),
 					'url'   => $setup_url,
@@ -2060,7 +2060,7 @@ if ( ! function_exists( 'pixassist_get_account_plus_journey' ) ) {
 			'validate_license' => array(
 				'label'       => esc_html__( 'Validate your Plus license', '__plugin_txtd' ),
 				'description' => $owned || ! $connected
-					? esc_html__( 'The Pixelgrade Plus panel below validates your account for an eligible license and unlocks the premium benefits.', '__plugin_txtd' )
+					? esc_html__( 'The Pixelgrade Plus panel below validates your account for an eligible license and turns on everything Plus adds.', '__plugin_txtd' )
 					: esc_html__( 'The Pixelgrade Plus panel below validates your account for an eligible license. If you purchased Plus with a different account, connect that account first.', '__plugin_txtd' ),
 			),
 		);
@@ -2116,7 +2116,7 @@ if ( ! function_exists( 'pixassist_get_account_plus_journey' ) ) {
 			'title'         => esc_html__( 'Set up Pixelgrade Plus', '__plugin_txtd' ),
 			/* translators: 1: completed step count, 2: total step count. */
 			'progressLabel' => sprintf( esc_html__( '%1$d of %2$d steps done', '__plugin_txtd' ), $done_count, count( $flags ) ),
-			'description'   => esc_html__( 'Premium design packs, priority support, and premium starter flows unlock when these steps are done.', '__plugin_txtd' ),
+			'description'   => esc_html__( 'The deeper end of the design system unlocks when these steps are done — deeper style control, premium fonts and assets, richer block controls.', '__plugin_txtd' ),
 			'steps'         => $built,
 		);
 	}
@@ -2279,8 +2279,8 @@ if ( ! function_exists( 'pixassist_get_account_data' ) ) {
 			'copy'         => array(
 				'title'                  => esc_html__( 'Pixelgrade account', '__plugin_txtd' ),
 				'connectedStatusLabel'   => esc_html__( 'Site connected.', '__plugin_txtd' ),
-				'connectedDescription'   => esc_html__( 'Your site is securely connected to your pixelgrade.com account. Support requests and account-aware tools can use this identity.', '__plugin_txtd' ),
-				'disconnectedDescription' => esc_html__( 'Connect a free pixelgrade.com account to send support requests and get help right from your dashboard. It is free for everyone and always optional.', '__plugin_txtd' ),
+				'connectedDescription'   => esc_html__( 'Support requests and license checks from this site use this identity.', '__plugin_txtd' ),
+				'disconnectedDescription' => esc_html__( 'Connect your pixelgrade.com account to send support requests right from your dashboard — and to validate a Pixelgrade Plus license if you have one. Free, and always optional.', '__plugin_txtd' ),
 				'connectLabel'           => esc_html__( 'Connect account', '__plugin_txtd' ),
 				'disconnectLabel'        => esc_html__( 'Disconnect account', '__plugin_txtd' ),
 				'notConfiguredLabel'     => esc_html__( 'Account connection is not configured.', '__plugin_txtd' ),

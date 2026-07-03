@@ -514,6 +514,11 @@ assert_same( 'Open Help', $payload['accountValue']['docs']['actionLabel'], 'The 
 assert_same( 'invite', $payload['plusJourney']['state'], 'With no Plus signal at all, the journey collapses to a gentle invite, not a step ladder.' );
 assert_same( 'Explore Pixelgrade Plus', $payload['plusJourney']['action']['label'], 'The Plus invite should hand off to Pixelgrade.com.' );
 assert_true( false !== strpos( $payload['plusJourney']['hint'], 'Already purchased' ), 'A disconnected invite should hint that connecting reveals owned licenses.' );
+assert_true( false !== strpos( $payload['plusJourney']['description'], 'deeper end of the design system' ), 'The Plus invite must use the settled Free & Plus positioning language.' );
+$journey_json = (string) json_encode( $payload['plusJourney'] );
+assert_same( false, false !== stripos( $journey_json, 'starter' ), 'Journey copy must not use the kill-listed "starter" vocabulary.' );
+assert_same( false, false !== stripos( $journey_json, 'priority support' ), 'Journey copy must not promise priority support — Plus support is Credits-based assisted support.' );
+assert_same( false, false !== stripos( $journey_json, 'design pack' ), 'Journey copy must not lead with internal component names.' );
 assert_same( false, false !== strpos( (string) json_encode( $payload ), 'acc-secret' ), 'Account payload must not leak OAuth token secrets.' );
 unset( $_GET['pixassist_account'] );
 

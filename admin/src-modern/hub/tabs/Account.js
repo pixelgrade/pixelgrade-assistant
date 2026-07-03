@@ -140,52 +140,109 @@ function renderDisconnectForm( actions, label, variant = 'secondary' ) {
 	);
 }
 
-function renderConnected( data ) {
+const LAYOUT_CSS = `
+.pixelgrade-account-layout { align-items: start; display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr) minmax(240px, 300px); }
+.pixelgrade-account-layout__main, .pixelgrade-account-layout__side { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.pixelgrade-account-layout__main > *, .pixelgrade-account-layout__side > * { margin-top: 0 !important; }
+@media ( max-width: 1100px ) { .pixelgrade-account-layout { grid-template-columns: minmax(0, 1fr); } }
+`;
+
+function renderSidebarSection( children, isFirst = false ) {
+	const items = ( Array.isArray( children ) ? children : [ children ] ).filter( Boolean );
+	if ( ! items.length ) {
+		return null;
+	}
+
+	return createElement(
+		'div',
+		{
+			style: {
+				borderTop: isFirst ? 'none' : '1px solid #f0f0f1',
+				marginTop: isFirst ? 0 : '12px',
+				paddingTop: isFirst ? 0 : '12px',
+			},
+		},
+		items
+	);
+}
+
+function renderIdentityCard( data ) {
 	const account = data.account || {};
 	const copy = data.copy || {};
 	const actions = data.actions || {};
-	const avatar = renderAvatar( account, 48 );
+	const details = ( data.accountValue || {} ).accountDetails || {};
+	const avatar = renderAvatar( account, 40 );
+	const metaStyle = { color: '#646970', fontSize: '12px', margin: '2px 0 0' };
 
 	return createElement(
 		Card,
-		{ className: 'pixelgrade-account pixelgrade-account--connected pixelgrade-account--operations' },
-		createElement( CardHeader, null, createElement( 'h2', { style: { fontSize: '15px', margin: 0 } }, copy.title || __( 'Pixelgrade account', 'pixelgrade_assistant' ) ) ),
+		{ className: 'pixelgrade-account pixelgrade-account--connected pixelgrade-account--sidebar' },
+		createElement( CardHeader, null, createElement( 'h2', { style: { fontSize: '14px', margin: 0 } }, copy.title || __( 'Pixelgrade account', 'pixelgrade_assistant' ) ) ),
 		createElement(
 			CardBody,
 			null,
-			createElement(
-				'div',
-				{
-					style: {
-						alignItems: 'flex-start',
-						display: 'flex',
-						flexWrap: 'wrap',
-						gap: '16px',
-						justifyContent: 'space-between',
-					},
-				},
+			renderSidebarSection(
 				createElement(
-					'div',
-					{ style: { flex: '1 1 420px', minWidth: 0 } },
-					createElement(
-						Flex,
-						{ align: 'flex-start', gap: 3, expanded: false },
-						avatar ? createElement( FlexItem, null, avatar ) : null,
-						createElement( FlexItem, null, renderAccountMeta( account ) )
-					)
+					Flex,
+					{ align: 'center', gap: 3, expanded: false, justify: 'flex-start' },
+					avatar ? createElement( FlexItem, null, avatar ) : null,
+					createElement( FlexItem, { style: { minWidth: 0 } }, renderAccountMeta( account ) )
 				),
-				renderDisconnectForm( actions, copy.disconnectLabel, 'link' )
+				true
 			),
-			copy.connectedStatusLabel
-				? createElement(
-						'div',
-						{ style: { borderTop: '1px solid #f0f0f1', marginTop: '12px', paddingTop: '10px' } },
-						renderStatusText( 'available', copy.connectedStatusLabel )
-				  )
-				: null,
-			copy.connectedDescription
-				? createElement( 'p', { style: { margin: copy.connectedStatusLabel ? '6px 0 0' : '12px 0 0', color: '#50575e' } }, copy.connectedDescription )
-				: null
+			renderSidebarSection( [
+				copy.connectedStatusLabel ? renderStatusText( 'available', copy.connectedStatusLabel ) : null,
+				copy.connectedDescription
+					? createElement( 'p', { key: 'desc', style: { color: '#50575e', fontSize: '12px', margin: '6px 0 0' } }, copy.connectedDescription )
+					: null,
+			] ),
+			renderSidebarSection( [
+				details.label ? createElement( 'p', { key: 'id', style: { color: '#50575e', fontSize: '12px', margin: 0 } }, details.label ) : null,
+				details.description ? createElement( 'p', { key: 'date', style: metaStyle }, details.description ) : null,
+				createElement( 'div', { key: 'disconnect', style: { marginTop: '10px' } }, renderDisconnectForm( actions, copy.disconnectLabel, 'link' ) ),
+			] )
+		)
+	);
+}
+
+function renderSupportCard( data ) {
+	const value = data.accountValue || {};
+	const support = value.support || {};
+	const docs = value.docs || {};
+	const site = value.site || {};
+
+	if ( ! support.label && ! docs.label && ! site.themeName ) {
+		return null;
+	}
+
+	return createElement(
+		Card,
+		{ className: 'pixelgrade-account-value pixelgrade-account-value--operations pixelgrade-account-value--sidebar' },
+		createElement( CardHeader, null, createElement( 'h2', { style: { fontSize: '14px', margin: 0 } }, __( 'Support & docs', 'pixelgrade_assistant' ) ) ),
+		createElement(
+			CardBody,
+			null,
+			renderSidebarSection( [
+				support.state ? renderStatusText( support.state, support.label ) : null,
+				support.description
+					? createElement( 'p', { key: 'support-desc', style: { color: '#50575e', fontSize: '12px', margin: '6px 0 0' } }, support.description )
+					: null,
+			], true ),
+			renderSidebarSection( [
+				docs.url
+					? createElement( 'p', { key: 'docs-link', style: { fontSize: '13px', margin: 0 } }, createElement( 'a', { href: docs.url, target: '_blank', rel: 'noreferrer' }, __( 'Theme documentation', 'pixelgrade_assistant' ) ) )
+					: null,
+				docs.label
+					? createElement( 'p', { key: 'docs-desc', style: { color: '#646970', fontSize: '12px', margin: '4px 0 0' } }, docs.label )
+					: null,
+				docs.helpUrl
+					? createElement( 'div', { key: 'docs-action', style: { marginTop: '10px' } }, createElement( Button, { href: docs.helpUrl, variant: 'secondary', size: 'small' }, docs.actionLabel || __( 'Open Help', 'pixelgrade_assistant' ) ) )
+					: null,
+			] ),
+			renderSidebarSection( [
+				site.themeName ? createElement( 'p', { key: 'theme', style: { color: '#50575e', fontSize: '12px', margin: 0 } }, site.themeName ) : null,
+				site.siteUrl ? createElement( 'p', { key: 'url', style: { color: '#646970', fontSize: '12px', margin: '2px 0 0', overflowWrap: 'anywhere' } }, site.siteUrl ) : null,
+			] )
 		)
 	);
 }
@@ -637,13 +694,38 @@ export function Account() {
 		return () => clearTimeout( timer );
 	}, [ section ] );
 
+	if ( ! account.is_connected ) {
+		return createElement(
+			Fragment,
+			null,
+			renderNotice( data.notice ),
+			renderDisconnected( data ),
+			renderPlusJourney( data ),
+			renderAccountValuePanel( data ),
+			renderAccountPanels( data )
+		);
+	}
+
 	return createElement(
 		Fragment,
 		null,
+		createElement( 'style', null, LAYOUT_CSS ),
 		renderNotice( data.notice ),
-		account.is_connected ? renderConnected( data ) : renderDisconnected( data ),
-		renderPlusJourney( data ),
-		renderAccountValuePanel( data ),
-		renderAccountPanels( data )
+		createElement(
+			'div',
+			{ className: 'pixelgrade-account-layout' },
+			createElement(
+				'div',
+				{ className: 'pixelgrade-account-layout__main' },
+				renderPlusJourney( data ),
+				renderAccountPanels( data )
+			),
+			createElement(
+				'aside',
+				{ className: 'pixelgrade-account-layout__side' },
+				renderIdentityCard( data ),
+				renderSupportCard( data )
+			)
+		)
 	);
 }
