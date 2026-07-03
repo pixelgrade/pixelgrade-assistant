@@ -166,6 +166,44 @@ function renderSidebarSection( children, isFirst = false ) {
 	);
 }
 
+function renderIdentityBand( data ) {
+	const account = data.account || {};
+	const copy = data.copy || {};
+	const actions = data.actions || {};
+	const avatar = renderAvatar( account, 48 );
+
+	// Single-column identity: one compact band instead of a sidebar card — used when the page has
+	// no Plus main content (connected free account), so the grid is not worth its whitespace.
+	return createElement(
+		Card,
+		{ className: 'pixelgrade-account pixelgrade-account--connected pixelgrade-account--band' },
+		createElement(
+			CardHeader,
+			null,
+			createElement( 'h2', { style: { fontSize: '15px', margin: 0 } }, copy.title || __( 'Pixelgrade account', 'pixelgrade_assistant' ) ),
+			copy.connectedStatusLabel ? renderStatusText( 'available', copy.connectedStatusLabel ) : null
+		),
+		createElement(
+			CardBody,
+			null,
+			createElement(
+				'div',
+				{ style: { alignItems: 'center', display: 'flex', flexWrap: 'wrap', gap: '12px 24px', justifyContent: 'space-between' } },
+				createElement(
+					'div',
+					{ style: { alignItems: 'center', display: 'flex', flex: '1 1 280px', gap: '12px', minWidth: 0 } },
+					avatar,
+					createElement( 'div', { style: { minWidth: 0 } }, renderAccountMeta( account ) )
+				),
+				copy.connectedDescription
+					? createElement( 'p', { style: { color: '#646970', flex: '2 1 280px', fontSize: '12px', margin: 0, minWidth: 0 } }, copy.connectedDescription )
+					: null,
+				renderDisconnectForm( actions, copy.disconnectLabel, 'link' )
+			)
+		)
+	);
+}
+
 function renderIdentityCard( data ) {
 	const account = data.account || {};
 	const copy = data.copy || {};
@@ -717,6 +755,23 @@ export function Account() {
 			null,
 			renderNotice( data.notice ),
 			journeyLeads ? null : renderDisconnected( data ),
+			renderPlusJourney( data ),
+			renderAccountValuePanel( data ),
+			renderAccountPanels( data )
+		);
+	}
+
+	// The grid earns its keep only with real main-column content (a journey in progress or a
+	// contributed Plus panel). A connected free account collapses to one calm column.
+	const journey = data.plusJourney || {};
+	const useColumns = 'invite' !== journey.state || getAccountPanels( data ).length > 0;
+
+	if ( ! useColumns ) {
+		return createElement(
+			Fragment,
+			null,
+			renderNotice( data.notice ),
+			renderIdentityBand( data ),
 			renderPlusJourney( data ),
 			renderAccountValuePanel( data ),
 			renderAccountPanels( data )
