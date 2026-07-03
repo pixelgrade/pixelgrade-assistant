@@ -515,8 +515,8 @@ assert_same( 'Anima LT', $payload['accountValue']['products']['label'], 'The pro
 assert_same( 'connect_account', $payload['accountValue']['nextAction']['id'], 'Disconnected users should get account connection as the next best action.' );
 assert_same( $payload['actions']['connectUrl'], $payload['accountValue']['nextAction']['url'], 'Disconnected next action should reuse the safe connect URL.' );
 assert_true( ! isset( $payload['accountValue']['enablements'] ), 'The duplicate enablement rows are retired in favor of the deduped Support/Documentation rows.' );
-assert_true( false !== strpos( $payload['accountValue']['docs']['url'], 'docs' ), 'The Documentation row should link to the public docs.' );
-assert_same( 'Open Help', $payload['accountValue']['docs']['actionLabel'], 'The Documentation row should carry the Open Help action.' );
+assert_true( false !== strpos( $payload['accountValue']['docs']['url'], 'docs' ), 'The docs payload keeps the public docs URL as a secret-free reference.' );
+assert_same( 'Open Design Docs', $payload['accountValue']['docs']['actionLabel'], 'The single docs action opens the persistent floating window, matching the editor button.' );
 assert_same( 'invite', $payload['plusJourney']['state'], 'With no Plus signal at all, the journey collapses to a gentle invite, not a step ladder.' );
 assert_same( 'Explore Pixelgrade Plus', $payload['plusJourney']['action']['label'], 'The Plus invite should hand off to Pixelgrade.com.' );
 assert_true( false !== strpos( $payload['plusJourney']['hint'], 'Already purchased' ), 'A disconnected invite should hint that connecting reveals owned licenses.' );
@@ -785,6 +785,8 @@ assert_true( false !== strpos( $account_js, 'renderPlusJourney' ), 'The Account 
 assert_true( false !== strpos( $account_js, 'journeyLeads' ), 'When the journey is in progress, it must lead — the disconnected hero is suppressed so the page has ONE connect call.' );
 assert_true( false !== strpos( $account_js, 'useColumns' ), 'The two-column grid must be conditional — a connected free account collapses to one calm column.' );
 assert_true( false !== strpos( $account_js, 'renderIdentityBand' ), 'Single-column connected mode must render the compact identity band, not the sidebar card.' );
+assert_true( false !== strpos( $account_js, 'openDocsBrowse' ), 'The docs action must open the persistent floating window in place when it is mounted.' );
+assert_true( false !== strpos( $account_js, 'pixassist_open_docs' ), 'The docs action must fall back to the admin-bar opt-in param when no window is mounted.' );
 assert_true( false !== strpos( $account_js, 'pixelgrade-plus-journey__step' ), 'The journey must render steps with stable class hooks.' );
 assert_same( false, false !== strpos( $account_js, 'Products & licenses' ), 'The old products/licenses row is retired — the journey card owns the Plus story.' );
 assert_true( false !== strpos( $account_js, 'renderAccountDetailsRow' ), 'The Account tab must render account details through a dedicated row.' );

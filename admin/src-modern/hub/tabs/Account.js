@@ -11,6 +11,26 @@ import { __ } from '@wordpress/i18n';
 import { Card, CardHeader, CardBody, Button, Notice, Flex, FlexItem } from '@wordpress/components';
 import { applyFilters } from '@wordpress/hooks';
 import { renderAvatar } from '../avatar';
+import { openDocsBrowse } from '../../docs/events';
+
+/**
+ * Opens the persistent floating docs window — the same experience as the editor's Design Docs
+ * button. In place when the window is already mounted on this page; otherwise via the same
+ * `?pixassist_open_docs=1` opt-in the admin-bar node uses (PHP mounts the window and auto-opens).
+ */
+function openDocsWindow( event ) {
+	if ( event && 'function' === typeof event.preventDefault ) {
+		event.preventDefault();
+	}
+
+	if ( openDocsBrowse() ) {
+		return;
+	}
+
+	const url = new URL( window.location.href );
+	url.searchParams.set( 'pixassist_open_docs', '1' );
+	window.location.href = url.toString();
+}
 
 const DEFAULT_ACCOUNT = {
 	account: { is_connected: false },
@@ -247,12 +267,13 @@ function renderSupportCard( data ) {
 	const value = data.accountValue || {};
 	const support = value.support || {};
 	const docs = value.docs || {};
-	const site = value.site || {};
 
-	if ( ! support.label && ! docs.label && ! site.themeName ) {
+	if ( ! support.label && ! docs.label ) {
 		return null;
 	}
 
+	// One docs action, and it is the good one: the same persistent floating window the editor's
+	// Design Docs button opens — not an external tab, not a tab switch.
 	return createElement(
 		Card,
 		{ className: 'pixelgrade-account-value pixelgrade-account-value--operations pixelgrade-account-value--sidebar' },
@@ -267,19 +288,14 @@ function renderSupportCard( data ) {
 					: null,
 			], true ),
 			renderSidebarSection( [
-				docs.url
-					? createElement( 'p', { key: 'docs-link', style: { fontSize: '13px', margin: 0 } }, createElement( 'a', { href: docs.url, target: '_blank', rel: 'noreferrer' }, __( 'Theme documentation', 'pixelgrade_assistant' ) ) )
-					: null,
 				docs.label
-					? createElement( 'p', { key: 'docs-desc', style: { color: '#646970', fontSize: '12px', margin: '4px 0 0' } }, docs.label )
+					? createElement( 'p', { key: 'docs-desc', style: { color: '#646970', fontSize: '12px', margin: 0 } }, docs.label )
 					: null,
-				docs.helpUrl
-					? createElement( 'div', { key: 'docs-action', style: { marginTop: '10px' } }, createElement( Button, { href: docs.helpUrl, variant: 'secondary', size: 'small' }, docs.actionLabel || __( 'Open Help', 'pixelgrade_assistant' ) ) )
-					: null,
-			] ),
-			renderSidebarSection( [
-				site.themeName ? createElement( 'p', { key: 'theme', style: { color: '#50575e', fontSize: '12px', margin: 0 } }, site.themeName ) : null,
-				site.siteUrl ? createElement( 'p', { key: 'url', style: { color: '#646970', fontSize: '12px', margin: '2px 0 0', overflowWrap: 'anywhere' } }, site.siteUrl ) : null,
+				createElement(
+					'div',
+					{ key: 'docs-action', style: { marginTop: '10px' } },
+					createElement( Button, { onClick: openDocsWindow, variant: 'secondary', size: 'small' }, docs.actionLabel || __( 'Open Design Docs', 'pixelgrade_assistant' ) )
+				),
 			] )
 		)
 	);
@@ -658,13 +674,9 @@ function renderAccountValuePanel( data ) {
 			renderValueRow( {
 				id: 'docs',
 				label: __( 'Documentation', 'pixelgrade_assistant' ),
-				value: __( 'Theme documentation', 'pixelgrade_assistant' ),
-				url: docs.url,
 				description: docs.label,
 				status: docs.state || 'available',
-				action: docs.helpUrl
-					? createElement( Button, { href: docs.helpUrl, variant: 'secondary' }, docs.actionLabel || __( 'Open Help', 'pixelgrade_assistant' ) )
-					: null,
+				action: createElement( Button, { onClick: openDocsWindow, variant: 'secondary' }, docs.actionLabel || __( 'Open Design Docs', 'pixelgrade_assistant' ) ),
 			} ),
 			diagnostics.label
 				? renderValueRow( {
