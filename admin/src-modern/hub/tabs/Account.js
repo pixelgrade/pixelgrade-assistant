@@ -704,11 +704,19 @@ export function Account() {
 	}, [ section ] );
 
 	if ( ! account.is_connected ) {
+		// When Plus signals exist (journey in progress), connecting is step 1 of the user's goal —
+		// the journey card carries the ONE connect call, and the "everything works without an
+		// account" hero would contradict it. Keep the hero for fresh sites (invite) and when OAuth
+		// is not configured (the hero carries that warning).
+		const journey = data.plusJourney || {};
+		const oauth = data.oauth || {};
+		const journeyLeads = 'in_progress' === journey.state && !! oauth.isConfigured;
+
 		return createElement(
 			Fragment,
 			null,
 			renderNotice( data.notice ),
-			renderDisconnected( data ),
+			journeyLeads ? null : renderDisconnected( data ),
 			renderPlusJourney( data ),
 			renderAccountValuePanel( data ),
 			renderAccountPanels( data )

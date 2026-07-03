@@ -782,6 +782,7 @@ assert_true( false !== strpos( $account_js, 'renderAccountValuePanel' ), 'The Ac
 assert_true( false !== strpos( $account_js, 'pixelgrade-account-value--operations' ), 'The Account value panel must use the dense operations layout class.' );
 assert_true( false !== strpos( $account_js, 'renderStatusText' ), 'The Account tab must render minimal dot-and-label status text.' );
 assert_true( false !== strpos( $account_js, 'renderPlusJourney' ), 'The Account tab must render the guided Plus setup journey.' );
+assert_true( false !== strpos( $account_js, 'journeyLeads' ), 'When the journey is in progress, it must lead — the disconnected hero is suppressed so the page has ONE connect call.' );
 assert_true( false !== strpos( $account_js, 'pixelgrade-plus-journey__step' ), 'The journey must render steps with stable class hooks.' );
 assert_same( false, false !== strpos( $account_js, 'Products & licenses' ), 'The old products/licenses row is retired — the journey card owns the Plus story.' );
 assert_true( false !== strpos( $account_js, 'renderAccountDetailsRow' ), 'The Account tab must render account details through a dedicated row.' );
