@@ -516,7 +516,7 @@ assert_same( 'connect_account', $payload['accountValue']['nextAction']['id'], 'D
 assert_same( $payload['actions']['connectUrl'], $payload['accountValue']['nextAction']['url'], 'Disconnected next action should reuse the safe connect URL.' );
 assert_true( ! isset( $payload['accountValue']['enablements'] ), 'The duplicate enablement rows are retired in favor of the deduped Support/Documentation rows.' );
 assert_true( false !== strpos( $payload['accountValue']['docs']['url'], 'docs' ), 'The docs payload keeps the public docs URL as a secret-free reference.' );
-assert_same( 'Open Design Docs', $payload['accountValue']['docs']['actionLabel'], 'The single docs action opens the persistent floating window, matching the editor button.' );
+assert_same( 'Open Pixelgrade Design Docs', $payload['accountValue']['docs']['actionLabel'], 'The single docs action opens the persistent floating window, matching the editor button.' );
 assert_same( 'invite', $payload['plusJourney']['state'], 'With no Plus signal at all, the journey collapses to a gentle invite, not a step ladder.' );
 assert_same( 'Explore Pixelgrade Plus', $payload['plusJourney']['action']['label'], 'The Plus invite should hand off to Pixelgrade.com.' );
 assert_true( false !== strpos( $payload['plusJourney']['hint'], 'Already purchased' ), 'A disconnected invite should hint that connecting reveals owned licenses.' );

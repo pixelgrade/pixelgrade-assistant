@@ -2246,7 +2246,7 @@ if ( ! function_exists( 'pixassist_get_account_value_data' ) ) {
 				'label'       => esc_html__( 'Browse guides for the active Pixelgrade theme anytime — no account needed. They also open right where you work, from the Design Docs button in the editor toolbar and the admin bar.', '__plugin_txtd' ),
 				'state'       => 'available',
 				'url'         => $docs_url,
-				'actionLabel' => esc_html__( 'Open Design Docs', '__plugin_txtd' ),
+				'actionLabel' => esc_html__( 'Open Pixelgrade Design Docs', '__plugin_txtd' ),
 			),
 			'diagnostics'    => array(
 				'label'       => esc_html__( 'System Status checks your setup', '__plugin_txtd' ),

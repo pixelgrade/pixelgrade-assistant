@@ -294,7 +294,7 @@ function renderSupportCard( data ) {
 				createElement(
 					'div',
 					{ key: 'docs-action', style: { marginTop: '10px' } },
-					createElement( Button, { onClick: openDocsWindow, variant: 'secondary', size: 'small' }, docs.actionLabel || __( 'Open Design Docs', 'pixelgrade_assistant' ) )
+					createElement( Button, { onClick: openDocsWindow, variant: 'secondary', size: 'small' }, docs.actionLabel || __( 'Open Pixelgrade Design Docs', 'pixelgrade_assistant' ) )
 				),
 			] )
 		)
@@ -676,7 +676,7 @@ function renderAccountValuePanel( data ) {
 				label: __( 'Documentation', 'pixelgrade_assistant' ),
 				description: docs.label,
 				status: docs.state || 'available',
-				action: createElement( Button, { onClick: openDocsWindow, variant: 'secondary' }, docs.actionLabel || __( 'Open Design Docs', 'pixelgrade_assistant' ) ),
+				action: createElement( Button, { onClick: openDocsWindow, variant: 'secondary' }, docs.actionLabel || __( 'Open Pixelgrade Design Docs', 'pixelgrade_assistant' ) ),
 			} ),
 			diagnostics.label
 				? renderValueRow( {
