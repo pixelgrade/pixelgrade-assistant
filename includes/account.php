@@ -2211,16 +2211,10 @@ if ( ! function_exists( 'pixassist_get_account_value_data' ) ) {
 		$site       = pixassist_get_account_site_context();
 		$products   = pixassist_get_account_products_summary( $site );
 		$can_oauth  = pixassist_account_oauth_is_configured();
-		// Honest support story (settled model): guides + diagnostics are free with no account;
-		// human assisted help runs on Pixelgrade Credits. This renders only for connected users
-		// (sidebar) as a plain capability line: deliberately NO status dot — "is ready" would be
-		// an unmeasured claim (Assistant checks neither entitlements nor credits here) — and NO
-		// pricing, which belongs at the point of use, when opening a ticket.
-		$support    = array(
-			'state'       => '',
-			'label'       => esc_html__( 'Assisted help', '__plugin_txtd' ),
-			'description' => esc_html__( 'For when you want us in your actual site.', '__plugin_txtd' ),
-		);
+		// No `support` block on purpose: Assistant makes NO support claims on this page. The docs
+		// window (opened from the card below and the editor/admin-bar launchers) is the help entry
+		// point; assisted-help terms and Pixelgrade Credits surface at the point of use — when
+		// opening a ticket — and the Plus panel reports its own measured support state.
 
 		$next_action = $connected
 			? array(
@@ -2239,7 +2233,6 @@ if ( ! function_exists( 'pixassist_get_account_value_data' ) ) {
 			);
 
 		return array(
-			'support'        => $support,
 			'site'           => $site,
 			'products'       => $products,
 			'accountDetails' => pixassist_get_account_details_summary( $account ),

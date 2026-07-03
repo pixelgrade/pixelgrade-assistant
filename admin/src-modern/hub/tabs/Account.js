@@ -263,44 +263,32 @@ function renderIdentityCard( data ) {
 	);
 }
 
-function renderSupportCard( data ) {
-	const value = data.accountValue || {};
-	const support = value.support || {};
-	const docs = value.docs || {};
+function renderDocsCard( data ) {
+	const docs = ( data.accountValue || {} ).docs || {};
 
-	if ( ! support.label && ! docs.label ) {
+	if ( ! docs.label ) {
 		return null;
 	}
 
-	// One docs action, and it is the good one: the same persistent floating window the editor's
-	// Design Docs button opens — not an external tab, not a tab switch.
+	// Docs only — Assistant makes no support claims here (assisted-help terms surface at the
+	// point of use, when opening a ticket). One action, and it is the good one: the same
+	// persistent floating window the editor's Design Docs button opens. isFirst keeps the
+	// single section borderless.
 	return createElement(
 		Card,
 		{ className: 'pixelgrade-account-value pixelgrade-account-value--operations pixelgrade-account-value--sidebar' },
-		createElement( CardHeader, null, createElement( 'h2', { style: { fontSize: '14px', margin: 0 } }, __( 'Support & docs', 'pixelgrade_assistant' ) ) ),
+		createElement( CardHeader, null, createElement( 'h2', { style: { fontSize: '14px', margin: 0 } }, __( 'Help & docs', 'pixelgrade_assistant' ) ) ),
 		createElement(
 			CardBody,
 			null,
-			// A plain capability line, not a status: no dot — Assistant does not measure
-			// entitlements or credits here, so it must not claim readiness.
 			renderSidebarSection( [
-				support.label
-					? createElement( 'strong', { key: 'support-label', style: { color: '#1d2327', fontSize: '13px' } }, support.label )
-					: null,
-				support.description
-					? createElement( 'p', { key: 'support-desc', style: { color: '#646970', fontSize: '12px', margin: '4px 0 0' } }, support.description )
-					: null,
-			], true ),
-			renderSidebarSection( [
-				docs.label
-					? createElement( 'p', { key: 'docs-desc', style: { color: '#646970', fontSize: '12px', margin: 0 } }, docs.label )
-					: null,
+				createElement( 'p', { key: 'docs-desc', style: { color: '#646970', fontSize: '12px', margin: 0 } }, docs.label ),
 				createElement(
 					'div',
 					{ key: 'docs-action', style: { marginTop: '10px' } },
 					createElement( Button, { onClick: openDocsWindow, variant: 'secondary', size: 'small' }, docs.actionLabel || __( 'Open Pixelgrade Design Docs', 'pixelgrade_assistant' ) )
 				),
-			] )
+			], true )
 		)
 	);
 }
@@ -812,7 +800,7 @@ export function Account() {
 				'aside',
 				{ className: 'pixelgrade-account-layout__side' },
 				renderIdentityCard( data ),
-				renderSupportCard( data )
+				renderDocsCard( data )
 			)
 		)
 	);
