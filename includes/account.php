@@ -2044,7 +2044,7 @@ if ( ! function_exists( 'pixassist_get_account_plus_journey' ) ) {
 		$steps = array(
 			'connect'          => array(
 				'label'       => esc_html__( 'Connect your Pixelgrade account', '__plugin_txtd' ),
-				'description' => esc_html__( 'A free pixelgrade.com account ties your license, support, and this site together.', '__plugin_txtd' ),
+				'description' => esc_html__( 'A free pixelgrade.com account ties your license, your Pixelgrade Credits, and this site together.', '__plugin_txtd' ),
 			),
 			'get_plugin'       => array(
 				'label'       => esc_html__( 'Get the Pixelgrade Plus plugin', '__plugin_txtd' ),
@@ -2212,12 +2212,17 @@ if ( ! function_exists( 'pixassist_get_account_value_data' ) ) {
 		$site       = pixassist_get_account_site_context();
 		$products   = pixassist_get_account_products_summary( $site );
 		$can_oauth  = pixassist_account_oauth_is_configured();
+		// Honest support story (settled model): guides + diagnostics are free with no account;
+		// human assisted help runs on Pixelgrade Credits. Connecting is never required for the
+		// free lane, so this row must not nag for a connection.
 		$support    = array(
-			'state'       => $connected ? 'available' : 'connect_required',
-			'label'       => $connected ? esc_html__( 'Support access is ready', '__plugin_txtd' ) : esc_html__( 'Support access needs a connection', '__plugin_txtd' ),
+			'state'       => 'available',
+			'label'       => $connected
+				? esc_html__( 'Assisted help is ready when you need it', '__plugin_txtd' )
+				: esc_html__( 'Guides and diagnostics are free for everyone', '__plugin_txtd' ),
 			'description' => $connected
-				? esc_html__( 'You can send support requests with your site context and Pixelgrade identity attached.', '__plugin_txtd' )
-				: esc_html__( 'Connect a free pixelgrade.com account to send support requests from this dashboard. Documentation stays available without connecting.', '__plugin_txtd' ),
+				? esc_html__( 'Guides and diagnostics stay free. Assisted help — us digging into your actual site — uses Pixelgrade Credits, pay as you go.', '__plugin_txtd' )
+				: esc_html__( 'No account needed. If you ever want us to dig into your actual site, that is assisted help — it uses Pixelgrade Credits with a connected account, pay as you go.', '__plugin_txtd' ),
 		);
 
 		$next_action = $connected
@@ -2280,7 +2285,7 @@ if ( ! function_exists( 'pixassist_get_account_data' ) ) {
 				'title'                  => esc_html__( 'Pixelgrade account', '__plugin_txtd' ),
 				'connectedStatusLabel'   => esc_html__( 'Site connected.', '__plugin_txtd' ),
 				'connectedDescription'   => esc_html__( 'Support requests and license checks from this site use this identity.', '__plugin_txtd' ),
-				'disconnectedDescription' => esc_html__( 'Connect your pixelgrade.com account to send support requests right from your dashboard — and to validate a Pixelgrade Plus license if you have one. Free, and always optional.', '__plugin_txtd' ),
+				'disconnectedDescription' => esc_html__( 'Your site and every free feature work without an account. Connect your pixelgrade.com account when you need it — to validate a Pixelgrade Plus license, or to use Pixelgrade Credits for assisted help. Always optional.', '__plugin_txtd' ),
 				'connectLabel'           => esc_html__( 'Connect account', '__plugin_txtd' ),
 				'disconnectLabel'        => esc_html__( 'Disconnect account', '__plugin_txtd' ),
 				'notConfiguredLabel'     => esc_html__( 'Account connection is not configured.', '__plugin_txtd' ),

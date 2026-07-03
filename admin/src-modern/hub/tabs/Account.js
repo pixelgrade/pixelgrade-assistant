@@ -435,10 +435,12 @@ function renderDisconnected( data ) {
 				: null,
 			canConnect
 				? createElement(
+						// Secondary on purpose: a free user has no urgent reason to connect — the
+						// Plus journey promotes this same action to primary when it is a real step.
 						Button,
 						{
 							href: actions.connectUrl,
-							variant: 'primary',
+							variant: 'secondary',
 						},
 						copy.connectLabel || __( 'Connect account', 'pixelgrade_assistant' )
 				  )

@@ -500,7 +500,11 @@ assert_same( 'success', $payload['notice']['type'], 'Connected notice must be su
 assert_same( true, $payload['oauth']['isConfigured'], 'The shipped build reports OAuth configured out of the box.' );
 assert_same( 'Pixelgrade account', $payload['copy']['title'], 'Account tab copy must live in PHP.' );
 assert_same( 'Disconnect account', $payload['copy']['disconnectLabel'], 'Disconnect copy should describe the quiet account-detail action.' );
-assert_same( 'connect_required', $payload['accountValue']['support']['state'], 'Disconnected users should see support access as connection-required, not absent.' );
+assert_same( 'available', $payload['accountValue']['support']['state'], 'The free support lane (guides + diagnostics) is available without an account — the row must not nag for a connection.' );
+assert_true( false !== strpos( $payload['accountValue']['support']['description'], 'Pixelgrade Credits' ), 'The support row must attribute assisted help to Pixelgrade Credits, never promise free ticket support.' );
+assert_same( false, false !== strpos( (string) json_encode( $payload['accountValue']['support'] ), 'send support requests' ), 'The Care-era "connect to send support requests" claim stays retired.' );
+assert_true( false !== strpos( $payload['copy']['disconnectedDescription'], 'work without an account' ), 'The disconnected hero must lead with the everything-works-without-an-account fact.' );
+assert_true( false !== strpos( $payload['copy']['disconnectedDescription'], 'validate a Pixelgrade Plus license' ), 'The disconnected hero must name the real reasons to connect (license, Credits).' );
 assert_same( 'Anima LT', $payload['accountValue']['site']['themeName'], 'Account value site context should expose the active theme name.' );
 assert_same( 'anima-lt', $payload['accountValue']['site']['productSku'], 'Account value site context should expose the docs/support product SKU.' );
 assert_same( 'https://example.test/wp-admin/themes.php?page=pixelgrade&tab=help', $payload['accountValue']['site']['helpUrl'], 'Account value site context should deep-link to the Help tab.' );
