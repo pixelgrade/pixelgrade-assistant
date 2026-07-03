@@ -281,10 +281,14 @@ function renderSupportCard( data ) {
 		createElement(
 			CardBody,
 			null,
+			// A plain capability line, not a status: no dot — Assistant does not measure
+			// entitlements or credits here, so it must not claim readiness.
 			renderSidebarSection( [
-				support.state ? renderStatusText( support.state, support.label ) : null,
+				support.label
+					? createElement( 'strong', { key: 'support-label', style: { color: '#1d2327', fontSize: '13px' } }, support.label )
+					: null,
 				support.description
-					? createElement( 'p', { key: 'support-desc', style: { color: '#50575e', fontSize: '12px', margin: '6px 0 0' } }, support.description )
+					? createElement( 'p', { key: 'support-desc', style: { color: '#646970', fontSize: '12px', margin: '4px 0 0' } }, support.description )
 					: null,
 			], true ),
 			renderSidebarSection( [

@@ -500,7 +500,7 @@ assert_same( 'success', $payload['notice']['type'], 'Connected notice must be su
 assert_same( true, $payload['oauth']['isConfigured'], 'The shipped build reports OAuth configured out of the box.' );
 assert_same( 'Pixelgrade account', $payload['copy']['title'], 'Account tab copy must live in PHP.' );
 assert_same( 'Disconnect account', $payload['copy']['disconnectLabel'], 'Disconnect copy should describe the quiet account-detail action.' );
-assert_same( 'available', $payload['accountValue']['support']['state'], 'The free support lane (guides + diagnostics) is available without an account — the row must not nag for a connection.' );
+assert_same( '', $payload['accountValue']['support']['state'], 'The support line is a plain capability statement, not a status — no dot, no unmeasured "ready" claim.' );
 assert_same( false, false !== strpos( $payload['accountValue']['support']['description'], 'Credits' ), 'The support row stays short and price-free — Credits are mentioned at the point of use (opening a ticket), not here.' );
 assert_same( false, false !== strpos( (string) json_encode( $payload['accountValue']['support'] ), 'send support requests' ), 'The Care-era "connect to send support requests" claim stays retired.' );
 assert_true( false !== strpos( $payload['copy']['disconnectedDescription'], 'work without an account' ), 'The disconnected hero must lead with the everything-works-without-an-account fact.' );
@@ -759,7 +759,7 @@ pixassist_save_account_connection(
 	)
 );
 $connected_payload = pixassist_get_account_data();
-assert_same( 'available', $connected_payload['accountValue']['support']['state'], 'Connected users should see support access as available.' );
+assert_same( '', $connected_payload['accountValue']['support']['state'], 'Connected or not, the support line stays a status-free capability statement.' );
 assert_same( 'Pixelgrade ID 42', $connected_payload['accountValue']['accountDetails']['label'], 'Connected users should keep support-facing account details out of the hero.' );
 assert_true( false !== strpos( $connected_payload['accountValue']['accountDetails']['description'], '2026-06-16' ), 'Connected account details should use a date-only connected value.' );
 assert_same( false, false !== strpos( $connected_payload['accountValue']['accountDetails']['description'], '10:00:00' ), 'Connected account details should not show the full timestamp.' );
