@@ -111,8 +111,7 @@ if ( ! function_exists( 'pixassist_get_layout_units_copy' ) ) {
 			'featureLabel'  => esc_html__( 'Feature', '__plugin_txtd' ),
 			'sampleLabel'   => esc_html__( 'Include sample projects', '__plugin_txtd' ),
 			'sourceHeading' => esc_html__( 'Source', '__plugin_txtd' ),
-			'premiumLabel'  => esc_html__( 'Premium', '__plugin_txtd' ),
-			'freeLabel'     => esc_html__( 'Free', '__plugin_txtd' ),
+			'premiumLabel'  => esc_html__( 'Plus', '__plugin_txtd' ),
 		);
 	}
 }

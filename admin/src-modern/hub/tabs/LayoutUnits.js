@@ -51,8 +51,7 @@ const DEFAULT_LAYOUT_UNITS = {
 		featureLabel: __( 'Feature', 'pixelgrade_assistant' ),
 		sampleLabel: __( 'Include sample projects', 'pixelgrade_assistant' ),
 		sourceHeading: __( 'Source', 'pixelgrade_assistant' ),
-		premiumLabel: __( 'Premium', 'pixelgrade_assistant' ),
-		freeLabel: __( 'Free', 'pixelgrade_assistant' ),
+		premiumLabel: __( 'Plus', 'pixelgrade_assistant' ),
 		previewLabel: __( 'Expand', 'pixelgrade_assistant' ),
 		previewFull: __( 'Open the full layout at full height', 'pixelgrade_assistant' ),
 		templateParts: __( 'Template parts', 'pixelgrade_assistant' ),
@@ -624,6 +623,12 @@ function renderMessage( message ) {
 }
 
 function renderSourceBadge( source, copy ) {
+	// Free is the default — only the gated exception earns a badge (master-strategy rule: state
+	// free where the cost question lives, never chant it where the taste question lives).
+	if ( ! source.gate ) {
+		return null;
+	}
+
 	return createElement(
 		'span',
 		{
@@ -637,7 +642,7 @@ function renderSourceBadge( source, copy ) {
 				padding: '0 6px',
 			},
 		},
-		source.gate ? copy.premiumLabel : copy.freeLabel
+		copy.premiumLabel
 	);
 }
 

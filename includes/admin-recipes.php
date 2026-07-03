@@ -86,8 +86,7 @@ if ( ! function_exists( 'pixassist_get_recipes_copy' ) ) {
 			'templatesLabel' => esc_html__( 'Templates', '__plugin_txtd' ),
 			'featuresLabel'  => esc_html__( 'Features', '__plugin_txtd' ),
 			'sourceHeading'  => esc_html__( 'Source', '__plugin_txtd' ),
-			'premiumLabel'   => esc_html__( 'Premium', '__plugin_txtd' ),
-			'freeLabel'      => esc_html__( 'Free', '__plugin_txtd' ),
+			'premiumLabel'   => esc_html__( 'Plus', '__plugin_txtd' ),
 			'deviatedLabel'  => esc_html__( 'Customized after apply', '__plugin_txtd' ),
 		);
 	}

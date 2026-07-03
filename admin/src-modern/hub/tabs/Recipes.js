@@ -33,8 +33,7 @@ const DEFAULT_RECIPES = {
 		templatesLabel: __( 'Templates', 'pixelgrade_assistant' ),
 		featuresLabel: __( 'Features', 'pixelgrade_assistant' ),
 		sourceHeading: __( 'Source', 'pixelgrade_assistant' ),
-		premiumLabel: __( 'Premium', 'pixelgrade_assistant' ),
-		freeLabel: __( 'Free', 'pixelgrade_assistant' ),
+		premiumLabel: __( 'Plus', 'pixelgrade_assistant' ),
 		deviatedLabel: __( 'Customized after apply', 'pixelgrade_assistant' ),
 	},
 	sources: [],
@@ -154,6 +153,12 @@ function getRecipeImage( recipe ) {
 }
 
 function renderSourceBadge( recipe, copy ) {
+	// Free is the default — only the gated exception earns a badge (master-strategy rule: state
+	// free where the cost question lives, never chant it where the taste question lives).
+	if ( ! recipe.gate ) {
+		return null;
+	}
+
 	return createElement(
 		'span',
 		{
@@ -167,7 +172,7 @@ function renderSourceBadge( recipe, copy ) {
 				padding: '0 6px',
 			},
 		},
-		recipe.gate ? copy.premiumLabel : copy.freeLabel
+		copy.premiumLabel
 	);
 }
 
