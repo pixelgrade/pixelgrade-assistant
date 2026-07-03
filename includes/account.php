@@ -1930,8 +1930,8 @@ if ( ! function_exists( 'pixassist_get_account_products_summary' ) ) {
 				$summary['state']       = 'needs_license';
 				$summary['statusLabel'] = esc_html__( 'Needs license', '__plugin_txtd' );
 				/* translators: %s: Pixelgrade Plus product label. */
-				$summary['description'] = sprintf( esc_html__( '%s is installed. Open the Plus panel to validate your Pixelgrade account and activate any eligible license for this site.', '__plugin_txtd' ), $plus_label );
-				$summary['actionLabel'] = esc_html__( 'Validate Plus license', '__plugin_txtd' );
+				$summary['description'] = sprintf( esc_html__( '%s is installed. Plus checks the connected account automatically; if no license is active yet, open the Plus panel to check again or connect the purchasing account.', '__plugin_txtd' ), $plus_label );
+				$summary['actionLabel'] = esc_html__( 'Check Plus license', '__plugin_txtd' );
 			}
 		}
 
@@ -2058,10 +2058,10 @@ if ( ! function_exists( 'pixassist_get_account_plus_journey' ) ) {
 				'description' => esc_html__( 'Turn Pixelgrade Plus on from the Plugins screen. Nothing is licensed yet at this point.', '__plugin_txtd' ),
 			),
 			'validate_license' => array(
-				'label'       => esc_html__( 'Validate your Plus license', '__plugin_txtd' ),
+				'label'       => esc_html__( 'Check your Plus license', '__plugin_txtd' ),
 				'description' => $owned || ! $connected
-					? esc_html__( 'The Pixelgrade Plus panel below validates your account for an eligible license and turns on everything Plus adds.', '__plugin_txtd' )
-					: esc_html__( 'The Pixelgrade Plus panel below validates your account for an eligible license. If you purchased Plus with a different account, connect that account first.', '__plugin_txtd' ),
+					? esc_html__( 'Plus checks automatically after the account is connected. If the license is not active yet, open the Plus panel to check again.', '__plugin_txtd' )
+					: esc_html__( 'Plus checks automatically after the account is connected. If the license is not active yet, open the Plus panel to check again or connect the purchasing account.', '__plugin_txtd' ),
 			),
 		);
 
