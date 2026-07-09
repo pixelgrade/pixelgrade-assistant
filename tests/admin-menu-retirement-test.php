@@ -105,7 +105,7 @@ assert_same( 'pixelgrade', $hub_menu['menu_slug'], 'The hub slug must remain pix
 assert_same( 'edit_theme_options', $hub_menu['capability'], 'The hub capability must match Appearance access.' );
 assert_same( 'Pixelgrade', $hub_menu['menu_title'], 'The sidebar label is the bare brand — one line at 160px, suite-home convention; the full name wraps.' );
 assert_same( 'Pixelgrade Design', $hub_menu['page_title'], 'Hub page title (H1/browser tab) must keep the functional "Pixelgrade Design".' );
-assert_same( '58.9', $hub_menu['position'], 'The hub menu sits right above Appearance (position 60; 59 is a core separator).' );
+assert_same( '59.1', $hub_menu['position'], 'The hub menu sits right above Appearance (60) and BELOW core\'s 59 separator, so it groups with the site/design menus.' );
 assert_same( 0, strpos( $hub_menu['icon_url'], 'data:image/svg+xml;base64,' ), 'The menu icon must be an inline SVG data URI so core svg-painter recolors it with the menu state.' );
 assert_same( array(), $GLOBALS['paf_submenu_pages'], 'Without the hub registry helper loaded, no submenus are registered (graceful).' );
 

@@ -538,7 +538,9 @@ class PixelgradeAssistant_Admin {
 	/**
 	 * Adds the WP Admin menus.
 	 *
-	 * The hub is a top-level menu right above Appearance (position 60; 59 is a core separator) —
+	 * The hub is a top-level menu right above Appearance (position 60), at 59.1 so it sits BELOW
+	 * core's group separator (position 59) — grouped with the site/design menus, not dangling off
+	 * the content group —
 	 * it holds the plugin's entire surface (Design System, Design Library, Site Setup, Account,
 	 * Help, docs), which outgrew a single Appearance submenu entry. The submenus mirror the hub's
 	 * visible tabs from the same registry the in-app tab bar reads, so labels, capabilities and
@@ -555,7 +557,7 @@ class PixelgradeAssistant_Admin {
 			'pixelgrade',
 			array( $this, 'render_admin_hub_page' ),
 			self::get_menu_icon(),
-			'58.9'
+			'59.1'
 		);
 
 		if ( ! function_exists( 'pixassist_get_admin_hub_submenu_items' ) ) {
@@ -577,14 +579,14 @@ class PixelgradeAssistant_Admin {
 	}
 
 	/**
-	 * The sidebar menu icon: the Pixelgrade dot-grid mark (the same one the legacy top-level
-	 * Pixelgrade menu used), inlined as a data URI so core's svg-painter recolors it with the
-	 * menu state instead of it staying a fixed color.
+	 * The sidebar menu icon: the Pixelgrade grid mark as a bold 3×3 square grid (Dashicon-weight
+	 * evolution of the legacy 4×4 dot grid), inlined as a data URI so core's svg-painter recolors
+	 * it with the menu state instead of it staying a fixed color.
 	 *
 	 * @return string
 	 */
 	public static function get_menu_icon() {
-		$svg = '<svg width="17" height="17" xmlns="http://www.w3.org/2000/svg"><path d="M0 0h2v2H0zm10 0h2v2h-2zm5 0h2v2h-2zM5 0h2v2H5zM0 5h2v2H0zm10 0h2v2h-2zm5 0h2v2h-2zM5 5h2v2H5zm-5 5h2v2H0zm10 0h2v2h-2zm5 0h2v2h-2zM5 10h2v2H5zm-5 5h2v2H0zm10 0h2v2h-2zm5 0h2v2h-2zM5 15h2v2H5z" fill="#a7aaad" fill-rule="evenodd"/></svg>';
+		$svg = '<svg width="20" height="20" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path d="M2.01 2.01H6.22V6.22H2.01Z M7.9 2.01H12.11V6.22H7.9Z M13.79 2.01H18V6.22H13.79Z M2.01 7.9H6.22V12.11H2.01Z M7.9 7.9H12.11V12.11H7.9Z M13.79 7.9H18V12.11H13.79Z M2.01 13.79H6.22V18H2.01Z M7.9 13.79H12.11V18H7.9Z M13.79 13.79H18V18H13.79Z" fill="#a7aaad" fill-rule="evenodd"/></svg>';
 
 		return 'data:image/svg+xml;base64,' . base64_encode( $svg );
 	}
