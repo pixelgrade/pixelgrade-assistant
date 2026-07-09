@@ -10,6 +10,13 @@
  */
 const path = require( 'path' );
 const defaultConfig = require( '@wordpress/scripts/config/webpack.config' );
+const DependencyExtractionWebpackPlugin = require( '@wordpress/dependency-extraction-webpack-plugin' );
+
+function requestToExternal( request ) {
+	if ( request === '@wordpress/interface' ) {
+		return [ 'wp', 'interface' ];
+	}
+}
 
 module.exports = {
 	...defaultConfig,
@@ -29,4 +36,12 @@ module.exports = {
 		...defaultConfig.output,
 		path: path.resolve( process.cwd(), 'admin/build' ),
 	},
+	plugins: [
+		...defaultConfig.plugins.filter(
+			( plugin ) => plugin.constructor.name !== 'DependencyExtractionWebpackPlugin'
+		),
+		new DependencyExtractionWebpackPlugin( {
+			requestToExternal,
+		} ),
+	],
 };
