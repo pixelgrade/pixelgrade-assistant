@@ -148,6 +148,38 @@ Release packaging notes:
 - If WP-CLI is available, packaging regenerates `languages/pixelgrade_assistant.pot` in the temporary build folder.
 - Agent files and private overlays must stay out of release zips.
 
+## Release Trigger
+
+If the user says `release the next version of Pixelgrade Assistant`, `release
+Pixelgrade Assistant`, or similar shorthand, treat it as an agent-operated
+WordPress.org release request.
+
+Do not require the user to paste the full release prompt. Instead:
+
+1. Open the central private release cockpit:
+   `/Users/georgeolaru/Developer/pixelgrade-release-ops`
+2. Read `README.md`, `products.yml`, `adapters/pixelgrade-assistant.md`, and
+   `issue-templates/release.md`.
+3. Refresh the live status before deciding the target version:
+   - local source fields: `pixelgrade-assistant.php`, singleton version argument,
+     `readme.txt` `Stable tag`, and `package.json`;
+   - live WordPress.org version:
+     `https://api.wordpress.org/plugins/info/1.2/?action=plugin_information&request%5Bslug%5D=pixelgrade-assistant`;
+   - SVN tag/download status when needed.
+4. Interpret `next version` as the local source version when local source is
+   ahead of WordPress.org. If local source equals live WordPress.org, do not
+   invent a version bump; ask the user whether to prepare a new release and what
+   version/scope it should use.
+5. Stop before packaging if the repo is dirty, not on `main`, not synced with
+   `origin/main`, or if version fields disagree.
+6. Create or update a GitHub release issue, then follow the central adapter:
+   build, package checks, fresh Studio archive smoke, WordPress.org SVN publish,
+   API/download/SVN verification, and evidence comment.
+
+Releases are agent-operated, not script-operated. Scripts may help inspect
+packages or endpoints, but the agent owns sequencing, judgment, auth handoffs,
+browser/SVN interactions, evidence, and final go/no-go decisions.
+
 ## Coding Guardrails
 
 - Preserve the plugin's declared compatibility unless the task explicitly includes a compatibility bump.
