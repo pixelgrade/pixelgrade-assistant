@@ -545,9 +545,12 @@ class PixelgradeAssistant_Admin {
 	 * order never drift.
 	 */
 	public function add_pixelgrade_assistant_menu() {
+		// The sidebar label is the bare brand — one line at the sidebar's 160px (the full name
+		// wraps), and the ecosystem convention for a suite's home (Jetpack, WooCommerce). The
+		// page title (H1 / browser tab) keeps the functional "Pixelgrade Design".
 		add_menu_page(
 			esc_html__( 'Pixelgrade Design', '__plugin_txtd' ),
-			esc_html__( 'Pixelgrade Design', '__plugin_txtd' ),
+			esc_html__( 'Pixelgrade', '__plugin_txtd' ),
 			'edit_theme_options',
 			'pixelgrade',
 			array( $this, 'render_admin_hub_page' ),
