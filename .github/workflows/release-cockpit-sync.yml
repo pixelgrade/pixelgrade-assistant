@@ -1,0 +1,167 @@
+name: Sync release cockpit status
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - pixelgrade-assistant.php
+      - readme.txt
+      - package.json
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  notify-release-cockpit:
+    name: Notify release cockpit
+    runs-on: ubuntu-latest
+    env:
+      COCKPIT_REPO: pixelgrade/pixelgrade-release-ops
+      PRODUCT_NAME: Pixelgrade Assistant
+      PRODUCT_SLUG: pixelgrade-assistant
+      WPORG_INFO_URL: https://api.wordpress.org/plugins/info/1.2/?action=plugin_information&request%5Bslug%5D=pixelgrade-assistant
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Gather version status
+        id: status
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          node <<'NODE' >> "$GITHUB_OUTPUT"
+          const fs = require('fs');
+
+          const plugin = fs.readFileSync('pixelgrade-assistant.php', 'utf8');
+          const readme = fs.readFileSync('readme.txt', 'utf8');
+          const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+
+          function firstMatch(source, regex, label) {
+            const match = source.match(regex);
+            if (!match) {
+              throw new Error(`Could not extract ${label}`);
+            }
+            return match[1].trim();
+          }
+
+          const pluginVersion = firstMatch(plugin, /Version:\s*([^\s*]+)/, 'plugin header version');
+          const singletonVersion = firstMatch(plugin, /PixelgradeAssistant::instance\(\s*__FILE__,\s*['"]([^'"]+)['"]\s*\)/, 'singleton version');
+          const readmeStableTag = firstMatch(readme, /^Stable tag:\s*(.+)$/m, 'readme stable tag');
+          const packageVersion = String(pkg.version || '').trim();
+
+          const uniqueVersions = new Set([
+            pluginVersion,
+            singletonVersion,
+            readmeStableTag,
+            packageVersion,
+          ]);
+
+          console.log(`plugin_version=${pluginVersion}`);
+          console.log(`singleton_version=${singletonVersion}`);
+          console.log(`readme_stable_tag=${readmeStableTag}`);
+          console.log(`package_version=${packageVersion}`);
+          console.log(`versions_consistent=${uniqueVersions.size === 1 ? 'yes' : 'no'}`);
+          NODE
+
+          live_version="$(curl -fsSL "$WPORG_INFO_URL" | node -e "let data=''; process.stdin.on('data', c => data += c); process.stdin.on('end', () => { try { const parsed = JSON.parse(data); console.log(parsed.version || 'unknown'); } catch (error) { console.log('unknown'); } });")"
+          echo "live_wporg_version=$live_version" >> "$GITHUB_OUTPUT"
+
+          if [[ "${{ github.event_name }}" == "push" && "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ]]; then
+            git diff --name-only "${{ github.event.before }}" "${{ github.sha }}" > /tmp/changed-files.txt || true
+          else
+            printf 'workflow_dispatch\n' > /tmp/changed-files.txt
+          fi
+
+          {
+            echo 'changed_files<<EOF'
+            cat /tmp/changed-files.txt
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Open or update status sync issue
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.PIXELGRADE_RELEASE_OPS_TOKEN }}
+          PLUGIN_VERSION: ${{ steps.status.outputs.plugin_version }}
+          SINGLETON_VERSION: ${{ steps.status.outputs.singleton_version }}
+          README_STABLE_TAG: ${{ steps.status.outputs.readme_stable_tag }}
+          PACKAGE_VERSION: ${{ steps.status.outputs.package_version }}
+          VERSIONS_CONSISTENT: ${{ steps.status.outputs.versions_consistent }}
+          LIVE_WPORG_VERSION: ${{ steps.status.outputs.live_wporg_version }}
+          CHANGED_FILES: ${{ steps.status.outputs.changed_files }}
+        run: |
+          set -euo pipefail
+
+          if [[ -z "${GH_TOKEN:-}" ]]; then
+            echo "::warning::PIXELGRADE_RELEASE_OPS_TOKEN is not configured; release cockpit status issue was not created."
+            exit 0
+          fi
+
+          title="Sync status: ${PRODUCT_NAME} ${PLUGIN_VERSION}"
+          issue_body="$(mktemp)"
+
+          if [[ "$VERSIONS_CONSISTENT" == "yes" && "$PLUGIN_VERSION" != "$LIVE_WPORG_VERSION" ]]; then
+            inferred_status="Local source differs from WordPress.org; agent should refresh cockpit status and decide whether release is needed."
+          elif [[ "$VERSIONS_CONSISTENT" == "yes" ]]; then
+            inferred_status="Local source matches WordPress.org; agent should refresh cockpit status and likely mark in sync."
+          else
+            inferred_status="Version fields disagree; agent should fix or clarify version state before any release work."
+          fi
+
+          cat > "$issue_body" <<EOF
+          Status-sync signal only. Do not publish automatically.
+
+          ## Product
+
+          - Product: ${PRODUCT_NAME}
+          - Slug: \`${PRODUCT_SLUG}\`
+          - Source repo: \`${GITHUB_REPOSITORY}\`
+          - Branch: \`${GITHUB_REF_NAME}\`
+          - Commit: ${GITHUB_SHA}
+          - Workflow run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}
+
+          ## Version Evidence
+
+          - Plugin header: \`${PLUGIN_VERSION}\`
+          - Singleton argument: \`${SINGLETON_VERSION}\`
+          - readme.txt Stable tag: \`${README_STABLE_TAG}\`
+          - package.json: \`${PACKAGE_VERSION}\`
+          - Version fields consistent: \`${VERSIONS_CONSISTENT}\`
+          - WordPress.org live version: \`${LIVE_WPORG_VERSION}\`
+
+          ## Changed Files
+
+          \`\`\`text
+          ${CHANGED_FILES}
+          \`\`\`
+
+          ## Agent Task
+
+          ${inferred_status}
+
+          1. Open \`/Users/georgeolaru/Developer/pixelgrade-release-ops\`.
+          2. Refresh the README status snapshot for Pixelgrade Assistant.
+          3. If local source is ahead of WordPress.org and release is intended, use \`adapters/pixelgrade-assistant.md\` to run the agent-operated release flow.
+          4. Keep this issue as evidence or close it after the cockpit status is updated.
+          EOF
+
+          existing_issue="$(
+            TITLE="$title" gh issue list \
+              --repo "$COCKPIT_REPO" \
+              --state open \
+              --limit 100 \
+              --json number,title \
+              | node -e "const fs = require('fs'); const title = process.env.TITLE; const issues = JSON.parse(fs.readFileSync(0, 'utf8')); const match = issues.find(issue => issue.title === title); if (match) console.log(match.number);"
+          )"
+
+          if [[ -n "$existing_issue" ]]; then
+            gh issue comment "$existing_issue" --repo "$COCKPIT_REPO" --body-file "$issue_body"
+            echo "Updated existing release cockpit status issue #$existing_issue"
+          else
+            gh issue create --repo "$COCKPIT_REPO" --title "$title" --body-file "$issue_body"
+          fi

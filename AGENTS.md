@@ -180,6 +180,26 @@ Releases are agent-operated, not script-operated. Scripts may help inspect
 packages or endpoints, but the agent owns sequencing, judgment, auth handoffs,
 browser/SVN interactions, evidence, and final go/no-go decisions.
 
+## Release Cockpit Status Sync
+
+The GitHub Action `.github/workflows/release-cockpit-sync.yml` watches the
+public version files on pushes to `main`:
+
+- `pixelgrade-assistant.php`
+- `readme.txt`
+- `package.json`
+
+When one changes, the action gathers the local version fields, checks the live
+WordPress.org version, and opens or comments on a status-sync issue in the
+private release cockpit repo (`pixelgrade/pixelgrade-release-ops`). This is only
+a signal for an agent to refresh the cockpit status; it does not edit the
+cockpit README, build a package, publish SVN, or mark a release complete.
+
+The action needs a repository or organization secret named
+`PIXELGRADE_RELEASE_OPS_TOKEN` with permission to create issues in the private
+`pixelgrade/pixelgrade-release-ops` repo. If the secret is missing, the action
+emits a warning and exits successfully so development pushes are not blocked.
+
 ## Coding Guardrails
 
 - Preserve the plugin's declared compatibility unless the task explicitly includes a compatibility bump.
