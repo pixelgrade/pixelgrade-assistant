@@ -144,7 +144,7 @@ function pixassist_get_plus_status() {
 	return array(
 		'is_plus_active'     => true,
 		'is_plus_licensed'   => false,
-		'plus_settings_url'  => 'https://example.test/wp-admin/themes.php?page=pixelgrade&tab=account&section=plus',
+		'plus_settings_url'  => 'https://example.test/wp-admin/admin.php?page=pixelgrade&tab=account&section=plus',
 		'plus_product_label' => 'Pixelgrade Plus',
 	);
 }
@@ -198,6 +198,7 @@ class PixelgradeAssistant_Admin {
 }
 
 require __DIR__ . '/../includes/host-extension-surface.php';
+require __DIR__ . '/../includes/admin-hub.php';
 
 $module = __DIR__ . '/../includes/admin-starter-sites.php';
 assert_true( file_exists( $module ), 'The Starter Sites tab module must exist at includes/admin-starter-sites.php.' );
@@ -582,7 +583,7 @@ assert_same( 'Jetpack', $declared['requiredPlugins'][1]['name'], 'A bare-slug re
 $gate_copy = $payload['copy'];
 assert_true( isset( $gate_copy['requirements']['message'] ), 'Starter Sites copy must include the requirements message.' );
 assert_true( false !== strpos( $gate_copy['requirements']['message'], '%s' ), 'The requirements message must carry a %s placeholder for the plugin names.' );
-assert_same( 'https://example.test/wp-admin/themes.php?page=pixelgrade&tab=plugins', $gate_copy['pluginsTabUrl'], 'Starter Sites copy must deep-link to the Plugins tab.' );
+assert_same( 'https://example.test/wp-admin/admin.php?page=pixelgrade&tab=plugins', $gate_copy['pluginsTabUrl'], 'Starter Sites copy must deep-link to the Plugins tab.' );
 assert_true( isset( $gate_copy['actions']['managePlugins'] ), 'Starter Sites copy must include the managePlugins action label.' );
 
 $starter_sites_js = file_get_contents( __DIR__ . '/../admin/src-modern/hub/tabs/StarterSites.js' );

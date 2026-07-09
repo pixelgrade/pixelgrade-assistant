@@ -126,7 +126,7 @@ if ( ! function_exists( 'pixassist_get_docs_data' ) ) {
 			'product'   => array(
 				'sku'        => pixassist_docs_product_sku(),
 				'docsUrl'    => pixassist_docs_online_url(),
-				'accountUrl' => admin_url( 'themes.php?page=pixelgrade&tab=account' ),
+				'accountUrl' => pixassist_get_hub_url( 'account' ),
 			),
 			'endpoints' => array(
 				'categories' => pixassist_docs_rest_endpoint( 'kb_categories', 'GET' ),

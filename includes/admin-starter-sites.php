@@ -1017,16 +1017,12 @@ if ( ! function_exists( 'pixassist_get_starter_sites_copy' ) ) {
 
 if ( ! function_exists( 'pixassist_get_starter_sites_plugins_tab_url' ) ) {
 	/**
-	 * Build the Appearance -> Pixelgrade hub URL deep-linked to the Plugins tab.
+	 * Build the Pixelgrade Design hub URL deep-linked to the Plugins tab.
 	 *
 	 * @return string
 	 */
 	function pixassist_get_starter_sites_plugins_tab_url() {
-		if ( function_exists( 'admin_url' ) ) {
-			return admin_url( 'themes.php?page=pixelgrade&tab=plugins' );
-		}
-
-		return 'themes.php?page=pixelgrade&tab=plugins';
+		return pixassist_get_hub_url( 'plugins' );
 	}
 }
 

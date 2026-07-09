@@ -205,7 +205,7 @@ if ( ! function_exists( 'pixassist_maybe_onboarding_redirect' ) ) {
 			return;
 		}
 
-		wp_safe_redirect( admin_url( 'themes.php?page=pixelgrade' ) );
+		wp_safe_redirect( pixassist_get_hub_url() );
 		exit;
 	}
 }

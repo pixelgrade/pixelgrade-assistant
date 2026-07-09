@@ -264,6 +264,14 @@ class PixelgradeAssistant_Admin {
 		add_action( 'admin_notices', array( $this, 'admin_notices' ) );
 
 		add_action( 'admin_menu', array( $this, 'add_pixelgrade_assistant_menu' ) );
+		// Light up the submenu item matching the hub's `?tab=` deep link on server-rendered loads.
+		add_filter( 'submenu_file', array( $this, 'highlight_hub_submenu' ) );
+		// Canonicalize the hub's pre-top-level URLs (themes.php?page=pixelgrade): core still renders
+		// a top-level plugin page under any parent file, so admin_init fires and can 302 old links
+		// to the admin.php form. admin_page_access_denied is the safety net for flows where core
+		// denies the orphaned parent instead (it runs before admin_init).
+		add_action( 'admin_init', array( $this, 'redirect_legacy_hub_url' ) );
+		add_action( 'admin_page_access_denied', array( $this, 'redirect_legacy_hub_url' ) );
 
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_styles' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_scripts' ) );
@@ -528,18 +536,119 @@ class PixelgradeAssistant_Admin {
     }
 
 	/**
-	 * Adds the WP Admin menus
+	 * Adds the WP Admin menus.
+	 *
+	 * The hub is a top-level menu right above Appearance (position 60; 59 is a core separator) —
+	 * it holds the plugin's entire surface (Design System, Design Library, Site Setup, Account,
+	 * Help, docs), which outgrew a single Appearance submenu entry. The submenus mirror the hub's
+	 * visible tabs from the same registry the in-app tab bar reads, so labels, capabilities and
+	 * order never drift.
 	 */
 	public function add_pixelgrade_assistant_menu() {
-        add_submenu_page(
-            'themes.php',
-            esc_html__( 'Pixelgrade Design', '__plugin_txtd' ),
-            esc_html__( 'Pixelgrade Design', '__plugin_txtd' ),
-            'edit_theme_options',
-            'pixelgrade',
-            array( $this, 'render_admin_hub_page' )
-        );
-    }
+		add_menu_page(
+			esc_html__( 'Pixelgrade Design', '__plugin_txtd' ),
+			esc_html__( 'Pixelgrade Design', '__plugin_txtd' ),
+			'edit_theme_options',
+			'pixelgrade',
+			array( $this, 'render_admin_hub_page' ),
+			self::get_menu_icon(),
+			'58.9'
+		);
+
+		if ( ! function_exists( 'pixassist_get_admin_hub_submenu_items' ) ) {
+			return;
+		}
+
+		foreach ( pixassist_get_admin_hub_submenu_items() as $item ) {
+			// The default tab re-registers the parent slug, renaming the auto-added first entry
+			// (e.g. to "Home"); the rest are plain deep links routed by the hub's tab router.
+			add_submenu_page(
+				'pixelgrade',
+				$item['label'],
+				$item['label'],
+				$item['capability'],
+				$item['slug'],
+				'pixelgrade' === $item['slug'] ? array( $this, 'render_admin_hub_page' ) : ''
+			);
+		}
+	}
+
+	/**
+	 * The sidebar menu icon: the Pixelgrade dot-grid mark (the same one the legacy top-level
+	 * Pixelgrade menu used), inlined as a data URI so core's svg-painter recolors it with the
+	 * menu state instead of it staying a fixed color.
+	 *
+	 * @return string
+	 */
+	public static function get_menu_icon() {
+		$svg = '<svg width="17" height="17" xmlns="http://www.w3.org/2000/svg"><path d="M0 0h2v2H0zm10 0h2v2h-2zm5 0h2v2h-2zM5 0h2v2H5zM0 5h2v2H0zm10 0h2v2h-2zm5 0h2v2h-2zM5 5h2v2H5zm-5 5h2v2H0zm10 0h2v2h-2zm5 0h2v2h-2zM5 10h2v2H5zm-5 5h2v2H0zm10 0h2v2h-2zm5 0h2v2h-2zM5 15h2v2H5z" fill="#a7aaad" fill-rule="evenodd"/></svg>';
+
+		return 'data:image/svg+xml;base64,' . base64_encode( $svg );
+	}
+
+	/**
+	 * Keep the sidebar submenu highlight in sync with the hub's `?tab=` deep links.
+	 *
+	 * WP highlights the submenu item whose slug matches `$submenu_file`; for the tab deep links
+	 * that slug is the full `admin.php?page=pixelgrade&tab=…` URL, so resolve the requested tab
+	 * (through the legacy-alias map) to the matching registered slug. Client-side tab switches
+	 * are synced by the hub app itself (menuHighlight.js).
+	 *
+	 * @param string|null $submenu_file The submenu file WP resolved.
+	 *
+	 * @return string|null
+	 */
+	public function highlight_hub_submenu( $submenu_file ) {
+		if ( ! self::is_pixelgrade_admin_hub() || empty( $_GET['tab'] ) || ! function_exists( 'pixassist_get_admin_hub_submenu_items' ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only UI highlight.
+			return $submenu_file;
+		}
+
+		$tab     = sanitize_key( wp_unslash( $_GET['tab'] ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$aliases = function_exists( 'pixassist_get_admin_hub_tab_aliases' ) ? pixassist_get_admin_hub_tab_aliases() : array();
+
+		if ( isset( $aliases[ $tab ] ) ) {
+			$tab = is_array( $aliases[ $tab ] ) ? $aliases[ $tab ]['tab'] : $aliases[ $tab ];
+		}
+
+		foreach ( pixassist_get_admin_hub_submenu_items() as $item ) {
+			if ( $item['tab'] === $tab ) {
+				return $item['slug'];
+			}
+		}
+
+		return $submenu_file;
+	}
+
+	/**
+	 * Redirect the legacy `themes.php?page=pixelgrade` URLs to their top-level home.
+	 *
+	 * The hub lived under Appearance before becoming a top-level menu; old bookmarks, remote
+	 * config content and companion links still carry the themes.php form. Core happens to render
+	 * a top-level plugin page under any parent file, so this mostly canonicalizes (302 on
+	 * admin_init) rather than rescues — but it also hooks `admin_page_access_denied` (which runs
+	 * before `admin_init`, in wp-admin/includes/menu.php) for flows where core denies the
+	 * orphaned parent instead.
+	 */
+	public function redirect_legacy_hub_url() {
+		global $pagenow;
+
+		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- read-only redirect of a legacy URL.
+		if ( 'themes.php' !== $pagenow || empty( $_GET['page'] ) || 'pixelgrade' !== $_GET['page'] ) {
+			return;
+		}
+
+		$tab     = ! empty( $_GET['tab'] ) ? sanitize_key( wp_unslash( $_GET['tab'] ) ) : '';
+		$section = ! empty( $_GET['section'] ) ? sanitize_key( wp_unslash( $_GET['section'] ) ) : '';
+		$url     = pixassist_get_hub_url( $tab, $section );
+
+		if ( ! empty( $_GET['pixassist_open_docs'] ) ) {
+			$url = add_query_arg( 'pixassist_open_docs', '1', $url );
+		}
+		// phpcs:enable WordPress.Security.NonceVerification.Recommended
+
+		wp_safe_redirect( $url );
+		exit;
+	}
 
     /**
      * Localize a script with or just return the `pixassist` data.
@@ -587,7 +696,7 @@ class PixelgradeAssistant_Admin {
 		    ),
 		    'systemStatus'   => PixelgradeAssistant_DataCollector::get_system_status_data(),
 		    'siteUrl'        => home_url( '/' ),
-		    'dashboardUrl'   => admin_url( 'themes.php?page=pixelgrade' ),
+		    'dashboardUrl'   => pixassist_get_hub_url(),
 		    'adminUrl'       => admin_url(),
 		    'themesUrl'      => admin_url( 'themes.php' ),
 		    'customizerUrl'  => admin_url( 'customize.php' ),
@@ -1852,7 +1961,7 @@ class PixelgradeAssistant_Admin {
                 <div class="notice notice-warning is-dismissible">
                     <h3><?php esc_html_e( 'New Theme Update is Available!', '__plugin_txtd' ); ?></h3>
                     <hr>
-                    <p><?php printf( wp_kses_post( __( 'Great news! A new theme update is available for your <strong>%s</strong> theme, version <strong>%s</strong>. To update go to your <a href="%s">Theme Dashboard</a>.', '__plugin_txtd' ) ), esc_html( $theme_name ), esc_html( $new_theme_version['new_version'] ), esc_url( admin_url( 'themes.php?page=pixelgrade' ) ) ); ?></p>
+                    <p><?php printf( wp_kses_post( __( 'Great news! A new theme update is available for your <strong>%s</strong> theme, version <strong>%s</strong>. To update go to your <a href="%s">Theme Dashboard</a>.', '__plugin_txtd' ) ), esc_html( $theme_name ), esc_html( $new_theme_version['new_version'] ), esc_url( pixassist_get_hub_url() ) ); ?></p>
                 </div>
                 <?php
             }

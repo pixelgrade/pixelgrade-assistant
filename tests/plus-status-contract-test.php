@@ -105,7 +105,7 @@ add_filter(
 			array(
 				'is_plus_active'     => true,
 				'is_plus_licensed'   => true,
-				'plus_settings_url'  => 'https://example.test/wp-admin/themes.php?page=pixelgrade&tab=account&section=plus',
+				'plus_settings_url'  => 'https://example.test/wp-admin/admin.php?page=pixelgrade&tab=account&section=plus',
 				'plus_product_label' => 'Pixelgrade Plus',
 			)
 		);
@@ -119,7 +119,7 @@ sort( $keys );
 assert_same( $expected, $keys, 'A registered Plus callback must not change the contract key set.' );
 assert_same( true, $status['is_plus_active'], 'A registered Plus callback should surface is_plus_active.' );
 assert_same( true, $status['is_plus_licensed'], 'A registered Plus callback should surface is_plus_licensed.' );
-assert_same( 'https://example.test/wp-admin/themes.php?page=pixelgrade&tab=account&section=plus', $status['plus_settings_url'], 'The hosted Plus Account section URL should pass through unchanged.' );
+assert_same( 'https://example.test/wp-admin/admin.php?page=pixelgrade&tab=account&section=plus', $status['plus_settings_url'], 'The hosted Plus Account section URL should pass through unchanged.' );
 assert_same( true, pixassist_is_plus_active(), 'pixassist_is_plus_active() should be true when Plus reports active.' );
 
 /*

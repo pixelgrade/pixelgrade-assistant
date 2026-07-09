@@ -236,7 +236,7 @@ $GLOBALS['paf_is_block_theme'] = true;
 paf_set_plus_status( array(
 	'is_plus_active'     => true,
 	'is_plus_licensed'   => false,
-	'plus_settings_url'  => 'https://example.test/wp-admin/themes.php?page=pixelgrade&tab=account&section=plus',
+	'plus_settings_url'  => 'https://example.test/wp-admin/admin.php?page=pixelgrade&tab=account&section=plus',
 	'plus_product_label' => 'Pixelgrade Plus',
 ) );
 
@@ -259,7 +259,7 @@ $GLOBALS['paf_is_block_theme'] = true;
 paf_set_plus_status( array(
 	'is_plus_active'     => true,
 	'is_plus_licensed'   => true,
-	'plus_settings_url'  => 'https://example.test/wp-admin/themes.php?page=pixelgrade&tab=account&section=plus',
+	'plus_settings_url'  => 'https://example.test/wp-admin/admin.php?page=pixelgrade&tab=account&section=plus',
 	'plus_product_label' => 'Pixelgrade Plus',
 ) );
 

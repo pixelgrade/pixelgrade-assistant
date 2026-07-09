@@ -260,7 +260,7 @@ assert_same( array( 'theme', 'setup', 'starter', 'account' ), array_column( $ove
 
 $canvas = $overview['links'][0];
 assert_same( 'styles', $canvas['id'], 'Home must route the style CTA to the in-hub Design System section when it exists.' );
-assert_same( 'https://example.test/wp-admin/themes.php?page=pixelgrade&tab=styles', $canvas['url'], 'Home Design System CTA must resolve to the in-hub Styles route.' );
+assert_same( 'https://example.test/wp-admin/admin.php?page=pixelgrade&tab=styles', $canvas['url'], 'Home Design System CTA must resolve to the in-hub Styles route.' );
 assert_same( 'Open Design System', $canvas['label'], 'The Home style CTA must read "Open Design System".' );
 assert_true( ! empty( $canvas['primary'] ), 'The canvas link must be the primary quick link.' );
 
@@ -268,7 +268,7 @@ assert_same( null, paf_find_link( $overview['links'], 'design-library' ), 'No De
 
 $help = paf_find_link( $overview['links'], 'help' );
 assert_true( null !== $help, 'A Help link is always present.' );
-assert_same( 'https://example.test/wp-admin/themes.php?page=pixelgrade&tab=help', $help['url'], 'Help falls back to the hub Help tab when no Help tab descriptor exists.' );
+assert_same( 'https://example.test/wp-admin/admin.php?page=pixelgrade&tab=help', $help['url'], 'Help falls back to the hub Help tab when no Help tab descriptor exists.' );
 assert_same( 'Get Help', $help['label'], 'The Help CTA must read "Get Help".' );
 
 assert_same( 'discover', $overview['plus']['state'], 'Inactive Plus must be in the discover state.' );
@@ -332,7 +332,7 @@ assert_true( null !== $setup_summary, 'At a glance must include recommended plug
 assert_same( '1 of 2 ready', $setup_summary['value'], 'Plugin readiness summary must count ready plugins.' );
 assert_same( 'needs-attention', $setup_summary['tone'], 'Plugin readiness should ask for attention when a plugin is missing.' );
 assert_same( '1 plugin needs setup.', $setup_summary['detail'], 'Pending setup carries its one actionable detail line (singular).' );
-assert_same( 'https://example.test/wp-admin/themes.php?page=pixelgrade&tab=plugins', $setup_summary['url'], 'The setup row routes to the Site Setup tab.' );
+assert_same( 'https://example.test/wp-admin/admin.php?page=pixelgrade&tab=plugins', $setup_summary['url'], 'The setup row routes to the Site Setup tab.' );
 assert_true( ! array_key_exists( 'nextAction', $overview ), 'Home no longer computes a next-action box — the Get Started card is the only spotlight.' );
 assert_true( ! array_key_exists( 'safety', $overview ), 'Home no longer ships a safety-notes block.' );
 
@@ -344,7 +344,7 @@ assert_same( '', $starter_summary['detail'], 'The steady starter row carries no 
 $library = paf_find_link( $overview['links'], 'design-library' );
 assert_true( null !== $library, 'A Design Library quick link appears when the merged tab is registered.' );
 assert_same( 'Browse the Design Library', $library['label'], 'The Design Library quick link label.' );
-assert_same( 'https://example.test/wp-admin/themes.php?page=pixelgrade&tab=design-library', $library['url'], 'The Design Library quick link resolves to the merged tab route.' );
+assert_same( 'https://example.test/wp-admin/admin.php?page=pixelgrade&tab=design-library', $library['url'], 'The Design Library quick link resolves to the merged tab route.' );
 
 // The greeting mirrors the page mood: needs-attention wins; once setup is fixed but onboarding is
 // still in progress (starter not picked) it stays neutral.
@@ -379,7 +379,7 @@ add_filter(
 paf_set_plus_status( array(
 	'is_plus_active'     => true,
 	'is_plus_licensed'   => false,
-	'plus_settings_url'  => 'https://example.test/wp-admin/themes.php?page=pixelgrade&tab=account&section=plus',
+	'plus_settings_url'  => 'https://example.test/wp-admin/admin.php?page=pixelgrade&tab=account&section=plus',
 	'plus_product_label' => 'Pixelgrade Plus',
 ) );
 $GLOBALS['paf_plugins_data'] = array(
@@ -433,7 +433,7 @@ $plus_summary = paf_find_summary_item( $overview['stateSummary'], 'plus' );
 assert_same( 'Installed, not licensed', $plus_summary['value'], 'Plus row should distinguish active unlicensed installs.' );
 assert_same( 'Activate a license to unlock premium features.', $plus_summary['detail'], 'Unlicensed Plus carries its one actionable detail line.' );
 assert_same( 'neutral', $plus_summary['tone'], 'Unlicensed Plus never presses with a needs-attention tone.' );
-assert_same( 'https://example.test/wp-admin/themes.php?page=pixelgrade&tab=account&section=plus', $plus_summary['url'], 'The Plus row routes to Plus-owned setup inside Account.' );
+assert_same( 'https://example.test/wp-admin/admin.php?page=pixelgrade&tab=account&section=plus', $plus_summary['url'], 'The Plus row routes to Plus-owned setup inside Account.' );
 
 /*
  * 6. At a glance in a bare steady state (no plugin requirements, no starters, connected account):
@@ -445,7 +445,7 @@ add_filter( 'pixelgrade/admin_hub/tabs', 'pixassist_register_styles_tab' );
 paf_set_plus_status( array(
 	'is_plus_active'     => true,
 	'is_plus_licensed'   => true,
-	'plus_settings_url'  => 'https://example.test/wp-admin/themes.php?page=pixelgrade&tab=account&section=plus',
+	'plus_settings_url'  => 'https://example.test/wp-admin/admin.php?page=pixelgrade&tab=account&section=plus',
 	'plus_product_label' => 'Pixelgrade Plus',
 ) );
 $GLOBALS['paf_account']      = array( 'is_connected' => true, 'email' => 'test@example.test' );
@@ -500,7 +500,7 @@ add_filter(
 paf_set_plus_status( array(
 	'is_plus_active'     => true,
 	'is_plus_licensed'   => false,
-	'plus_settings_url'  => 'https://example.test/wp-admin/themes.php?page=pixelgrade&tab=account&section=plus',
+	'plus_settings_url'  => 'https://example.test/wp-admin/admin.php?page=pixelgrade&tab=account&section=plus',
 	'plus_product_label' => 'Pixelgrade Plus',
 ) );
 
@@ -508,21 +508,21 @@ $overview = pixassist_get_overview_data();
 
 $canvas = $overview['links'][0];
 assert_same( 'styles', $canvas['id'], 'Block-theme Home must route the style CTA to the in-hub Design System section.' );
-assert_same( 'https://example.test/wp-admin/themes.php?page=pixelgrade&tab=styles', $canvas['url'], 'Block-theme Home Design System CTA must resolve to the in-hub Styles route.' );
+assert_same( 'https://example.test/wp-admin/admin.php?page=pixelgrade&tab=styles', $canvas['url'], 'Block-theme Home Design System CTA must resolve to the in-hub Styles route.' );
 assert_same( 'Open Design System', $canvas['label'], 'The block-theme Home style CTA must read "Open Design System".' );
 
 $library = paf_find_link( $overview['links'], 'design-library' );
 assert_true( null !== $library, 'The Design Library quick link falls back to a legacy Starter Sites tab (a companion that has not moved to the merged tab yet).' );
-assert_same( 'https://example.test/wp-admin/themes.php?page=pixelgrade&tab=starter-sites', $library['url'], 'The legacy fallback resolves to the registered Starter Sites route.' );
+assert_same( 'https://example.test/wp-admin/admin.php?page=pixelgrade&tab=starter-sites', $library['url'], 'The legacy fallback resolves to the registered Starter Sites route.' );
 assert_same( 'Browse the Design Library', $library['label'], 'The quick link keeps the Design Library label.' );
 
 $help = paf_find_link( $overview['links'], 'help' );
-assert_same( 'https://example.test/wp-admin/themes.php?page=pixelgrade&tab=help', $help['url'], 'Help resolves to the Help hub tab when registered.' );
+assert_same( 'https://example.test/wp-admin/admin.php?page=pixelgrade&tab=help', $help['url'], 'Help resolves to the Help hub tab when registered.' );
 
 assert_same( 'setup', $overview['plus']['state'], 'Active-but-unlicensed Plus must be in the set-up state.' );
 assert_same( true, $overview['plus']['isActive'], 'Active Plus must report isActive=true.' );
 assert_same( false, $overview['plus']['isLicensed'], 'Unlicensed Plus must report isLicensed=false.' );
-assert_same( 'https://example.test/wp-admin/themes.php?page=pixelgrade&tab=account&section=plus', $overview['plus']['url'], 'Set-up state links to the Plus section inside Account.' );
+assert_same( 'https://example.test/wp-admin/admin.php?page=pixelgrade&tab=account&section=plus', $overview['plus']['url'], 'Set-up state links to the Plus section inside Account.' );
 
 /*
  * 8. Plus active + licensed: the card flips to the manage state.
@@ -532,7 +532,7 @@ add_filter( 'pixelgrade/admin_hub/tabs', 'pixassist_register_overview_tab' );
 paf_set_plus_status( array(
 	'is_plus_active'     => true,
 	'is_plus_licensed'   => true,
-	'plus_settings_url'  => 'https://example.test/wp-admin/themes.php?page=pixelgrade&tab=account&section=plus',
+	'plus_settings_url'  => 'https://example.test/wp-admin/admin.php?page=pixelgrade&tab=account&section=plus',
 	'plus_product_label' => 'Pixelgrade Plus',
 ) );
 
@@ -572,7 +572,7 @@ assert_same( false, strpos( $get_started_js, 'Review setup' ), 'The Get started 
 // 6a. Step builder: account is always present + optional; the starter step appears only when demos
 //     exist; plugins is always present + required.
 $steps_with_demos = pixassist_get_onboarding_steps( array(
-	'base_url'          => 'https://example.test/wp-admin/themes.php?page=pixelgrade',
+	'base_url'          => 'https://example.test/wp-admin/admin.php?page=pixelgrade',
 	'account_connected' => true,
 	'demos_exist'       => true,
 	'starter_imported'  => false,
@@ -584,14 +584,14 @@ assert_same( array( 'account', 'plugins', 'starter' ), $step_ids, 'With demos, t
 $account_step = $steps_with_demos[0];
 assert_same( true, $account_step['done'], 'Connected account marks the account step done.' );
 assert_same( true, $account_step['optional'], 'The account step is optional (never blocks completion).' );
-assert_same( 'https://example.test/wp-admin/themes.php?page=pixelgrade&tab=account', $account_step['url'], 'Account step links to the Account tab.' );
-assert_same( 'https://example.test/wp-admin/themes.php?page=pixelgrade&tab=plugins', $steps_with_demos[1]['url'], 'Plugins step links to the Plugins tab.' );
+assert_same( 'https://example.test/wp-admin/admin.php?page=pixelgrade&tab=account', $account_step['url'], 'Account step links to the Account tab.' );
+assert_same( 'https://example.test/wp-admin/admin.php?page=pixelgrade&tab=plugins', $steps_with_demos[1]['url'], 'Plugins step links to the Plugins tab.' );
 assert_same( false, $steps_with_demos[1]['optional'], 'The plugins step is required.' );
-assert_same( 'https://example.test/wp-admin/themes.php?page=pixelgrade&tab=starter-sites', $steps_with_demos[2]['url'], 'Starter step links to the Starter Sites tab.' );
+assert_same( 'https://example.test/wp-admin/admin.php?page=pixelgrade&tab=starter-sites', $steps_with_demos[2]['url'], 'Starter step links to the Starter Sites tab.' );
 
 // 6b. No demos → the starter step is omitted (mirrors the wizard hiding it).
 $steps_no_demos = pixassist_get_onboarding_steps( array(
-	'base_url'          => 'https://example.test/wp-admin/themes.php?page=pixelgrade',
+	'base_url'          => 'https://example.test/wp-admin/admin.php?page=pixelgrade',
 	'account_connected' => false,
 	'demos_exist'       => false,
 	'starter_imported'  => false,
@@ -787,13 +787,13 @@ $style_summary = paf_find_summary_item( $overview['stateSummary'], 'style' );
 assert_true( null !== $style_summary, 'A readable palette earns the Your style row.' );
 assert_same( 'Theme defaults', $style_summary['value'], 'Without Style Manager the row is honestly labeled Theme defaults.' );
 assert_same( array( '#eef0ea', '#dcdfd3', '#5663d5' ), $style_summary['swatches'], 'The row carries the theme.json palette as swatches.' );
-assert_same( 'https://example.test/wp-admin/themes.php?page=pixelgrade&tab=styles', $style_summary['url'], 'The style row routes to the Design System tab.' );
+assert_same( 'https://example.test/wp-admin/admin.php?page=pixelgrade&tab=styles', $style_summary['url'], 'The style row routes to the Design System tab.' );
 assert_same( 'ok', $style_summary['tone'], 'The style row is a quiet fact.' );
 
 $last_change_summary = paf_find_summary_item( $overview['stateSummary'], 'last-change' );
 assert_true( null !== $last_change_summary, 'A dated journal entry earns the Last change row.' );
 assert_same( 'Felt Header applied · 3 days ago', $last_change_summary['value'], 'The Last change row states the newest dated change.' );
-assert_same( 'https://example.test/wp-admin/themes.php?page=pixelgrade&tab=design-library', $last_change_summary['url'], 'The Last change row routes to the Design Library.' );
+assert_same( 'https://example.test/wp-admin/admin.php?page=pixelgrade&tab=design-library', $last_change_summary['url'], 'The Last change row routes to the Design Library.' );
 
 assert_same(
 	array( 'theme', 'setup', 'starter', 'style', 'last-change', 'account' ),

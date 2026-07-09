@@ -787,7 +787,7 @@ if ( ! function_exists( 'pixassist_get_overview_plus_card' ) ) {
 		$settings_url  = ! empty( $status['plus_settings_url'] ) ? (string) $status['plus_settings_url'] : '';
 		$shop_base     = defined( 'PIXELGRADE_ASSISTANT__SHOP_BASE' ) ? PIXELGRADE_ASSISTANT__SHOP_BASE : 'https://pixelgrade.com/';
 		$discover_url  = trailingslashit( $shop_base ) . 'plus/';
-		$account_url   = admin_url( 'themes.php?page=pixelgrade&tab=account&section=plus' );
+		$account_url   = pixassist_get_hub_url( 'account', 'plus' );
 
 		if ( empty( $status['is_plus_active'] ) ) {
 			$card = array(

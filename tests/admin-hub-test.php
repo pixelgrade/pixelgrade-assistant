@@ -1,10 +1,13 @@
 <?php
 /**
- * Pins the Appearance -> Pixelgrade hub bootstrap data assembler.
+ * Pins the Pixelgrade Design hub bootstrap data assembler and hub URL/submenu helpers.
  *
  * `pixassist_get_admin_hub_data()` builds the payload the React hub shell is bootstrapped with:
  * the normalized visible tabs (from the #42 `pixelgrade/admin_hub/tabs` registry), the default tab
- * (first visible tab by order), and the hub URL.
+ * (first visible tab by order), and the hub URL. `pixassist_get_hub_url()` is the single source of
+ * truth for hub links (the hub lives on a top-level menu, served from admin.php), and
+ * `pixassist_get_admin_hub_submenu_items()` derives the top-level menu's sidebar submenus from the
+ * same registry (design tabs first, then the Account/Help service pair; secondary tabs excluded).
  *
  * Standalone: run with `php tests/admin-hub-test.php` (no WordPress needed).
  *
@@ -80,7 +83,7 @@ sort( $keys );
 assert_same( array( 'baseUrl', 'defaultTab', 'tabAliases', 'tabs' ), $keys, 'Hub data must expose exactly tabs/defaultTab/baseUrl/tabAliases.' );
 assert_same( array(), $data['tabs'], 'With no registered tabs, tabs must be an empty array.' );
 assert_same( '', $data['defaultTab'], 'With no registered tabs, defaultTab must be empty.' );
-assert_same( 'https://example.test/wp-admin/themes.php?page=pixelgrade', $data['baseUrl'], 'baseUrl must point at the Appearance hub page.' );
+assert_same( 'https://example.test/wp-admin/admin.php?page=pixelgrade', $data['baseUrl'], 'baseUrl must point at the top-level hub page (admin.php form).' );
 assert_same( array( 'tab' => 'account', 'section' => 'plus' ), $data['tabAliases']['account-license'], 'Legacy Account & License links must route to the Account Plus section.' );
 assert_same( array( 'tab' => 'design-library', 'section' => 'starter-sites' ), $data['tabAliases']['starter-sites'], 'Legacy Starter Sites links must route to the Design Library starter-sites section.' );
 assert_same( array( 'tab' => 'design-library', 'section' => 'layouts' ), $data['tabAliases']['layouts'], 'Legacy Layouts links must route to the Design Library layouts (Site Parts) section.' );
@@ -112,6 +115,56 @@ $ids  = array_map(
 
 assert_same( array( 'overview', 'starter' ), $ids, 'Hub data tabs must be the normalized registry, sorted by order.' );
 assert_same( 'overview', $data['defaultTab'], 'defaultTab must be the first visible tab (lowest order).' );
+
+/*
+ * The canonical hub URL helper: admin.php form, optional tab/section deep links, section ignored
+ * without a tab.
+ */
+assert_same( 'https://example.test/wp-admin/admin.php?page=pixelgrade', pixassist_get_hub_url(), 'The bare hub URL must be the admin.php root.' );
+assert_same( 'https://example.test/wp-admin/admin.php?page=pixelgrade&tab=design-library', pixassist_get_hub_url( 'design-library' ), 'A tab id must deep-link via &tab=.' );
+assert_same( 'https://example.test/wp-admin/admin.php?page=pixelgrade&tab=account&section=plus', pixassist_get_hub_url( 'account', 'plus' ), 'A section must ride along with its tab.' );
+assert_same( 'https://example.test/wp-admin/admin.php?page=pixelgrade', pixassist_get_hub_url( '', 'plus' ), 'A section without a tab must be ignored.' );
+
+/*
+ * Sidebar submenu derivation: same registry as the tab bar — design tabs first in registry order,
+ * then the Account/Help service pair; secondary-group tabs stay in the in-app More menu; the
+ * default tab re-uses the parent slug so it becomes the first ("Home") entry.
+ */
+$GLOBALS['paf_filters'] = array();
+add_filter(
+	'pixelgrade/admin_hub/tabs',
+	function () {
+		return array(
+			array( 'id' => 'overview', 'label' => 'Home', 'component' => 'overview', 'order' => 0 ),
+			array( 'id' => 'account', 'label' => 'Account', 'component' => 'account', 'capability' => 'manage_options', 'order' => 10 ),
+			array( 'id' => 'styles', 'label' => 'Design System', 'component' => 'styles', 'order' => 10 ),
+			array( 'id' => 'help', 'label' => 'Help', 'component' => 'help', 'order' => 90 ),
+			array( 'id' => 'tools', 'label' => 'Tools', 'component' => 'tools', 'capability' => 'manage_options', 'group' => 'secondary', 'order' => 20 ),
+		);
+	}
+);
+
+$items = pixassist_get_admin_hub_submenu_items();
+$slugs = array_map(
+	function ( $item ) {
+		return $item['slug'];
+	},
+	$items
+);
+
+assert_same(
+	array(
+		'pixelgrade',
+		'admin.php?page=pixelgrade&tab=styles',
+		'admin.php?page=pixelgrade&tab=account',
+		'admin.php?page=pixelgrade&tab=help',
+	),
+	$slugs,
+	'Submenus: default tab on the parent slug, design tabs before the Account/Help service pair, secondary tabs excluded.'
+);
+assert_same( 'Home', $items[0]['label'], 'The first submenu must carry the default tab label.' );
+assert_same( 'manage_options', $items[2]['capability'], 'Submenu items must carry their tab capability.' );
+assert_same( 'manage_options', $items[1]['capability'], 'Tabs without an explicit capability keep the registry default (manage_options).' );
 
 $app_js    = file_get_contents( __DIR__ . '/../admin/src-modern/hub/App.js' );
 $tabbar_js = file_get_contents( __DIR__ . '/../admin/src-modern/hub/TabBar.js' );

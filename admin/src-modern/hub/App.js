@@ -1,5 +1,5 @@
 /**
- * The Appearance -> Pixelgrade hub shell.
+ * The Pixelgrade Design hub shell.
  *
  * Renders the tab bar + the active tab's component. Tabs come from the server (visible, gated,
  * sorted); their React components come from the `pixelgrade.adminHub.tabs` JS filter. Routing is via
@@ -9,6 +9,7 @@ import { createElement, Fragment } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
 import { getComponentMap } from './registry';
 import { useTabRouting } from './useTabRouting';
+import { useMenuHighlight } from './menuHighlight';
 import { TabBar } from './TabBar';
 import { Placeholder } from './Placeholder';
 
@@ -19,6 +20,8 @@ export function App( { bootstrap } ) {
 	const tabAliases = bootstrap.tabAliases && 'object' === typeof bootstrap.tabAliases ? bootstrap.tabAliases : {};
 
 	const [ activeId, navigate ] = useTabRouting( ids, fallback, tabAliases );
+
+	useMenuHighlight( activeId, fallback );
 
 	if ( ! tabs.length ) {
 		return createElement( Placeholder, { tab: { id: 'pixelgrade', label: __( 'Pixelgrade Design', 'pixelgrade_assistant' ) } } );

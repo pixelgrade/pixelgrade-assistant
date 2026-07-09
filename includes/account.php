@@ -1099,7 +1099,7 @@ if ( ! function_exists( 'pixassist_account_hub_url' ) ) {
 	 * @return string
 	 */
 	function pixassist_account_hub_url( $status = '' ) {
-		$url = admin_url( 'themes.php?page=pixelgrade&tab=account' );
+		$url = pixassist_get_hub_url( 'account' );
 
 		if ( '' !== $status ) {
 			$url = add_query_arg( array( 'pixassist_account' => sanitize_key( $status ) ), $url );
@@ -1263,7 +1263,7 @@ if ( ! function_exists( 'pixassist_get_account_help_url' ) ) {
 	 * @return string
 	 */
 	function pixassist_get_account_help_url() {
-		return admin_url( 'themes.php?page=pixelgrade&tab=help' );
+		return pixassist_get_hub_url( 'help' );
 	}
 }
 
@@ -1957,7 +1957,7 @@ if ( ! function_exists( 'pixassist_account_plus_panel_url' ) ) {
 		}
 
 		if ( '' === $url ) {
-			$url = admin_url( 'themes.php?page=pixelgrade&tab=account&section=plus' );
+			$url = pixassist_get_hub_url( 'account', 'plus' );
 		}
 
 		return function_exists( 'esc_url_raw' ) ? esc_url_raw( $url ) : $url;
@@ -2246,7 +2246,7 @@ if ( ! function_exists( 'pixassist_get_account_value_data' ) ) {
 				'label'       => esc_html__( 'System Status checks your setup', '__plugin_txtd' ),
 				'description' => esc_html__( 'When something looks off, System Status reviews your theme, plugins, and configuration and points at the next safe step.', '__plugin_txtd' ),
 				'state'       => 'available',
-				'url'         => function_exists( 'esc_url_raw' ) ? esc_url_raw( admin_url( 'themes.php?page=pixelgrade&tab=system-status' ) ) : admin_url( 'themes.php?page=pixelgrade&tab=system-status' ),
+				'url'         => function_exists( 'esc_url_raw' ) ? esc_url_raw( pixassist_get_hub_url( 'system-status' ) ) : pixassist_get_hub_url( 'system-status' ),
 				'actionLabel' => esc_html__( 'View System Status', '__plugin_txtd' ),
 			),
 			'nextAction'  => $next_action,

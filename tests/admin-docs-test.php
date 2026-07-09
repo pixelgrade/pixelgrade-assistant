@@ -261,6 +261,7 @@ class PixelgradeAssistant_Admin {
 }
 
 require __DIR__ . '/../includes/host-extension-surface.php';
+require __DIR__ . '/../includes/admin-hub.php';
 require __DIR__ . '/../includes/account.php';
 require __DIR__ . '/../admin/class-pixelgrade_assistant-help.php';
 require __DIR__ . '/../includes/admin-docs.php';

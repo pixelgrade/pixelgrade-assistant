@@ -1,6 +1,13 @@
 <?php
 /**
- * Pins the #43 final retirement of the top-level Pixelgrade menu and legacy dashboard bundle.
+ * Pins the hub's admin menu registration and the #43 retirement of the legacy dashboard bundle.
+ *
+ * The legacy Care-era top-level "Pixelgrade" dashboard menu was retired in #43; the hub then
+ * lived as an Appearance submenu until it outgrew it and became the top-level "Pixelgrade
+ * Design" menu (right above Appearance). This pins that registration — slug, capability,
+ * label, position, recolorable icon — plus the setup wizard staying a hidden Appearance
+ * submenu and the legacy dashboard bundle staying gone. The registry-derived submenus are
+ * pinned separately in tests/admin-hub-test.php.
  *
  * Standalone: run with `php tests/admin-menu-retirement-test.php` (no WordPress needed).
  *
@@ -92,13 +99,15 @@ PixelgradeAssistant_Admin::$theme_support = array(
 
 $admin->add_pixelgrade_assistant_menu();
 
-assert_same( array(), $GLOBALS['paf_menu_pages'], 'Pixelgrade Assistant must not register a top-level admin menu after #43 retirement.' );
-assert_same( 1, count( $GLOBALS['paf_submenu_pages'] ), 'Pixelgrade Assistant must register exactly one admin submenu.' );
-assert_same( 'themes.php', $GLOBALS['paf_submenu_pages'][0]['parent_slug'], 'Pixelgrade Assistant must live under Appearance.' );
-assert_same( 'pixelgrade', $GLOBALS['paf_submenu_pages'][0]['menu_slug'], 'Pixelgrade Assistant hub slug must remain pixelgrade.' );
-assert_same( 'edit_theme_options', $GLOBALS['paf_submenu_pages'][0]['capability'], 'Pixelgrade Assistant hub capability must match Appearance access.' );
-assert_same( 'Pixelgrade Design', $GLOBALS['paf_submenu_pages'][0]['menu_title'], 'Appearance submenu must read "Pixelgrade Design" (functional label, not a bare brand word).' );
-assert_same( 'Pixelgrade Design', $GLOBALS['paf_submenu_pages'][0]['page_title'], 'Hub page title must read "Pixelgrade Design".' );
+assert_same( 1, count( $GLOBALS['paf_menu_pages'] ), 'The hub must register exactly one top-level admin menu.' );
+$hub_menu = $GLOBALS['paf_menu_pages'][0];
+assert_same( 'pixelgrade', $hub_menu['menu_slug'], 'The hub slug must remain pixelgrade.' );
+assert_same( 'edit_theme_options', $hub_menu['capability'], 'The hub capability must match Appearance access.' );
+assert_same( 'Pixelgrade Design', $hub_menu['menu_title'], 'The menu must read "Pixelgrade Design" (functional label, not a bare brand word).' );
+assert_same( 'Pixelgrade Design', $hub_menu['page_title'], 'Hub page title must read "Pixelgrade Design".' );
+assert_same( '58.9', $hub_menu['position'], 'The hub menu sits right above Appearance (position 60; 59 is a core separator).' );
+assert_same( 0, strpos( $hub_menu['icon_url'], 'data:image/svg+xml;base64,' ), 'The menu icon must be an inline SVG data URI so core svg-painter recolors it with the menu state.' );
+assert_same( array(), $GLOBALS['paf_submenu_pages'], 'Without the hub registry helper loaded, no submenus are registered (graceful).' );
 
 $GLOBALS['paf_menu_pages']    = array();
 $GLOBALS['paf_submenu_pages'] = array();

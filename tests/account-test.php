@@ -231,6 +231,7 @@ class PixelgradeAssistant_Help {
 
 require __DIR__ . '/../includes/capabilities.php';
 require __DIR__ . '/../includes/host-extension-surface.php';
+require __DIR__ . '/../includes/admin-hub.php';
 require __DIR__ . '/../includes/account.php';
 
 /*
@@ -507,7 +508,7 @@ assert_true( false !== strpos( $payload['accountValue']['diagnostics']['url'], '
 assert_true( false !== strpos( $payload['accountValue']['docs']['label'], 'editor toolbar' ), 'The docs row must explain the in-editor Design Docs access, not just the Help tab.' );
 assert_same( 'Anima LT', $payload['accountValue']['site']['themeName'], 'Account value site context should expose the active theme name.' );
 assert_same( 'anima-lt', $payload['accountValue']['site']['productSku'], 'Account value site context should expose the docs/support product SKU.' );
-assert_same( 'https://example.test/wp-admin/themes.php?page=pixelgrade&tab=help', $payload['accountValue']['site']['helpUrl'], 'Account value site context should deep-link to the Help tab.' );
+assert_same( 'https://example.test/wp-admin/admin.php?page=pixelgrade&tab=help', $payload['accountValue']['site']['helpUrl'], 'Account value site context should deep-link to the Help tab.' );
 assert_same( 'available', $payload['accountValue']['products']['state'], 'Free installs should still show a products/licenses summary.' );
 assert_same( 'Anima LT', $payload['accountValue']['products']['label'], 'The products/licenses summary should start with the active Pixelgrade product.' );
 assert_same( 'connect_account', $payload['accountValue']['nextAction']['id'], 'Disconnected users should get account connection as the next best action.' );
@@ -699,7 +700,7 @@ add_filter(
 			array(
 				'is_plus_active'     => true,
 				'is_plus_licensed'   => false,
-				'plus_settings_url'  => 'https://example.test/wp-admin/themes.php?page=pixelgrade&tab=account&section=plus',
+				'plus_settings_url'  => 'https://example.test/wp-admin/admin.php?page=pixelgrade&tab=account&section=plus',
 				'plus_product_label' => 'Pixelgrade Plus',
 			)
 		);
@@ -718,7 +719,7 @@ assert_same( 'done', $plus_payload['plusJourney']['steps'][0]['state'], 'The con
 assert_same( 'done', $plus_payload['plusJourney']['steps'][2]['state'], 'The plugin-activation step must show done when Plus is active.' );
 assert_same( 'current', $plus_payload['plusJourney']['steps'][3]['state'], 'The license check must be the single current step for active-but-unlicensed Plus.' );
 assert_same( 'Open the Plus panel', $plus_payload['plusJourney']['steps'][3]['action']['label'], 'The license-check step must hand off to the on-page Plus panel as a retry path.' );
-assert_same( 'https://example.test/wp-admin/themes.php?page=pixelgrade&tab=account&section=plus', $plus_payload['plusJourney']['steps'][3]['action']['url'], 'The license-check hand-off must use the Plus-reported panel URL.' );
+assert_same( 'https://example.test/wp-admin/admin.php?page=pixelgrade&tab=account&section=plus', $plus_payload['plusJourney']['steps'][3]['action']['url'], 'The license-check hand-off must use the Plus-reported panel URL.' );
 assert_same( '3 of 4 steps done', $plus_payload['plusJourney']['progressLabel'], 'The journey must report progress.' );
 
 paf_reset_runtime();
@@ -730,7 +731,7 @@ add_filter(
 			array(
 				'is_plus_active'     => true,
 				'is_plus_licensed'   => true,
-				'plus_settings_url'  => 'https://example.test/wp-admin/themes.php?page=pixelgrade&tab=account&section=plus',
+				'plus_settings_url'  => 'https://example.test/wp-admin/admin.php?page=pixelgrade&tab=account&section=plus',
 				'plus_product_label' => 'Pixelgrade Plus',
 			)
 		);
@@ -762,7 +763,7 @@ assert_same( 'Pixelgrade ID 42', $connected_payload['accountValue']['accountDeta
 assert_true( false !== strpos( $connected_payload['accountValue']['accountDetails']['description'], '2026-06-16' ), 'Connected account details should use a date-only connected value.' );
 assert_same( false, false !== strpos( $connected_payload['accountValue']['accountDetails']['description'], '10:00:00' ), 'Connected account details should not show the full timestamp.' );
 assert_same( 'get_help', $connected_payload['accountValue']['nextAction']['id'], 'Connected users should get Help as the next best action.' );
-assert_same( 'https://example.test/wp-admin/themes.php?page=pixelgrade&tab=help', $connected_payload['accountValue']['nextAction']['url'], 'Connected next action should point to the Help tab.' );
+assert_same( 'https://example.test/wp-admin/admin.php?page=pixelgrade&tab=help', $connected_payload['accountValue']['nextAction']['url'], 'Connected next action should point to the Help tab.' );
 assert_same( 'Site connected.', $connected_payload['copy']['connectedStatusLabel'], 'The connected hero must not claim everything is ready — the journey card owns progress.' );
 assert_same( 'invite', $connected_payload['plusJourney']['state'], 'A connected free account gets the gentle Plus invite, not a step ladder.' );
 assert_true( ! isset( $connected_payload['plusJourney']['hint'] ), 'A connected invite needs no already-purchased hint.' );
