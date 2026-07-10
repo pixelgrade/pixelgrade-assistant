@@ -6,9 +6,6 @@ Pixelgrade Assistant is a WordPress plugin for free Pixelgrade themes. It powers
 
 GitHub: `git@github.com:pixelgrade/pixelgrade-assistant.git`
 
-Local plugin path:
-`/Users/georgeolaru/Local Sites/style-manager/app/public/wp-content/plugins/pixelgrade-assistant/`
-
 Sibling plugins in this install:
 - `../pixelgrade-care` is the related/maintained Pixelgrade Care plugin. Use it for patterns, but do not assume this project has the same Node version, release flow, or public/private file set.
 - `../nova-blocks` is a theme-dependent block plugin that Pixelgrade Assistant may protect through conditional updates. Use its notes only for Nova-specific behavior.
@@ -38,25 +35,6 @@ Managed private overlay targets:
 - `.ai/`
 - `.claude/napkin.md`
 - `.env.local`
-
-## Cross-Stack Strategy Decisions
-
-When Pixelgrade Assistant work changes or settles product, business, positioning, monetization, Pixelgrade.com, Pixelgrade LT vs Pixelgrade Plus, starter strategy, or cross-repo LT stack architecture, save the durable decision in the central strategy folder:
-
-`/Users/georgeolaru/Developer/pixelsite/master-strategy/`
-
-Before making or changing those decisions, read:
-- `/Users/georgeolaru/Developer/pixelsite/master-strategy/README.md`
-- `/Users/georgeolaru/Developer/pixelsite/master-strategy/decisions/README.md`
-- `/Users/georgeolaru/Developer/pixelsite/master-strategy/pixelgrade-lt-stack-strategy.md`
-- `/Users/georgeolaru/Developer/pixelsite/master-strategy/source-index.md`
-
-For any meaningful cross-stack strategy decision:
-- Create a dated note in `/Users/georgeolaru/Developer/pixelsite/master-strategy/decisions/YYYY-MM-DD-short-title.md` using the template in `decisions/README.md`.
-- Update `source-index.md` when the decision depends on a new source document, repo note, issue, or public reference.
-- Update `pixelgrade-lt-stack-strategy.md` only when the decision changes the central strategy.
-
-Keep implementation details, tests, and repo-specific plans in the repo where the work happens. Keep cross-stack product direction, positioning, monetization, and Pixelgrade.com strategy in `pixelsite/master-strategy`.
 
 ## Runtime Architecture
 
@@ -148,38 +126,6 @@ Release packaging notes:
 - If WP-CLI is available, packaging regenerates `languages/pixelgrade_assistant.pot` in the temporary build folder.
 - Agent files and private overlays must stay out of release zips.
 
-## Release Trigger
-
-If the user says `release the next version of Pixelgrade Assistant`, `release
-Pixelgrade Assistant`, or similar shorthand, treat it as an agent-operated
-WordPress.org release request.
-
-Do not require the user to paste the full release prompt. Instead:
-
-1. Open the central private release cockpit:
-   `/Users/georgeolaru/Developer/pixelgrade-release-ops`
-2. Read `README.md`, `products.yml`, `adapters/pixelgrade-assistant.md`, and
-   `issue-templates/release.md`.
-3. Refresh the live status before deciding the target version:
-   - local source fields: `pixelgrade-assistant.php`, singleton version argument,
-     `readme.txt` `Stable tag`, and `package.json`;
-   - live WordPress.org version:
-     `https://api.wordpress.org/plugins/info/1.2/?action=plugin_information&request%5Bslug%5D=pixelgrade-assistant`;
-   - SVN tag/download status when needed.
-4. Interpret `next version` as the local source version when local source is
-   ahead of WordPress.org. If local source equals live WordPress.org, do not
-   invent a version bump; ask the user whether to prepare a new release and what
-   version/scope it should use.
-5. Stop before packaging if the repo is dirty, not on `main`, not synced with
-   `origin/main`, or if version fields disagree.
-6. Create or update a GitHub release issue, then follow the central adapter:
-   build, package checks, fresh Studio archive smoke, WordPress.org SVN publish,
-   API/download/SVN verification, and evidence comment.
-
-Releases are agent-operated, not script-operated. Scripts may help inspect
-packages or endpoints, but the agent owns sequencing, judgment, auth handoffs,
-browser/SVN interactions, evidence, and final go/no-go decisions.
-
 ## Release Cockpit Status Sync
 
 The GitHub Action `.github/workflows/release-cockpit-sync.yml` watches the
@@ -237,9 +183,10 @@ unzip -p ../Pixelgrade-assistant-X-Y-Z.zip pixelgrade-assistant/readme.txt | gre
 
 The first command should produce no matches.
 
-### Local Test Sites
+## Private Operational Overlay
 
-- `pixelgrade-integrated-check` (Studio, `/Users/georgeolaru/Studio/pixelgrade-integrated-check`) is the canonical Assistant-active local verify site for the Pixelgrade hub. Use it instead of `style-manager.local` when the Assistant must load; `style-manager.local` has Pixelgrade Care active, so Assistant is dormant there.
-- Runtime: `studio site start --path /Users/georgeolaru/Studio/pixelgrade-integrated-check --skip-browser`; stop with `studio site stop --path /Users/georgeolaru/Studio/pixelgrade-integrated-check`; inspect access with `studio site status --path /Users/georgeolaru/Studio/pixelgrade-integrated-check`.
-- URL/admin: `http://localhost:8889/`; wp-admin via `http://localhost:8889/studio-auto-login?redirect_to=%2Fwp-admin%2F` or directly to the hub with `http://localhost:8889/studio-auto-login?redirect_to=%2Fwp-admin%2Fadmin.php%3Fpage%3Dpixelgrade`.
-- Verified 2026-06-17: Anima LT active; Pixelgrade Assistant and Pixelgrade Plus active; Pixelgrade Care not active; the Pixelgrade Design hub renders (top-level menu since 2026-07-09; formerly Appearance -> Pixelgrade). Style Manager and Nova Blocks are installed but inactive. As of 2026-06-17 the Assistant pixelgrade.com account IS now connected (`contact@pixelgrade.com`, Pixelgrade ID 1) — connected during free account/support end-to-end verification via the shipped `pkDQYLDpG7ji` consumer; there is still no theme license and Plus is still unlicensed, so do not use it for theme-license/Plus-license/entitlement tests. NOTE: the previously-documented clean *unconnected* baseline no longer holds — disconnect via Pixelgrade Design → Account to restore it.
+Machine-specific and operational context — WordPress.org SVN release credentials,
+the agent-operated release-trigger runbook, the cross-stack strategy folder, and
+local Studio verify sites — lives in the git-ignored `AGENTS.local.md`, hydrated
+from the private companion repo via `bin/bootstrap-private`. Load it when doing
+release, ops, or strategy work; it is never shipped in the release zip.

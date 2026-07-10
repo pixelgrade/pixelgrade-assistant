@@ -144,7 +144,7 @@ jobs:
 
           ${inferred_status}
 
-          1. Open \`/Users/georgeolaru/Developer/pixelgrade-release-ops\`.
+          1. Open the private release cockpit repo \`${COCKPIT_REPO}\`.
           2. Refresh the README status snapshot for Pixelgrade Assistant.
           3. If local source is ahead of WordPress.org and release is intended, use \`adapters/pixelgrade-assistant.md\` to run the agent-operated release flow.
           4. Keep this issue as evidence or close it after the cockpit status is updated.
