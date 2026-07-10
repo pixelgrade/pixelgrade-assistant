@@ -92,7 +92,7 @@
 .pixelgrade-styles-preview__color-rail {
 	display: grid;
 	width: 100%;
-	grid-template-columns: repeat(4, minmax(0, 1fr));
+	grid-template-columns: repeat(var(--pxg-preview-grade-count), minmax(0, 1fr));
 	border: 1px solid rgb(0 0 0 / 18%);
 }
 
@@ -146,7 +146,6 @@
 	overflow: hidden;
 	margin: 0;
 	font-size: clamp(38px, 7vw, 72px);
-	line-height: .88 !important;
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
@@ -301,7 +300,6 @@
 
 	.pixelgrade-styles-preview__type-display {
 		font-size: 42px;
-		line-height: .8 !important;
 	}
 
 	.pixelgrade-styles-preview__type-sample p {
@@ -341,7 +339,7 @@
 	}
 
 	.pixelgrade-styles-preview__spacing-content {
-		gap: 3px;
+		gap: clamp(2px, var(--pxg-preview-rhythm-gap), 6px);
 		padding: 6px;
 	}
 

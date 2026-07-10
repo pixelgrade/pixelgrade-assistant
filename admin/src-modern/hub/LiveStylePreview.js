@@ -72,7 +72,11 @@ function ColorsPreview( { data } ) {
 			...kicker( __( 'Current color system', 'pixelgrade_assistant' ), data.palette.label ),
 			createElement(
 				'div',
-				{ className: 'pixelgrade-styles-preview__color-rail', key: 'rail' },
+				{
+					className: 'pixelgrade-styles-preview__color-rail',
+					key: 'rail',
+					style: { '--pxg-preview-grade-count': String( data.samples.length ) },
+				},
 				data.samples.map( ( sample ) => createElement(
 					'div',
 					{

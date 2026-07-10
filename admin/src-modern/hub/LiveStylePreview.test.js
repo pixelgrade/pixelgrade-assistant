@@ -65,6 +65,14 @@ describe( 'LiveStylePreview', () => {
 		expect( grades[ 2 ].style.getPropertyValue( '--pxg-preview-accent' ) ).toBe( '#f7f8f3' );
 	} );
 
+	test( 'sizes the color rail to the number of valid samples', () => {
+		const root = renderPreview( 'colors', { ...colors, samples: colors.samples.slice( 0, 3 ) } );
+		const rail = root.querySelector( '.pixelgrade-styles-preview__color-rail' );
+
+		expect( rail.style.getPropertyValue( '--pxg-preview-grade-count' ) ).toBe( '3' );
+		expect( rail.querySelectorAll( '.pixelgrade-styles-preview__grade' ) ).toHaveLength( 3 );
+	} );
+
 	test( 'renders the canonical Primary Body Secondary roles', () => {
 		const root = renderPreview( 'typography', typography );
 		const preview = root.querySelector( '[role="img"]' );

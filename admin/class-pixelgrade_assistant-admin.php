@@ -337,14 +337,14 @@ class PixelgradeAssistant_Admin {
      * Register the stylesheets for the admin area.
      */
     public function enqueue_styles() {
-	        if ( self::is_pixelgrade_admin_hub() ) {
-	            // The modern hub shell is built on @wordpress/components; load WP core's component styles.
-	            wp_enqueue_style( 'wp-components' );
-	            self::enqueue_styles_preview_style();
-	            // Self-contained Help/KB panel styles (master-detail layout, feedback, escalation).
-	            self::enqueue_help_panel_style();
-	        }
-	    }
+		if ( self::is_pixelgrade_admin_hub() ) {
+			// The modern hub shell is built on @wordpress/components; load WP core's component styles.
+			wp_enqueue_style( 'wp-components' );
+			self::enqueue_styles_preview_style();
+			// Self-contained Help/KB panel styles (master-detail layout, feedback, escalation).
+			self::enqueue_help_panel_style();
+		}
+	}
 
 	/**
 	 * Enqueue the scoped Design System preview board stylesheet.
