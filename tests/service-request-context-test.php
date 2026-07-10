@@ -20,6 +20,10 @@ function pixassist_service_context_assert_same( $expected, $actual, $message ) {
 }
 
 function home_url( $path = '' ) {
+	if ( isset( $GLOBALS['pixassist_service_test_home_url'] ) ) {
+		return $GLOBALS['pixassist_service_test_home_url'];
+	}
+
 	return 'https://example.test/subsite' . $path;
 }
 
@@ -107,6 +111,18 @@ $bootstrap = file_get_contents( __DIR__ . '/../pixelgrade-assistant.php' );
 pixassist_service_context_assert_same( true, false !== strpos( $bootstrap, "define( 'PIXELGRADE_ASSISTANT__VERSION'" ), 'The plugin bootstrap must define the version constant used by service context.' );
 pixassist_service_context_assert_same( true, false !== strpos( $bootstrap, 'PixelgradeAssistant::instance( __FILE__, PIXELGRADE_ASSISTANT__VERSION )' ), 'The plugin singleton must share the service-context version source.' );
 
+preg_match( '/^ \* Version:\s*([^\s]+)$/m', $bootstrap, $plugin_header_match );
+preg_match( "/define\( 'PIXELGRADE_ASSISTANT__VERSION', '([^']+)' \)/", $bootstrap, $version_constant_match );
+preg_match( '/^Stable tag:\s*([^\s]+)$/m', file_get_contents( __DIR__ . '/../readme.txt' ), $stable_tag_match );
+$package_data = json_decode( file_get_contents( __DIR__ . '/../package.json' ), true );
+$public_versions = array(
+	isset( $plugin_header_match[1] ) ? $plugin_header_match[1] : '',
+	isset( $version_constant_match[1] ) ? $version_constant_match[1] : '',
+	isset( $stable_tag_match[1] ) ? $stable_tag_match[1] : '',
+	isset( $package_data['version'] ) ? $package_data['version'] : '',
+);
+pixassist_service_context_assert_same( 1, count( array_unique( $public_versions ) ), 'Plugin header, service-context constant, stable tag, and package version must stay synchronized.' );
+
 $context = pixassist_get_service_request_context( 'Remote Config Requested!' );
 
 pixassist_service_context_assert_same( 'https://example.test/subsite/', $context['site_url'], 'Context must use the canonical WordPress home URL.' );
@@ -120,6 +136,11 @@ pixassist_service_context_assert_same( false, $context['site_data']['wp']['rtl']
 pixassist_service_context_assert_same( 'staging', $context['site_data']['environment_type'], 'Context must identify the WordPress environment type.' );
 pixassist_service_context_assert_same( '2.0.0-test', $context['site_data']['pixelgrade_assistant']['version'], 'Context must identify the Assistant version.' );
 pixassist_service_context_assert_same( 77, $context['customer_data']['id'], 'Context may include the already-connected Pixelgrade customer ID.' );
+
+$GLOBALS['pixassist_service_test_home_url'] = 'https://alice:secret@example.test:8443/subsite/?access_token=private#account';
+$safe_url_context = pixassist_get_service_request_context( 'starter_manifest_requested' );
+pixassist_service_context_assert_same( 'https://example.test:8443/subsite/', $safe_url_context['site_url'], 'Canonical URLs must drop credentials, query strings, and fragments.' );
+unset( $GLOBALS['pixassist_service_test_home_url'] );
 
 $payload = pixassist_add_service_request_context(
 	array(
