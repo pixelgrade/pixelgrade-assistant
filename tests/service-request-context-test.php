@@ -103,6 +103,10 @@ function pixassist_get_account() {
 
 require_once __DIR__ . '/../includes/service-request-context.php';
 
+$bootstrap = file_get_contents( __DIR__ . '/../pixelgrade-assistant.php' );
+pixassist_service_context_assert_same( true, false !== strpos( $bootstrap, "define( 'PIXELGRADE_ASSISTANT__VERSION'" ), 'The plugin bootstrap must define the version constant used by service context.' );
+pixassist_service_context_assert_same( true, false !== strpos( $bootstrap, 'PixelgradeAssistant::instance( __FILE__, PIXELGRADE_ASSISTANT__VERSION )' ), 'The plugin singleton must share the service-context version source.' );
+
 $context = pixassist_get_service_request_context( 'Remote Config Requested!' );
 
 pixassist_service_context_assert_same( 'https://example.test/subsite/', $context['site_url'], 'Context must use the canonical WordPress home URL.' );
