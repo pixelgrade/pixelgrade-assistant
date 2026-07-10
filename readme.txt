@@ -4,7 +4,7 @@ Tags: dashboard, starter-content, demo-content, recommended-plugins, pixelgrade
 Requires at least: 5.9
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 2.2.1
+Stable tag: 2.2.2
 License: GPLv3.0
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -103,8 +103,10 @@ Pixelgrade Assistant does not perform advertising, cross-site, or event-level be
 
 == Changelog ==
 
-= 2.2.1 =
+= 2.2.2 =
 * Service infrastructure: functional Pixelgrade requests now use a documented first-party site registry with explicit URL/stack context and aggregate service reporting.
+
+= 2.2.1 =
 * Fix: remote theme-configuration lookups are now strictly rate-limited with a cached fallback, eliminating the excessive background requests to pixelgrade.com that some installs generated.
 * Fix: a PHP 8.2 deprecation notice (dynamic property) in the navigation menu integration.
 * Fix: the editor docs launcher now uses WordPress core's interface package, avoiding a duplicate `core/interface` store warning in the Site Editor.
