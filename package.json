@@ -20,6 +20,7 @@
 		"production": "gulp compile:production --production && gulp compile:styles",
 		"distribution": "gulp compile:distribution --production && gulp compile:styles",
 		"build:modern": "wp-scripts build",
+		"test": "wp-scripts test-unit-js admin/src-modern/docs/events.test.js",
 		"start:modern": "wp-scripts start",
 		"preinstall": "cd ./node-tasks/ && npm install && node ./lock_node_version.js"
 	},

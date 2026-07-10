@@ -366,6 +366,28 @@
   }
 }
 
+// Companion guide mode (openGuide): article-styled content + an action-button row.
+.pixelgrade-docs__guide {
+  padding: 16px 20px 20px;
+
+  .novablocks-practice-steps,
+  ol[class*="-steps"] {
+    list-style: none;
+    margin: 12px 0 0;
+    padding: 0;
+
+    li { margin-bottom: 8px; }
+    li.is-done { opacity: 0.6; }
+  }
+}
+
+.pixelgrade-docs__guide-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+
 // Compact-but-legible type for the narrow (360px) window — overrides the comfortable panel scale.
 .pixelgrade-docs--window .pixelgrade-docs__article-content.entry-content {
   font-size: 14px;

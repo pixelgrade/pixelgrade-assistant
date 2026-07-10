@@ -9,6 +9,8 @@
 
 export const DOCS_EVENT_OPEN_ARTICLE = 'pixelgrade-docs:open-article';
 export const DOCS_EVENT_OPEN_BROWSE = 'pixelgrade-docs:open-browse';
+export const DOCS_EVENT_OPEN_GUIDE = 'pixelgrade-docs:open-guide';
+export const DOCS_EVENT_GUIDE_ACTION = 'pixelgrade-docs:guide-action';
 export const DOCS_EVENT_CLOSE = 'pixelgrade-docs:close';
 export const DOCS_EVENT_OPENSTATE = 'pixelgrade-docs:openstate';
 
@@ -46,6 +48,91 @@ export function openDocsArticle( payload ) {
 	window.dispatchEvent( new window.CustomEvent( DOCS_EVENT_OPEN_ARTICLE, { detail: payload || {} } ) );
 
 	return true;
+}
+
+function normalizeGuideAction( action ) {
+	if ( ! action || 'object' !== typeof action ) {
+		return null;
+	}
+
+	const id = 'string' === typeof action.id ? action.id.trim() : '';
+	const label = 'string' === typeof action.label ? action.label.trim() : '';
+
+	if ( ! id || ! label ) {
+		return null;
+	}
+
+	return {
+		id,
+		label,
+		...( true === action.isDestructive ? { isDestructive: true } : {} ),
+	};
+}
+
+/**
+ * Reduce the public guide API to plain, serializable descriptors. HTML is intentionally accepted
+ * only as a string and remains a trusted-companion boundary; callers must never interpolate remote,
+ * user-authored, or third-party markup without sanitizing it first.
+ */
+export function normalizeDocsGuidePayload( payload ) {
+	if ( ! payload || 'object' !== typeof payload || Array.isArray( payload ) ) {
+		return null;
+	}
+
+	const id = 'string' === typeof payload.id ? payload.id.trim() : '';
+	const title = 'string' === typeof payload.title ? payload.title : '';
+	const content = 'string' === typeof payload.content ? payload.content : '';
+
+	if ( ! id || ! content.trim() ) {
+		return null;
+	}
+
+	return {
+		id,
+		title,
+		content,
+		actions: Array.isArray( payload.actions )
+			? payload.actions.map( normalizeGuideAction ).filter( Boolean )
+			: [],
+	};
+}
+
+/**
+ * Fire-and-forget opener for a companion-authored guide in the floating window. Companions (Nova
+ * Blocks, Style Manager, …) call window.pixelgradeAdminHub.docs.openGuide( { id, title, content,
+ * actions } ) with a SERIALIZABLE payload: `content` is an HTML string rendered like an article body,
+ * `actions` is an array of { id, label, isDestructive? } rendered as buttons that dispatch
+ * DOCS_EVENT_GUIDE_ACTION back to the companion. Re-dispatching with the same `id` updates the guide
+ * in place (live checklists). Guide requests are NOT persisted across page loads — the companion
+ * re-opens when its context is back. Returns truthy only while a window is mounted, same delivery
+ * attestation as openDocsArticle, so callers keep their own fallback UI otherwise.
+ */
+export function openDocsGuide( payload ) {
+	if ( 'undefined' === typeof window || ! window.CustomEvent || listenerCount() < 1 ) {
+		return false;
+	}
+
+	const guide = normalizeDocsGuidePayload( payload );
+
+	if ( ! guide ) {
+		return false;
+	}
+
+	window.dispatchEvent( new window.CustomEvent( DOCS_EVENT_OPEN_GUIDE, { detail: guide } ) );
+
+	return true;
+}
+
+/**
+ * Dispatched by the window when a guide action button is clicked; the companion that opened the
+ * guide listens for DOCS_EVENT_GUIDE_ACTION and matches on its own guideId.
+ */
+export function emitDocsGuideAction( guideId, actionId ) {
+	if ( 'undefined' === typeof window || ! window.CustomEvent ) {
+		return;
+	}
+
+	window.dispatchEvent( new window.CustomEvent( DOCS_EVENT_GUIDE_ACTION, { detail: { guideId, actionId } } ) );
 }
 
 /**

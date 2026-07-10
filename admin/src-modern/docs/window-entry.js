@@ -10,7 +10,7 @@
 import { createElement, createRoot, render } from '@wordpress/element';
 import { createSlotFill } from '@wordpress/components';
 import { getDocsData } from './data';
-import { openDocsArticle } from './events';
+import { openDocsArticle, openDocsGuide } from './events';
 import { DocsArticleWindow } from './KbPanel';
 
 const SLOT_FILL = createSlotFill( 'pixelgrade-docs' );
@@ -24,6 +24,9 @@ if ( 'undefined' !== typeof window ) {
 		EscalationFill: SLOT_FILL.Fill,
 		// Companions (Style Manager, Nova Blocks, …) open a contextual article in-place.
 		openArticle: openDocsArticle,
+		// Companions push a serializable guide ({ id, title, content, actions }) into the window;
+		// action clicks come back as `pixelgrade-docs:guide-action` events. See events.js.
+		openGuide: openDocsGuide,
 	} );
 }
 

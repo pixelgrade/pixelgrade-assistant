@@ -35,7 +35,10 @@ import {
 	DOCS_EVENT_CLOSE,
 	DOCS_EVENT_OPEN_ARTICLE,
 	DOCS_EVENT_OPEN_BROWSE,
+	DOCS_EVENT_OPEN_GUIDE,
 	DOCS_EVENT_OPENSTATE,
+	emitDocsGuideAction,
+	normalizeDocsGuidePayload,
 	registerDocsWindowListener,
 	setDocsOpenCookie,
 	unregisterDocsWindowListener,
@@ -848,6 +851,56 @@ function defaultDocsWindowPosition() {
 }
 
 /**
+ * Companion-authored guide body (openDocsGuide()): pre-rendered HTML styled like an article, plus
+ * action buttons that dispatch DOCS_EVENT_GUIDE_ACTION back to the companion that owns the guide.
+ * The payload is fully serializable — no companion React crosses into this root. Inline elements
+ * carrying a `data-guide-action` attribute inside the content dispatch the same way, so guides can
+ * embed contextual links (e.g. "Show me the block") without shipping any script.
+ */
+function GuideView( { guide } ) {
+	const actions = Array.isArray( guide.actions ) ? guide.actions : [];
+
+	const onContentClick = ( event ) => {
+		const trigger = event.target && event.target.closest ? event.target.closest( '[data-guide-action]' ) : null;
+
+		if ( ! trigger ) {
+			return;
+		}
+
+		event.preventDefault();
+		emitDocsGuideAction( guide.id, trigger.getAttribute( 'data-guide-action' ) );
+	};
+
+	return createElement(
+		'div',
+		{ className: 'pixelgrade-docs__guide' },
+		createElement( 'div', {
+			className: 'pixelgrade-docs__article-content entry-content',
+			onClick: onContentClick,
+			dangerouslySetInnerHTML: { __html: guide.content },
+		} ),
+		actions.length
+			? createElement(
+					'div',
+					{ className: 'pixelgrade-docs__guide-actions' },
+					actions.map( ( action ) =>
+						createElement(
+							Button,
+							{
+								key: action.id,
+								variant: 'secondary',
+								isDestructive: !! action.isDestructive,
+								onClick: () => emitDocsGuideAction( guide.id, action.id ),
+							},
+							action.label
+						)
+					)
+			  )
+			: null
+	);
+}
+
+/**
  * In-editor article pop-up — a MODELESS, draggable, minimizable floating window (not a blocking
  * modal). Listens for openDocsArticle(), fetches a single (fresh) article, and shows it over the
  * editor while the editor stays fully interactive, so the user can read a doc and act on it at the
@@ -893,6 +946,13 @@ export function DocsArticleWindow( props ) {
 	const previousFocusRef = useRef( null );
 	const closeRef = useRef( null );
 	const justOpenedRef = useRef( false );
+	// Mirror of `request` for the mount-only event listeners (guide re-pushes must know the current
+	// request without re-registering listeners).
+	const requestRef = useRef( null );
+
+	useEffect( () => {
+		requestRef.current = request;
+	}, [ request ] );
 
 	// Return focus to whatever was focused when the window opened (a11y: a surface that programmatically
 	// takes focus must hand it back on dismiss). Best-effort; guard against the trigger leaving the DOM.
@@ -941,6 +1001,24 @@ export function DocsArticleWindow( props ) {
 			setRequest( ( prev ) => ( prev ? prev : { browse: true } ) );
 			setMinimized( false );
 		};
+		const onOpenGuide = ( event ) => {
+			// Normalize again at the receiving boundary so direct CustomEvent dispatches cannot bypass
+			// the public openGuide() contract.
+			const payload = normalizeDocsGuidePayload( event && event.detail );
+			if ( ! payload ) {
+				return;
+			}
+			// A re-push of the SAME guide is a live content update (e.g. a checklist step completing):
+			// swap the payload in place without stealing focus or un-minimizing the window.
+			const prev = requestRef.current;
+			const sameGuide = !! ( prev && prev.guide && prev.guide.id === payload.id );
+			if ( ! sameGuide ) {
+				rememberTrigger();
+				justOpenedRef.current = true;
+				setMinimized( false );
+			}
+			setRequest( { guide: payload } );
+		};
 		const onCloseEvent = () => {
 			if ( closeRef.current ) {
 				closeRef.current();
@@ -950,12 +1028,14 @@ export function DocsArticleWindow( props ) {
 		registerDocsWindowListener();
 		window.addEventListener( DOCS_EVENT_OPEN_ARTICLE, onOpenArticle );
 		window.addEventListener( DOCS_EVENT_OPEN_BROWSE, onOpenBrowse );
+		window.addEventListener( DOCS_EVENT_OPEN_GUIDE, onOpenGuide );
 		window.addEventListener( DOCS_EVENT_CLOSE, onCloseEvent );
 
 		return () => {
 			unregisterDocsWindowListener();
 			window.removeEventListener( DOCS_EVENT_OPEN_ARTICLE, onOpenArticle );
 			window.removeEventListener( DOCS_EVENT_OPEN_BROWSE, onOpenBrowse );
+			window.removeEventListener( DOCS_EVENT_OPEN_GUIDE, onOpenGuide );
 			window.removeEventListener( DOCS_EVENT_CLOSE, onCloseEvent );
 		};
 	}, [] );
@@ -963,6 +1043,16 @@ export function DocsArticleWindow( props ) {
 	// Fetch the requested article (cache-first, fresh retry on a miss, online fallback otherwise).
 	useEffect( () => {
 		if ( ! request ) {
+			return undefined;
+		}
+
+		// Guide mode carries its own pre-rendered content — nothing to fetch.
+		if ( request.guide ) {
+			setLoading( false );
+			setNotFound( false );
+			setArticle( null );
+			setFeedback( {} );
+
 			return undefined;
 		}
 
@@ -1047,10 +1137,13 @@ export function DocsArticleWindow( props ) {
 	// Persist position + minimized + the open request so the window reopens where the user left it
 	// (and on the next admin page). The cookie must track `request` too, so it's a dependency.
 	useEffect( () => {
-		saveDocsWindowState( { left: position.left, top: position.top, minimized, request, browseArticleId } );
+		// Guides are page-scoped (their owner re-opens them when its context is back), so they neither
+		// persist across reloads nor keep the follow-everywhere cookie alive.
+		const persistableRequest = request && request.guide ? null : request;
+		saveDocsWindowState( { left: position.left, top: position.top, minimized, request: persistableRequest, browseArticleId } );
 		// Mirror open/closed to a cookie so PHP enqueues the window bundle on the next admin page only
 		// while it's open — this is what makes it follow the user without loading anything when closed.
-		setDocsOpenCookie( !! request );
+		setDocsOpenCookie( !! persistableRequest );
 	}, [ position.left, position.top, minimized, request, browseArticleId ] );
 
 	// Broadcast open/minimized state so the editor toolbar toggle can reflect it (pressed/active).
@@ -1065,7 +1158,7 @@ export function DocsArticleWindow( props ) {
 	// Modeless focus: move focus into the panel ONCE when it opens (NOT trapped — the user can tab
 	// back out, and we don't steal focus on every drill-down while browsing).
 	useEffect( () => {
-		const ready = !! request && ! minimized && ( !! request.browse || !! article );
+		const ready = !! request && ! minimized && ( !! request.browse || !! request.guide || !! article );
 		if ( ready && justOpenedRef.current && panelRef.current && panelRef.current.focus ) {
 			panelRef.current.focus();
 			justOpenedRef.current = false;
@@ -1145,9 +1238,11 @@ export function DocsArticleWindow( props ) {
 		voteArticle( current, direction, { surface: 'docs-window', articleId: current.id } ).catch( () => {} );
 	};
 
-	const title = article
-		? article.title
-		: ( loading ? getCopy( 'articleLoading', __( 'Loading article…', 'pixelgrade_assistant' ) ) : getCopy( 'title', __( 'Pixelgrade Design Docs', 'pixelgrade_assistant' ) ) );
+	const title = request.guide && request.guide.title
+		? request.guide.title
+		: ( article
+			? article.title
+			: ( loading ? getCopy( 'articleLoading', __( 'Loading article…', 'pixelgrade_assistant' ) ) : getCopy( 'title', __( 'Pixelgrade Design Docs', 'pixelgrade_assistant' ) ) ) );
 
 	// Minimized: a small chip docked bottom-left; click to restore, with its own close.
 	if ( minimized ) {
@@ -1179,7 +1274,10 @@ export function DocsArticleWindow( props ) {
 
 	let body;
 
-	if ( browseMode ) {
+	if ( request.guide ) {
+		// Companion guide: pre-rendered content + action buttons wired back over the event bus.
+		body = createElement( GuideView, { guide: request.guide } );
+	} else if ( browseMode ) {
 		body = createElement( KbPanel, {
 			context: windowContext,
 			layout: 'compact',
