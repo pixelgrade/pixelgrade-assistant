@@ -57,6 +57,7 @@ if ( ! function_exists( 'pixassist_get_starter_sites_data' ) ) {
 
 		return array(
 			'starters'  => $starters,
+			'serviceContext' => function_exists( 'pixassist_get_service_request_context' ) ? pixassist_get_service_request_context( 'starter_manifest_requested' ) : array(),
 			'siteAnalysis' => pixassist_get_starter_site_analysis(),
 			'copy'      => pixassist_get_starter_sites_copy( pixassist_get_starter_sites_config() ),
 			'endpoints' => pixassist_get_starter_sites_endpoints(),

@@ -4,6 +4,8 @@
     },
     "scripts": {
         "test": [
+            "php tests/service-request-context-test.php",
+            "php tests/starter-service-context-ui-test.php",
             "php tests/plus-status-contract-test.php",
             "php tests/built-asset-test.php",
             "php tests/editor-docs-bundle-test.php",

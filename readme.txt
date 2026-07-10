@@ -32,9 +32,10 @@ Looking for more? **Pixelgrade Plus** is the optional premium companion that add
 
 Pixelgrade Assistant runs almost entirely on your own site — installing recommended plugins (from WordPress.org), documentation links, and the stack-health information never leave your server. A few features reach Pixelgrade-hosted services, described below. No Pixelgrade.com account is required for any of them.
 
-* **Theme configuration (pixelgrade.com).** When you open the Pixelgrade Assistant screen, the plugin requests a small configuration file for your theme from `https://pixelgrade.com` (`/wp-json/pxm/v2/front/get_config`). It sends only your theme identifier, the result is cached locally, and it is not requested on every page load or on a schedule.
-* **Starter content (demos.pixelgrade.com).** When — and only when — you click Import on the starter content, the plugin downloads your theme's demo content (text, settings, menus, and images) from `https://demos.pixelgrade.com`. Nothing is downloaded until you start an import, and no account is required.
-* **Optional usage data (cloud.pixelgrade.com).** If — and only if — you opt in, the plugin shares non-identifying information about your WordPress install — and, when you use the Customizer with Style Manager, your custom color-palette and design choices plus your site language — with the Pixelgrade Cloud API (`https://cloud.pixelgrade.com`, `/wp-json/pixcloud/v1/front/stats`) so we can improve the free Pixelgrade stack and assist you faster. This is off by default.
+* **Theme configuration and documentation (pixelgrade.com).** When Pixelgrade Assistant needs the configuration or documentation for your active theme, it requests it from `https://pixelgrade.com` (`/wp-json/pxm/v2/front/`). Responses are cached locally, so they are not requested on every page load.
+* **Starter content (starter.pixelgrade.com and demos.pixelgrade.com).** When you browse or apply a starter, layout, or page, the plugin requests the corresponding manifest and content from Pixelgrade-hosted starter sources. No account is required.
+* **Design assets (cloud.pixelgrade.com).** Style Manager requests compatible palettes, fonts, and theme configuration from the Pixelgrade Cloud API (`https://cloud.pixelgrade.com`, `/wp-json/pixcloud/v1/front/design_assets`). The request includes the current color-palette identifier, variation, and customized state when available.
+* **First-party site registry (automatic).** The functional requests above automatically include your canonical site URL, active theme and version, WordPress and Pixelgrade plugin versions, site language, RTL state, environment type, and — only when already connected — the numeric Pixelgrade customer ID. Pixelgrade retains the normalized URL, first/last-seen dates, latest observed service, stack details, and aggregate daily request counts at `https://cloud.pixelgrade.com` (`/wp-json/pixcloud/v1/front/stats`). The registry does not include site content, credentials, license hashes, support messages, email addresses, user names, or IP addresses. These requests are described as observed service traffic, not as clicks or completed user actions.
 
 The WordPress.org build never downloads or installs plugin code from servers other than WordPress.org.
 
@@ -89,9 +90,7 @@ No. If Pixelgrade Care (our legacy companion for premium themes) is active, Pixe
 
 = Is this plugin tracking me? =
 
-No. We are not tracking you or your site. Sharing is entirely optional and off by default. If you opt in, we collect non-specific theme usage data and information about your WordPress install so we can improve the free Pixelgrade stack and help you faster when you reach out - we are a small team and need to be as efficient as possible.
-
-*It is up to you if you are willing to share this data with us.* We respect your decision. We truly appreciate it if you do, but we will do our best to serve you regardless.
+Pixelgrade Assistant does not perform advertising, cross-site, or event-level behavioral tracking. The first-party services required for configuration, documentation, design assets, and starter content automatically retain your canonical site URL and the minimal operational context listed in the External services section. They do not receive your site content, credentials, license hashes, support messages, email address, user name, or IP address as part of the site registry.
 
 == Screenshots ==
 
@@ -105,6 +104,7 @@ No. We are not tracking you or your site. Sharing is entirely optional and off b
 == Changelog ==
 
 = 2.2.1 =
+* Service infrastructure: functional Pixelgrade requests now use a documented first-party site registry with explicit URL/stack context and aggregate service reporting.
 * Fix: remote theme-configuration lookups are now strictly rate-limited with a cached fallback, eliminating the excessive background requests to pixelgrade.com that some installs generated.
 * Fix: a PHP 8.2 deprecation notice (dynamic property) in the navigation menu integration.
 * Fix: the editor docs launcher now uses WordPress core's interface package, avoiding a duplicate `core/interface` store warning in the Site Editor.

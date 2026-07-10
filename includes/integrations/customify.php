@@ -52,6 +52,10 @@ function pixassist_add_site_data_to_customify_cloud_request_data( $site_data ) {
 
 	$site_data['wp']['language'] = get_bloginfo('language');
 	$site_data['wp']['rtl'] = is_rtl();
+	$site_data['environment_type'] = function_exists( 'wp_get_environment_type' ) ? wp_get_environment_type() : 'production';
+	$site_data['pixelgrade_assistant'] = array(
+		'version' => defined( 'PIXELGRADE_ASSISTANT__VERSION' ) ? PIXELGRADE_ASSISTANT__VERSION : '',
+	);
 
 	return $site_data;
 }

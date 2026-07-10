@@ -1348,20 +1348,25 @@ class PixelgradeAssistant_Admin {
 				'url'    => PIXELGRADE_ASSISTANT__API_BASE . 'wp-json/pxm/v2/front/get_config',
 			);
 
+		$request_body = array(
+			'hash_id' => $theme_id,
+			// The theme SKU (e.g. anima-lt) disambiguates products that share a hash. Anima's
+			// hash (QBAXY) is shared by every premium LT product, so without the SKU the
+			// Manager cannot resolve which product config to return. See #59.
+			'sku'     => self::get_original_theme_slug(),
+			// This is the Pixelgrade Assistant Manager configuration version, not the API version.
+			// @todo this parameter naming is quite confusing.
+			'version' => self::$pixelgrade_assistant_manager_api_version,
+		);
+		if ( function_exists( 'pixassist_add_service_request_context' ) ) {
+			$request_body = pixassist_add_service_request_context( $request_body, 'remote_config_requested' );
+		}
+
 		$request_args = array(
 			'method'    => $get_config['method'],
 			'timeout'   => 4,
 			'blocking'  => true,
-			'body'      => array(
-				'hash_id' => $theme_id,
-				// The theme SKU (e.g. anima-lt) disambiguates products that share a hash. Anima's
-				// hash (QBAXY) is shared by every premium LT product, so without the SKU the
-				// Manager cannot resolve which product config to return. See #59.
-				'sku'     => self::get_original_theme_slug(),
-				// This is the Pixelgrade Assistant Manager configuration version, not the API version.
-				// @todo this parameter naming is quite confusing.
-				'version' => self::$pixelgrade_assistant_manager_api_version,
-			),
+			'body'      => $request_body,
 			'sslverify' => true,
 		);
 
