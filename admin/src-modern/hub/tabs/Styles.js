@@ -8,6 +8,8 @@ import { createElement } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
 import { Button, Card, CardBody } from '@wordpress/components';
 
+import { LiveStylePreview } from '../LiveStylePreview';
+
 const DEFAULT_STYLES = {
 	copy: {
 		title: __( 'Your Site Design System', 'pixelgrade_assistant' ),
@@ -63,24 +65,32 @@ function renderBadge( destination ) {
 	);
 }
 
-function renderDestination( destination ) {
+function renderDestination( destination, previewPayload ) {
 	const variant = destination.isProminent ? 'primary' : 'secondary';
 	const buttonVariant = destination.isLocked && ! destination.isProminent ? 'tertiary' : variant;
+	const liveData = previewPayload && previewPayload[ destination.id ] ? previewPayload[ destination.id ] : null;
 	const image = destination.image
 		? createElement(
 			'img',
 			{
-				alt: destination.imageAlt || '',
+				alt: liveData ? '' : ( destination.imageAlt || '' ),
+				'aria-hidden': liveData ? true : undefined,
+				className: 'pixelgrade-styles__preview-fallback',
 				src: destination.image,
-				style: {
-					aspectRatio: '16 / 9',
-					borderBottom: '1px solid #dcdcde',
-					display: 'block',
-					height: 'auto',
-					objectFit: 'cover',
-					width: '100%',
-				},
 			}
+		)
+		: null;
+	const livePreview = liveData
+		? createElement( LiveStylePreview, { type: destination.id, data: liveData } )
+		: null;
+	const preview = image || livePreview
+		? createElement(
+			'div',
+			{
+				className: 'pixelgrade-styles__preview-frame' + ( livePreview ? ' has-live-preview' : '' ),
+			},
+			image,
+			livePreview
 		)
 		: null;
 
@@ -91,10 +101,10 @@ function renderDestination( destination ) {
 			className: 'pixelgrade-styles__destination pixelgrade-styles__destination--' + destination.id,
 			style: {
 				borderColor: destination.isProminent ? '#c3c4c7' : undefined,
-				overflow: destination.image ? 'hidden' : undefined,
+				overflow: preview ? 'hidden' : undefined,
 			},
 		},
-		image,
+		preview,
 		createElement(
 			CardBody,
 			null,
@@ -132,6 +142,7 @@ export function Styles() {
 	const copy = mergeCopy( data.copy );
 	const destinations = Array.isArray( data.destinations ) ? data.destinations : [];
 	const primary = data.primaryAction || {};
+	const previewPayload = data.previewPayload || null;
 
 	return createElement(
 		'div',
@@ -170,7 +181,7 @@ export function Styles() {
 					gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))',
 				},
 			},
-			destinations.map( renderDestination )
+			destinations.map( ( destination ) => renderDestination( destination, previewPayload ) )
 		)
 	);
 }

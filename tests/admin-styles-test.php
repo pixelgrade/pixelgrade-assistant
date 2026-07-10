@@ -269,10 +269,15 @@ assert_same( null, paf_find_destination( $styles['destinations'], 'motion' ), 'M
 $tabs_js  = file_get_contents( __DIR__ . '/../admin/src-modern/hub/tabs/index.js' );
 $styles_js = file_get_contents( __DIR__ . '/../admin/src-modern/hub/tabs/Styles.js' );
 $admin_php = file_get_contents( __DIR__ . '/../admin/class-pixelgrade_assistant-admin.php' );
+$preview_css_path = __DIR__ . '/../admin/css/styles-preview.css';
 
 assert_true( false !== strpos( $tabs_js, 'pixelgrade-assistant/styles' ), 'The Styles component must be registered on the JS tab registry.' );
 assert_true( false !== strpos( $styles_js, 'pixelgradeStyles' ), 'The Styles component must read the tab-specific localized payload.' );
 assert_true( false !== strpos( $styles_js, 'destination.image' ), 'The Styles component must render section preview images when available.' );
+assert_true( false !== strpos( $styles_js, 'LiveStylePreview' ), 'The Styles component must render normalized live preview boards when available.' );
 assert_true( false !== strpos( $admin_php, 'pixelgradeStyles' ), 'The admin enqueue must localize the Styles payload.' );
+assert_true( false !== strpos( $admin_php, 'admin/css/styles-preview.css' ), 'The Pixelgrade hub must enqueue the scoped live preview stylesheet.' );
+assert_true( file_exists( $preview_css_path ), 'The scoped live preview stylesheet must exist.' );
+assert_true( false !== strpos( file_get_contents( $preview_css_path ), '@container (max-width: 260px)' ), 'The live boards must include the validated compact card layout.' );
 
 echo "Admin Styles tab OK\n";
