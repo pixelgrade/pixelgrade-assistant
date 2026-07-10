@@ -125,13 +125,18 @@ class PixelgradeAssistant_Help {
 		// A genuinely unregistered SKU just comes back empty (missing_sku) and is cached as such. See #59.
 		$endpoint = self::get_categories_endpoint();
 
+		$query_args = array(
+			'kb_current_product_sku' => self::get_kb_product_sku(),
+			'hash_id'                => PixelgradeAssistant_Admin::get_theme_hash_id(),
+			'type'                   => PixelgradeAssistant_Admin::get_theme_type(),
+		);
+		if ( function_exists( 'pixassist_add_service_request_context' ) ) {
+			$query_args = pixassist_add_service_request_context( $query_args, 'docs_categories_requested' );
+		}
+
 		$response = wp_remote_get(
 			add_query_arg(
-				array(
-					'kb_current_product_sku' => self::get_kb_product_sku(),
-					'hash_id'                => PixelgradeAssistant_Admin::get_theme_hash_id(),
-					'type'                   => PixelgradeAssistant_Admin::get_theme_type(),
-				),
+				$query_args,
 				$endpoint
 			),
 			array(

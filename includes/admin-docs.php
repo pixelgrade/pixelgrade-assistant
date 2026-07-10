@@ -429,6 +429,9 @@ if ( ! function_exists( 'pixassist_record_docs_vote' ) ) {
 			'vote'                   => $direction,
 			'kb_current_product_sku' => pixassist_docs_product_sku(),
 		);
+		if ( function_exists( 'pixassist_add_service_request_context' ) ) {
+			$body = pixassist_add_service_request_context( $body, 'docs_feedback_submitted' );
+		}
 
 		$endpoint = class_exists( 'PixelgradeAssistant_Help' ) && method_exists( 'PixelgradeAssistant_Help', 'get_voting_endpoint' )
 			? PixelgradeAssistant_Help::get_voting_endpoint()

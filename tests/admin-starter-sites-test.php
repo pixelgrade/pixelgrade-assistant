@@ -386,7 +386,7 @@ $GLOBALS['paf_options']['imported_starter_content'] = array(
 $payload = pixassist_get_starter_sites_data();
 $keys    = array_keys( $payload );
 sort( $keys );
-assert_same( array( 'applied', 'collectionNews', 'copy', 'endpoints', 'imported', 'plus', 'siteAnalysis', 'starters' ), $keys, 'Starter Sites payload must expose starters, site analysis, unified applied state, endpoints, imported, collection news, and Plus state.' );
+assert_same( array( 'applied', 'collectionNews', 'copy', 'endpoints', 'imported', 'plus', 'serviceContext', 'siteAnalysis', 'starters' ), $keys, 'Starter Sites payload must expose starters, service context, site analysis, unified applied state, endpoints, imported, collection news, and Plus state.' );
 assert_same( 4, count( $payload['starters'] ), 'Payload starters must come from the same normalized free + injected list.' );
 assert_same( 'Starter Sites', $payload['copy']['title'], 'Payload copy must include a tab title.' );
 assert_same( 'Pick a free starter design, then choose how much of it to apply. (“LT” is our Anima LT theme line — each starter is built on it.)', $payload['copy']['description'], 'Starter Sites description must frame the gallery as a chooser (not a legacy demo-content import) and explain the "LT" lineage naming. Quotes must be curly so esc_html does not emit &quot; into React text.' );

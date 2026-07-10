@@ -455,6 +455,44 @@ async function fetchJson( url, options = {} ) {
 	return response.json();
 }
 
+function appendServiceContextParams( params, value, prefix = '' ) {
+	if ( null === value || undefined === value || '' === value ) {
+		return;
+	}
+
+	if ( Array.isArray( value ) ) {
+		value.forEach( ( item, index ) => appendServiceContextParams( params, item, prefix + '[' + index + ']' ) );
+		return;
+	}
+
+	if ( 'object' === typeof value ) {
+		Object.keys( value ).forEach( ( key ) => {
+			const nextPrefix = prefix ? prefix + '[' + key + ']' : key;
+			appendServiceContextParams( params, value[ key ], nextPrefix );
+		} );
+		return;
+	}
+
+	if ( prefix ) {
+		params.set( prefix, 'boolean' === typeof value ? ( value ? '1' : '0' ) : String( value ) );
+	}
+}
+
+export function addServiceContextToUrl( url, context, service ) {
+	if ( ! url || ! context || 'object' !== typeof context ) {
+		return url;
+	}
+
+	try {
+		const requestUrl = new URL( url, window.location.href );
+		appendServiceContextParams( requestUrl.searchParams, { ...context, service } );
+
+		return requestUrl.toString();
+	} catch ( error ) {
+		return url;
+	}
+}
+
 function formatElapsed( milliseconds ) {
 	const seconds = Math.max( 0, Math.floor( milliseconds / 1000 ) );
 
@@ -1245,7 +1283,12 @@ export async function importStarter( starter, data, copy, setProgress ) {
 		details: __( 'Contacting the starter source.', 'pixelgrade_assistant' ),
 	} );
 
-	const config = await fetchJson( trailingslash( starter.baseRestUrl ) + 'data', { method: 'GET' } );
+	const configUrl = addServiceContextToUrl(
+		trailingslash( starter.baseRestUrl ) + 'data',
+		data.serviceContext,
+		'starter_manifest_requested'
+	);
+	const config = await fetchJson( configUrl, { method: 'GET' } );
 
 	if ( ! config || 'success' !== config.code ) {
 		throw new Error( config && config.message ? config.message : copy.failed );
@@ -1279,7 +1322,12 @@ async function importStarterParts( starter, parts, data, copy, setProgress, phas
 		details: __( 'Reading the selected starter parts.', 'pixelgrade_assistant' ),
 	} );
 
-	const config = await fetchJson( trailingslash( starter.baseRestUrl ) + 'data', { method: 'GET' } );
+	const configUrl = addServiceContextToUrl(
+		trailingslash( starter.baseRestUrl ) + 'data',
+		data.serviceContext,
+		'starter_manifest_requested'
+	);
+	const config = await fetchJson( configUrl, { method: 'GET' } );
 
 	if ( ! config || 'success' !== config.code ) {
 		throw new Error( config && config.message ? config.message : copy.failed );

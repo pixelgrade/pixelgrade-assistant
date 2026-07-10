@@ -50,6 +50,9 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/host-extension-surface.php'
 // Host-owned pixelgrade.com account connection + Account hub tab.
 require_once plugin_dir_path( __FILE__ ) . 'includes/account.php';
 
+// Minimal site context shared by functional requests to Pixelgrade services.
+require_once plugin_dir_path( __FILE__ ) . 'includes/service-request-context.php';
+
 // Appearance -> Pixelgrade hub: server-side bootstrap data for the React shell.
 require_once plugin_dir_path( __FILE__ ) . 'includes/admin-hub.php';
 
