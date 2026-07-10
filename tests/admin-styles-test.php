@@ -275,6 +275,8 @@ assert_true( false !== strpos( $tabs_js, 'pixelgrade-assistant/styles' ), 'The S
 assert_true( false !== strpos( $styles_js, 'pixelgradeStyles' ), 'The Styles component must read the tab-specific localized payload.' );
 assert_true( false !== strpos( $styles_js, 'destination.image' ), 'The Styles component must render section preview images when available.' );
 assert_true( false !== strpos( $styles_js, 'LiveStylePreview' ), 'The Styles component must render normalized live preview boards when available.' );
+assert_true( false !== strpos( $styles_js, 'useDesignSystemPreview' ), 'The Styles component must request and refresh the advertised Style Manager preview contract.' );
+assert_true( false === strpos( $styles_js, 'data.previewPayload' ), 'The Styles component must not depend on a stale localized preview snapshot.' );
 assert_true( false !== strpos( $admin_php, 'pixelgradeStyles' ), 'The admin enqueue must localize the Styles payload.' );
 assert_true( false !== strpos( $admin_php, 'admin/css/styles-preview.css' ), 'The Pixelgrade hub must enqueue the scoped live preview stylesheet.' );
 assert_true( file_exists( $preview_css_path ), 'The scoped live preview stylesheet must exist.' );

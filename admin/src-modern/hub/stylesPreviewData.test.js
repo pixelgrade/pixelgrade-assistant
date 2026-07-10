@@ -7,7 +7,7 @@ import {
 	requestDesignSystemPreview,
 } from './stylesPreviewData';
 
-jest.mock( '@wordpress/api-fetch', () => jest.fn(), { virtual: true } );
+jest.mock( '@wordpress/api-fetch', () => jest.fn() );
 
 const completePayload = {
 	schemaVersion: 1,

@@ -9,6 +9,7 @@ import { __ } from '@wordpress/i18n';
 import { Button, Card, CardBody } from '@wordpress/components';
 
 import { LiveStylePreview } from '../LiveStylePreview';
+import { useDesignSystemPreview } from '../useDesignSystemPreview';
 
 const DEFAULT_STYLES = {
 	copy: {
@@ -142,7 +143,7 @@ export function Styles() {
 	const copy = mergeCopy( data.copy );
 	const destinations = Array.isArray( data.destinations ) ? data.destinations : [];
 	const primary = data.primaryAction || {};
-	const previewPayload = data.previewPayload || null;
+	const previewPayload = useDesignSystemPreview( data.designSystemPreview );
 
 	return createElement(
 		'div',
