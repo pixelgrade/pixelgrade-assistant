@@ -81,6 +81,12 @@ function get_permalink( $id ) {
 	return '';
 }
 
+// The collision branch's media-repair pass looks the existing post up; returning null makes it
+// bail, which is right for this test — it pins the id mapping, not the repair.
+function get_post( $id ) {
+	return null;
+}
+
 function get_transient( $key ) {
 	return false;
 }
