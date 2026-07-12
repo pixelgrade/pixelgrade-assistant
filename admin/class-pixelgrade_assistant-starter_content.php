@@ -8008,6 +8008,12 @@ HTML;
 
 		$params = $request->get_params();
 
+		// A step imports/sideloads in bulk (the monolithic import_starter() lifts the limit the same
+		// way) — don't let a tight max_execution_time kill a heavy posts/media step mid-write.
+		if ( function_exists( 'set_time_limit' ) ) {
+			@set_time_limit( 0 );
+		}
+
 		// We need to import posts without the intervention of the cache system
 		wp_defer_term_counting( true );
 		wp_defer_comment_counting( true );
@@ -11094,16 +11100,15 @@ HTML;
 
 		$request_args = array(
 			'method' => 'POST',
-			'timeout'   => 5,
+			// This single request returns EVERY requested post of the type, with the source rewriting
+			// each record's image URLs against the media maps in the body — on a cold or busy source
+			// that takes well past the snappy budget the small fetches use. A timeout here errors the
+			// whole posts step and aborts the rest of the import run, so give it real headroom.
+			'timeout'   => (int) apply_filters( 'pixassist_sce_posts_fetch_timeout', 30, $request_url, $args ),
 			'blocking'  => true,
 			'body'      => $request_data,
 			'sslverify' => true,
 		);
-
-		// Increase timeout if the target URL is a development one so we can account for slow local (development) installations.
-		if ( PixelgradeAssistant_Admin::is_development_url( $request_url ) ) {
-			$request_args['timeout'] = 10;
-		}
 
 		// We will do a blocking request
 		$response = wp_remote_request( $request_url, $request_args );
@@ -11192,6 +11197,13 @@ HTML;
 							// id and renders blank with an unset "Front page displays" setting.
 							$imported_ids[ $post['ID'] ] = absint( $existing_post_id );
 						}
+
+						// A skipped post can still be broken: if its media was deleted after the original
+						// import, re-importing re-downloads the files as NEW attachments (see
+						// collect_starter_media_items()) but the post keeps URLs/ids of the deleted ones and
+						// its cleared `_thumbnail_id` stays cleared. Repair importer-owned posts from the
+						// fresh source record so a re-import actually restores their images.
+						$this->maybe_repair_imported_post_media( $imported_ids[ $post['ID'] ], $post, $demo_key );
 						continue;
 					}
 				}
@@ -11372,6 +11384,124 @@ HTML;
 
 		// Return the imported post IDs
 		return $imported_ids;
+		}
+
+		/**
+		 * Repair a slug-collided post the importer itself created whose media references broke.
+		 *
+		 * When a starter is re-imported after its media library entries were deleted, the media phase
+		 * re-downloads the files as NEW attachments, but the existing posts still reference the deleted
+		 * ones: their content carries dead attachment URLs/ids and WordPress cleared their
+		 * `_thumbnail_id` when the attachments were deleted. Refresh the content from the fresh source
+		 * record — the SCE source already rewrote its image URLs/ids to the CURRENT local media map via
+		 * the `placeholders`/`ignored_images` request maps — and restore the featured image through
+		 * `get_imported_media_id()` (stashing `_pixassist_pending_thumbnail` for the end_import()
+		 * backfill when the map cannot resolve it yet).
+		 *
+		 * Guardrails: only posts carrying the `imported_with_pixassist` meta are ever touched (never
+		 * user-authored content), and content is only replaced when the local copy is actually broken
+		 * while the source copy is healthy — a healthy local post keeps any edits even if the demo
+		 * copy drifted.
+		 *
+		 * @param int    $local_post_id Existing local post id the demo record was mapped to.
+		 * @param array  $source_post   Fresh SCE source post record.
+		 * @param string $demo_key      Starter/demo key.
+		 *
+		 * @return void
+		 */
+		private function maybe_repair_imported_post_media( $local_post_id, $source_post, $demo_key ) {
+			$local_post_id = absint( $local_post_id );
+			$local_post    = $local_post_id ? get_post( $local_post_id ) : null;
+			if ( empty( $local_post ) || ! is_array( $source_post ) ) {
+				return;
+			}
+
+			// Never touch a post the importer did not create.
+			if ( ! get_post_meta( $local_post_id, 'imported_with_pixassist', true ) ) {
+				return;
+			}
+
+			if ( ! apply_filters( 'pixassist_sce_should_repair_existing_post', true, $local_post, $source_post, $demo_key ) ) {
+				return;
+			}
+
+			// Content: swap in the source copy only when the local one references deleted attachments
+			// and the source one does not.
+			$local_content  = isset( $local_post->post_content ) ? (string) $local_post->post_content : '';
+			$source_content = isset( $source_post['post_content'] ) ? (string) $source_post['post_content'] : '';
+			if ( '' !== $source_content
+				&& $source_content !== $local_content
+				&& $this->post_content_references_missing_media( $local_content )
+				&& ! $this->post_content_references_missing_media( $source_content ) ) {
+				wp_update_post( wp_slash_strings_only( array(
+					'ID'           => $local_post_id,
+					'post_content' => $source_content,
+				) ) );
+				// The import runs with cache invalidation suspended (clean_post_cache() no-ops), so
+				// get_post() would keep serving the pre-repair copy — and the post-processing pass
+				// below (guid rebase) merges its wp_update_post() from that stale copy, silently
+				// reverting this repair. Drop the cached post directly.
+				wp_cache_delete( $local_post_id, 'posts' );
+			}
+
+			// Featured image: restore it only when the current one is missing or dangling.
+			$source_thumbnail = ! empty( $source_post['meta']['_thumbnail_id'] )
+				? $this->first_numeric_media_id( $source_post['meta']['_thumbnail_id'] )
+				: 0;
+			if ( empty( $source_thumbnail ) ) {
+				return;
+			}
+
+			$current            = absint( get_post_thumbnail_id( $local_post_id ) );
+			$current_attachment = $current ? get_post( $current ) : null;
+			if ( $current_attachment && 'attachment' === $current_attachment->post_type ) {
+				return;
+			}
+
+			// The source usually ships `_thumbnail_id` already rewritten to the CURRENT local media
+			// map (the SCE source localizes meta ids along with content when the request carries the
+			// maps) — the same value the insert path persists directly. Accept it when it points at a
+			// live local attachment; otherwise treat it as a remote id and resolve through the map.
+			$resolved            = $source_thumbnail;
+			$resolved_attachment = get_post( $resolved );
+			if ( ! $resolved_attachment || 'attachment' !== $resolved_attachment->post_type ) {
+				$resolved            = $this->get_imported_media_id( $demo_key, $source_thumbnail );
+				$resolved_attachment = $resolved ? get_post( $resolved ) : null;
+			}
+
+			if ( $resolved_attachment && 'attachment' === $resolved_attachment->post_type ) {
+				set_post_thumbnail( $local_post_id, $resolved );
+			} else {
+				// Nothing resolvable yet (interrupted / out-of-order run) — stash the raw source id so
+				// backfill_pending_thumbnails() sets it once all media is in.
+				update_post_meta( $local_post_id, '_pixassist_pending_thumbnail', $source_thumbnail );
+			}
+		}
+
+		/**
+		 * Whether post content references image attachments that no longer exist.
+		 *
+		 * Core media blocks (image, cover, gallery, media-text) all stamp their rendered <img> with a
+		 * `wp-image-{id}` class, so a dead id there means the attachment behind the image was deleted.
+		 *
+		 * @param string $content Post content.
+		 *
+		 * @return bool
+		 */
+		private function post_content_references_missing_media( $content ) {
+			$content = (string) $content;
+			if ( '' === $content || ! preg_match_all( '/\bwp-image-(\d+)\b/', $content, $matches ) ) {
+				return false;
+			}
+
+			foreach ( array_unique( $matches[1] ) as $attachment_id ) {
+				$attachment = get_post( absint( $attachment_id ) );
+				if ( empty( $attachment ) || 'attachment' !== $attachment->post_type ) {
+					return true;
+				}
+			}
+
+			return false;
 		}
 
 		/**
