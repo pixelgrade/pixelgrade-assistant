@@ -4,7 +4,7 @@ Tags: dashboard, starter-content, demo-content, recommended-plugins, pixelgrade
 Requires at least: 5.9
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 2.2.1
+Stable tag: 2.2.2
 License: GPLv3.0
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -102,6 +102,9 @@ Pixelgrade Assistant does not perform advertising, cross-site, or event-level be
 6. Site setup wizard
 
 == Changelog ==
+
+= 2.2.2 =
+* Service infrastructure: functional Pixelgrade requests now use a documented first-party site registry with explicit URL/stack context and aggregate service reporting.
 
 = 2.2.1 =
 * Service infrastructure: functional Pixelgrade requests now use a documented first-party site registry with explicit URL/stack context and aggregate service reporting.

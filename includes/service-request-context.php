@@ -26,6 +26,52 @@ if ( ! function_exists( 'pixassist_normalize_service_name' ) ) {
 	}
 }
 
+if ( ! function_exists( 'pixassist_get_canonical_service_site_url' ) ) {
+	/**
+	 * Return the public site location without credentials or request secrets.
+	 *
+	 * WordPress permits userinfo, query strings, and fragments in configured URLs.
+	 * None of those values identify the site and they must not leave the install.
+	 *
+	 * @return string
+	 */
+	function pixassist_get_canonical_service_site_url() {
+		if ( ! function_exists( 'home_url' ) ) {
+			return '';
+		}
+
+		$site_url = (string) home_url( '/' );
+		$url_parts = function_exists( 'wp_parse_url' ) ? wp_parse_url( $site_url ) : parse_url( $site_url );
+		if ( ! is_array( $url_parts ) || empty( $url_parts['scheme'] ) || empty( $url_parts['host'] ) ) {
+			return '';
+		}
+
+		$scheme = strtolower( (string) $url_parts['scheme'] );
+		if ( ! in_array( $scheme, array( 'http', 'https' ), true ) ) {
+			return '';
+		}
+
+		$host = (string) $url_parts['host'];
+		if ( false !== strpos( $host, ':' ) && '[' !== substr( $host, 0, 1 ) ) {
+			$host = '[' . $host . ']';
+		}
+
+		$port = '';
+		if ( ! empty( $url_parts['port'] ) ) {
+			$port_number = (int) $url_parts['port'];
+			if ( $port_number > 0 && $port_number <= 65535 ) {
+				$port = ':' . $port_number;
+			}
+		}
+
+		$path = ! empty( $url_parts['path'] ) ? '/' . ltrim( (string) $url_parts['path'], '/' ) : '/';
+		$path = rtrim( $path, '/' ) . '/';
+		$safe_url = $scheme . '://' . $host . $port . $path;
+
+		return function_exists( 'esc_url_raw' ) ? esc_url_raw( $safe_url ) : $safe_url;
+	}
+}
+
 if ( ! function_exists( 'pixassist_get_service_request_context' ) ) {
 	/**
 	 * Build the allowlisted context shared by first-party service requests.
@@ -39,10 +85,7 @@ if ( ! function_exists( 'pixassist_get_service_request_context' ) ) {
 	 * @return array
 	 */
 	function pixassist_get_service_request_context( $service ) {
-		$site_url = function_exists( 'home_url' ) ? rtrim( (string) home_url( '/' ), '/' ) . '/' : '';
-		if ( function_exists( 'esc_url_raw' ) ) {
-			$site_url = esc_url_raw( $site_url );
-		}
+		$site_url = pixassist_get_canonical_service_site_url();
 
 		$theme_slug = function_exists( 'get_template' ) ? (string) get_template() : '';
 		$theme_data = array(
