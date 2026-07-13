@@ -430,6 +430,90 @@ if ( ! function_exists( 'pixassist_build_setup_checks' ) ) {
 	}
 }
 
+if ( ! function_exists( 'pixassist_normalize_contributed_setup_checks' ) ) {
+	/**
+	 * Defensively normalize a checks list after the `pixassist_setup_readiness_checks` filter has run.
+	 * Pure — never trusts filter input, so a misbehaving companion cannot corrupt the readiness
+	 * classification or leak arbitrary markup/data into the Setup tab.
+	 *
+	 * Applied to the FULL checks list (host rows already conform, so normalizing them again is a
+	 * no-op — this function is idempotent). Rows failing the shape below are dropped entirely rather
+	 * than coerced into a placeholder, so a broken contribution simply does not appear.
+	 *
+	 * Rules:
+	 * - `id`: required non-empty string, `sanitize_key()`'d. Duplicate ids: first occurrence wins.
+	 * - `label`: required non-empty string (after cast) — untitled rows are dropped.
+	 * - `status`: whitelisted to ok|warning|blocked; anything else becomes 'ok' (never invents a
+	 *   blocker/warning out of unrecognized input).
+	 * - `group`: coerced to string, defaults to 'integrations' when empty.
+	 * - `value`, `expected`, `why`: coerced to strings (missing => '').
+	 * - `action`: kept only when it is an array with string `label` and `url`; otherwise null.
+	 * - `items`: coerced to an array (non-array => empty array).
+	 *
+	 * @param array[] $checks Checks, potentially containing contributed rows.
+	 *
+	 * @return array[] Normalized checks with invalid/duplicate rows dropped.
+	 */
+	function pixassist_normalize_contributed_setup_checks( $checks ) {
+		$checks = is_array( $checks ) ? $checks : array();
+
+		$seen_ids = array();
+		$out      = array();
+
+		foreach ( $checks as $check ) {
+			if ( ! is_array( $check ) ) {
+				continue;
+			}
+
+			$id = isset( $check['id'] ) ? sanitize_key( (string) $check['id'] ) : '';
+			if ( '' === $id || isset( $seen_ids[ $id ] ) ) {
+				continue;
+			}
+
+			$label = isset( $check['label'] ) ? trim( (string) $check['label'] ) : '';
+			if ( '' === $label ) {
+				continue;
+			}
+
+			$status = isset( $check['status'] ) ? (string) $check['status'] : 'ok';
+			if ( ! in_array( $status, array( 'ok', 'warning', 'blocked' ), true ) ) {
+				$status = 'ok';
+			}
+
+			$action = null;
+			if ( isset( $check['action'] ) && is_array( $check['action'] )
+				&& isset( $check['action']['label'], $check['action']['url'] )
+				&& is_string( $check['action']['label'] ) && is_string( $check['action']['url'] )
+				&& '' !== $check['action']['label'] && '' !== $check['action']['url'] ) {
+				$action = array(
+					'label' => $check['action']['label'],
+					'url'   => $check['action']['url'],
+				);
+			}
+
+			$group = isset( $check['group'] ) ? trim( (string) $check['group'] ) : '';
+			if ( '' === $group ) {
+				$group = 'integrations';
+			}
+
+			$seen_ids[ $id ] = true;
+			$out[]           = array(
+				'id'       => $id,
+				'group'    => $group,
+				'label'    => $label,
+				'status'   => $status,
+				'value'    => isset( $check['value'] ) ? (string) $check['value'] : '',
+				'expected' => isset( $check['expected'] ) ? (string) $check['expected'] : '',
+				'why'      => isset( $check['why'] ) ? (string) $check['why'] : '',
+				'action'   => $action,
+				'items'    => isset( $check['items'] ) && is_array( $check['items'] ) ? $check['items'] : array(),
+			);
+		}
+
+		return $out;
+	}
+}
+
 if ( ! function_exists( 'pixassist_classify_setup_overall' ) ) {
 	/**
 	 * Roll the checks up into the overall status + copy + counts. Pure.
@@ -881,12 +965,24 @@ if ( ! function_exists( 'pixassist_get_setup_readiness_data' ) ) {
 	 * Assemble the readiness payload the Setup tab renders. Wired into pixassist_get_plugins_data()
 	 * under the `readiness` key and localized as part of `window.pixelgradePlugins`.
 	 *
+	 * Companions contribute their own readiness rows via the `pixassist_setup_readiness_checks` PHP
+	 * filter (`array $checks, array $facts`) — applied BEFORE classification so a contributed blocker
+	 * or warning affects the overall Ready/Needs attention/Blocked state, then defensively normalized
+	 * (see pixassist_normalize_contributed_setup_checks()) so a misbehaving companion cannot corrupt
+	 * the tab.
+	 *
 	 * @return array { overall, checks, environment, copy, links }
 	 */
 	function pixassist_get_setup_readiness_data() {
 		$facts  = pixassist_get_setup_readiness_facts();
 		$checks = pixassist_build_setup_checks( $facts );
-		$env    = pixassist_get_setup_environment_facts();
+
+		if ( function_exists( 'apply_filters' ) ) {
+			$checks = apply_filters( 'pixassist_setup_readiness_checks', $checks, $facts );
+		}
+		$checks = pixassist_normalize_contributed_setup_checks( $checks );
+
+		$env = pixassist_get_setup_environment_facts();
 
 		return array(
 			'overall'     => pixassist_classify_setup_overall( $checks ),

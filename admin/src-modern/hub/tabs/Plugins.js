@@ -10,6 +10,11 @@ import { createElement, Fragment, useState } from '@wordpress/element';
 import { __, sprintf } from '@wordpress/i18n';
 import { Button, Card, CardBody, Flex, FlexItem, Notice, Spinner } from '@wordpress/components';
 
+import { getContributedSections, renderContributedSections, useSectionDeepLink } from '../contributedSections';
+
+const SETUP_SECTIONS_FILTER = 'pixelgrade.adminHub.setupSections';
+const SETUP_SECTION_ID_PREFIX = 'pixelgrade-setup-section-';
+
 const DEFAULT_PLUGINS = {
 	plugins: [],
 	copy: {
@@ -679,6 +684,22 @@ function renderEnvironmentSummary( readiness, copy ) {
 	);
 }
 
+/**
+ * Contributed Setup sections — the same extension pattern as Styles' `stylesSections`
+ * (`pixelgrade.adminHub.accountPanels` for Account, `pixelgrade.adminHub.stylesSections` for
+ * Styles), applied to the Setup tab so companions (e.g. a readiness-adjacent control that needs
+ * more than a single check row) can render below the host-owned content without Assistant knowing
+ * anything about their contents. Logic lives in the shared ../contributedSections module.
+ */
+function renderSetupSections( data ) {
+	const sections = getContributedSections( SETUP_SECTIONS_FILTER, data );
+
+	return renderContributedSections( sections, {
+		idPrefix: SETUP_SECTION_ID_PREFIX,
+		extraProps: { setupData: data },
+	} );
+}
+
 export function Plugins() {
 	const data = getPluginsData();
 	const copy = data.copy || DEFAULT_PLUGINS.copy;
@@ -686,6 +707,8 @@ export function Plugins() {
 	const readinessCopy = readiness.copy || {};
 	const [ plugins, setPlugins ] = useState( Array.isArray( data.plugins ) ? data.plugins : [] );
 	const [ notice, setNotice ] = useState( null );
+
+	useSectionDeepLink( SETUP_SECTION_ID_PREFIX );
 
 	const updatePlugin = ( slug, patch ) => {
 		setPlugins( ( current ) =>
@@ -732,6 +755,7 @@ export function Plugins() {
 					{ status: 'info', isDismissible: false },
 					copy.empty || DEFAULT_PLUGINS.copy.empty
 			  ),
-		renderEnvironmentSummary( readiness, readinessCopy )
+		renderEnvironmentSummary( readiness, readinessCopy ),
+		renderSetupSections( data )
 	);
 }

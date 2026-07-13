@@ -38,6 +38,10 @@ function esc_html__( $text, $domain = 'default' ) {
 	return $text;
 }
 
+function sanitize_key( $key ) {
+	return preg_replace( '/[^a-z0-9_\-]/', '', strtolower( (string) $key ) );
+}
+
 function assert_same( $expected, $actual, $message ) {
 	if ( $expected !== $actual ) {
 		fwrite( STDERR, $message . PHP_EOL );
@@ -253,6 +257,102 @@ $parsed = pixassist_parse_setup_supports_header( 'Nova Blocks (>2.0 <3.0), Style
 assert_same( '>2.0 <3.0', $parsed['Nova Blocks'], 'The supports header parser extracts the Nova Blocks range.' );
 assert_same( '^2.0', $parsed['Style Manager'], 'The supports header parser extracts the Style Manager range.' );
 assert_same( array(), pixassist_parse_setup_supports_header( '' ), 'An empty header parses to nothing.' );
+
+/*
+ * ---------------------------------------------------------------------------
+ * Contributed setup readiness checks — `pixassist_setup_readiness_checks` filter +
+ * pixassist_normalize_contributed_setup_checks().
+ * ---------------------------------------------------------------------------
+ */
+
+// A well-formed contributed check survives normalization, sanitized/whitelisted/coerced.
+$valid_contribution = pixassist_normalize_contributed_setup_checks( array(
+	array(
+		'id'       => ' Cloud Fonts! ',
+		'label'    => 'Cloud fonts',
+		'status'   => 'blocked',
+		'group'    => 'fonts',
+		'value'    => 'Not configured',
+		'expected' => 'A cloud fonts source configured',
+		'why'      => 'Custom fonts need a source.',
+		'action'   => array( 'label' => 'Configure', 'url' => 'https://example.test/configure' ),
+		'items'    => array( 'a', 'b' ),
+	),
+) );
+assert_same( 1, count( $valid_contribution ), 'A well-formed contributed check survives normalization.' );
+assert_same( 'cloudfonts', $valid_contribution[0]['id'], 'The contributed id is sanitize_key()-ed.' );
+assert_same( 'blocked', $valid_contribution[0]['status'], 'A valid whitelisted status is kept.' );
+assert_same( 'fonts', $valid_contribution[0]['group'], 'An explicit group is kept.' );
+assert_true( is_array( $valid_contribution[0]['action'] ) && 'https://example.test/configure' === $valid_contribution[0]['action']['url'], 'A well-formed action survives.' );
+assert_same( array( 'a', 'b' ), $valid_contribution[0]['items'], 'Items are kept as-is when already an array.' );
+
+// Rows missing an id or a label are dropped; group defaults to 'integrations'; a bogus status
+// falls back to 'ok'; a malformed action becomes null; non-array items become an empty array.
+$dropped_and_defaulted = pixassist_normalize_contributed_setup_checks( array(
+	array( 'id' => '', 'label' => 'No id' ),
+	array( 'id' => 'no-label', 'label' => '' ),
+	'not-an-array-row',
+	array( 'id' => 'defaults', 'label' => 'Defaults', 'status' => 'totally-bogus', 'action' => 'not-an-array', 'items' => 'not-an-array' ),
+) );
+assert_same( 1, count( $dropped_and_defaulted ), 'Only the row with both an id and a label survives.' );
+assert_same( 'defaults', $dropped_and_defaulted[0]['id'], 'The surviving row is the defaults row.' );
+assert_same( 'integrations', $dropped_and_defaulted[0]['group'], 'An empty group defaults to integrations.' );
+assert_same( 'ok', $dropped_and_defaulted[0]['status'], 'An unrecognized status falls back to ok rather than inventing a blocker.' );
+assert_same( null, $dropped_and_defaulted[0]['action'], 'A non-array action becomes null.' );
+assert_same( array(), $dropped_and_defaulted[0]['items'], 'Non-array items become an empty array.' );
+
+// Duplicate ids: first registration wins.
+$duplicates = pixassist_normalize_contributed_setup_checks( array(
+	array( 'id' => 'fonts', 'label' => 'First', 'status' => 'blocked' ),
+	array( 'id' => 'fonts', 'label' => 'Second', 'status' => 'ok' ),
+) );
+assert_same( 1, count( $duplicates ), 'A duplicate id is dropped, not appended.' );
+assert_same( 'First', $duplicates[0]['label'], 'The first registration of a duplicate id wins.' );
+assert_same( 'blocked', $duplicates[0]['status'], 'The winning duplicate keeps its own status.' );
+
+// The status whitelist covers all three valid values individually.
+foreach ( array( 'ok', 'warning', 'blocked' ) as $valid_status ) {
+	$row = pixassist_normalize_contributed_setup_checks( array(
+		array( 'id' => 'status-' . $valid_status, 'label' => 'Status check', 'status' => $valid_status ),
+	) );
+	assert_same( $valid_status, $row[0]['status'], "A whitelisted status ($valid_status) passes through unchanged." );
+}
+
+// Full wiring: the `pixassist_setup_readiness_checks` filter runs BEFORE
+// pixassist_classify_setup_overall(), so a contributed blocker/warning affects the overall status —
+// exercised directly on pixassist_build_setup_checks() + normalization + classification, mirroring
+// exactly what pixassist_get_setup_readiness_data() does internally.
+$baseline_overall = pixassist_classify_setup_overall( pixassist_normalize_contributed_setup_checks( $ready_checks ) );
+assert_same( 'ready', $baseline_overall['status'], 'Baseline (no contribution) stays ready.' );
+
+add_filter( 'pixassist_setup_readiness_checks', function ( $checks ) {
+	$checks[] = array(
+		'id'     => 'cloud_fonts',
+		'label'  => 'Cloud fonts',
+		'status' => 'blocked',
+		'group'  => 'fonts',
+	);
+
+	return $checks;
+} );
+
+$contributed_checks  = apply_filters( 'pixassist_setup_readiness_checks', $ready_checks, $ready_facts );
+$contributed_checks  = pixassist_normalize_contributed_setup_checks( $contributed_checks );
+$contributed_overall = pixassist_classify_setup_overall( $contributed_checks );
+
+assert_true( in_array( 'cloud_fonts', array_column( $contributed_checks, 'id' ), true ), 'The contributed check id appears in the final checks list.' );
+assert_same( 'blocked', $contributed_overall['status'], 'A contributed blocked check flips the overall status to blocked.' );
+assert_same( 1, $contributed_overall['counts']['blocked'], 'The contributed blocker is counted in the overall rollup.' );
+
+// pixassist_get_setup_readiness_data() wires the filter itself (before classification) — a contributed
+// warning/blocked check must show up in the assembled payload without any extra plumbing.
+add_filter( 'pixassist_setup_readiness_checks', function ( $checks ) {
+	$checks[] = array( 'id' => 'from-full-payload', 'label' => 'From full payload', 'status' => 'warning' );
+
+	return $checks;
+} );
+$full_payload = pixassist_get_setup_readiness_data();
+assert_true( in_array( 'from-full-payload', array_column( $full_payload['checks'], 'id' ), true ), 'pixassist_get_setup_readiness_data() applies the pixassist_setup_readiness_checks filter.' );
 
 /*
  * ---------------------------------------------------------------------------

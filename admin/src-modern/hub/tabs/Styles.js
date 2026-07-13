@@ -4,13 +4,16 @@
  * The tab itself stays inside Pixelgrade Design. Its buttons route to the editor/customizer surfaces
  * where editing happens. Data comes from `window.pixelgradeStyles`, assembled server-side.
  */
-import { createElement, useEffect } from '@wordpress/element';
+import { createElement } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
 import { Button, Card, CardBody } from '@wordpress/components';
-import { applyFilters } from '@wordpress/hooks';
 
 import { LiveStylePreview } from '../LiveStylePreview';
 import { useDesignSystemPreview } from '../useDesignSystemPreview';
+import { getContributedSections, renderContributedSections, useSectionDeepLink } from '../contributedSections';
+
+const STYLES_SECTIONS_FILTER = 'pixelgrade.adminHub.stylesSections';
+const STYLES_SECTION_ID_PREFIX = 'pixelgrade-styles-section-';
 
 const DEFAULT_STYLES = {
 	copy: {
@@ -33,83 +36,19 @@ function getStylesData() {
 	return DEFAULT_STYLES;
 }
 
-function sanitizeSectionId( value ) {
-	return String( value || '' ).toLowerCase().replace( /[^a-z0-9_-]/g, '' );
-}
-
-function getLinkedSection() {
-	if ( 'undefined' === typeof window ) {
-		return '';
-	}
-
-	const params = new URLSearchParams( window.location.search );
-
-	return sanitizeSectionId( params.get( 'section' ) || '' );
-}
-
 /**
  * Contributed Styles sections — the same extension pattern as
  * `pixelgrade.adminHub.accountPanels` (see Account.js), applied to the Styles tab so
  * companions (e.g. Style Manager's Fonts section) can render below the host-owned
- * destinations without Assistant knowing anything about their content.
+ * destinations without Assistant knowing anything about their content. Logic lives in the
+ * shared ../contributedSections module so the Setup tab (Plugins.js) can reuse it.
  */
-function getStylesSections( data ) {
-	const sections = applyFilters( 'pixelgrade.adminHub.stylesSections', [], data );
-
-	if ( ! Array.isArray( sections ) ) {
-		return [];
-	}
-
-	const seen = new Set();
-
-	return sections
-		.map( ( section, index ) => {
-			if ( ! section || 'object' !== typeof section ) {
-				return null;
-			}
-
-			const id = sanitizeSectionId( section.id || '' );
-			if ( ! id || 'function' !== typeof section.component || seen.has( id ) ) {
-				return null;
-			}
-
-			seen.add( id );
-
-			return {
-				id,
-				order: Number.isFinite( Number( section.order ) ) ? Number( section.order ) : 10 + index,
-				component: section.component,
-				index,
-			};
-		} )
-		.filter( Boolean )
-		.sort( ( a, b ) => {
-			if ( a.order === b.order ) {
-				return a.index - b.index;
-			}
-
-			return a.order < b.order ? -1 : 1;
-		} );
-}
-
 function renderStylesSections( data ) {
-	const sections = getStylesSections( data );
+	const sections = getContributedSections( STYLES_SECTIONS_FILTER, data );
 
-	return sections.map( ( section ) => {
-		const SectionComponent = section.component;
-
-		return createElement(
-			'section',
-			{
-				key: section.id,
-				id: 'pixelgrade-styles-section-' + section.id,
-				className: 'pixelgrade-styles-section pixelgrade-styles-section--' + section.id,
-				'data-styles-section': section.id,
-				tabIndex: '-1',
-				style: { marginTop: '24px' },
-			},
-			createElement( SectionComponent, { stylesData: data, sectionId: section.id } )
-		);
+	return renderContributedSections( sections, {
+		idPrefix: STYLES_SECTION_ID_PREFIX,
+		extraProps: { stylesData: data },
 	} );
 }
 
@@ -225,34 +164,8 @@ export function Styles() {
 	const destinations = Array.isArray( data.destinations ) ? data.destinations : [];
 	const primary = data.primaryAction || {};
 	const previewPayload = useDesignSystemPreview( data.designSystemPreview );
-	const section = getLinkedSection();
 
-	useEffect( () => {
-		if ( ! section ) {
-			return;
-		}
-
-		const element = document.getElementById( 'pixelgrade-styles-section-' + section );
-		if ( ! element || 'function' !== typeof element.scrollIntoView ) {
-			return;
-		}
-
-		element.scrollIntoView( { block: 'start', behavior: 'smooth' } );
-		if ( 'function' === typeof element.focus ) {
-			element.focus( { preventScroll: true } );
-		}
-
-		// Briefly highlight the linked section so hand-offs (e.g. the SM Settings admin
-		// notice's "Manage in Pixelgrade Design" link) visibly land.
-		element.style.transition = 'box-shadow .3s ease';
-		element.style.boxShadow = '0 0 0 2px var(--wp-admin-theme-color, #3858e9)';
-		element.style.borderRadius = '4px';
-		const timer = setTimeout( () => {
-			element.style.boxShadow = 'none';
-		}, 2000 );
-
-		return () => clearTimeout( timer );
-	}, [ section ] );
+	useSectionDeepLink( STYLES_SECTION_ID_PREFIX );
 
 	return createElement(
 		'div',
