@@ -608,6 +608,36 @@ if ( ! function_exists( 'pixassist_starter_content_has_commerce' ) ) {
 	}
 }
 
+if ( ! function_exists( 'pixassist_starter_settings_have_commerce_key' ) ) {
+	/**
+	 * Whether a settings tree contains a WooCommerce-owned key at any depth.
+	 *
+	 * Starter manifests group WordPress options under containers such as `options`, so checking only
+	 * the first level would let a direct granular request bypass the commerce capability gate.
+	 *
+	 * @param array $data Settings tree.
+	 *
+	 * @return bool
+	 */
+	function pixassist_starter_settings_have_commerce_key( $data ) {
+		if ( ! is_array( $data ) ) {
+			return false;
+		}
+
+		foreach ( $data as $key => $value ) {
+			if ( 0 === strpos( strtolower( (string) $key ), 'woocommerce_' ) ) {
+				return true;
+			}
+
+			if ( is_array( $value ) && pixassist_starter_settings_have_commerce_key( $value ) ) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+}
+
 if ( ! function_exists( 'pixassist_starter_classify_import' ) ) {
 	/**
 	 * Classify an import operation into a segment from the content itself (intrinsic classification).
@@ -637,10 +667,8 @@ if ( ! function_exists( 'pixassist_starter_classify_import' ) ) {
 
 		if ( in_array( $type, array( 'pre_settings', 'post_settings' ), true ) ) {
 			$data = isset( $args['data'] ) && is_array( $args['data'] ) ? $args['data'] : array();
-			foreach ( array_keys( $data ) as $key ) {
-				if ( 0 === strpos( strtolower( (string) $key ), 'woocommerce_' ) ) {
-					return 'commerce';
-				}
+			if ( pixassist_starter_settings_have_commerce_key( $data ) ) {
+				return 'commerce';
 			}
 		}
 
@@ -833,9 +861,14 @@ if ( ! function_exists( 'pixassist_starter_filter_unauthorized_settings' ) ) {
 			return is_array( $data ) ? $data : array();
 		}
 
-		foreach ( array_keys( $data ) as $key ) {
+		foreach ( $data as $key => $value ) {
 			if ( 0 === strpos( strtolower( (string) $key ), 'woocommerce_' ) ) {
 				unset( $data[ $key ] );
+				continue;
+			}
+
+			if ( is_array( $value ) ) {
+				$data[ $key ] = pixassist_starter_filter_unauthorized_settings( $value );
 			}
 		}
 

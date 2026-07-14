@@ -271,6 +271,62 @@ function estimateComposerOperationProgressGroups( operations ) {
 	return totals;
 }
 
+function importIncludesCommerce( filters = {} ) {
+	return ! Object.prototype.hasOwnProperty.call( filters, 'includeCommerce' ) || Boolean( filters.includeCommerce );
+}
+
+function isCommercePostType( postType ) {
+	const normalized = String( postType || '' ).trim().toLowerCase();
+
+	return normalized.startsWith( 'product' ) || normalized.startsWith( 'shop_' );
+}
+
+function isCommerceTaxonomy( taxonomy ) {
+	const normalized = String( taxonomy || '' ).trim().toLowerCase();
+
+	return normalized.startsWith( 'product_' ) || normalized.startsWith( 'pa_' );
+}
+
+function filterUnavailableCommerceSettings( value, includeCommerce ) {
+	if ( includeCommerce || ! value || 'object' !== typeof value ) {
+		return value;
+	}
+
+	if ( Array.isArray( value ) ) {
+		return value.map( ( item ) => filterUnavailableCommerceSettings( item, false ) );
+	}
+
+	return Object.keys( value ).reduce( ( filtered, key ) => {
+		if ( String( key ).toLowerCase().startsWith( 'woocommerce_' ) ) {
+			return filtered;
+		}
+
+		filtered[ key ] = filterUnavailableCommerceSettings( value[ key ], false );
+		return filtered;
+	}, {} );
+}
+
+function getImportableTaxonomyEntries( config, filters = {} ) {
+	const includeCommerce = importIncludesCommerce( filters );
+
+	return valuesSortedByPriority( config.taxonomies ).filter(
+		( entry ) => entry.name && entry.ids && ( includeCommerce || ! isCommerceTaxonomy( entry.name ) )
+	);
+}
+
+function getImportablePostTypeEntries( config, filters = {} ) {
+	const includeCommerce = importIncludesCommerce( filters );
+	const postTypes = Array.isArray( filters.postTypes ) ? filters.postTypes.filter( Boolean ) : null;
+
+	return valuesSortedByPriority( config.post_types ).filter(
+		( entry ) =>
+			entry.name &&
+			entry.ids &&
+			( ! postTypes || postTypes.includes( entry.name ) ) &&
+			( includeCommerce || ! isCommercePostType( entry.name ) )
+	);
+}
+
 function estimateStarterImportWorkByGroup( config, filters = {} ) {
 	const totals = createStarterProgressGroups( { prepare: 1 } );
 	const includeSettings = ! Object.prototype.hasOwnProperty.call( filters, 'includeSettings' ) || Boolean( filters.includeSettings );
@@ -278,9 +334,11 @@ function estimateStarterImportWorkByGroup( config, filters = {} ) {
 	const includeTaxonomies = ! Object.prototype.hasOwnProperty.call( filters, 'includeTaxonomies' ) || Boolean( filters.includeTaxonomies );
 	const includeWidgets = ! Object.prototype.hasOwnProperty.call( filters, 'includeWidgets' ) || Boolean( filters.includeWidgets );
 	const includePostSettings = ! Object.prototype.hasOwnProperty.call( filters, 'includePostSettings' ) || Boolean( filters.includePostSettings );
-	const postTypes = Array.isArray( filters.postTypes ) ? filters.postTypes.filter( Boolean ) : null;
+	const includeCommerce = importIncludesCommerce( filters );
+	const preSettings = filterUnavailableCommerceSettings( config.pre_settings, includeCommerce );
+	const postSettings = filterUnavailableCommerceSettings( config.post_settings, includeCommerce );
 
-	if ( includeSettings && config.pre_settings ) {
+	if ( includeSettings && ! isEmptyObject( preSettings ) ) {
 		totals.design += 1;
 	}
 
@@ -289,14 +347,10 @@ function estimateStarterImportWorkByGroup( config, filters = {} ) {
 	}
 
 	if ( includeTaxonomies && config.taxonomies ) {
-		totals.content += valuesSortedByPriority( config.taxonomies ).length;
+		totals.content += getImportableTaxonomyEntries( config, filters ).length;
 	}
 
-	valuesSortedByPriority( config.post_types ).forEach( ( entry ) => {
-		if ( ! entry.name || ! entry.ids || ( postTypes && ! postTypes.includes( entry.name ) ) ) {
-			return;
-		}
-
+	getImportablePostTypeEntries( config, filters ).forEach( ( entry ) => {
 		totals[ getStarterProgressGroupId( getPostTypeProgressPhase( entry.name ) ) ] += 1;
 	} );
 
@@ -304,7 +358,7 @@ function estimateStarterImportWorkByGroup( config, filters = {} ) {
 		totals.design += 1;
 	}
 
-	if ( includePostSettings && config.post_settings ) {
+	if ( includePostSettings && ! isEmptyObject( postSettings ) ) {
 		totals.finish += 2;
 	}
 
@@ -688,9 +742,11 @@ function estimateStarterImportWork( config, filters = {} ) {
 	const includeTaxonomies = ! Object.prototype.hasOwnProperty.call( filters, 'includeTaxonomies' ) || Boolean( filters.includeTaxonomies );
 	const includeWidgets = ! Object.prototype.hasOwnProperty.call( filters, 'includeWidgets' ) || Boolean( filters.includeWidgets );
 	const includePostSettings = ! Object.prototype.hasOwnProperty.call( filters, 'includePostSettings' ) || Boolean( filters.includePostSettings );
-	const postTypes = Array.isArray( filters.postTypes ) ? filters.postTypes.filter( Boolean ) : null;
+	const includeCommerce = importIncludesCommerce( filters );
+	const preSettings = filterUnavailableCommerceSettings( config.pre_settings, includeCommerce );
+	const postSettings = filterUnavailableCommerceSettings( config.post_settings, includeCommerce );
 
-	if ( includeSettings && config.pre_settings ) {
+	if ( includeSettings && ! isEmptyObject( preSettings ) ) {
 		total += 1;
 	}
 
@@ -699,14 +755,10 @@ function estimateStarterImportWork( config, filters = {} ) {
 	}
 
 	if ( includeTaxonomies && config.taxonomies ) {
-		total += valuesSortedByPriority( config.taxonomies ).length;
+		total += getImportableTaxonomyEntries( config, filters ).length;
 	}
 
-	valuesSortedByPriority( config.post_types ).forEach( ( entry ) => {
-		if ( ! entry.name || ! entry.ids || ( postTypes && ! postTypes.includes( entry.name ) ) ) {
-			return;
-		}
-
+	getImportablePostTypeEntries( config, filters ).forEach( () => {
 		total += 1;
 	} );
 
@@ -714,7 +766,7 @@ function estimateStarterImportWork( config, filters = {} ) {
 		total += 1;
 	}
 
-	if ( includePostSettings && config.post_settings ) {
+	if ( includePostSettings && ! isEmptyObject( postSettings ) ) {
 		total += 2;
 	}
 
@@ -981,12 +1033,14 @@ function buildImportTasks( starter, config, data, setProgress, filters = {} ) {
 	const tasks = [];
 	const demoKey = starter.id;
 	const baseUrl = trailingslash( starter.baseRestUrl );
-	const postTypes = Array.isArray( filters.postTypes ) ? filters.postTypes.filter( Boolean ) : null;
 	const includeSettings = ! Object.prototype.hasOwnProperty.call( filters, 'includeSettings' ) || Boolean( filters.includeSettings );
 	const includeMedia = ! Object.prototype.hasOwnProperty.call( filters, 'includeMedia' ) || Boolean( filters.includeMedia );
 	const includeTaxonomies = ! Object.prototype.hasOwnProperty.call( filters, 'includeTaxonomies' ) || Boolean( filters.includeTaxonomies );
 	const includeWidgets = ! Object.prototype.hasOwnProperty.call( filters, 'includeWidgets' ) || Boolean( filters.includeWidgets );
 	const includePostSettings = ! Object.prototype.hasOwnProperty.call( filters, 'includePostSettings' ) || Boolean( filters.includePostSettings );
+	const includeCommerce = importIncludesCommerce( filters );
+	const preSettings = filterUnavailableCommerceSettings( config.pre_settings, includeCommerce );
+	const postSettings = filterUnavailableCommerceSettings( config.post_settings, includeCommerce );
 
 	const addImportTask = ( label, type, args, progress = {} ) => {
 		tasks.push( async () => {
@@ -995,12 +1049,27 @@ function buildImportTasks( starter, config, data, setProgress, filters = {} ) {
 				message: label,
 				details: progress.details || '',
 			} );
-			await restRequest( data, 'import', {
+			const response = await restRequest( data, 'import', {
 				demo_key: demoKey,
 				type,
 				url: baseUrl,
 				args,
+			}, {
+				allowCodes: progress.allowCodes || [],
 			} );
+			if ( response && Array.isArray( progress.allowCodes ) && progress.allowCodes.includes( response.code ) ) {
+				setProgress(
+					{
+						message: progress.skippedMessage || label,
+						details: progress.skippedDetails || response.message || '',
+					},
+					{
+						advance: true,
+						log: progress.skippedLogMessage || progress.skippedMessage || label,
+					}
+				);
+				return;
+			}
 			setProgress(
 				{
 					message: progress.doneMessage || label,
@@ -1014,8 +1083,8 @@ function buildImportTasks( starter, config, data, setProgress, filters = {} ) {
 		} );
 	};
 
-	if ( includeSettings && config.pre_settings ) {
-		addImportTask( __( 'Preparing settings...', 'pixelgrade_assistant' ), 'pre_settings', { data: config.pre_settings }, {
+	if ( includeSettings && ! isEmptyObject( preSettings ) ) {
+		addImportTask( __( 'Preparing settings...', 'pixelgrade_assistant' ), 'pre_settings', { data: preSettings }, {
 			phase: 'settings',
 			details: __( 'Applying initial theme settings.', 'pixelgrade_assistant' ),
 			doneMessage: __( 'Prepared theme settings.', 'pixelgrade_assistant' ),
@@ -1179,11 +1248,7 @@ function buildImportTasks( starter, config, data, setProgress, filters = {} ) {
 	}
 
 	if ( includeTaxonomies ) {
-		valuesSortedByPriority( config.taxonomies ).forEach( ( entry ) => {
-			if ( ! entry.name || ! entry.ids ) {
-				return;
-			}
-
+		getImportableTaxonomyEntries( config, filters ).forEach( ( entry ) => {
 			addImportTask(
 				__( 'Importing taxonomies...', 'pixelgrade_assistant' ),
 				'taxonomy',
@@ -1196,20 +1261,16 @@ function buildImportTasks( starter, config, data, setProgress, filters = {} ) {
 					details: sprintf( __( '%d terms in %s.', 'pixelgrade_assistant' ), Object.keys( entry.ids || {} ).length, entry.name ),
 					doneMessage: sprintf( __( 'Imported taxonomy: %s.', 'pixelgrade_assistant' ), entry.name ),
 					logMessage: sprintf( __( 'Imported taxonomy "%s".', 'pixelgrade_assistant' ), entry.name ),
+					allowCodes: [ 'missing_tax' ],
+					skippedMessage: __( 'Skipped optional content organization.', 'pixelgrade_assistant' ),
+					skippedDetails: sprintf( __( 'The %s taxonomy is not registered on this site.', 'pixelgrade_assistant' ), entry.name ),
+					skippedLogMessage: sprintf( __( 'Skipped optional taxonomy "%s".', 'pixelgrade_assistant' ), entry.name ),
 				}
 			);
 		} );
 	}
 
-	valuesSortedByPriority( config.post_types ).forEach( ( entry ) => {
-		if ( ! entry.name || ! entry.ids ) {
-			return;
-		}
-
-		if ( postTypes && ! postTypes.includes( entry.name ) ) {
-			return;
-		}
-
+	getImportablePostTypeEntries( config, filters ).forEach( ( entry ) => {
 		const progressPhase = getPostTypeProgressPhase( entry.name );
 
 		addImportTask(
@@ -1237,7 +1298,7 @@ function buildImportTasks( starter, config, data, setProgress, filters = {} ) {
 		} );
 	}
 
-	if ( includePostSettings && config.post_settings ) {
+	if ( includePostSettings && ! isEmptyObject( postSettings ) ) {
 		tasks.push( async () => {
 			const adminUrl = getAdminUrl();
 			if ( adminUrl ) {
@@ -1265,7 +1326,7 @@ function buildImportTasks( starter, config, data, setProgress, filters = {} ) {
 				} );
 			}
 		} );
-		addImportTask( __( 'Wrapping it up...', 'pixelgrade_assistant' ), 'post_settings', { data: config.post_settings }, {
+		addImportTask( __( 'Wrapping it up...', 'pixelgrade_assistant' ), 'post_settings', { data: postSettings }, {
 			phase: 'finish',
 			details: __( 'Saving menus, homepage, and theme options.', 'pixelgrade_assistant' ),
 			doneMessage: __( 'Applied final settings.', 'pixelgrade_assistant' ),
@@ -1293,14 +1354,15 @@ export async function importStarter( starter, data, copy, setProgress ) {
 	if ( ! config || 'success' !== config.code ) {
 		throw new Error( config && config.message ? config.message : copy.failed );
 	}
+	const filters = { includeCommerce: starterCommerceAvailable( starter ) };
 
 	setProgress(
 		{
 			phase: 'manifest',
 			message: __( 'Content manifest received.', 'pixelgrade_assistant' ),
 			details: __( 'Preparing the import queue.', 'pixelgrade_assistant' ),
-			total: estimateStarterImportWork( config.data || {} ),
-			phaseTotals: estimateStarterImportWorkByGroup( config.data || {} ),
+			total: estimateStarterImportWork( config.data || {}, filters ),
+			phaseTotals: estimateStarterImportWorkByGroup( config.data || {}, filters ),
 		},
 		{
 			advance: true,
@@ -1308,7 +1370,7 @@ export async function importStarter( starter, data, copy, setProgress ) {
 		}
 	);
 
-	const tasks = buildImportTasks( starter, config.data || {}, data, setProgress );
+	const tasks = buildImportTasks( starter, config.data || {}, data, setProgress, filters );
 
 	for ( const task of tasks ) {
 		await task();
@@ -1332,16 +1394,20 @@ async function importStarterParts( starter, parts, data, copy, setProgress, phas
 	if ( ! config || 'success' !== config.code ) {
 		throw new Error( config && config.message ? config.message : copy.failed );
 	}
+	const filters = {
+		...( parts || {} ),
+		includeCommerce: starterCommerceAvailable( starter ),
+	};
 
 	setProgress(
 		{
 			phase: 'manifest',
 			message: __( 'Content manifest received.', 'pixelgrade_assistant' ),
 			details: __( 'Preparing the selected import steps.', 'pixelgrade_assistant' ),
-			total: Number( progressTotalBase || 0 ) + estimateStarterImportWork( config.data || {}, parts ),
+			total: Number( progressTotalBase || 0 ) + estimateStarterImportWork( config.data || {}, filters ),
 			phaseTotals: phaseTotalBase
-				? combineStarterProgressGroups( phaseTotalBase, estimateStarterImportWorkByGroup( config.data || {}, parts ) )
-				: estimateStarterImportWorkByGroup( config.data || {}, parts ),
+				? combineStarterProgressGroups( phaseTotalBase, estimateStarterImportWorkByGroup( config.data || {}, filters ) )
+				: estimateStarterImportWorkByGroup( config.data || {}, filters ),
 		},
 		{
 			advance: true,
@@ -1349,7 +1415,7 @@ async function importStarterParts( starter, parts, data, copy, setProgress, phas
 		}
 	);
 
-	const tasks = buildImportTasks( starter, config.data || {}, data, setProgress, parts );
+	const tasks = buildImportTasks( starter, config.data || {}, data, setProgress, filters );
 
 	for ( const task of tasks ) {
 		await task();

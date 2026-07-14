@@ -312,6 +312,18 @@ assert_same( 'commerce', pixassist_starter_classify_import( 'post_type', array( 
 assert_same( 'commerce', pixassist_starter_classify_import( 'post_type', array( 'post_type' => 'product_variation' ) ), 'Product variations classify as commerce.' );
 assert_same( 'commerce', pixassist_starter_classify_import( 'taxonomy', array( 'tax' => 'product_cat' ) ), 'Product categories classify as commerce.' );
 assert_same( 'commerce', pixassist_starter_classify_import( 'pre_settings', array( 'data' => array( 'woocommerce_store_address' => '1 Main St' ) ) ), 'WooCommerce settings classify as commerce.' );
+assert_same(
+	'commerce',
+	pixassist_starter_classify_import(
+		'post_settings',
+		array(
+			'data' => array(
+				'options' => array( 'woocommerce_shop_page_id' => 42 ),
+			),
+		)
+	),
+	'Nested WooCommerce settings classify as commerce so a direct granular request cannot bypass the gate.'
+);
 assert_same( 'base', pixassist_starter_classify_import( 'post_type', array( 'post_type' => 'page' ) ), 'Pages classify as base/editorial.' );
 assert_same( 'base', pixassist_starter_classify_import( 'pre_settings', array( 'data' => array( 'blogname' => 'Felt' ) ) ), 'Generic settings classify as base.' );
 
@@ -354,10 +366,34 @@ $GLOBALS['paf_entitlements']      = array();
 $free_settings = pixassist_starter_filter_unauthorized_settings( $mixed_settings );
 assert_same( array( 'blogname' => 'Felt' ), $free_settings, 'A free full import must strip WooCommerce settings while keeping base settings.' );
 
+$nested_mixed_settings = array(
+	'options' => array(
+		'blogname'                   => 'Felt',
+		'woocommerce_shop_page_id'   => 42,
+		'nested'                     => array(
+			'woocommerce_currency' => 'USD',
+			'editorial_setting'     => 'keep',
+		),
+	),
+);
+$free_nested_settings = pixassist_starter_filter_unauthorized_settings( $nested_mixed_settings );
+assert_same(
+	array(
+		'options' => array(
+			'blogname' => 'Felt',
+			'nested'   => array( 'editorial_setting' => 'keep' ),
+		),
+	),
+	$free_nested_settings,
+	'A free full import must recursively strip WooCommerce settings while preserving neighboring base settings.'
+);
+
 $GLOBALS['paf_installed_plugins'] = array( 'woocommerce/woocommerce.php' => true );
 $GLOBALS['paf_entitlements']      = array( 'woocommerce_integration' => true );
 $entitled_settings = pixassist_starter_filter_unauthorized_settings( $mixed_settings );
 assert_same( $mixed_settings, $entitled_settings, 'An authorized commerce import must keep WooCommerce settings.' );
+$entitled_nested_settings = pixassist_starter_filter_unauthorized_settings( $nested_mixed_settings );
+assert_same( $nested_mixed_settings, $entitled_nested_settings, 'An authorized commerce import must keep nested WooCommerce settings.' );
 
 // WooCommerce page option references must also be stripped from a free import (finding #3).
 $GLOBALS['paf_installed_plugins'] = array();
