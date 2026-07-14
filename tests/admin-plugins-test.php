@@ -10,11 +10,15 @@
 define( 'ABSPATH', __DIR__ . '/' );
 define( 'PIXELGRADE_ASSISTANT__SHOP_BASE', 'https://pixelgrade.test/' );
 
-$GLOBALS['paf_filters']      = array();
-$GLOBALS['paf_denied_caps']  = array();
-$GLOBALS['paf_plugin_config'] = array();
-$GLOBALS['paf_tgmpa_plugins'] = array();
-$GLOBALS['paf_plus_status']  = array(
+$GLOBALS['paf_filters']             = array();
+$GLOBALS['paf_denied_caps']         = array();
+$GLOBALS['paf_is_multisite']        = false;
+$GLOBALS['paf_theme_exists']        = false;
+$GLOBALS['paf_theme_allowed']       = false;
+$GLOBALS['paf_theme_allowed_check'] = '';
+$GLOBALS['paf_plugin_config']       = array();
+$GLOBALS['paf_tgmpa_plugins']       = array();
+$GLOBALS['paf_plus_status']         = array(
 	'is_plus_active'     => false,
 	'is_plus_licensed'   => false,
 	'plus_settings_url'  => '',
@@ -52,6 +56,34 @@ function current_user_can( $capability ) {
 	return empty( $GLOBALS['paf_denied_caps'][ $capability ] );
 }
 
+function is_multisite() {
+	return ! empty( $GLOBALS['paf_is_multisite'] );
+}
+
+function get_current_blog_id() {
+	return 17;
+}
+
+function get_stylesheet() {
+	return 'twentytwentyfive';
+}
+
+class PAF_Theme_Stub {
+	public function exists() {
+		return ! empty( $GLOBALS['paf_theme_exists'] );
+	}
+
+	public function is_allowed( $check = 'both', $blog_id = null ) {
+		$GLOBALS['paf_theme_allowed_check'] = $check;
+
+		return ! empty( $GLOBALS['paf_theme_allowed'] );
+	}
+}
+
+function wp_get_theme( $slug = '' ) {
+	return new PAF_Theme_Stub();
+}
+
 function esc_html__( $text, $domain = 'default' ) {
 	return $text;
 }
@@ -62,6 +94,10 @@ function esc_url_raw( $value ) {
 
 function admin_url( $path = '' ) {
 	return 'https://example.test/wp-admin/' . ltrim( (string) $path, '/' );
+}
+
+function network_admin_url( $path = '' ) {
+	return 'https://network.example.test/wp-admin/network/' . ltrim( (string) $path, '/' );
 }
 
 function add_query_arg( $args, $url = '' ) {
@@ -76,7 +112,8 @@ function add_query_arg( $args, $url = '' ) {
 }
 
 function wp_nonce_url( $url, $action = '', $name = '_wpnonce' ) {
-	return add_query_arg( array( $name => 'nonce-' . $action ), $url );
+	// Match WordPress core: wp_nonce_url() HTML-escapes ampersands for direct use in markup.
+	return htmlspecialchars( add_query_arg( array( $name => 'nonce-' . $action ), $url ), ENT_QUOTES, 'UTF-8' );
 }
 
 function trailingslashit( $string ) {
@@ -242,7 +279,28 @@ $GLOBALS['paf_tgmpa_plugins'] = array(
 $payload = pixassist_get_plugins_data();
 $keys    = array_keys( $payload );
 sort( $keys );
-assert_same( array( 'copy', 'plugins', 'readiness' ), $keys, 'Setup payload must expose plugins (the actionable list), copy, and the readiness summary.' );
+assert_same( array( 'copy', 'plugins', 'readiness', 'themeSetup' ), $keys, 'Setup payload must expose plugins, the Anima LT theme action, copy, and readiness.' );
+assert_same( 'anima-lt', $payload['themeSetup']['slug'], 'Site Setup targets Anima LT when the active theme is not a Pixelgrade theme.' );
+assert_true( false === strpos( $payload['themeSetup']['activateUrl'], '&amp;' ), 'The localized Anima LT activation URL must use raw query separators.' );
+assert_same( true, $payload['themeSetup']['canAutoInstall'], 'A capable single-site administrator may install Anima LT automatically.' );
+
+$GLOBALS['paf_is_multisite'] = true;
+$multisite_theme_setup       = pixassist_get_default_theme_setup();
+assert_same( false, $multisite_theme_setup['canAutoInstall'], 'A missing multisite theme must use the Network Admin hand-off instead of browser automation.' );
+assert_same( 'https://network.example.test/wp-admin/network/theme-install.php?search=anima-lt', $multisite_theme_setup['manageUrl'], 'Multisite setup points to the cross-origin-safe Network Themes screen.' );
+
+$GLOBALS['paf_theme_exists']        = true;
+$GLOBALS['paf_theme_allowed']       = true;
+$GLOBALS['paf_theme_allowed_check'] = '';
+$network_allowed_theme_setup        = pixassist_get_default_theme_setup();
+assert_same( 'both', $GLOBALS['paf_theme_allowed_check'], 'Multisite availability must accept themes enabled for either the network or the current site.' );
+assert_same( true, $network_allowed_theme_setup['isAllowed'], 'A network-enabled installed theme is available to the current site.' );
+assert_same( true, $network_allowed_theme_setup['canActivate'], 'A network-enabled installed theme can continue through same-origin site activation.' );
+assert_true( false !== strpos( $network_allowed_theme_setup['activateUrl'], 'action=activate' ), 'An allowed installed multisite theme exposes its site activation URL.' );
+
+$GLOBALS['paf_theme_exists'] = false;
+$GLOBALS['paf_theme_allowed'] = false;
+$GLOBALS['paf_is_multisite'] = false;
 
 // The Setup tab is a Pixelgrade Design preflight: the readiness summary must be present and classified.
 $readiness = $payload['readiness'];
@@ -345,5 +403,6 @@ assert_true( false === strpos( $plugins_js, "title: __( 'Manage plugins'" ), 'Se
 assert_true( false !== strpos( $plugins_js, 'scheduleStatusRefresh' ), 'Setup JS must schedule a status refresh after plugin install/activation succeeds.' );
 assert_true( false !== strpos( $plugins_js, 'window.location.reload()' ), 'Setup JS must reload the page so stale plugin status is replaced automatically.' );
 assert_true( false !== strpos( $plugins_js, "plugin.actionType === 'external'" ), 'Setup JS must render external Plus hand-offs without calling wp.updates.installPlugin.' );
+assert_true( false !== strpos( $plugins_js, 'ensureThemeActive' ), 'Setup must install and activate Anima LT directly from the active-theme blocker.' );
 
 echo "Admin Plugins tab OK\n";

@@ -107,3 +107,119 @@ describe( 'Setup tab — contributed sections', () => {
 		expect( rendered.id ).toBe( 'pixelgrade-setup-section-fonts20' );
 	} );
 } );
+
+describe( 'Setup tab — default theme setup', () => {
+	let container;
+	let root;
+
+	beforeEach( () => {
+		container = document.createElement( 'div' );
+		document.body.appendChild( container );
+		root = createRoot( container );
+		window.fetch = jest.fn().mockResolvedValue( { ok: true } );
+		window.wp = {
+			updates: {
+				installTheme: jest.fn(),
+				maybeRequestFilesystemCredentials: jest.fn(),
+			},
+		};
+		window.pixelgradePlugins = {
+			plugins: [],
+			copy: {},
+			themeSetup: {
+				slug: 'anima-lt',
+				name: 'Anima LT',
+				status: 'missing',
+				isInstalled: false,
+				isActive: false,
+				activateUrl: 'https://example.test/wp-admin/themes.php?action=activate&stylesheet=anima-lt&_wpnonce=test',
+				installUrl: 'https://example.test/wp-admin/theme-install.php?search=anima-lt',
+			},
+			readiness: {
+				copy: {
+					issuesTitle: 'Needs attention',
+					currentLabel: 'Current',
+					expectedLabel: 'Recommended',
+					whyLabel: 'Why it matters',
+					blockedBadge: 'Blocker',
+					pluginsTitle: 'Recommended plugins',
+				},
+				checks: [
+					{
+						id: 'theme',
+						label: 'Active theme',
+						status: 'blocked',
+						value: 'Twenty Twenty-Five',
+						expected: 'An active Pixelgrade theme',
+						action: { label: 'Choose a theme', url: 'https://example.test/wp-admin/themes.php' },
+					},
+				],
+			},
+		};
+	} );
+
+	afterEach( () => {
+		flushSync( () => root.unmount() );
+		container.remove();
+		delete window.pixelgradePlugins;
+		delete window.fetch;
+		delete window.wp;
+	} );
+
+	test( 'starts the Anima LT install from the active-theme blocker', () => {
+		flushSync( () => {
+			root.render( createElement( Plugins ) );
+		} );
+
+		const action = Array.from( container.querySelectorAll( 'button' ) ).find(
+			( button ) => 'Install Anima LT' === button.textContent
+		);
+
+		expect( action ).toBeDefined();
+
+		flushSync( () => {
+			action.dispatchEvent( new MouseEvent( 'click', { bubbles: true } ) );
+		} );
+
+		expect( window.wp.updates.installTheme ).toHaveBeenCalledWith(
+			expect.objectContaining( { slug: 'anima-lt' } )
+		);
+	} );
+
+	test( 'falls back to the theme-management link without theme capabilities', () => {
+		window.pixelgradePlugins.themeSetup.canInstall = false;
+		window.pixelgradePlugins.themeSetup.canActivate = false;
+
+		flushSync( () => {
+			root.render( createElement( Plugins ) );
+		} );
+
+		expect( Array.from( container.querySelectorAll( 'button' ) ).find(
+			( button ) => 'Install Anima LT' === button.textContent
+		) ).toBeUndefined();
+		const fallback = Array.from( container.querySelectorAll( 'a' ) ).find(
+			( link ) => 'Choose a theme' === link.textContent
+		);
+		expect( fallback ).toBeDefined();
+		expect( fallback.href ).toBe( 'https://example.test/wp-admin/themes.php' );
+	} );
+
+	test( 'hands a missing multisite theme to Network Admin', () => {
+		window.pixelgradePlugins.themeSetup.isMultisite = true;
+		window.pixelgradePlugins.themeSetup.canAutoInstall = false;
+		window.pixelgradePlugins.themeSetup.manageUrl =
+			'https://network.example.test/wp-admin/network/theme-install.php?search=anima-lt';
+
+		flushSync( () => {
+			root.render( createElement( Plugins ) );
+		} );
+
+		const handoff = Array.from( container.querySelectorAll( 'a' ) ).find(
+			( link ) => 'Open Network Themes' === link.textContent
+		);
+		expect( handoff ).toBeDefined();
+		expect( handoff.href ).toBe(
+			'https://network.example.test/wp-admin/network/theme-install.php?search=anima-lt'
+		);
+	} );
+} );

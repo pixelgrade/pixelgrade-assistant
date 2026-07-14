@@ -20,6 +20,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 // one (actionable) part of it; the readiness classification + copy live in setup-readiness.php so the
 // React tab stays presentational and the logic stays unit-testable.
 require_once __DIR__ . '/setup-readiness.php';
+require_once __DIR__ . '/theme-setup.php';
 
 if ( ! function_exists( 'pixassist_register_plugins_tab' ) ) {
 	/**
@@ -52,16 +53,18 @@ if ( ! function_exists( 'pixassist_get_plugins_data' ) ) {
 	 * Build the bootstrap payload the Setup tab renders.
 	 *
 	 * @return array {
-	 *     @type array[] $plugins   Normalized recommended plugins (the actionable list).
-	 *     @type array   $copy      Labels and helper copy derived from the existing config.
-	 *     @type array   $readiness Pixelgrade Design preflight summary (see pixassist_get_setup_readiness_data()).
+	 *     @type array[] $plugins    Normalized recommended plugins (the actionable list).
+	 *     @type array   $copy       Labels and helper copy derived from the existing config.
+	 *     @type array   $readiness  Pixelgrade Design preflight summary (see pixassist_get_setup_readiness_data()).
+	 *     @type array   $themeSetup Anima LT installation and activation descriptor.
 	 * }
 	 */
 	function pixassist_get_plugins_data() {
 		return array(
-			'plugins'   => pixassist_get_recommended_plugins_list(),
-			'copy'      => pixassist_get_plugins_copy( pixassist_get_plugins_config() ),
-			'readiness' => function_exists( 'pixassist_get_setup_readiness_data' ) ? pixassist_get_setup_readiness_data() : array(),
+			'plugins'    => pixassist_get_recommended_plugins_list(),
+			'copy'       => pixassist_get_plugins_copy( pixassist_get_plugins_config() ),
+			'readiness'  => function_exists( 'pixassist_get_setup_readiness_data' ) ? pixassist_get_setup_readiness_data() : array(),
+			'themeSetup' => pixassist_get_default_theme_setup(),
 		);
 	}
 }

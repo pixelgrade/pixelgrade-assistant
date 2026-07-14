@@ -4,12 +4,10 @@
  * Replaces the legacy full-screen setup wizard with a guided, stateful checklist at the top of the
  * Overview tab. It preserves the wizard's use-cases without rebuilding them:
  *   - Linear guidance: the ordered checklist with live per-step done state (server-computed).
- *   - Aggregated orchestration (locked decision D): a primary "Set up my site" action runs the
- *     incomplete REQUIRED steps in sequence — install + activate recommended plugins, then import
- *     the single starter when exactly one exists — with a COMBINED progress bar + inline log,
- *     reusing the existing Plugins (`ensurePluginActive`) and Starter Sites (`importStarter`) flows.
- *   - Multi-demo safety: with more than one starter the action routes to the Starter Sites tab to
- *     choose instead of silently auto-picking (a wizard use-case we must not drop).
+ *   - Essentials orchestration: a primary action installs + activates the missing default theme and
+ *     recommended plugins in sequence, with a combined progress bar + inline log.
+ *   - Explicit design choice: once the essentials are ready, the primary routes to Starter Sites;
+ *     this card never imports a starter automatically.
  *   - Dismiss (Phase 2 WRITE path): optimistic hide + a POST to the onboarding_dismiss REST route so
  *     it stays hidden across reloads.
  *
@@ -21,8 +19,8 @@
 import { createElement, Fragment, useState } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
 import { Card, CardBody, CardHeader, Button, Spinner } from '@wordpress/components';
-import { getStarterSitesData, mergeCopy, importStarter, isStarterImported } from './StarterSites';
 import { getPluginsData, ensurePluginActive } from './Plugins';
+import { canManageThemeSetup, ensureThemeActive } from './ThemeSetup';
 
 function getOnboarding() {
 	if ( typeof window !== 'undefined' && window.pixelgradeOverview && window.pixelgradeOverview.onboarding ) {
@@ -41,7 +39,7 @@ function getPixassistRest() {
 }
 
 /**
- * The Starter Sites tab deep link, used to route the user to choose when several starters exist.
+ * The Starter Sites tab deep link, used once the essentials are ready.
  *
  * @param {Array} steps Onboarding steps (the starter step carries the in-hub `&tab=` url).
  * @return {string}
@@ -56,10 +54,27 @@ function hasIncompleteStep( steps, id ) {
 	return Boolean( ( steps || [] ).find( ( step ) => step && id === step.id && ! step.done ) );
 }
 
-function shouldRouteToStarterChooser( onboarding, steps ) {
-	return Number( onboarding.demosCount || 0 ) > 1 &&
-		hasIncompleteStep( steps, 'starter' ) &&
+function shouldRouteToStarterChooser( steps ) {
+	return hasIncompleteStep( steps, 'starter' ) &&
+		! hasIncompleteStep( steps, 'theme' ) &&
 		! hasIncompleteStep( steps, 'plugins' );
+}
+
+export function isAutomaticSetupPlugin( plugin ) {
+	return Boolean(
+		plugin &&
+			plugin.slug &&
+			'external' !== plugin.actionType &&
+			'external-action' !== plugin.sourceType
+	);
+}
+
+function scheduleOnboardingRefresh() {
+	if ( typeof window === 'undefined' || ! window.location || typeof window.setTimeout !== 'function' ) {
+		return;
+	}
+
+	window.setTimeout( () => window.location.reload(), 700 );
 }
 
 function renderCheck( done ) {
@@ -235,10 +250,9 @@ function renderRun( run ) {
 /**
  * Build the ordered list of run tasks from the incomplete REQUIRED steps.
  *
+ * - Theme: install + activate Anima LT when no Pixelgrade theme is active.
  * - Plugins: install + activate every recommended plugin that is not active yet (reusing the Plugins
  *   tab install/activate flow via ensurePluginActive).
- * - Starter: import the single starter inline (only when exactly one exists; the multi-demo case is
- *   handled by routing out, not here).
  *
  * @param {Object}   onboarding   Onboarding payload.
  * @param {Function} pushLog      Append a log entry ({ type, message }).
@@ -249,14 +263,37 @@ function buildRunTasks( onboarding, pushLog, setStatus ) {
 	const tasks = [];
 	const steps = onboarding.steps || [];
 
+	const themeStep = steps.find( ( step ) => step && 'theme' === step.id );
 	const pluginsStep = steps.find( ( step ) => step && 'plugins' === step.id );
-	const starterStep = steps.find( ( step ) => step && 'starter' === step.id );
 
-	// 1. Plugins — install + activate the not-yet-active recommended plugins.
+	// 1. Theme — install + activate Anima LT before the theme-dependent plugins and starter content.
+	if ( themeStep && ! themeStep.done ) {
+		const theme = onboarding.themeSetup || {};
+		const name = theme.name || 'Anima LT';
+
+		tasks.push( {
+			run: async () => {
+				setStatus(
+					// translators: %s: theme name being installed and activated.
+					( __( 'Setting up %s…', 'pixelgrade_assistant' ) ).replace( '%s', name )
+				);
+				await ensureThemeActive( theme );
+				pushLog( {
+					type: 'done',
+					// translators: %s: theme name that was installed and activated.
+					message: ( __( '%s is active.', 'pixelgrade_assistant' ) ).replace( '%s', name ),
+				} );
+			},
+		} );
+	}
+
+	// 2. Plugins — install + activate the not-yet-active recommended plugins.
 	if ( pluginsStep && ! pluginsStep.done ) {
 		const pluginsData = getPluginsData();
 		const plugins = Array.isArray( pluginsData.plugins ) ? pluginsData.plugins : [];
-		const pending = plugins.filter( ( plugin ) => plugin && 'active' !== plugin.status && ! plugin.isActive );
+		const pending = plugins.filter(
+			( plugin ) => isAutomaticSetupPlugin( plugin ) && 'active' !== plugin.status && ! plugin.isActive
+		);
 
 		pending.forEach( ( plugin ) => {
 			const name = plugin.name || plugin.slug;
@@ -275,26 +312,6 @@ function buildRunTasks( onboarding, pushLog, setStatus ) {
 				},
 			} );
 		} );
-	}
-
-	// 2. Starter — import the single starter inline (1 demo only; >1 routes out, 0 has no step).
-	if ( starterStep && ! starterStep.done && 1 === Number( onboarding.demosCount ) ) {
-		const data = getStarterSitesData();
-		const copy = mergeCopy( data.copy );
-		const starters = Array.isArray( data.starters ) ? data.starters : [];
-		const starter = starters[ 0 ];
-
-		if ( starter && ! isStarterImported( data.imported || {}, starter.id ) ) {
-			tasks.push( {
-				run: async () => {
-					await importStarter( starter, data, copy, ( message ) => setStatus( message ) );
-					pushLog( {
-						type: 'done',
-						message: __( 'Starter content imported.', 'pixelgrade_assistant' ),
-					} );
-				},
-			} );
-		}
 	}
 
 	return tasks;
@@ -344,15 +361,6 @@ export function GetStartedCard() {
 	};
 
 	const runSetup = async () => {
-		// Multi-demo: never auto-pick, but finish plugin setup before routing to the chooser.
-		if ( shouldRouteToStarterChooser( onboarding, steps ) ) {
-			const url = getStarterTabUrl( steps );
-			if ( url && typeof window !== 'undefined' ) {
-				window.location.href = url;
-			}
-			return;
-		}
-
 		const tasks = buildRunTasks( onboarding, pushLog, setStatus );
 
 		if ( ! tasks.length ) {
@@ -384,13 +392,14 @@ export function GetStartedCard() {
 			} catch ( error ) {
 				pushLog( {
 					type: 'error',
-					message: error && error.message ? error.message : __( 'Something went wrong.', 'pixelgrade_assistant' ),
+					message: __( 'Automatic setup could not finish. The page will refresh so it is safe to try again.', 'pixelgrade_assistant' ),
 				} );
 				setRun( ( current ) => ( {
 					...current,
 					status: 'error',
-					message: __( 'We hit a snag. Review the steps below and try again.', 'pixelgrade_assistant' ),
+					message: __( 'Setup stopped. Refreshing the latest status…', 'pixelgrade_assistant' ),
 				} ) );
+				scheduleOnboardingRefresh();
 				return;
 			}
 		}
@@ -402,14 +411,10 @@ export function GetStartedCard() {
 			message: __( 'All set! Refreshing the page to show the latest status.', 'pixelgrade_assistant' ),
 		} ) );
 
-		if ( typeof window !== 'undefined' && window.location && typeof window.setTimeout === 'function' ) {
-			window.setTimeout( () => window.location.reload(), 700 );
-		}
+		scheduleOnboardingRefresh();
 	};
 
-	// Progress counts the REQUIRED steps only: optional steps (e.g. "Connect your account") never
-	// block completion, so they must not drag the tally below 100% on the free path. This mirrors the
-	// server-side completion rule (pixassist_onboarding_is_complete), which also ignores optional steps.
+	// Mirror the server completion rule and defensively ignore any optional step contributed later.
 	const requiredSteps = steps.filter( ( step ) => step && ! step.optional );
 	const countedSteps = requiredSteps.length ? requiredSteps : steps;
 	const doneCount = countedSteps.filter( ( step ) => step && step.done ).length;
@@ -417,12 +422,34 @@ export function GetStartedCard() {
 		.replace( '%1$d', String( doneCount ) )
 		.replace( '%2$d', String( countedSteps.length ) );
 
-	// Honest labeling: the primary either RUNS the remaining setup inline ("Set up my site") or —
-	// when only the multi-demo starter choice remains — routes to the chooser ("Choose a starter
-	// site"). It must never promise a review while performing installs.
-	const primaryLabel = shouldRouteToStarterChooser( onboarding, steps )
+	// The automatic phase installs only essentials. Choosing and applying a design remains explicit.
+	const shouldChooseStarter = shouldRouteToStarterChooser( steps );
+	const starterUrl = shouldChooseStarter ? getStarterTabUrl( steps ) : '';
+	const primaryLabel = shouldChooseStarter
 		? __( 'Choose a starter site', 'pixelgrade_assistant' )
-		: __( 'Set up my site', 'pixelgrade_assistant' );
+		: __( 'Install the essentials', 'pixelgrade_assistant' );
+	const needsTheme = hasIncompleteStep( steps, 'theme' );
+	const expectsStarter = hasIncompleteStep( steps, 'starter' );
+	const themeStep = steps.find( ( step ) => step && 'theme' === step.id );
+	const themeNeedsAdministrator = needsTheme && ! canManageThemeSetup( onboarding.themeSetup || {} );
+	const themeSetup = onboarding.themeSetup || {};
+	const primaryUrl = themeNeedsAdministrator
+		? ( themeSetup.manageUrl || ( themeStep && themeStep.url ? themeStep.url : '' ) )
+		: starterUrl;
+	const finalPrimaryLabel = themeNeedsAdministrator
+		? themeSetup.isMultisite
+			? __( 'Open Network Themes', 'pixelgrade_assistant' )
+			: __( 'Open Site Setup', 'pixelgrade_assistant' )
+		: primaryLabel;
+	let essentialsDescription = expectsStarter
+		? __( 'Installs and activates any missing essentials: Anima LT, Nova Blocks, and Style Manager. You’ll choose a starter site next.', 'pixelgrade_assistant' )
+		: __( 'Installs and activates any missing essentials: Anima LT, Nova Blocks, and Style Manager.', 'pixelgrade_assistant' );
+
+	if ( themeNeedsAdministrator ) {
+		essentialsDescription = themeSetup.isMultisite
+			? __( 'Install and enable Anima LT in Network Admin, then return here to continue setup.', 'pixelgrade_assistant' )
+			: __( 'A site administrator needs to install and activate Anima LT before setup can continue.', 'pixelgrade_assistant' );
+	}
 
 	return createElement(
 		Card,
@@ -467,12 +494,25 @@ export function GetStartedCard() {
 			),
 			createElement(
 				'div',
-				{ style: { display: 'flex', gap: '8px', margin: '16px 0 0' } },
+				{ style: { display: 'grid', gap: '8px', justifyItems: 'start', margin: '16px 0 0' } },
 				createElement(
 					Button,
-					{ variant: 'primary', onClick: runSetup, isBusy: isWorking, disabled: isWorking },
-					isWorking ? __( 'Setting up…', 'pixelgrade_assistant' ) : primaryLabel
-				)
+					{
+						variant: 'primary',
+						href: primaryUrl || undefined,
+						onClick: primaryUrl ? undefined : runSetup,
+						isBusy: isWorking,
+						disabled: isWorking,
+					},
+					isWorking ? __( 'Setting up…', 'pixelgrade_assistant' ) : finalPrimaryLabel
+				),
+				! shouldChooseStarter
+					? createElement(
+							'p',
+							{ style: { color: '#50575e', fontSize: '12px', margin: 0 } },
+							essentialsDescription
+					  )
+					: null
 			),
 			renderRun( run )
 		)

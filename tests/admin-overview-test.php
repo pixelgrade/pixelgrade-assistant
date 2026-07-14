@@ -28,6 +28,7 @@ define( 'PIXELGRADE_ASSISTANT__SHOP_BASE', 'https://pixelgrade.com/' );
 $GLOBALS['paf_filters']         = array();
 $GLOBALS['paf_denied_caps']     = array();
 $GLOBALS['paf_is_block_theme']  = false;
+$GLOBALS['paf_theme_ready']     = false;
 $GLOBALS['paf_plugins_data']    = array( 'plugins' => array( array( 'slug' => 'fixture', 'status' => 'missing' ) ) );
 $GLOBALS['paf_starter_data']    = array();
 $GLOBALS['paf_layout_data']     = array();
@@ -101,6 +102,7 @@ function paf_reset() {
 	$GLOBALS['paf_filters']         = array();
 	$GLOBALS['paf_denied_caps']     = array();
 	$GLOBALS['paf_is_block_theme']  = false;
+	$GLOBALS['paf_theme_ready']     = false;
 	$GLOBALS['paf_plugins_data']    = array( 'plugins' => array( array( 'slug' => 'fixture', 'status' => 'missing' ) ) );
 	$GLOBALS['paf_starter_data']    = array();
 	$GLOBALS['paf_layout_data']     = array();
@@ -158,6 +160,10 @@ function pixassist_get_account() {
 
 function pixassist_is_account_connected() {
 	return ! empty( $GLOBALS['paf_account']['is_connected'] );
+}
+
+function pixassist_get_setup_theme_facts() {
+	return array( 'is_pixelgrade' => ! empty( $GLOBALS['paf_theme_ready'] ) );
 }
 
 function assert_same( $expected, $actual, $message ) {
@@ -449,6 +455,7 @@ paf_set_plus_status( array(
 	'plus_product_label' => 'Pixelgrade Plus',
 ) );
 $GLOBALS['paf_account']      = array( 'is_connected' => true, 'email' => 'test@example.test' );
+$GLOBALS['paf_theme_ready']  = true;
 $GLOBALS['paf_plugins_data'] = array( 'plugins' => array() );
 $GLOBALS['paf_starter_data'] = array(
 	'starters'     => array(),
@@ -555,10 +562,15 @@ assert_same( false, strpos( $overview_js, 'renderCommandCenter' ), 'The badge-ti
 assert_same( false, strpos( $overview_js, 'renderOrientation' ), 'The standalone marketing hero stays retired (orientation lives in the Get Started intro).' );
 
 $get_started_js = file_get_contents( __DIR__ . '/../admin/src-modern/hub/tabs/GetStartedCard.js' );
-assert_true( false !== strpos( $get_started_js, 'shouldRouteToStarterChooser' ), 'Get started must decide multi-starter routing through an explicit helper.' );
+assert_true( false !== strpos( $get_started_js, 'shouldRouteToStarterChooser' ), 'Get started must decide starter routing through an explicit helper.' );
 assert_true( false !== strpos( $get_started_js, "hasIncompleteStep( steps, 'plugins' )" ), 'Get started must prioritize incomplete plugin setup before routing to Starter Sites.' );
 assert_true( false !== strpos( $get_started_js, 'window.location.reload()' ), 'Get started must refresh after successful setup so plugin state is current.' );
-assert_true( false !== strpos( $get_started_js, 'Set up my site' ), 'The Get started primary must say what it does (runs setup inline).' );
+assert_true( false !== strpos( $get_started_js, 'ensureThemeActive' ), 'Get started must install and activate the default Anima LT theme before plugin setup.' );
+assert_true( false !== strpos( $get_started_js, 'Install the essentials' ), 'The Get started primary must name the essentials-only automatic action.' );
+assert_true( false !== strpos( $get_started_js, 'Installs and activates any missing essentials: Anima LT, Nova Blocks, and Style Manager.' ), 'Get started must explain the automatic action without claiming ready essentials will be reinstalled.' );
+assert_true( false !== strpos( $get_started_js, 'isAutomaticSetupPlugin' ), 'Get started must exclude external companion hand-offs from its automatic setup queue.' );
+assert_true( false !== strpos( $get_started_js, 'scheduleOnboardingRefresh' ), 'Get started must refresh server state after success or failure so retries never reuse stale descriptors.' );
+assert_same( false, strpos( $get_started_js, 'importStarter' ), 'Get started must never import starter content automatically.' );
 assert_same( false, strpos( $get_started_js, 'Review setup' ), 'The Get started primary must not promise a review while performing installs.' );
 
 /*
@@ -569,23 +581,23 @@ assert_same( false, strpos( $get_started_js, 'Review setup' ), 'The Get started 
  * to safe defaults in this harness.
  */
 
-// 6a. Step builder: account is always present + optional; the starter step appears only when demos
-//     exist; plugins is always present + required.
+// 6a. Step builder: only the required theme/plugins/starter path belongs in Get started. Account
+//     connection remains available elsewhere on Home and in the Account tab.
 $steps_with_demos = pixassist_get_onboarding_steps( array(
 	'base_url'          => 'https://example.test/wp-admin/admin.php?page=pixelgrade',
 	'account_connected' => true,
+	'theme_ready'       => false,
 	'demos_exist'       => true,
 	'starter_imported'  => false,
 	'plugins_ready'     => false,
 ) );
 $step_ids = array_map( function ( $s ) { return $s['id']; }, $steps_with_demos );
-assert_same( array( 'account', 'plugins', 'starter' ), $step_ids, 'With demos, the steps are account, plugins, starter (in order).' );
-
-$account_step = $steps_with_demos[0];
-assert_same( true, $account_step['done'], 'Connected account marks the account step done.' );
-assert_same( true, $account_step['optional'], 'The account step is optional (never blocks completion).' );
-assert_same( 'https://example.test/wp-admin/admin.php?page=pixelgrade&tab=account', $account_step['url'], 'Account step links to the Account tab.' );
-assert_same( 'https://example.test/wp-admin/admin.php?page=pixelgrade&tab=plugins', $steps_with_demos[1]['url'], 'Plugins step links to the Plugins tab.' );
+assert_same( array( 'theme', 'plugins', 'starter' ), $step_ids, 'With demos, Get started contains only theme, plugins, and starter (in order).' );
+assert_same( 'Install and activate Anima LT', $steps_with_demos[0]['title'], 'The theme step names the default theme action explicitly.' );
+assert_same( false, $steps_with_demos[0]['done'], 'A non-Pixelgrade active theme leaves the theme step incomplete.' );
+assert_same( false, $steps_with_demos[0]['optional'], 'The theme step is required.' );
+assert_same( 'https://example.test/wp-admin/admin.php?page=pixelgrade&tab=plugins', $steps_with_demos[0]['url'], 'The theme step links to Site Setup.' );
+assert_same( 'https://example.test/wp-admin/admin.php?page=pixelgrade&tab=plugins', $steps_with_demos[1]['url'], 'The plugins step links to Site Setup.' );
 assert_same( false, $steps_with_demos[1]['optional'], 'The plugins step is required.' );
 assert_same( 'https://example.test/wp-admin/admin.php?page=pixelgrade&tab=starter-sites', $steps_with_demos[2]['url'], 'Starter step links to the Starter Sites tab.' );
 
@@ -593,15 +605,17 @@ assert_same( 'https://example.test/wp-admin/admin.php?page=pixelgrade&tab=starte
 $steps_no_demos = pixassist_get_onboarding_steps( array(
 	'base_url'          => 'https://example.test/wp-admin/admin.php?page=pixelgrade',
 	'account_connected' => false,
+	'theme_ready'       => true,
 	'demos_exist'       => false,
 	'starter_imported'  => false,
 	'plugins_ready'     => true,
 ) );
 $step_ids_nd = array_map( function ( $s ) { return $s['id']; }, $steps_no_demos );
-assert_same( array( 'account', 'plugins' ), $step_ids_nd, 'Without demos, the starter step is omitted.' );
+assert_same( array( 'theme', 'plugins' ), $step_ids_nd, 'Without demos, the starter step is omitted and Account stays outside Get started.' );
+assert_same( true, $steps_no_demos[0]['done'], 'An active Pixelgrade theme completes the theme step.' );
 
-// 6c. Completion = all REQUIRED steps done; the optional account step never blocks completion.
-assert_same( true, pixassist_onboarding_is_complete( $steps_no_demos ), 'Required (plugins) done + optional account undone => complete.' );
+// 6c. Completion = all required setup steps done.
+assert_same( true, pixassist_onboarding_is_complete( $steps_no_demos ), 'Required theme/plugins done => complete.' );
 assert_same( false, pixassist_onboarding_is_complete( $steps_with_demos ), 'A required step undone => not complete.' );
 
 // 6d. Off-switch: a dedicated filter, defaulting from the legacy wizard-allow filter for back-compat.
@@ -630,7 +644,8 @@ add_filter( 'pixelgrade/admin_hub/tabs', 'pixassist_register_overview_tab' );
 $onboarding = pixassist_get_overview_data()['onboarding'];
 $ob_keys = array_keys( $onboarding );
 sort( $ob_keys );
-assert_same( array( 'completed', 'demosCount', 'dismissEndpoint', 'dismissed', 'enabled', 'show', 'steps' ), $ob_keys, 'Onboarding payload exposes show/enabled/dismissed/completed/steps/demosCount/dismissEndpoint.' );
+assert_same( array( 'completed', 'dismissEndpoint', 'dismissed', 'enabled', 'show', 'steps', 'themeSetup' ), $ob_keys, 'Onboarding payload exposes its state, steps, dismiss endpoint, and default theme setup descriptor.' );
+assert_same( 'anima-lt', $onboarding['themeSetup']['slug'], 'Fresh-site onboarding targets the WordPress.org Anima LT theme.' );
 assert_same( true, $onboarding['enabled'], 'Onboarding enabled by default in the payload.' );
 assert_same( false, $onboarding['dismissed'], 'Not dismissed without a persisted marker.' );
 assert_same( false, $onboarding['completed'], 'Not complete when the plugins step is unmet.' );
@@ -641,10 +656,6 @@ assert_same( true, $onboarding['show'], 'Card shows for a fresh, enabled, incomp
 assert_true( is_array( $onboarding['dismissEndpoint'] ), 'The dismiss endpoint descriptor is an array.' );
 assert_same( 'POST', $onboarding['dismissEndpoint']['method'], 'The dismiss endpoint is a POST.' );
 assert_same( '', $onboarding['dismissEndpoint']['url'], 'The dismiss endpoint url degrades to empty without rest_url().' );
-
-// 6h. demosCount degrades to 0 when the Starter Sites module is absent (this harness). It drives the
-//     "Set up my site" action: 1 ⇒ import inline, >1 ⇒ route to the Starter Sites tab to choose.
-assert_same( 0, $onboarding['demosCount'], 'demosCount degrades to 0 without the Starter Sites module.' );
 
 /*
  * 10. Promise rows (#hub-home-promises): "Your style", "Last change", and "Diagnostics" are

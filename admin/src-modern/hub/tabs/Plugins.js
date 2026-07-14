@@ -11,6 +11,7 @@ import { __, sprintf } from '@wordpress/i18n';
 import { Button, Card, CardBody, Flex, FlexItem, Notice, Spinner } from '@wordpress/components';
 
 import { getContributedSections, renderContributedSections, useSectionDeepLink } from '../contributedSections';
+import { canManageThemeSetup, ensureThemeActive } from './ThemeSetup';
 
 const SETUP_SECTIONS_FILTER = 'pixelgrade.adminHub.setupSections';
 const SETUP_SECTION_ID_PREFIX = 'pixelgrade-setup-section-';
@@ -534,7 +535,7 @@ function renderCheckItems( check ) {
 	);
 }
 
-function renderIssueCard( check, copy ) {
+function renderIssueCard( check, copy, themeSetup, setThemeSetup, setNotice ) {
 	const tone = readinessTone( check.status );
 	const badge = 'blocked' === check.status ? copy.blockedBadge : copy.warningBadge;
 
@@ -544,6 +545,70 @@ function renderIssueCard( check, copy ) {
 	}
 	if ( check.expected ) {
 		rows.push( [ copy.expectedLabel, check.expected ] );
+	}
+
+	let action = null;
+	if (
+		'theme' === check.id &&
+		themeSetup &&
+		themeSetup.slug &&
+		! themeSetup.isActive &&
+		canManageThemeSetup( themeSetup )
+	) {
+		const isWorking = 'working' === themeSetup.status;
+		const actionLabel = isWorking
+			? __( 'Setting up Anima LT…', 'pixelgrade_assistant' )
+			: themeSetup.isInstalled
+				? __( 'Activate Anima LT', 'pixelgrade_assistant' )
+				: __( 'Install Anima LT', 'pixelgrade_assistant' );
+
+		action = createElement(
+			Button,
+			{
+				variant: 'secondary',
+				disabled: isWorking,
+				isBusy: isWorking,
+				onClick: ( event ) => {
+					setThemeSetup( ( current ) => ( { ...current, status: 'working' } ) );
+					ensureThemeActive( themeSetup, event )
+						.then( () => {
+							setThemeSetup( ( current ) => ( {
+								...current,
+								status: 'active',
+								isInstalled: true,
+								isActive: true,
+							} ) );
+							setNotice( {
+								type: 'success',
+								message: __( 'Anima LT is active. Refreshing the setup status…', 'pixelgrade_assistant' ),
+							} );
+							scheduleStatusRefresh();
+						} )
+						.catch( () => {
+							setThemeSetup( ( current ) => ( { ...current, status: 'failed' } ) );
+							setNotice( {
+								type: 'error',
+								message: __( 'Anima LT could not be set up. Please try again from Appearance → Themes.', 'pixelgrade_assistant' ),
+							} );
+						} );
+				},
+			},
+			actionLabel
+		);
+	} else if ( 'theme' === check.id && themeSetup && themeSetup.manageUrl ) {
+		action = createElement(
+			Button,
+			{ variant: 'secondary', href: themeSetup.manageUrl },
+			themeSetup.isMultisite
+				? __( 'Open Network Themes', 'pixelgrade_assistant' )
+				: ( check.action && check.action.label ? check.action.label : __( 'Manage themes', 'pixelgrade_assistant' ) )
+		);
+	} else if ( check.action && check.action.url ) {
+		action = createElement(
+			Button,
+			{ variant: 'secondary', href: check.action.url, target: '_blank', rel: 'noreferrer' },
+			check.action.label
+		);
 	}
 
 	return createElement(
@@ -602,15 +667,11 @@ function renderIssueCard( check, copy ) {
 						: null,
 					renderCheckItems( check )
 				),
-				check.action && check.action.url
+				action
 					? createElement(
 							FlexItem,
 							null,
-							createElement(
-								Button,
-								{ variant: 'secondary', href: check.action.url, target: '_blank', rel: 'noreferrer' },
-								check.action.label
-							)
+							action
 					  )
 					: null
 			)
@@ -618,7 +679,7 @@ function renderIssueCard( check, copy ) {
 	);
 }
 
-function renderIssues( readiness, copy ) {
+function renderIssues( readiness, copy, themeSetup, setThemeSetup, setNotice ) {
 	const checks = Array.isArray( readiness.checks ) ? readiness.checks : [];
 	// The `plugins` check has its own actionable list rendered below, so surfacing it as an issue card
 	// here would just duplicate it. Every other check has no list, so it keeps its actionable card.
@@ -634,7 +695,7 @@ function renderIssues( readiness, copy ) {
 		Fragment,
 		null,
 		createElement( 'h2', { style: { fontSize: '15px', margin: '0 0 8px' } }, copy.issuesTitle ),
-		issues.map( ( check ) => renderIssueCard( check, copy ) )
+		issues.map( ( check ) => renderIssueCard( check, copy, themeSetup, setThemeSetup, setNotice ) )
 	);
 }
 
@@ -706,6 +767,7 @@ export function Plugins() {
 	const readiness = data.readiness || {};
 	const readinessCopy = readiness.copy || {};
 	const [ plugins, setPlugins ] = useState( Array.isArray( data.plugins ) ? data.plugins : [] );
+	const [ themeSetup, setThemeSetup ] = useState( data.themeSetup || {} );
 	const [ notice, setNotice ] = useState( null );
 
 	useSectionDeepLink( SETUP_SECTION_ID_PREFIX );
@@ -722,7 +784,7 @@ export function Plugins() {
 		Fragment,
 		null,
 		renderOverallCard( readiness.overall ),
-		renderIssues( readiness, readinessCopy ),
+		renderIssues( readiness, readinessCopy, themeSetup, setThemeSetup, setNotice ),
 		notice
 			? createElement(
 					Notice,

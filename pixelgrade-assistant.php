@@ -57,6 +57,9 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/service-request-context.php
 // Appearance -> Pixelgrade hub: server-side bootstrap data for the React shell.
 require_once plugin_dir_path( __FILE__ ) . 'includes/admin-hub.php';
 
+// Shared Anima LT install/activation descriptor for fresh-site onboarding and Site Setup.
+require_once plugin_dir_path( __FILE__ ) . 'includes/theme-setup.php';
+
 // Free Styles tab: in-hub style control center + editor/customizer destinations.
 require_once plugin_dir_path( __FILE__ ) . 'includes/admin-styles.php';
 

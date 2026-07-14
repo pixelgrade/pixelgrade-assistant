@@ -22,6 +22,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
+require_once __DIR__ . '/theme-setup.php';
+
 if ( ! function_exists( 'pixassist_register_overview_tab' ) ) {
 	/**
 	 * Register the free Overview tab on the Appearance -> Pixelgrade hub registry.
@@ -1291,7 +1293,7 @@ if ( ! function_exists( 'pixassist_get_overview_diagnostics_row' ) ) {
  * the Overview tab. This is the server-side state model only (the card UI + the activation redirect
  * land in later phases). The logic is split into PURE functions driven by injected "facts" (so it is
  * WP-free and unit-testable) plus thin, guarded fact-gathering that degrades safely when a subsystem
- * (account / starter sites / plugins) is unavailable.
+ * (theme / starter sites / plugins) is unavailable.
  *
  * Carry-over guarantees from the wizard: the starter step is hidden when the theme exposes no demos,
  * and an off-switch (`pixassist_show_onboarding`, seeded from the legacy
@@ -1303,22 +1305,21 @@ if ( ! function_exists( 'pixassist_get_onboarding_steps' ) ) {
 	/**
 	 * Build the ordered onboarding steps from facts. Pure: no WP calls, no side effects.
 	 *
-	 * @param array $facts { base_url, account_connected, demos_exist, starter_imported, plugins_ready }.
+	 * @param array $facts { base_url, theme_ready, demos_exist, starter_imported, plugins_ready }.
 	 *
 	 * @return array[] Each step: { id, title, description, url, done (bool), optional (bool) }.
 	 */
 	function pixassist_get_onboarding_steps( $facts ) {
 		$base_url = isset( $facts['base_url'] ) ? (string) $facts['base_url'] : '';
 
-		// Account is optional — it never blocks completion (mirrors the wizard's account gating).
 		$steps = array(
 			array(
-				'id'          => 'account',
-				'title'       => esc_html__( 'Connect your account', '__plugin_txtd' ),
-				'description' => esc_html__( 'Connect a free pixelgrade.com account for support and updates. Optional.', '__plugin_txtd' ),
-				'url'         => $base_url . '&tab=account',
-				'done'        => ! empty( $facts['account_connected'] ),
-				'optional'    => true,
+				'id'          => 'theme',
+				'title'       => esc_html__( 'Install and activate Anima LT', '__plugin_txtd' ),
+				'description' => esc_html__( 'Start with the free Pixelgrade theme built for these design tools.', '__plugin_txtd' ),
+				'url'         => $base_url . '&tab=plugins',
+				'done'        => ! empty( $facts['theme_ready'] ),
+				'optional'    => false,
 			),
 			array(
 				'id'          => 'plugins',
@@ -1334,7 +1335,7 @@ if ( ! function_exists( 'pixassist_get_onboarding_steps' ) ) {
 		if ( ! empty( $facts['demos_exist'] ) ) {
 			$steps[] = array(
 				'id'          => 'starter',
-				'title'       => esc_html__( 'Pick a starter site', '__plugin_txtd' ),
+				'title'       => esc_html__( 'Choose a starter site', '__plugin_txtd' ),
 				'description' => esc_html__( 'Launch from a ready-made starter instead of a blank canvas.', '__plugin_txtd' ),
 				'url'         => $base_url . '&tab=starter-sites',
 				'done'        => ! empty( $facts['starter_imported'] ),
@@ -1442,27 +1443,6 @@ if ( ! function_exists( 'pixassist_onboarding_demos_exist' ) ) {
 	}
 }
 
-if ( ! function_exists( 'pixassist_onboarding_demos_count' ) ) {
-	/**
-	 * How many starter demos the theme exposes. Guarded (Starter Sites module may be absent).
-	 *
-	 * Drives the "Set up my site" action: 1 starter ⇒ import inline; >1 ⇒ route to the Starter Sites
-	 * tab to choose (never auto-pick among multiple starters).
-	 *
-	 * @return int
-	 */
-	function pixassist_onboarding_demos_count() {
-		if ( ! function_exists( 'pixassist_get_starter_sites_data' ) ) {
-			return 0;
-		}
-
-		$data     = pixassist_get_starter_sites_data();
-		$starters = isset( $data['starters'] ) && is_array( $data['starters'] ) ? $data['starters'] : array();
-
-		return count( $starters );
-	}
-}
-
 if ( ! function_exists( 'pixassist_onboarding_starter_imported' ) ) {
 	/**
 	 * Whether any starter content has been imported. Guarded.
@@ -1524,9 +1504,17 @@ if ( ! function_exists( 'pixassist_get_onboarding_facts' ) ) {
 	 * @return array Facts consumed by pixassist_get_onboarding_steps().
 	 */
 	function pixassist_get_onboarding_facts( $base_url ) {
+		$theme_ready = false;
+		if ( function_exists( 'pixassist_get_setup_theme_facts' ) ) {
+			$theme_facts = pixassist_get_setup_theme_facts();
+			$theme_ready = ! empty( $theme_facts['is_pixelgrade'] );
+		} elseif ( class_exists( 'PixelgradeAssistant_Admin' ) && method_exists( 'PixelgradeAssistant_Admin', 'is_pixelgrade_theme' ) ) {
+			$theme_ready = (bool) PixelgradeAssistant_Admin::is_pixelgrade_theme();
+		}
+
 		return array(
 			'base_url'          => (string) $base_url,
-			'account_connected' => function_exists( 'pixassist_is_account_connected' ) ? (bool) pixassist_is_account_connected() : false,
+			'theme_ready'       => $theme_ready,
 			'demos_exist'       => pixassist_onboarding_demos_exist(),
 			'starter_imported'  => pixassist_onboarding_starter_imported(),
 			'plugins_ready'     => pixassist_onboarding_plugins_ready(),
@@ -1558,7 +1546,7 @@ if ( ! function_exists( 'pixassist_get_onboarding_data' ) ) {
 	 *
 	 * @param string $base_url Hub page URL (carries `?page=pixelgrade`), for step `&tab=` links.
 	 *
-	 * @return array { show, enabled, dismissed, completed, steps, demosCount, dismissEndpoint }
+	 * @return array { show, enabled, dismissed, completed, steps, themeSetup, dismissEndpoint }
 	 */
 	function pixassist_get_onboarding_data( $base_url ) {
 		$facts   = pixassist_get_onboarding_facts( $base_url );
@@ -1572,10 +1560,7 @@ if ( ! function_exists( 'pixassist_get_onboarding_data' ) ) {
 			'dismissed'       => ! empty( $state['dismissed'] ),
 			'completed'       => pixassist_onboarding_is_complete( $steps ),
 			'steps'           => $steps,
-			// How many starter demos exist drives the "Set up my site" action: with exactly one the
-			// card imports it inline; with several it routes to the Starter Sites tab to choose (the
-			// card never silently auto-picks among multiple starters — a wizard use-case).
-			'demosCount'      => pixassist_onboarding_demos_count(),
+			'themeSetup'      => pixassist_get_default_theme_setup(),
 			'dismissEndpoint' => pixassist_get_onboarding_dismiss_endpoint(),
 		);
 	}
