@@ -518,7 +518,28 @@ assert_same(
 );
 
 /*
- * 6e. Post-id / term-id collision safety (regression).
+ * 6e. Mixed block-navigation records.
+ *     A wp_navigation post can contain editorial and commerce navigation-link blocks together. The
+ *     free import must remove only links to skipped commerce records/pages, preserving the menu and
+ *     every editorial link inside it.
+ */
+assert_true( function_exists( 'pixassist_starter_filter_unauthorized_navigation_blocks' ), 'A mixed block-navigation sanitizer must be defined.' );
+
+$mixed_navigation = implode( "\n", array(
+	'<!-- wp:navigation-link {"label":"Home","url":"https://example.test/","kind":"custom","isTopLevelLink":true} /-->',
+	'<!-- wp:navigation-link {"label":"Shop","url":"https://example.test/shop/","kind":"custom","isTopLevelLink":true} /-->',
+	'<!-- wp:navigation-link {"label":"Store policies","type":"page","id":4,"url":"https://example.test/store-policies/","kind":"post-type","isTopLevelLink":true} /-->',
+	'<!-- wp:navigation-link {"label":"Shopping tips","url":"https://example.test/shopping-tips/","kind":"custom","isTopLevelLink":true} /-->',
+) );
+
+$filtered_navigation = pixassist_starter_filter_unauthorized_navigation_blocks( $mixed_navigation, $skipped_pages );
+assert_true( false === strpos( $filtered_navigation, '"label":"Shop"' ), 'A custom Shop block link must be removed when commerce is unavailable.' );
+assert_true( false === strpos( $filtered_navigation, '"label":"Store policies"' ), 'A block link targeting a skipped commerce page id must be removed even when its label and URL are neutral.' );
+assert_true( false !== strpos( $filtered_navigation, '"label":"Home"' ), 'An editorial Home block link must be preserved.' );
+assert_true( false !== strpos( $filtered_navigation, '"label":"Shopping tips"' ), 'Generic editorial shopping copy must not be mistaken for a commerce page link.' );
+
+/*
+ * 6f. Post-id / term-id collision safety (regression).
  *     The skipped-commerce registry must be keyed by object-type + id, never a bare numeric id.
  *     Live Felt LT ships base editorial nav items that target category/post_tag TERMS (e.g. item
  *     2040 -> category term 18, item 2131 -> post_tag term 85), while the same free import skips
@@ -767,6 +788,7 @@ assert_same( 'base', pixassist_starter_classify_import( 'taxonomy', array( 'tax'
  */
 $GLOBALS['paf_installed_plugins'] = array( 'woocommerce/woocommerce.php' => true );
 $GLOBALS['paf_entitlements']      = array( 'woocommerce_integration' => true );
+assert_same( $mixed_navigation, pixassist_starter_filter_unauthorized_navigation_blocks( $mixed_navigation, $skipped_pages ), 'Unlocked: mixed block-navigation content must remain unchanged.' );
 foreach ( $felt_commerce_nav as $label => $item ) {
 	assert_same( true, pixassist_starter_post_record_is_authorized( $item, $felt_ctx ), 'Unlocked: Felt commerce nav item must be authorized: ' . $label );
 }

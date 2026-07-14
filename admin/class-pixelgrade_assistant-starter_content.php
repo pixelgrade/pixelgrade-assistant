@@ -11160,6 +11160,16 @@ HTML;
 					continue;
 				}
 
+				// A block-navigation post can mix editorial links with a Shop/Cart link. Preserve the
+				// record and its free links while removing only unauthorized commerce navigation-link
+				// blocks. Mirror the filtered content into the response array because the post-processing
+				// pass below reads that source again when remapping embedded ids.
+				if ( function_exists( 'pixassist_starter_filter_unauthorized_navigation_blocks' )
+					&& isset( $post['post_content'] ) ) {
+					$post['post_content'] = pixassist_starter_filter_unauthorized_navigation_blocks( $post['post_content'], $commerce_context );
+					$response_data['data']['posts'][ $i ]['post_content'] = $post['post_content'];
+				}
+
 				$post_args = array(
 					'import_id'             => $post['ID'],
 					'post_title'            => wp_strip_all_tags( $post['post_title'] ),
