@@ -97,9 +97,7 @@ Pixelgrade Assistant does not perform advertising, cross-site, or event-level be
 1. The Pixelgrade Design home brings onboarding, site status, and the next best action into one calm dashboard.
 2. Site Setup verifies the recommended plugin stack and environment at a glance.
 3. Browse free starter sites alongside reusable site parts and page patterns in the Design Library.
-4. Choose a full starter, layouts only, or exact parts; optional commerce content stays clearly separated until its requirements are active.
-5. Preview the live color, typography, and spacing systems, then jump straight into the matching Style Manager controls.
-6. Open Pixelgrade Design Docs in a floating window without leaving the WordPress screen you are working on.
+4. Preview the live color, typography, and spacing systems, then jump straight into the matching Style Manager controls.
 
 == Changelog ==
 
