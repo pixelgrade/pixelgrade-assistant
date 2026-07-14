@@ -113,7 +113,6 @@ Pixelgrade Assistant does not perform advertising, cross-site, or event-level be
 * Service infrastructure: functional Pixelgrade requests now use a documented first-party site registry with explicit URL/stack context and aggregate service reporting.
 
 = 2.2.1 =
-* Service infrastructure: functional Pixelgrade requests now use a documented first-party site registry with explicit URL/stack context and aggregate service reporting.
 * Fix: remote theme-configuration lookups are now strictly rate-limited with a cached fallback, eliminating the excessive background requests to pixelgrade.com that some installs generated.
 * Fix: a PHP 8.2 deprecation notice (dynamic property) in the navigation menu integration.
 * Fix: the editor docs launcher now uses WordPress core's interface package, avoiding a duplicate `core/interface` store warning in the Site Editor.
