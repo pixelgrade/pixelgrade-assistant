@@ -363,6 +363,7 @@ function removeUnneededFiles( done ) {
 		'.jshintignore',
 		'browserslist',
 		'babel.config.js',
+		'jest-unit.config.js',
 
 		'admin/scss',
 		'admin/src',
