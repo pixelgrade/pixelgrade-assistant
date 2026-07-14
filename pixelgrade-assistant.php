@@ -3,7 +3,7 @@
  * Plugin Name:       Pixelgrade Assistant
  * Plugin URI:        https://github.com/pixelgrade/pixelgrade-assistant
  * Description:       We care about giving you the best experience with your free Pixelgrade theme.
- * Version:           2.2.2
+ * Version:           2.3.0
  * Requires at least: 5.9
  * Requires PHP:      7.4
  * Author:            Pixelgrade
@@ -23,7 +23,7 @@ define( 'PIXELGRADE_ASSISTANT__PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'PIXELGRADE_ASSISTANT__PLUGIN_FILE', __FILE__ );
 
 // Define our constants or make sure they have a value
-defined( 'PIXELGRADE_ASSISTANT__VERSION' )           || define( 'PIXELGRADE_ASSISTANT__VERSION', '2.2.2' );
+defined( 'PIXELGRADE_ASSISTANT__VERSION' )           || define( 'PIXELGRADE_ASSISTANT__VERSION', '2.3.0' );
 defined( 'PIXELGRADE_ASSISTANT__API_BASE' )          || define( 'PIXELGRADE_ASSISTANT__API_BASE', 'https://pixelgrade.com/' );
 defined( 'PIXELGRADE_ASSISTANT__API_BASE_DOMAIN' )   || define( 'PIXELGRADE_ASSISTANT__API_BASE_DOMAIN', 'pixelgrade.com' );
 defined( 'PIXELGRADE_ASSISTANT__SHOP_BASE' )         || define( 'PIXELGRADE_ASSISTANT__SHOP_BASE', 'https://pixelgrade.com/' );
