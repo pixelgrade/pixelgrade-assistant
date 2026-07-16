@@ -3510,12 +3510,20 @@ export function StarterSites() {
 				heartbeat: '',
 			} );
 		} catch ( error ) {
+			const errorMessage = error && error.message ? error.message : copy.error;
+			// Only claim a network cause when the error actually looks like one (fetch failures,
+			// timeouts) — server errors and everything else keep the neutral copy; the retry-safety
+			// reassurance is true either way.
+			const looksNetworkish = /failed to fetch|networkerror|network error|load failed|timed? ?out/i.test( errorMessage );
+
 			setStarterProgress( starter.id, {
 				status: 'error',
 				phase: 'error',
-				message: error && error.message ? error.message : copy.error,
-				details: __( 'The import stopped before finishing — usually a brief network hiccup. Retrying is safe: it resumes where it left off and never duplicates anything already imported.', 'pixelgrade_assistant' ),
-			}, { log: error && error.message ? error.message : copy.error, logType: 'error' } );
+				message: errorMessage,
+				details: looksNetworkish
+					? __( 'The import stopped before finishing — usually a brief network hiccup. Retrying is safe: it resumes where it left off and never duplicates anything already imported.', 'pixelgrade_assistant' )
+					: __( 'The import stopped before finishing. Retrying is safe: it resumes where it left off and never duplicates anything already imported.', 'pixelgrade_assistant' ),
+			}, { log: errorMessage, logType: 'error' } );
 		}
 	};
 
