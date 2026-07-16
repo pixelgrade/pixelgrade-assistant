@@ -1855,6 +1855,61 @@ function getComposerSummary( starter, copy, composerState ) {
 }
 
 /**
+ * Compact "what you get" chips for the composer header, built from data already localized —
+ * layout capabilities, features, and segments. Qualitative on purpose: no manifest fetch, no
+ * loading state; the goal is to make the starter's value concrete before the user scrolls.
+ *
+ * @param {Object} starter Normalized starter descriptor.
+ * @param {Object} copy    Merged copy.
+ * @return {Array} Chip descriptors ({ label, tone }).
+ */
+function getStarterFeatureTags( starter ) {
+	return Array.isArray( starter && starter.featureTags )
+		? starter.featureTags.filter( ( tag ) => 'string' === typeof tag && tag.trim() )
+		: [];
+}
+
+/**
+ * The shop chip derived from the commerce segment — single-sourced so availability/gating can
+ * never drift from the server's segment computation. Null when the starter ships no shop.
+ *
+ * @param {Object} starter Normalized starter descriptor.
+ * @return {Object|null} Chip descriptor ({ label, tone }).
+ */
+function getStarterShopChip( starter ) {
+	const commerce = getStarterSegment( starter, 'commerce' );
+
+	if ( ! commerce ) {
+		return null;
+	}
+
+	// Available reads as included value; locked reads as an honest "there is more here" without
+	// pretending it's importable now.
+	return commerce.available
+		? { label: __( 'Shop & products', 'pixelgrade_assistant' ), tone: 'neutral' }
+		: { label: __( '+ Shop (Pixelgrade Plus)', 'pixelgrade_assistant' ), tone: 'gated' };
+}
+
+function getStarterValueChips( starter, copy ) {
+	// Only differentiating value: the starter's curated feature tags, its layout coverage, and the
+	// shop segment. Universal capabilities (pages, colors & fonts, menus) are table stakes on every
+	// starter — tagging them would be noise.
+	const chips = getStarterFeatureTags( starter ).map( ( tag ) => ( { label: tag, tone: 'neutral' } ) );
+	const layoutCount = getAvailableLayoutIds( starter ).length;
+
+	if ( layoutCount ) {
+		chips.push( { label: sprintf( __( '%d layouts', 'pixelgrade_assistant' ), layoutCount ), tone: 'neutral' } );
+	}
+
+	const shopChip = getStarterShopChip( starter );
+	if ( shopChip ) {
+		chips.push( shopChip );
+	}
+
+	return chips;
+}
+
+/**
  * A one-line trust note for the Summary card: what the apply means for existing content. Selections
  * without content parts only swap layout/design; content-carrying selections are dedup-safe.
  *
@@ -2614,6 +2669,46 @@ function getUseStarterLabel( starter, copy ) {
 	return sprintf( copy.actions.useStarter || __( 'Use %s', 'pixelgrade_assistant' ), starter.title || starter.id );
 }
 
+/**
+ * The quiet per-card feature glimpse: dot-separated differentiating tags (never universal
+ * style/design capabilities), with the shop chip appended from the commerce segment.
+ *
+ * @param {Object} starter Normalized starter descriptor.
+ * @return {Object|null}
+ */
+function renderStarterCardTags( starter ) {
+	const tags = getStarterFeatureTags( starter );
+	const shopChip = getStarterShopChip( starter );
+
+	if ( ! tags.length && ! shopChip ) {
+		return null;
+	}
+
+	const parts = [];
+	tags.forEach( ( tag, index ) => {
+		if ( index > 0 ) {
+			parts.push( ' · ' );
+		}
+		parts.push( tag );
+	} );
+
+	return createElement(
+		'p',
+		{
+			className: 'pixelgrade-starter-sites__card-tags',
+			style: { color: '#646970', fontSize: '12px', fontWeight: 500, lineHeight: 1.7, margin: '0 0 16px' },
+		},
+		parts.join ? parts.join( '' ) : parts,
+		shopChip
+			? createElement(
+					'span',
+					{ style: { color: 'gated' === shopChip.tone ? '#1e5aa8' : '#646970', whiteSpace: 'nowrap' } },
+					( tags.length ? ' · ' : '' ) + shopChip.label
+			  )
+			: null
+	);
+}
+
 function renderStarterCard( starter, context ) {
 	const { copy, imported, applied, plus, state, onOpenComposer, newIds } = context;
 	const isNew = Array.isArray( newIds ) && newIds.includes( starter.id );
@@ -2729,8 +2824,9 @@ function renderStarterCard( starter, context ) {
 			CardBody,
 			null,
 			starter.description
-				? createElement( 'p', { style: { color: '#50575e', margin: '0 0 18px' } }, starter.description )
+				? createElement( 'p', { style: { color: '#50575e', margin: '0 0 10px' } }, starter.description )
 				: null,
+			renderStarterCardTags( starter ),
 			createElement(
 				'div',
 				{ style: { alignItems: 'center', display: 'flex', flexWrap: 'wrap', gap: '10px' } },
@@ -2987,7 +3083,35 @@ function renderComposerView( starter, context ) {
 					createElement( 'h2', { style: { fontSize: '28px', lineHeight: 1.2, margin: 0 } }, starter.title ),
 					starter.description
 						? createElement( 'p', { style: { color: '#50575e', fontSize: '15px', margin: '8px 0 0', maxWidth: '560px' } }, starter.description )
-						: null
+						: null,
+					createElement(
+						'div',
+						{
+							className: 'pixelgrade-starter-sites__value-chips',
+							style: { display: 'flex', flexWrap: 'wrap', gap: '6px', margin: '12px 0 0' },
+						},
+						getStarterValueChips( starter, copy ).map( ( chip ) =>
+							createElement(
+								'span',
+								{
+									key: chip.label,
+									style: {
+										background: 'gated' === chip.tone ? '#f4f7ff' : '#f6f7f7',
+										border: '1px solid ' + ( 'gated' === chip.tone ? '#b8d4fb' : '#dcdcde' ),
+										borderRadius: '999px',
+										color: 'gated' === chip.tone ? '#1e5aa8' : '#50575e',
+										display: 'inline-flex',
+										fontSize: '12px',
+										fontWeight: 500,
+										lineHeight: '22px',
+										padding: '0 10px',
+										whiteSpace: 'nowrap',
+									},
+								},
+								chip.label
+							)
+						)
+					)
 				),
 				createElement(
 					'section',

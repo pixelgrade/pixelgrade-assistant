@@ -305,7 +305,7 @@ add_filter(
 $starters = pixassist_get_admin_hub_starters();
 assert_same( array( 'premium-pack', 'secondary', 'anima-portfolio', 'main' ), array_column( $starters, 'id' ), 'Starters must include free + injected premium entries, drop malformed entries, dedupe ids, and sort by order.' );
 
-$expected_starter_keys = array( 'applyPlan', 'badge', 'baseRestUrl', 'capabilities', 'description', 'gate', 'id', 'image', 'order', 'previewUrl', 'requiredPlugins', 'role', 'segments', 'source', 'title', 'url' );
+$expected_starter_keys = array( 'applyPlan', 'badge', 'baseRestUrl', 'capabilities', 'description', 'featureTags', 'gate', 'id', 'image', 'order', 'previewUrl', 'requiredPlugins', 'role', 'segments', 'source', 'title', 'url' );
 foreach ( $starters as $starter ) {
 	$keys = array_keys( $starter );
 	sort( $keys );
@@ -343,6 +343,19 @@ assert_same( array( 'Header', 'Footer', 'Home', 'Archive', 'Single' ), $secondar
 $portfolio = $starters[2];
 assert_same( 'anima-portfolio', $portfolio['id'], 'The portfolio starter must keep its configured id.' );
 assert_same( array( 'portfolio' ), $portfolio['capabilities']['features'], 'Meridian/portfolio starters must expose the Portfolio feature opportunity from bootstrap data.' );
+// Feature tags: differentiating, display-only glimpse of what a starter is for. Known free starters
+// get Assistant's curated tags; universal capabilities (colors/fonts/menus) are never tagged.
+assert_same( array( 'Portfolio', 'Studio profile', 'Contact' ), $portfolio['featureTags'], 'Known free starters must carry their curated feature tags.' );
+assert_same(
+	array( 'Portfolio' ),
+	pixassist_get_starter_feature_tags( array(), 'unknown-starter', array( 'features' => array( 'portfolio' ) ) ),
+	'An unknown portfolio-capable starter must derive the Portfolio feature tag.'
+);
+assert_same(
+	array( 'Custom A', 'Custom B' ),
+	pixassist_get_starter_feature_tags( array( 'featureTags' => array( ' Custom A ', '<b>Custom B</b>', '' ) ), 'anima-portfolio', array() ),
+	'Descriptor-supplied feature tags win over the curated map and are sanitized to plain text.'
+);
 
 $main = $starters[3];
 assert_same( 'main', $main['id'], 'Configured associative demo keys must become stable starter ids.' );

@@ -404,6 +404,7 @@ if ( ! function_exists( 'pixassist_normalize_admin_hub_starter' ) ) {
 			'role'            => ( isset( $starter['role'] ) && 'library' === $starter['role'] ) ? 'library' : 'starter',
 			'source'          => $source,
 			'order'           => isset( $starter['order'] ) ? (int) $starter['order'] : 10,
+			'featureTags'     => pixassist_get_starter_feature_tags( $starter, $id, $capabilities ),
 			'capabilities'    => $capabilities,
 			'requiredPlugins' => pixassist_get_starter_required_plugins(
 				array(
@@ -425,6 +426,109 @@ if ( ! function_exists( 'pixassist_normalize_admin_hub_starter' ) ) {
 		$normalized['applyPlan'] = pixassist_get_starter_apply_plan( $normalized, pixassist_get_starter_site_analysis() );
 
 		return $normalized;
+	}
+}
+
+if ( ! function_exists( 'pixassist_starter_display_text' ) ) {
+	/**
+	 * Translate display-only payload text WITHOUT HTML-escaping.
+	 *
+	 * Strings destined for `wp_localize_script` payloads are rendered as React TEXT — running them
+	 * through esc_html__() bakes literal `&amp;` into the UI. Plain __() is the correct escaping
+	 * level for that sink; the function_exists guard keeps the standalone pin tests WordPress-free.
+	 *
+	 * @param string $text Text to translate.
+	 *
+	 * @return string
+	 */
+	function pixassist_starter_display_text( $text ) {
+		return function_exists( '__' ) ? __( $text, '__plugin_txtd' ) : $text;
+	}
+}
+
+if ( ! function_exists( 'pixassist_get_starter_feature_tags' ) ) {
+	/**
+	 * Short, differentiating feature tags for a starter ("what is this site for"), WordPress.com-
+	 * themes style, rendered on the gallery cards and the composer header.
+	 *
+	 * Universal capabilities (colors & fonts, menus, pages & posts) are never tagged — every starter
+	 * has them, so they carry no signal. Commerce is also excluded here: the shop chip is derived
+	 * from the commerce segment so availability/gating stays single-sourced.
+	 *
+	 * Source order: descriptor `featureTags` (cloud config or companion-injected, display-only
+	 * strings) → Assistant's curated map for its known free starters → a portfolio-derived fallback.
+	 *
+	 * @param array  $starter      Raw starter descriptor.
+	 * @param string $id           Normalized starter id.
+	 * @param array  $capabilities Computed starter capabilities (for the derived fallback).
+	 *
+	 * @return string[] Up to four sanitized display tags.
+	 */
+	function pixassist_get_starter_feature_tags( $starter, $id, $capabilities = array() ) {
+		$tags = array();
+
+		if ( ! empty( $starter['featureTags'] ) && is_array( $starter['featureTags'] ) ) {
+			$tags = $starter['featureTags'];
+		} else {
+			// NOTE: plain translation (never esc_html__) — these land in a JSON payload rendered as
+			// React text, where an escaped ampersand shows up literally as "&amp;".
+			$curated = array(
+				'anima-restaurant' => array(
+					pixassist_starter_display_text( 'Menu & reservations' ),
+					pixassist_starter_display_text( 'Gallery' ),
+					pixassist_starter_display_text( 'Journal' ),
+				),
+				'anima-portfolio'  => array(
+					pixassist_starter_display_text( 'Portfolio' ),
+					pixassist_starter_display_text( 'Studio profile' ),
+					pixassist_starter_display_text( 'Contact' ),
+				),
+				'felt-lt'          => array(
+					pixassist_starter_display_text( 'Magazine home' ),
+					pixassist_starter_display_text( 'Stories & reviews' ),
+				),
+				'julia-lt'         => array(
+					pixassist_starter_display_text( 'Recipe index' ),
+					pixassist_starter_display_text( 'Food stories' ),
+				),
+				'pile-lt'          => array(
+					pixassist_starter_display_text( 'Portfolio' ),
+					pixassist_starter_display_text( 'Journal' ),
+				),
+				// The Hive LT starter has shipped under both ids (anima-blog pre-cutover, hive-lt
+				// canonical, repositioned as a bold editorial magazine) — tag both so older cached
+				// configs keep their glimpse.
+				'hive-lt'          => array(
+					pixassist_starter_display_text( 'Editorial home' ),
+					pixassist_starter_display_text( 'Visual essays' ),
+				),
+				'anima-blog'       => array(
+					pixassist_starter_display_text( 'Personal journal' ),
+					pixassist_starter_display_text( 'Photo stories' ),
+				),
+			);
+
+			if ( isset( $curated[ $id ] ) ) {
+				$tags = $curated[ $id ];
+			} elseif ( isset( $capabilities['features'] ) && is_array( $capabilities['features'] ) && in_array( 'portfolio', $capabilities['features'], true ) ) {
+				$tags = array( pixassist_starter_display_text( 'Portfolio' ) );
+			}
+		}
+
+		$clean = array();
+		foreach ( (array) $tags as $tag ) {
+			$tag = trim( wp_strip_all_tags( (string) $tag ) );
+			if ( '' === $tag ) {
+				continue;
+			}
+
+			$clean[] = $tag;
+			if ( count( $clean ) >= 4 ) {
+				break;
+			}
+		}
+
+		return $clean;
 	}
 }
 
