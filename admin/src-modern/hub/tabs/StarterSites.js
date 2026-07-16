@@ -2326,7 +2326,7 @@ function renderStatusNotice( state, copy, starterId = '', onInstallRequirements 
 					renderProgressWarnings( state.warnings ),
 					createElement(
 						'div',
-						{ style: { marginTop: '12px' } },
+						{ style: { alignItems: 'center', display: 'flex', flexWrap: 'wrap', gap: '10px', marginTop: '12px' } },
 						createElement(
 							Button,
 							{
@@ -2336,7 +2336,23 @@ function renderStatusNotice( state, copy, starterId = '', onInstallRequirements 
 								rel: 'noreferrer',
 							},
 							__( 'View your site', 'pixelgrade_assistant' )
-						)
+						),
+						// The natural next moves after an apply: tweak a page/template, or make the
+						// design your own in the Design System tab.
+						getAdminUrl()
+							? createElement(
+									Button,
+									{ variant: 'secondary', href: getAdminUrl() + 'site-editor.php' },
+									__( 'Edit in Site Editor', 'pixelgrade_assistant' )
+							  )
+							: null,
+						getAdminUrl()
+							? createElement(
+									Button,
+									{ variant: 'tertiary', href: getAdminUrl() + 'admin.php?page=pixelgrade&tab=styles' },
+									__( 'Fine-tune colors & fonts', 'pixelgrade_assistant' )
+							  )
+							: null
 					)
 			  )
 			: isWorking
