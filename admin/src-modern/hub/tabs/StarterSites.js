@@ -66,6 +66,9 @@ const DEFAULT_STARTER_SITES = {
 			emptySummary: __( 'Choose at least one part to continue.', 'pixelgrade_assistant' ),
 			reassuranceLayoutsOnly: __( 'Your pages and posts stay untouched — this only changes layout and design parts.', 'pixelgrade_assistant' ),
 			reassuranceContent: __( 'Safe to apply more than once — nothing you already imported gets duplicated.', 'pixelgrade_assistant' ),
+			confirmReimportNote: __( "You already applied this starter's full site. Applying it again is safe — nothing gets duplicated; layout and design parts are refreshed to the starter's version.", 'pixelgrade_assistant' ),
+			confirmReimportYes: __( 'Yes, apply again', 'pixelgrade_assistant' ),
+			confirmReimportNo: __( 'Keep my site as is', 'pixelgrade_assistant' ),
 			presets: {
 				fullSite: __( 'Full site', 'pixelgrade_assistant' ),
 				layoutsOnly: __( 'Layouts only', 'pixelgrade_assistant' ),
@@ -2992,10 +2995,13 @@ function renderComposerView( starter, context ) {
 		composerState,
 		state,
 		isWorking,
+		isConfirmingReimport,
 		onBack,
 		onPresetChange,
 		onTogglePart,
 		onApply,
+		onConfirmReimport,
+		onCancelReimport,
 		onInstallRequirements,
 		onRetry,
 	} = context;
@@ -3139,41 +3145,77 @@ function renderComposerView( starter, context ) {
 					},
 					createElement( 'h3', { style: { fontSize: '15px', margin: 0 } }, copy.composer.summary ),
 					createElement( 'p', { style: { color: '#50575e', margin: 0 } }, summary ),
-					reassurance
+					reassurance && ! isConfirmingReimport
 						? createElement(
 								'p',
 								{ style: { color: '#757a80', fontSize: '12px', margin: 0 } },
 								reassurance
 						  )
 						: null,
-					createElement(
-						'div',
-						{ style: { alignItems: 'center', display: 'flex', flexWrap: 'wrap', gap: '10px' } },
-						createElement(
-							Button,
-							{
-								// After a finished apply the job is done — "View your site" (in the
-								// success notice) takes over as the primary action; re-applying stays
-								// available but demoted, so nobody re-runs an import by reflex.
-								variant: isSuccess ? 'secondary' : 'primary',
-								isBusy: isWorking,
-								disabled: ! canApply,
-								onClick: onApply,
-							},
-							isWorking ? copy.actions.working : isSuccess ? copy.actions.applyAgain || actionLabel : actionLabel
-						),
-						createElement(
-							Button,
-							{
-								variant: 'secondary',
-								// While an import runs this button cannot stop it — offering "Cancel"
-								// would lie. Navigation comes back as soon as the run settles.
-								disabled: isWorking,
-								onClick: onBack,
-							},
-							isSuccess ? copy.actions.backToStarterSites : copy.actions.cancel
-						)
-					),
+					isConfirmingReimport
+						? createElement(
+								Fragment,
+								null,
+								createElement(
+									'p',
+									{
+										role: 'alert',
+										style: {
+											background: '#fff8e5',
+											border: '1px solid #f0d58a',
+											borderRadius: '4px',
+											color: '#7a4d00',
+											fontSize: '13px',
+											lineHeight: 1.5,
+											margin: 0,
+											padding: '10px 12px',
+										},
+									},
+									copy.composer.confirmReimportNote
+								),
+								createElement(
+									'div',
+									{ style: { alignItems: 'center', display: 'flex', flexWrap: 'wrap', gap: '10px' } },
+									createElement(
+										Button,
+										{ variant: 'primary', onClick: onConfirmReimport },
+										copy.composer.confirmReimportYes
+									),
+									createElement(
+										Button,
+										{ variant: 'secondary', onClick: onCancelReimport },
+										copy.composer.confirmReimportNo
+									)
+								)
+						  )
+						: createElement(
+								'div',
+								{ style: { alignItems: 'center', display: 'flex', flexWrap: 'wrap', gap: '10px' } },
+								createElement(
+									Button,
+									{
+										// After a finished apply the job is done — "View your site" (in the
+										// success notice) takes over as the primary action; re-applying stays
+										// available but demoted, so nobody re-runs an import by reflex.
+										variant: isSuccess ? 'secondary' : 'primary',
+										isBusy: isWorking,
+										disabled: ! canApply,
+										onClick: onApply,
+									},
+									isWorking ? copy.actions.working : isSuccess ? copy.actions.applyAgain || actionLabel : actionLabel
+								),
+								createElement(
+									Button,
+									{
+										variant: 'secondary',
+										// While an import runs this button cannot stop it — offering "Cancel"
+										// would lie. Navigation comes back as soon as the run settles.
+										disabled: isWorking,
+										onClick: onBack,
+									},
+									isSuccess ? copy.actions.backToStarterSites : copy.actions.cancel
+								)
+						  ),
 					renderStatusNotice( state, copy, starter.id, onInstallRequirements, onRetry )
 				)
 			)
@@ -3195,6 +3237,8 @@ export function StarterSites() {
 	const [ states, setStates ] = useState( {} );
 	const [ activeStarterId, setActiveStarterId ] = useState( '' );
 	const [ composerStates, setComposerStates ] = useState( {} );
+	// The starter whose Summary card is showing the inline "apply again?" confirm.
+	const [ confirmingStarterId, setConfirmingStarterId ] = useState( '' );
 
 	const activeStarter = activeStarterId ? starters.find( ( starter ) => starter.id === activeStarterId ) : null;
 
@@ -3279,6 +3323,8 @@ export function StarterSites() {
 	const changePreset = ( starter, presetId ) => {
 		const current = getComposerState( starter, composerStates, data, copy );
 
+		// A changed selection makes any pending "apply again?" confirm stale.
+		setConfirmingStarterId( '' );
 		storeComposerState( starter, {
 			presetId,
 			selectedPartIds:
@@ -3291,6 +3337,8 @@ export function StarterSites() {
 	const togglePart = ( starter, partId, enabled ) => {
 		const current = getComposerState( starter, composerStates, data, copy );
 		const selected = new Set( current.selectedPartIds );
+
+		setConfirmingStarterId( '' );
 
 		if ( enabled ) {
 			selected.add( partId );
@@ -3354,13 +3402,14 @@ export function StarterSites() {
 		}
 
 		// A genuine Retry of a failed import already reflects the user's intent — don't re-prompt the
-		// "already imported?" confirm on retry (options.skipConfirm). The normal re-apply path keeps it.
-		if ( ! options.skipConfirm && hasFullDemoOperation && starterHadFullImport( imported, applied, starter.id ) && typeof window !== 'undefined' && window.confirm ) {
-			const sure = window.confirm( copy.confirm );
-			if ( ! sure ) {
-				return;
-			}
+		// "already imported?" confirm on retry (options.skipConfirm). The normal re-apply path asks
+		// INLINE in the Summary card (no blocking native dialog): first Apply flips the card into a
+		// confirm state; "Yes, apply again" comes back through here with skipConfirm.
+		if ( ! options.skipConfirm && hasFullDemoOperation && starterHadFullImport( imported, applied, starter.id ) ) {
+			setConfirmingStarterId( starter.id );
+			return;
 		}
+		setConfirmingStarterId( '' );
 
 		try {
 			setStarterProgress(
@@ -3558,12 +3607,21 @@ export function StarterSites() {
 			composerState,
 			state,
 			isWorking,
-			onBack: () => setActiveStarterId( '' ),
+			isConfirmingReimport: confirmingStarterId === activeStarter.id,
+			onBack: () => {
+				setConfirmingStarterId( '' );
+				setActiveStarterId( '' );
+			},
 			onPresetChange: ( presetId ) => changePreset( activeStarter, presetId ),
 			onTogglePart: ( partId, enabled ) => togglePart( activeStarter, partId, enabled ),
 			onApply: () => applyComposerSelection( activeStarter ),
+			onConfirmReimport: () => {
+				setConfirmingStarterId( '' );
+				applyComposerSelection( activeStarter, { skipConfirm: true } );
+			},
+			onCancelReimport: () => setConfirmingStarterId( '' ),
 			onInstallRequirements: () => installRequirementsAndApply( activeStarter ),
-				onRetry: () => applyComposerSelection( activeStarter, { skipConfirm: true } ),
+			onRetry: () => applyComposerSelection( activeStarter, { skipConfirm: true } ),
 		} );
 	}
 
