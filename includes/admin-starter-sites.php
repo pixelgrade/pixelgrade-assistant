@@ -61,7 +61,7 @@ if ( ! function_exists( 'pixassist_get_starter_sites_data' ) ) {
 			'siteAnalysis' => pixassist_get_starter_site_analysis(),
 			'copy'      => pixassist_get_starter_sites_copy( pixassist_get_starter_sites_config() ),
 			'endpoints' => pixassist_get_starter_sites_endpoints(),
-			'imported'  => pixassist_get_starter_sites_imported_state(),
+			'imported'  => pixassist_get_starter_sites_imported_summary(),
 			'applied'   => pixassist_get_starter_sites_applied_state(),
 			'collectionNews' => pixassist_get_collection_news( $starters ),
 			'plus'      => function_exists( 'pixassist_get_plus_status' ) ? pixassist_get_plus_status() : array(
@@ -229,11 +229,11 @@ if ( ! function_exists( 'pixassist_starter_lineage_title' ) ) {
 	/**
 	 * Present each free starter under its Pixelgrade LT lineage name.
 	 *
-	 * Field Notes / Olive & Ash / Meridian ARE the Hive LT / Rosa LT / Mies LT designs converted onto
-	 * the Anima LT stack with fresh media (Felt/Julia/Pile LT are already named that way), so the hub
-	 * shows the whole set under consistent LT-lineage names. Display title ONLY — the demo slug/id is
-	 * unchanged, so nothing collides with the reserved theme-single slugs. The cloud
-	 * `starterContent.demos` titles remain the source of record until aligned there.
+	 * Olive & Ash / Meridian ARE the Rosa LT / Mies LT designs converted onto the Anima LT stack with
+	 * fresh media (Hive/Felt/Julia/Pile LT are already canonical under LT slugs), so the hub shows the
+	 * whole set under consistent LT-lineage names. Display title ONLY — the remaining legacy demo
+	 * slugs/ids are unchanged, so nothing collides with the reserved theme-single slugs. The cloud
+	 * `starterContent.demos` titles remain the source of record until those entries are aligned there.
 	 *
 	 * @param string $id    Demo id/slug.
 	 * @param string $title Cloud-provided title (used when no lineage mapping exists).
@@ -244,7 +244,6 @@ if ( ! function_exists( 'pixassist_starter_lineage_title' ) ) {
 		$lineage = apply_filters(
 			'pixassist_starter_lineage_titles',
 			array(
-				'anima-blog'       => 'Hive LT',
 				'anima-restaurant' => 'Rosa LT',
 				'anima-portfolio'  => 'Mies LT',
 			)
@@ -1002,13 +1001,16 @@ if ( ! function_exists( 'pixassist_get_starter_sites_copy' ) ) {
 				),
 			),
 			// Dependency-gate copy: shown when a starter needs companion plugins that are not active yet.
+			// The *Single variants keep the copy grammatical when exactly one plugin is missing.
 			'requirements' => array(
+				'heading'       => esc_html__( 'This starter needs a couple of plugins first', '__plugin_txtd' ),
+				'headingSingle' => esc_html__( 'This starter needs one more plugin first', '__plugin_txtd' ),
 				/* translators: %s: comma-separated list of plugin names. */
-				'heading'   => esc_html__( 'This starter needs a couple of plugins first', '__plugin_txtd' ),
-				/* translators: %s: comma-separated list of plugin names. */
-				'message'   => esc_html__( 'To use this starter as intended, install and activate %s. Without them the imported pages would render broken (missing blocks, colors and fonts).', '__plugin_txtd' ),
-				'separator' => esc_html_x( ', ', 'separator between required plugin names', '__plugin_txtd' ),
-				'and'       => esc_html_x( ' and ', 'last separator between required plugin names', '__plugin_txtd' ),
+				'message'       => esc_html__( 'To use this starter as intended, install and activate %s. Without them the imported pages would render broken (missing blocks, colors and fonts).', '__plugin_txtd' ),
+				/* translators: %s: a plugin name. */
+				'messageSingle' => esc_html__( 'To use this starter as intended, install and activate %s. Without it the imported pages would render broken (missing blocks, colors and fonts).', '__plugin_txtd' ),
+				'separator'     => esc_html_x( ', ', 'separator between required plugin names', '__plugin_txtd' ),
+				'and'           => esc_html_x( ' and ', 'last separator between required plugin names', '__plugin_txtd' ),
 			),
 			// Deep link to the Plugins tab so the user can install + activate the missing companions.
 			'pluginsTabUrl' => pixassist_get_starter_sites_plugins_tab_url(),
@@ -1092,6 +1094,38 @@ if ( ! function_exists( 'pixassist_get_starter_sites_imported_state' ) ) {
 	}
 }
 
+if ( ! function_exists( 'pixassist_get_starter_sites_imported_summary' ) ) {
+	/**
+	 * Display-safe summary of the import journal for the browser payload.
+	 *
+	 * The raw `imported_starter_content` journal carries remote→local id maps, media maps, and full
+	 * settings snapshots (tens of KB per starter) that exist for the reset feature — the Starter Sites
+	 * UI only ever needs "was this starter imported, when, and was it a full demo". Localizing the raw
+	 * journal shipped ~64KB of dead weight to every hub page load, twice.
+	 *
+	 * @return array { demoKey: { imported: true, fullDemo: bool, importedAt: int } }
+	 */
+	function pixassist_get_starter_sites_imported_summary() {
+		$summary = array();
+
+		foreach ( pixassist_get_starter_sites_imported_state() as $key => $entry ) {
+			if ( ! is_array( $entry ) || empty( $entry ) ) {
+				continue;
+			}
+
+			$summary[ (string) $key ] = array(
+				'imported'   => true,
+				// A full-demo import always closes with a settings pass; layouts-only and content
+				// cherry-picks don't. Not a perfect signal, but safe: it only feeds display state.
+				'fullDemo'   => isset( $entry['post_settings'] ),
+				'importedAt' => isset( $entry['importedAt'] ) ? (int) $entry['importedAt'] : 0,
+			);
+		}
+
+		return $summary;
+	}
+}
+
 if ( ! function_exists( 'pixassist_get_starter_sites_active_starter' ) ) {
 	/**
 	 * The starter currently applied as the live full site.
@@ -1118,11 +1152,12 @@ if ( ! function_exists( 'pixassist_get_starter_sites_active_starter' ) ) {
 			}
 		}
 
-		// Fallback: the last starter whose journal records full-demo content (not layouts-only).
-		$fallback     = '';
-		$full_markers = array( 'post_types', 'taxonomies', 'media', 'pre_settings', 'post_settings', 'widgets' );
+		// Fallback: the last starter whose journal records a full-demo import. Requiring the closing
+		// settings pass (post_settings) keeps composer cherry-picks (pages-only, layouts-only, media)
+		// from being mistaken for the live full site.
+		$fallback = '';
 		foreach ( pixassist_get_starter_sites_imported_state() as $key => $entry ) {
-			if ( is_array( $entry ) && array_intersect( array_keys( $entry ), $full_markers ) ) {
+			if ( is_array( $entry ) && isset( $entry['post_settings'] ) ) {
 				$fallback = (string) $key;
 			}
 		}
@@ -1138,10 +1173,31 @@ if ( ! function_exists( 'pixassist_get_starter_sites_applied_state' ) ) {
 	 * @return array
 	 */
 	function pixassist_get_starter_sites_applied_state() {
+		// Recipes/layout units are slimmed to the fields the Starter Sites JS actually reads
+		// (`isApplied` / `demoKey`) — their journals can carry heavy look/unit sub-journals.
+		$recipes = array();
+		if ( function_exists( 'pixassist_get_recipes_applied' ) ) {
+			foreach ( (array) pixassist_get_recipes_applied() as $key => $entry ) {
+				$recipes[ (string) $key ] = array(
+					'demoKey'   => is_array( $entry ) && isset( $entry['demoKey'] ) ? (string) $entry['demoKey'] : '',
+					'isApplied' => is_array( $entry ) && ! empty( $entry['isApplied'] ),
+				);
+			}
+		}
+
+		$layout_units = array();
+		if ( function_exists( 'pixassist_get_layout_units_applied' ) ) {
+			foreach ( (array) pixassist_get_layout_units_applied() as $key => $entry ) {
+				$layout_units[ (string) $key ] = array(
+					'demoKey' => is_array( $entry ) && isset( $entry['demoKey'] ) ? (string) $entry['demoKey'] : '',
+				);
+			}
+		}
+
 		return array(
-			'fullDemos'     => pixassist_get_starter_sites_imported_state(),
-			'recipes'       => function_exists( 'pixassist_get_recipes_applied' ) ? pixassist_get_recipes_applied() : array(),
-			'layoutUnits'   => function_exists( 'pixassist_get_layout_units_applied' ) ? pixassist_get_layout_units_applied() : array(),
+			'fullDemos'     => pixassist_get_starter_sites_imported_summary(),
+			'recipes'       => $recipes,
+			'layoutUnits'   => $layout_units,
 			'activeStarter' => pixassist_get_starter_sites_active_starter(),
 		);
 	}

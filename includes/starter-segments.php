@@ -258,14 +258,24 @@ if ( ! function_exists( 'pixassist_get_starter_segment_availability' ) ) {
 			}
 		}
 
+		$inactive_plugin_names = array();
 		foreach ( (array) $required_plugins as $plugin ) {
 			if ( empty( $plugin['isActive'] ) ) {
-				return array(
-					'availability'       => 'requires_plugins',
-					'available'          => false,
-					'availabilityReason' => count( array_filter( (array) $required_entitlements, function ( $entitlement ) { return ! pixassist_starter_segment_has_entitlement( $entitlement ); } ) ) ? pixassist_starter_segment_text_domain( 'Requires WooCommerce and Pixelgrade Plus.' ) : pixassist_starter_segment_text_domain( 'Install and activate the required plugin to apply this part.' ),
-				);
+				$inactive_plugin_names[] = ! empty( $plugin['name'] ) ? (string) $plugin['name'] : (string) $plugin['slug'];
 			}
+		}
+
+		if ( ! empty( $inactive_plugin_names ) ) {
+			$missing_entitlements = count( array_filter( (array) $required_entitlements, function ( $entitlement ) { return ! pixassist_starter_segment_has_entitlement( $entitlement ); } ) );
+			$plugin_list          = implode( pixassist_starter_segment_text_domain( ', ' ), $inactive_plugin_names );
+
+			return array(
+				'availability'       => 'requires_plugins',
+				'available'          => false,
+				'availabilityReason' => $missing_entitlements
+					? sprintf( pixassist_starter_segment_text_domain( 'Requires %s and Pixelgrade Plus.' ), $plugin_list )
+					: sprintf( pixassist_starter_segment_text_domain( 'Install and activate %s to apply this part.' ), $plugin_list ),
+			);
 		}
 
 		foreach ( (array) $required_entitlements as $entitlement ) {

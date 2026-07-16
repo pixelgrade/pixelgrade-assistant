@@ -391,8 +391,10 @@ assert_same( 4, count( $payload['starters'] ), 'Payload starters must come from 
 assert_same( 'Starter Sites', $payload['copy']['title'], 'Payload copy must include a tab title.' );
 assert_same( 'Pick a free starter design, then choose how much of it to apply. (“LT” is our Anima LT theme line — each starter is built on it.)', $payload['copy']['description'], 'Starter Sites description must frame the gallery as a chooser (not a legacy demo-content import) and explain the "LT" lineage naming. Quotes must be curly so esc_html does not emit &quot; into React text.' );
 
-// S6: free starters present under their Pixelgrade LT lineage name (display title only; slug unchanged).
-assert_same( 'Hive LT', pixassist_starter_lineage_title( 'anima-blog', 'Field Notes' ), 'anima-blog starter must display as its Hive LT lineage name.' );
+// S6: legacy cloud titles still receive lineage names. Hive is now canonical under the hive-lt slug,
+// so the retired anima-blog source must no longer be relabeled as Hive LT.
+assert_same( 'Field Notes', pixassist_starter_lineage_title( 'anima-blog', 'Field Notes' ), 'The retired anima-blog source must keep its own title if an old cached catalog still contains it.' );
+assert_same( 'Hive LT', pixassist_starter_lineage_title( 'hive-lt', 'Hive LT' ), 'The canonical hive-lt starter keeps its cloud title.' );
 assert_same( 'Rosa LT', pixassist_starter_lineage_title( 'anima-restaurant', 'Olive & Ash' ), 'anima-restaurant starter must display as its Rosa LT lineage name.' );
 assert_same( 'Mies LT', pixassist_starter_lineage_title( 'anima-portfolio', 'Meridian' ), 'anima-portfolio starter must display as its Mies LT lineage name.' );
 assert_same( 'Felt LT', pixassist_starter_lineage_title( 'felt-lt', 'Felt LT' ), 'A starter without a lineage mapping keeps its cloud title.' );
@@ -416,7 +418,13 @@ assert_same( 'https://example.test/wp-json/pixassist/v1/import', $payload['endpo
 assert_same( 'https://example.test/wp-json/pixassist/v1/import_starter', $payload['endpoints']['importStarter']['url'], 'Payload must expose the bulk starter import REST endpoint.' );
 assert_same( 'https://example.test/wp-json/pixassist/v1/apply_recipe', $payload['endpoints']['applyRecipe']['url'], 'Payload must expose the recipe apply endpoint for layout-only starter actions.' );
 assert_same( 'https://example.test/wp-json/pixassist/v1/import_unit', $payload['endpoints']['importUnit']['url'], 'Payload must expose the layout-unit endpoint for feature starter actions.' );
-assert_same( true, $payload['imported']['main']['pre_settings'], 'Payload must include existing starter import state.' );
+// The browser payload carries a display-safe SUMMARY of the import journal, never the raw journal
+// (remote→local id maps, media maps, settings snapshots are server-only — and ~64KB of dead weight).
+assert_same(
+	array( 'imported' => true, 'fullDemo' => false, 'importedAt' => 0 ),
+	$payload['imported']['main'],
+	'Payload must summarize starter import state (imported/fullDemo/importedAt), not ship the raw journal.'
+);
 
 /*
  * "New in the collection" (Design Library note): first observation seeds the baseline SILENTLY —
@@ -444,7 +452,7 @@ assert_same( $before, $GLOBALS['paf_options']['seen_starters'], 'An empty collec
 assert_same( array( 'a', 'b' ), pixassist_collection_news_new_ids( array( 'a', 'b', 'c' ), array( 'c' ) ), 'The pure diff reports only unseen ids.' );
 
 assert_same( 'https://example.test/wp-json/pixassist/v1/collection_seen', $payload['endpoints']['collectionSeen']['url'], 'Payload must expose the collection-seen endpoint for the mount ping.' );
-assert_same( true, $payload['applied']['fullDemos']['main']['pre_settings'], 'Unified applied state must expose imported full demos.' );
+assert_same( true, $payload['applied']['fullDemos']['main']['imported'], 'Unified applied state must expose imported demos through the display-safe summary.' );
 assert_same( 'already-imported', $payload['siteAnalysis']['classification'], 'Starter Sites payload must expose already-imported state when the journal exists.' );
 assert_same( true, $payload['siteAnalysis']['hasImportedStarterContent'], 'Payload site analysis must expose the starter journal flag.' );
 assert_same( false, $payload['plus']['is_plus_licensed'], 'Payload must include the existing four-key Plus status for gated cards.' );
@@ -654,15 +662,23 @@ assert_same( '', pixassist_get_starter_sites_active_starter(), 'With nothing imp
 
 // The persisted marker is authoritative even when several starters are in the journal.
 $GLOBALS['paf_options']['imported_starter_content'] = array(
-	'anima-blog' => array( 'post_types' => array() ),
-	'felt-lt'    => array( 'post_types' => array() ),
+	'anima-blog' => array( 'post_types' => array(), 'post_settings' => true ),
+	'felt-lt'    => array( 'post_types' => array(), 'post_settings' => true ),
 );
 $GLOBALS['paf_options']['active_starter'] = 'anima-blog';
 assert_same( 'anima-blog', pixassist_get_starter_sites_active_starter(), 'The persisted active_starter marker is authoritative.' );
 
-// Fallback (no marker): the most-recently-recorded full-demo journal entry.
+// Fallback (no marker): the most-recently-recorded full-demo journal entry. A full demo always
+// closes with the settings pass, so `post_settings` is the marker that separates it from partials.
 $GLOBALS['paf_options']['active_starter'] = '';
 assert_same( 'felt-lt', pixassist_get_starter_sites_active_starter(), 'Without a marker, the last full-demo journal entry is treated as active.' );
+
+// Fallback must ignore composer cherry-picks (content without the closing settings pass).
+$GLOBALS['paf_options']['imported_starter_content'] = array(
+	'anima-restaurant' => array( 'post_types' => array(), 'post_settings' => true ),
+	'anima-portfolio'  => array( 'post_types' => array() ),
+);
+assert_same( 'anima-restaurant', pixassist_get_starter_sites_active_starter(), 'A pages-only cherry-pick must NOT be mistaken for the live full site.' );
 
 // Fallback must ignore layouts-only journals (never a false "Full site applied").
 $GLOBALS['paf_options']['imported_starter_content'] = array(

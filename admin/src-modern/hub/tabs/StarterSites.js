@@ -44,6 +44,7 @@ const DEFAULT_STARTER_SITES = {
 			imported: __( 'Imported', 'pixelgrade_assistant' ),
 			reimport: __( 'Re-import', 'pixelgrade_assistant' ),
 			useStarter: __( 'Use %s', 'pixelgrade_assistant' ),
+			applyAgain: __( 'Apply again', 'pixelgrade_assistant' ),
 			applyFullSite: __( 'Apply full site', 'pixelgrade_assistant' ),
 			applyLayouts: __( 'Apply layouts', 'pixelgrade_assistant' ),
 			applySelectedParts: __( 'Apply selected parts', 'pixelgrade_assistant' ),
@@ -63,6 +64,8 @@ const DEFAULT_STARTER_SITES = {
 			selected: __( 'Selected', 'pixelgrade_assistant' ),
 			summaryPrefix: __( 'This will add/update: %s.', 'pixelgrade_assistant' ),
 			emptySummary: __( 'Choose at least one part to continue.', 'pixelgrade_assistant' ),
+			reassuranceLayoutsOnly: __( 'Your pages and posts stay untouched — this only changes layout and design parts.', 'pixelgrade_assistant' ),
+			reassuranceContent: __( 'Safe to apply more than once — nothing you already imported gets duplicated.', 'pixelgrade_assistant' ),
 			presets: {
 				fullSite: __( 'Full site', 'pixelgrade_assistant' ),
 				layoutsOnly: __( 'Layouts only', 'pixelgrade_assistant' ),
@@ -101,8 +104,13 @@ const DEFAULT_STARTER_SITES = {
 		},
 		requirements: {
 			heading: __( 'This starter needs a couple of plugins first', 'pixelgrade_assistant' ),
+			headingSingle: __( 'This starter needs one more plugin first', 'pixelgrade_assistant' ),
 			message: __(
 				'To use this starter as intended, install and activate %s. Without them the imported pages would render broken (missing blocks, colors and fonts).',
+				'pixelgrade_assistant'
+			),
+			messageSingle: __(
+				'To use this starter as intended, install and activate %s. Without it the imported pages would render broken (missing blocks, colors and fonts).',
 				'pixelgrade_assistant'
 			),
 			separator: __( ', ', 'pixelgrade_assistant' ),
@@ -803,6 +811,23 @@ export function isStarterImported( imported, starterId ) {
 	return Boolean( imported && imported[ starterId ] && Object.keys( imported[ starterId ] ).length );
 }
 
+/**
+ * Whether this starter was ever applied as a FULL site (vs. a layouts-only / cherry-picked import).
+ * Drives the "already imported — import again?" confirm, which should never scare users applying a
+ * full demo for the first time just because they cherry-picked one part earlier.
+ *
+ * @param {Object} imported Import summary (server: { imported, fullDemo, importedAt }).
+ * @param {Object} applied  Applied state (fullDemos entries gain fullDemo: true on in-session applies).
+ * @param {string} starterId Starter id.
+ * @return {boolean}
+ */
+export function starterHadFullImport( imported, applied, starterId ) {
+	const normalized = normalizeApplied( applied );
+	const entries = [ imported && imported[ starterId ], normalized.fullDemos[ starterId ] ];
+
+	return entries.some( ( entry ) => Boolean( entry && entry.fullDemo ) );
+}
+
 function normalizeApplied( applied ) {
 	if ( ! applied || 'object' !== typeof applied || Array.isArray( applied ) ) {
 		return {
@@ -1058,14 +1083,19 @@ function buildImportTasks( starter, config, data, setProgress, filters = {} ) {
 				allowCodes: progress.allowCodes || [],
 			} );
 			if ( response && Array.isArray( progress.allowCodes ) && progress.allowCodes.includes( response.code ) ) {
+				// Per-code skip copy (e.g. a gated commerce step vs an unregistered taxonomy) so the
+				// progress log stays honest about WHY a step was skipped.
+				const skippedCopy = ( progress.skippedByCode && progress.skippedByCode[ response.code ] ) || null;
 				setProgress(
 					{
-						message: progress.skippedMessage || label,
-						details: progress.skippedDetails || response.message || '',
+						message: ( skippedCopy && skippedCopy.message ) || progress.skippedMessage || label,
+						details: skippedCopy
+							? skippedCopy.details || response.message || ''
+							: progress.skippedDetails || response.message || '',
 					},
 					{
 						advance: true,
-						log: progress.skippedLogMessage || progress.skippedMessage || label,
+						log: ( skippedCopy && skippedCopy.log ) || progress.skippedLogMessage || progress.skippedMessage || label,
 					}
 				);
 				return;
@@ -1261,10 +1291,18 @@ function buildImportTasks( starter, config, data, setProgress, filters = {} ) {
 					details: sprintf( __( '%d terms in %s.', 'pixelgrade_assistant' ), Object.keys( entry.ids || {} ).length, entry.name ),
 					doneMessage: sprintf( __( 'Imported taxonomy: %s.', 'pixelgrade_assistant' ), entry.name ),
 					logMessage: sprintf( __( 'Imported taxonomy "%s".', 'pixelgrade_assistant' ), entry.name ),
-					allowCodes: [ 'missing_tax' ],
+					// A starter export may carry gated (e.g. shop) taxonomies the descriptor never
+					// declared — the server rightly refuses them, and the import should keep going, not die.
+					allowCodes: [ 'missing_tax', 'gated_segment_unavailable' ],
 					skippedMessage: __( 'Skipped optional content organization.', 'pixelgrade_assistant' ),
 					skippedDetails: sprintf( __( 'The %s taxonomy is not registered on this site.', 'pixelgrade_assistant' ), entry.name ),
 					skippedLogMessage: sprintf( __( 'Skipped optional taxonomy "%s".', 'pixelgrade_assistant' ), entry.name ),
+					skippedByCode: {
+						gated_segment_unavailable: {
+							message: sprintf( __( 'Skipped %s — not available on this site.', 'pixelgrade_assistant' ), entry.name ),
+							log: sprintf( __( 'Skipped gated content "%s".', 'pixelgrade_assistant' ), entry.name ),
+						},
+					},
 				}
 			);
 		} );
@@ -1285,6 +1323,15 @@ function buildImportTasks( starter, config, data, setProgress, filters = {} ) {
 				details: sprintf( __( '%d records in %s.', 'pixelgrade_assistant' ), Object.keys( entry.ids || {} ).length, entry.name ),
 				doneMessage: sprintf( __( 'Imported %s.', 'pixelgrade_assistant' ), entry.name ),
 				logMessage: sprintf( __( 'Imported post type "%s".', 'pixelgrade_assistant' ), entry.name ),
+				// Same resilience as taxonomies: a stray gated post type (e.g. products in a starter
+				// export without a commerce segment) is skipped with an honest log, not a dead import.
+				allowCodes: [ 'gated_segment_unavailable' ],
+				skippedByCode: {
+					gated_segment_unavailable: {
+						message: sprintf( __( 'Skipped %s — not available on this site.', 'pixelgrade_assistant' ), entry.name ),
+						log: sprintf( __( 'Skipped gated content "%s".', 'pixelgrade_assistant' ), entry.name ),
+					},
+				},
 			}
 		);
 	} );
@@ -1315,6 +1362,10 @@ function buildImportTasks( starter, config, data, setProgress, filters = {} ) {
 					},
 					{ advance: true }
 				);
+			} else {
+				// The estimate always counts this step — keep the accounting aligned so the progress
+				// bar can genuinely reach the end even when no admin URL is localized.
+				setProgress( { phase: 'finish' }, { advance: true } );
 			}
 
 			if ( includeWidgets && config.widgets ) {
@@ -1326,7 +1377,11 @@ function buildImportTasks( starter, config, data, setProgress, filters = {} ) {
 				} );
 			}
 		} );
-		addImportTask( __( 'Wrapping it up...', 'pixelgrade_assistant' ), 'post_settings', { data: postSettings }, {
+		// Flag the closing step of a FULL demo import so the server can record the active starter,
+		// date the journal entry, and run the front-page safety net — exactly like the monolithic
+		// import_starter route does. Partial (composer parts) imports must never claim the site.
+		const postSettingsArgs = filters.isFullDemo ? { data: postSettings, full_demo: true } : { data: postSettings };
+		addImportTask( __( 'Wrapping it up...', 'pixelgrade_assistant' ), 'post_settings', postSettingsArgs, {
 			phase: 'finish',
 			details: __( 'Saving menus, homepage, and theme options.', 'pixelgrade_assistant' ),
 			doneMessage: __( 'Applied final settings.', 'pixelgrade_assistant' ),
@@ -1354,7 +1409,7 @@ export async function importStarter( starter, data, copy, setProgress ) {
 	if ( ! config || 'success' !== config.code ) {
 		throw new Error( config && config.message ? config.message : copy.failed );
 	}
-	const filters = { includeCommerce: starterCommerceAvailable( starter ) };
+	const filters = { includeCommerce: starterCommerceAvailable( starter ), isFullDemo: true };
 
 	setProgress(
 		{
@@ -1457,6 +1512,10 @@ async function applyStarterAction( starter, action, options, data, copy, setProg
 			unit_type: selectedAction.unitType || 'feature',
 			unit: selectedAction.unit || 'portfolio',
 			include_sample: Boolean( selectedOptions.includeSample ),
+		}, {
+			// A starter may advertise a feature (keyword-inferred) it doesn't actually ship — skip
+			// it and keep applying the rest of the selection instead of aborting the whole run.
+			allowCodes: [ 'unit_not_found' ],
 		} );
 	}
 
@@ -1473,7 +1532,9 @@ async function applyStarterAction( starter, action, options, data, copy, setProg
 			unit_type: selectedAction.unitType,
 			unit: selectedAction.unit,
 		}, {
-			allowCodes: [ 'unit_not_found' ],
+			// A unit the starter doesn't ship, or one the server classifies as gated (e.g. a commerce
+			// template) is a skip — the rest of the selection still applies.
+			allowCodes: [ 'unit_not_found', 'gated_segment_unavailable' ],
 		} );
 	}
 
@@ -1541,6 +1602,13 @@ function starterHasPortfolio( starter ) {
 }
 
 function starterHasProducts( starter ) {
+	// The server-computed commerce segment is the authoritative signal — a starter that carries one
+	// (locked or not) ships shop content. Without it (legacy payloads), fall back to a word-bounded
+	// keyword scan so copy like "workshop" or "bookstore" doesn't conjure a phantom Products row.
+	if ( getStarterSegment( starter, 'commerce' ) ) {
+		return true;
+	}
+
 	const features = getStarterFeatures( starter );
 	const haystack = [
 		...( features || [] ),
@@ -1552,7 +1620,7 @@ function starterHasProducts( starter ) {
 		.join( ' ' )
 		.toLowerCase();
 
-	return /shop|store|product|commerce|woocommerce/.test( haystack );
+	return /\b(shop|store|product|commerce|woocommerce)\b/.test( haystack );
 }
 
 function getAvailableLayoutIds( starter ) {
@@ -1691,7 +1759,9 @@ function getPresetSelectedPartIds( presetId, starter, copy ) {
 	}
 
 	if ( 'portfolioOnly' === presetId ) {
-		return [ 'portfolio', 'portfolioArchive', 'portfolioSingle' ].filter( ( id ) => allIds.includes( id ) );
+		// Include the sample projects by default — an empty portfolio archive is a dead end; the
+		// server's recommended plan for this situation defaults the sample content on too.
+		return [ 'portfolio', 'projects', 'portfolioArchive', 'portfolioSingle' ].filter( ( id ) => allIds.includes( id ) );
 	}
 
 	return [];
@@ -1784,6 +1854,27 @@ function getComposerSummary( starter, copy, composerState ) {
 	return sprintf( copy.composer.summaryPrefix, labels.join( ', ' ) );
 }
 
+/**
+ * A one-line trust note for the Summary card: what the apply means for existing content. Selections
+ * without content parts only swap layout/design; content-carrying selections are dedup-safe.
+ *
+ * @param {Object} starter       Normalized starter descriptor.
+ * @param {Object} copy          Merged copy.
+ * @param {Object} composerState Composer state.
+ * @return {string}
+ */
+function getComposerReassurance( starter, copy, composerState ) {
+	const selected = selectedPartSet( composerState );
+
+	if ( ! selected.size ) {
+		return '';
+	}
+
+	const includesContent = Object.keys( CONTENT_POST_TYPES ).some( ( id ) => 'menus' !== id && selected.has( id ) );
+
+	return includesContent ? copy.composer.reassuranceContent : copy.composer.reassuranceLayoutsOnly;
+}
+
 function getComposerActionLabel( starter, copy, composerState ) {
 	if ( 'fullSite' === composerState.presetId ) {
 		return copy.actions.applyFullSite;
@@ -1853,14 +1944,20 @@ function buildComposerOperations( starter, copy, composerState ) {
 	}
 
 	if ( postTypes.length || includeSettings || includeMenus ) {
-		const selectedPostTypes = Array.from( new Set( includeMenus ? postTypes.concat( CONTENT_POST_TYPES.menus ) : postTypes ) );
+		// Menus need both menu systems: classic `nav_menu_item` records and the block-theme
+		// `wp_navigation` posts every Anima LT starter actually stores its menus in.
+		const selectedPostTypes = Array.from(
+			new Set( includeMenus ? postTypes.concat( [ CONTENT_POST_TYPES.menus, 'wp_navigation' ] ) : postTypes )
+		);
 
 		operations.push( {
 			type: 'starter_parts',
 			parts: {
 				postTypes: selectedPostTypes,
 				includeSettings,
-				includeMedia: Boolean( postTypes.length || selected.has( 'logo' ) ),
+				// The logo alone doesn't need the starter's whole media library — the custom_logo
+				// remap sideloads it from the source when it isn't in the media map.
+				includeMedia: Boolean( postTypes.length ),
 				includeTaxonomies: Boolean( postTypes.length || includeMenus ),
 				includeWidgets: false,
 				includePostSettings: includeSettings,
@@ -2305,7 +2402,14 @@ function renderStatusNotice( state, copy, starterId = '', onInstallRequirements 
 					Fragment,
 					null,
 					isRequirements && requirementsCopy.heading
-						? createElement( 'strong', { style: { display: 'block', marginBottom: '4px' } }, requirementsCopy.heading )
+						? createElement(
+								'strong',
+								{ style: { display: 'block', marginBottom: '4px' } },
+								// One missing plugin gets the singular heading; the plural stays for 2+.
+								Array.isArray( state.missing ) && 1 === state.missing.length && requirementsCopy.headingSingle
+									? requirementsCopy.headingSingle
+									: requirementsCopy.heading
+						  )
 						: null,
 					createElement( 'span', null, state.message ),
 					isError && state.details
@@ -2801,8 +2905,10 @@ function renderComposerView( starter, context ) {
 	} = context;
 	const presets = buildComposerPresets( starter, copy );
 	const summary = getComposerSummary( starter, copy, composerState );
+	const reassurance = getComposerReassurance( starter, copy, composerState );
 	const actionLabel = getComposerActionLabel( starter, copy, composerState );
 	const preview = starter.image || '';
+	const isSuccess = state && 'success' === state.status;
 	const canApply = selectedPartSet( composerState ).size > 0 && ! isWorking;
 
 	return createElement(
@@ -2830,19 +2936,30 @@ function renderComposerView( starter, context ) {
 			},
 			createElement(
 				'div',
-				{ style: { display: 'grid', gap: '12px', maxWidth: '420px' } },
+				{
+					style: {
+						display: 'grid',
+						gap: '12px',
+						maxWidth: '420px',
+						// Keep the starter's face on screen while the user scrolls the parts list —
+						// the design being applied is the whole value proposition of this page.
+						position: 'sticky',
+						top: '72px',
+					},
+				},
 				preview
 					? createElement( 'img', {
 							src: preview,
 							alt: '',
 							style: {
-								aspectRatio: '4 / 3',
+								aspectRatio: '16 / 10',
 								background: '#f0f0f1',
 								border: '1px solid #dcdcde',
-								borderRadius: '2px',
+								borderRadius: '4px',
 								display: 'block',
 								height: 'auto',
 								objectFit: 'cover',
+								objectPosition: 'top',
 								width: '100%',
 							},
 					  } )
@@ -2898,26 +3015,39 @@ function renderComposerView( starter, context ) {
 					},
 					createElement( 'h3', { style: { fontSize: '15px', margin: 0 } }, copy.composer.summary ),
 					createElement( 'p', { style: { color: '#50575e', margin: 0 } }, summary ),
+					reassurance
+						? createElement(
+								'p',
+								{ style: { color: '#757a80', fontSize: '12px', margin: 0 } },
+								reassurance
+						  )
+						: null,
 					createElement(
 						'div',
 						{ style: { alignItems: 'center', display: 'flex', flexWrap: 'wrap', gap: '10px' } },
 						createElement(
 							Button,
 							{
-								variant: 'primary',
+								// After a finished apply the job is done — "View your site" (in the
+								// success notice) takes over as the primary action; re-applying stays
+								// available but demoted, so nobody re-runs an import by reflex.
+								variant: isSuccess ? 'secondary' : 'primary',
 								isBusy: isWorking,
 								disabled: ! canApply,
 								onClick: onApply,
 							},
-							isWorking ? copy.actions.working : actionLabel
+							isWorking ? copy.actions.working : isSuccess ? copy.actions.applyAgain || actionLabel : actionLabel
 						),
 						createElement(
 							Button,
 							{
 								variant: 'secondary',
+								// While an import runs this button cannot stop it — offering "Cancel"
+								// would lie. Navigation comes back as soon as the run settles.
+								disabled: isWorking,
 								onClick: onBack,
 							},
-							copy.actions.cancel
+							isSuccess ? copy.actions.backToStarterSites : copy.actions.cancel
 						)
 					),
 					renderStatusNotice( state, copy, starter.id, onInstallRequirements, onRetry )
@@ -2967,6 +3097,24 @@ export function StarterSites() {
 			}
 		};
 	}, [] );
+
+	// Tell the Design Library shell whether a starter detail view is open, so it can clear the
+	// section selector out of the way — the composer is a focused, single-task page.
+	useEffect( () => {
+		if ( 'undefined' === typeof window || 'function' !== typeof window.CustomEvent ) {
+			return undefined;
+		}
+
+		window.dispatchEvent(
+			new CustomEvent( 'pixelgrade:starter-composer-toggle', { detail: { open: Boolean( activeStarterId ) } } )
+		);
+
+		return () => {
+			window.dispatchEvent(
+				new CustomEvent( 'pixelgrade:starter-composer-toggle', { detail: { open: false } } )
+			);
+		};
+	}, [ activeStarterId ] );
 
 	// "New in the collection" shows for exactly this visit: seeing the Design Library IS seeing the
 	// collection, so record it right away (best-effort — the note simply shows again if this fails).
@@ -3052,7 +3200,11 @@ export function StarterSites() {
 		const missing = getMissingRequiredPlugins( starter );
 		if ( missing.length ) {
 			const names = missing.map( ( plugin ) => plugin.name || plugin.slug );
-			const message = ( copy.requirements.message || '%s' ).replace(
+			const messageTemplate =
+				1 === missing.length
+					? copy.requirements.messageSingle || copy.requirements.message
+					: copy.requirements.message;
+			const message = ( messageTemplate || '%s' ).replace(
 				'%s',
 				formatPluginNames( names, copy.requirements )
 			);
@@ -3061,6 +3213,9 @@ export function StarterSites() {
 				status: 'requirements',
 				message,
 				missing,
+				// A fresh requirements prompt must not resurrect a previous session's inline-install
+				// failure text.
+				installing: null,
 			} );
 			return;
 		}
@@ -3076,7 +3231,7 @@ export function StarterSites() {
 
 		// A genuine Retry of a failed import already reflects the user's intent — don't re-prompt the
 		// "already imported?" confirm on retry (options.skipConfirm). The normal re-apply path keeps it.
-		if ( ! options.skipConfirm && hasFullDemoOperation && isStarterImported( imported, starter.id ) && typeof window !== 'undefined' && window.confirm ) {
+		if ( ! options.skipConfirm && hasFullDemoOperation && starterHadFullImport( imported, applied, starter.id ) && typeof window !== 'undefined' && window.confirm ) {
 			const sure = window.confirm( copy.confirm );
 			if ( ! sure ) {
 				return;
@@ -3125,6 +3280,7 @@ export function StarterSites() {
 						[ starter.id ]: {
 							...( current[ starter.id ] || {} ),
 							imported: true,
+							fullDemo: true,
 						},
 					} ) );
 					setApplied( ( current ) => ( {
@@ -3134,6 +3290,7 @@ export function StarterSites() {
 							[ starter.id ]: {
 								...( current.fullDemos && current.fullDemos[ starter.id ] ? current.fullDemos[ starter.id ] : {} ),
 								imported: true,
+								fullDemo: true,
 							},
 						},
 						// A full demo defines the live site — it becomes the (singular) active starter,
@@ -3145,10 +3302,17 @@ export function StarterSites() {
 				updateAppliedFromResponse( response );
 
 				if ( ! [ 'full_demo', 'starter_parts' ].includes( operation.type ) ) {
-					const skippedLayoutUnit = 'layout_unit' === operation.type && response && 'unit_not_found' === response.code;
+					const skippedLayoutUnit =
+						'layout_unit' === operation.type &&
+						response &&
+						[ 'unit_not_found', 'gated_segment_unavailable' ].includes( response.code );
+					const skippedFeature =
+						'feature' === operation.type && response && 'unit_not_found' === response.code;
 					const appliedOperationMessage =
 						skippedLayoutUnit
 							? sprintf( __( "%s isn't included in this starter — skipped.", 'pixelgrade_assistant' ), getLayoutOperationLabel( operation, copy ) )
+							: skippedFeature
+							? __( "This starter doesn't ship that feature — skipped.", 'pixelgrade_assistant' )
 							: 'layout_unit' === operation.type
 							? sprintf( __( 'Applied %s.', 'pixelgrade_assistant' ), getLayoutOperationLabel( operation, copy ) )
 							: __( 'Applied selected operation.', 'pixelgrade_assistant' );

@@ -8064,6 +8064,16 @@ HTML;
 			) );
 		}
 
+		// Settings steps are key/value trees where commerce ownership lives on individual keys, so an
+		// unauthorized environment gets the same treatment as the orchestrated full import: strip the
+		// `woocommerce_*` keys and apply the rest. Rejecting the whole step would also drop menus, the
+		// homepage, and theme options when a starter export merely carries a stray WooCommerce option.
+		if ( in_array( $type, array( 'pre_settings', 'post_settings' ), true )
+			&& is_array( $args ) && isset( $args['data'] ) && is_array( $args['data'] )
+			&& function_exists( 'pixassist_starter_filter_unauthorized_settings' ) ) {
+			$args['data'] = pixassist_starter_filter_unauthorized_settings( $args['data'] );
+		}
+
 		// Capability-segment guard: reject gated content (e.g. WooCommerce/commerce) the environment is
 		// not authorized for. The segment is classified intrinsically from the content itself, so a
 		// tampered client that mislabels commerce content as base cannot bypass it. Server-side
@@ -8166,6 +8176,24 @@ HTML;
 				$result = $this->import_settings( $demo_key, 'post', $args['data'] );
 				if ( ! is_wp_error( $result ) && ! $result instanceof WP_REST_Response ) {
 					$response['settings'] = $result;
+
+					// The closing step of a FULL demo import (flagged by the client) gets the same
+					// completion bookkeeping as the monolithic import_starter route: the front-page
+					// safety net, the singular active-starter marker, and a dated journal entry so
+					// Home can say when the site started from this design. Partial composer imports
+					// send no flag and never claim the site.
+					if ( ! empty( $args['full_demo'] ) ) {
+						$this->ensure_starter_front_page_template( $demo_key );
+
+						PixelgradeAssistant_Admin::set_option( 'active_starter', $demo_key );
+
+						$journal = PixelgradeAssistant_Admin::get_option( 'imported_starter_content', array() );
+						if ( is_array( $journal ) && isset( $journal[ $demo_key ] ) && is_array( $journal[ $demo_key ] ) ) {
+							$journal[ $demo_key ]['importedAt'] = time();
+							PixelgradeAssistant_Admin::set_option( 'imported_starter_content', $journal );
+						}
+						PixelgradeAssistant_Admin::save_options();
+					}
 				} else {
 					$response = $result;
 				}

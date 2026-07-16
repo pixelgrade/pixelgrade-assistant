@@ -220,6 +220,9 @@ export function DesignLibrary() {
 	const [ sectionId, setSectionId ] = useState( () => readSectionFromUrl( ids ) );
 	const [ guide, setGuide ] = useState( () => readGuideState( ids ) );
 	const [ guideReopened, setGuideReopened ] = useState( false );
+	// A starter detail (composer) view is a focused, single-task page — while one is open the
+	// section selector would only compete with it, so the Starter Sites section broadcasts its state.
+	const [ detailViewOpen, setDetailViewOpen ] = useState( false );
 
 	const activeId = sectionId || ids[ 0 ];
 	const activeSection = sections.find( ( section ) => section.id === activeId ) || sections[ 0 ];
@@ -233,6 +236,13 @@ export function DesignLibrary() {
 
 		return () => window.removeEventListener( 'popstate', onPopState );
 	}, [ idsKey ] );
+
+	useEffect( () => {
+		const onDetailToggle = ( event ) => setDetailViewOpen( Boolean( event && event.detail && event.detail.open ) );
+		window.addEventListener( 'pixelgrade:starter-composer-toggle', onDetailToggle );
+
+		return () => window.removeEventListener( 'pixelgrade:starter-composer-toggle', onDetailToggle );
+	}, [] );
 
 	// The rendered section counts as visited — including the default landing section and direct
 	// deep links — so the guide's checklist reflects what the user has actually seen.
@@ -459,7 +469,7 @@ export function DesignLibrary() {
 	return createElement(
 		Fragment,
 		null,
-		showGuide ? renderGuide() : renderPills(),
+		detailViewOpen ? null : showGuide ? renderGuide() : renderPills(),
 		createElement( activeSection.component )
 	);
 }
