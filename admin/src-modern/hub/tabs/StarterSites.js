@@ -1720,33 +1720,12 @@ function getAllPartIds( starter, copy ) {
 }
 
 function getDefaultPresetId( starter, siteAnalysis ) {
-	const primaryAction = starter && starter.applyPlan && starter.applyPlan.primaryAction ? starter.applyPlan.primaryAction : {};
-	if ( 'full_demo' === primaryAction.type ) {
-		return 'fullSite';
-	}
-	if ( 'layout_only' === primaryAction.type ) {
-		return 'layoutsOnly';
-	}
-	if ( 'feature' === primaryAction.type && 'portfolio' === primaryAction.unit ) {
-		return 'portfolioOnly';
-	}
-
-	const portfolioEnabled = Boolean(
-		siteAnalysis &&
-			siteAnalysis.features &&
-			siteAnalysis.features.portfolio &&
-			siteAnalysis.features.portfolio.enabled
-	);
-
-	if ( starterHasPortfolio( starter ) && siteAnalysis && siteAnalysis.hasContent && ! portfolioEnabled ) {
-		return 'portfolioOnly';
-	}
-
-	if ( siteAnalysis && siteAnalysis.isEmpty ) {
-		return 'fullSite';
-	}
-
-	return 'layoutsOnly';
+	// The card says "Use <starter>" — the composer honors that promise by defaulting to the full
+	// site, every time (product decision, 2026-07-16). The earlier smart-contextual defaults
+	// (layouts-only for content-having sites, portfolio-only for portfolio starters) surprised
+	// users by silently narrowing the scope; those stay one click away as presets, and the Summary
+	// reassurance + inline re-apply confirm carry the safety story for existing content.
+	return 'fullSite';
 }
 
 function getPresetSelectedPartIds( presetId, starter, copy ) {
