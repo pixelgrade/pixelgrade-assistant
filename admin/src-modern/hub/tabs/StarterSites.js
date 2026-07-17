@@ -733,7 +733,7 @@ function scrollStarterProgressIntoView( starterId ) {
 }
 
 function countMediaItems( media ) {
-	if ( ! media || isEmptyObject( media.placeholders ) ) {
+	if ( ! media ) {
 		return 0;
 	}
 
@@ -1125,7 +1125,7 @@ function buildImportTasks( starter, config, data, setProgress, filters = {} ) {
 		} );
 	}
 
-	if ( includeMedia && config.media && ! isEmptyObject( config.media.placeholders ) ) {
+	if ( includeMedia && config.media && 0 < countMediaItems( config.media ) ) {
 		const mediaUrl = trailingslash( starter.baseRestUrl ) + 'media';
 		const mediaTotal = countMediaItems( config.media );
 		let mediaIndex = 0;

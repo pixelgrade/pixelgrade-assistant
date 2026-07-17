@@ -234,6 +234,7 @@ assert_true(
 );
 assert_same( 'PMAGv', $GLOBALS['paf_remote_calls'][0]['args']['body']['hash_id'], 'The request must carry the theme hash id.' );
 assert_same( 'hive-lite', $GLOBALS['paf_remote_calls'][0]['args']['body']['sku'], 'The request must carry the theme SKU.' );
+assert_same( 1, $GLOBALS['paf_remote_calls'][0]['args']['body']['edit'], 'The configuration request must bypass the origin FastCGI cache; Assistant owns the six-hour client cache.' );
 assert_true( is_array( $config ) && isset( $config['knowledgeBase'] ), 'A successful fetch must return the config.' );
 assert_true( ! isset( $config['dashboard'] ) && ! isset( $config['setupWizard'] ), 'Dashboard/setupWizard sections must be stripped.' );
 assert_same( $config, get_transient( $fresh_key ), 'The fresh (6h) transient must hold the config.' );

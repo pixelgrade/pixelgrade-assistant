@@ -120,16 +120,23 @@ class PixelgradeAssistant_Admin {
 	    // Make sure TGMPA is loaded.
 	    require_once plugin_dir_path( $this->parent->file ) . 'admin/required-plugins/class-tgm-plugin-activation.php';
 
-	    // Load the bundled Classic Editor only for themes that explicitly require it.
-	    if ( pixassist_theme_requires_classic_editor( PixelgradeAssistant::get_theme_config() ) ) {
-		    require_once plugin_dir_path( $this->parent->file ) . 'vendor/classic-editor/classic-editor.php';
-	    }
-
 	    // Fill up the WUpdates identification data for missing entities that we can deduce through other means.
 	    // This mostly addresses WordPress.org themes that don't have the WUpdates identification data.
-	    // This needs to be hooked up this early since we can't know for sure when the filter will be fired.
+	    // Register before loading the theme config because that lookup caches the gathered identification data.
 	    add_filter( 'wupdates_gather_ids', array( 'PixelgradeAssistant_Admin', 'maybe_fill_up_wupdates_identification_data' ), 1000, 1 );
+
+	    // Load the bundled Classic Editor after WordPress pluggable functions and theme supports are available.
+	    add_action( 'after_setup_theme', array( $this, 'maybe_load_classic_editor' ), 0 );
     }
+
+	/**
+	 * Load the bundled Classic Editor only for themes that explicitly require it.
+	 */
+	public function maybe_load_classic_editor() {
+		if ( pixassist_theme_requires_classic_editor( PixelgradeAssistant::get_theme_config() ) ) {
+			require_once plugin_dir_path( $this->parent->file ) . 'vendor/classic-editor/classic-editor.php';
+		}
+	}
 
     /**
      * Initialize our class
@@ -1357,6 +1364,11 @@ class PixelgradeAssistant_Admin {
 			// This is the Pixelgrade Assistant Manager configuration version, not the API version.
 			// @todo this parameter naming is quite confusing.
 			'version' => self::$pixelgrade_assistant_manager_api_version,
+			// The PXM REST route is otherwise cached at the origin for six hours, independently of
+			// Assistant's own six-hour transient. Bypass that shared cache so a freshly published
+			// catalog cannot be hidden behind a stale origin response; the client-side transient and
+			// fetch lock below remain the authoritative cache and stampede protection.
+			'edit'    => 1,
 		);
 		if ( function_exists( 'pixassist_add_service_request_context' ) ) {
 			$request_body = pixassist_add_service_request_context( $request_body, 'remote_config_requested' );

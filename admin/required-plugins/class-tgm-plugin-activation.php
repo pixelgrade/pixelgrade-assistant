@@ -1493,11 +1493,13 @@ if ( ! class_exists( 'TGM_Plugin_Activation' ) ) {
 				if ( preg_match( '|^' . $slug . '/|', $key ) ) {
 					return $key;
 				}
+			}
 
+			foreach ( $keys as $key ) {
 				// This is a Pixelgrade addition!!!
 				// We want to be a little lenient and discover installed (but not activated) plugins
 				// that may have their directory changed, but that still have their main PHP file with the same name as the plugin slug.
-				// This is pretty safe.
+				// Only use this fallback after checking all canonical plugin directories first.
 				if ( false !== strpos( $key, '/' . $slug . '.php' ) ) {
 					return $key;
 				}
