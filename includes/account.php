@@ -338,7 +338,7 @@ if ( ! function_exists( 'pixassist_read_modern_account_identity' ) ) {
 		}
 
 		$avatar_url = $connection['avatar_url'];
-		if ( '' === $avatar_url && '' !== $connection['email'] && function_exists( 'get_avatar_url' ) ) {
+		if ( '' === $avatar_url && '' !== $connection['email'] && function_exists( 'get_avatar_url' ) && function_exists( 'get_user_by' ) ) {
 			$avatar_url = (string) get_avatar_url( $connection['email'] );
 		}
 
