@@ -2,9 +2,9 @@
 Contributors: pixelgrade, vlad.olaru, babbardel
 Tags: dashboard, starter-content, demo-content, recommended-plugins, pixelgrade
 Requires at least: 5.9
-Tested up to: 7.0.1
+Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 2.3.0
+Stable tag: 2.3.1
 License: GPLv3.0
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -100,6 +100,11 @@ Pixelgrade Assistant does not perform advertising, cross-site, or event-level be
 4. Preview the live color, typography, and spacing systems, then jump straight into the matching Style Manager controls.
 
 == Changelog ==
+
+= 2.3.1 =
+* Starter Sites imports are more resilient to undeclared commerce content, unavailable layout units, media edge cases, and interrupted full-site runs.
+* The starter composer now opens with the Full site preset, explains re-applying inline, shows useful feature tags, and offers clear next steps after a successful apply.
+* Fix: canonical plugin installs are preferred over renamed backups, and account/theme configuration stays safe during early WordPress bootstrap.
 
 = 2.3.0 =
 * New onboarding: an essentials-first Site Setup checklist can install or activate Anima LT, Style Manager, and Nova Blocks from one place.

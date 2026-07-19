@@ -609,7 +609,11 @@ assert_true( isset( $gate_copy['actions']['managePlugins'] ), 'Starter Sites cop
 
 $starter_sites_js = file_get_contents( __DIR__ . '/../admin/src-modern/hub/tabs/StarterSites.js' );
 assert_true( false !== strpos( $starter_sites_js, 'applyPlan' ), 'Starter Sites JS must render from the server-generated apply plan.' );
-assert_true( false !== strpos( $starter_sites_js, 'primaryAction.type' ), 'Starter Sites JS must default composer presets from the server primary action before local heuristics.' );
+$default_preset_start = strpos( $starter_sites_js, 'function getDefaultPresetId' );
+$default_preset_end   = strpos( $starter_sites_js, 'function getPresetSelectedPartIds', $default_preset_start );
+$default_preset_js    = substr( $starter_sites_js, $default_preset_start, $default_preset_end - $default_preset_start );
+assert_true( false !== strpos( $default_preset_js, "return 'fullSite';" ), 'Starter Sites JS must default every fresh composer to the Full site preset.' );
+assert_true( false === strpos( $default_preset_js, 'primaryAction' ), 'Starter Sites JS must not silently narrow the default preset from the server primary action.' );
 assert_true( false !== strpos( $starter_sites_js, 'applyRecipe' ), 'Starter Sites JS must keep the recipe endpoint available for server-generated actions.' );
 assert_true( false !== strpos( $starter_sites_js, 'importUnit' ), 'Starter Sites JS must call the layout-unit endpoint for feature actions.' );
 assert_true( false !== strpos( $starter_sites_js, 'include_look' ), 'Starter Sites JS must pass the include-look decision to recipe apply.' );

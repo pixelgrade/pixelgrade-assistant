@@ -332,6 +332,7 @@ $GLOBALS['paf_remote_body'] = json_encode( array(
 ) );
 
 $method = new ReflectionMethod( 'PixelgradeAssistant_StarterContent', 'import_post_type' );
+$method->setAccessible( true );
 $imported_ids = $method->invoke( $starter_content, 'anima-blog', 'https://starter.test/wp-json/sce/v2/', array(
 	'post_type' => 'post',
 	'ids'       => array( 15, 21, 30 ),
