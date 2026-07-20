@@ -356,23 +356,35 @@ assert_same( true, pixassist_starter_authorize_import( 'post_type', array( 'post
  * 6b. Bulk full-demo settings: commerce settings are stripped from a free import, kept when authorized.
  */
 $mixed_settings = array(
-	'blogname'                   => 'Felt',
-	'woocommerce_store_address'  => '1 Main St',
-	'woocommerce_currency'       => 'USD',
+	'blogname'                    => 'Felt',
+	'sm_collection_hover_effect' => 'pile',
+	'sm_page_transitions_enable' => '1',
+	'woocommerce_store_address'   => '1 Main St',
+	'woocommerce_currency'        => 'USD',
 );
 
 $GLOBALS['paf_installed_plugins'] = array();
 $GLOBALS['paf_entitlements']      = array();
 $free_settings = pixassist_starter_filter_unauthorized_settings( $mixed_settings );
-assert_same( array( 'blogname' => 'Felt' ), $free_settings, 'A free full import must strip WooCommerce settings while keeping base settings.' );
+assert_same(
+	array(
+		'blogname'                    => 'Felt',
+		'sm_collection_hover_effect' => 'pile',
+		'sm_page_transitions_enable' => '1',
+	),
+	$free_settings,
+	'A free full import must strip WooCommerce settings while preserving base and dormant Plus-backed design intent.'
+);
 
 $nested_mixed_settings = array(
 	'options' => array(
-		'blogname'                   => 'Felt',
-		'woocommerce_shop_page_id'   => 42,
-		'nested'                     => array(
-			'woocommerce_currency' => 'USD',
-			'editorial_setting'     => 'keep',
+		'blogname'                    => 'Felt',
+		'sm_intro_animations_enable' => '1',
+		'woocommerce_shop_page_id'    => 42,
+		'nested'                      => array(
+			'woocommerce_currency'    => 'USD',
+			'sm_intro_animations_style' => 'kinetic',
+			'editorial_setting'        => 'keep',
 		),
 	),
 );
@@ -380,12 +392,16 @@ $free_nested_settings = pixassist_starter_filter_unauthorized_settings( $nested_
 assert_same(
 	array(
 		'options' => array(
-			'blogname' => 'Felt',
-			'nested'   => array( 'editorial_setting' => 'keep' ),
+			'blogname'                    => 'Felt',
+			'sm_intro_animations_enable' => '1',
+			'nested'                      => array(
+				'sm_intro_animations_style' => 'kinetic',
+				'editorial_setting'          => 'keep',
+			),
 		),
 	),
 	$free_nested_settings,
-	'A free full import must recursively strip WooCommerce settings while preserving neighboring base settings.'
+	'A free full import must recursively strip WooCommerce settings while preserving neighboring base and dormant Plus-backed settings.'
 );
 
 $GLOBALS['paf_installed_plugins'] = array( 'woocommerce/woocommerce.php' => true );
