@@ -8,7 +8,10 @@ const repoRoot = path.resolve( __dirname, '..' );
 const workflowPath = path.join( repoRoot, '.github/workflows/release-cockpit-sync.yml' );
 
 function extractVersionStatusScript() {
-	const lines = fs.readFileSync( workflowPath, 'utf8' ).split( '\n' );
+	const workflow = fs.readFileSync( workflowPath, 'utf8' );
+	assert.match( workflow, /uses: actions\/checkout@v7/, 'workflow actions must use the Node 24 runtime' );
+
+	const lines = workflow.split( '\n' );
 	const start = lines.findIndex( ( line ) => line.includes( "node <<'NODE'" ) );
 	const end = lines.findIndex( ( line, index ) => index > start && line.trim() === 'NODE' );
 

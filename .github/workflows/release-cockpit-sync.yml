@@ -24,7 +24,7 @@ jobs:
       WPORG_INFO_URL: https://api.wordpress.org/plugins/info/1.2/?action=plugin_information&request%5Bslug%5D=pixelgrade-assistant
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
