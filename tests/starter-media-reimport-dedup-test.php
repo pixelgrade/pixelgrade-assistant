@@ -68,36 +68,36 @@ $media = array(
 	'placeholders' => array( 175 ),
 	'ignored'      => array( 9, 10, 11 ),
 	'source_urls'  => array(
+		175 => 'https://starter.pixelgrade.com/anima-portfolio/wp-content/uploads/placeholder.jpg',
 		9  => 'https://starter.pixelgrade.com/anima-portfolio/wp-content/uploads/9.jpg',
 		10 => 'https://starter.pixelgrade.com/anima-portfolio/wp-content/uploads/10.jpg',
 	),
 );
 
-// --- Scenario 1: fresh import (empty journal) imports the whole ignored pool. ---
+// --- Scenario 1: fresh import (empty journal) imports both curated media groups. ---
 $GLOBALS['paf_pixassist_options'] = array();
 $items = $method->invoke( $sc, 'anima-portfolio', $media, true );
-check( ids_of( $items ) === array( 9, 10, 11 ), 'Fresh import collects every ignored id.' );
-check( count( $items ) === 3, 'Fresh import yields 3 items.' );
+check( ids_of( $items ) === array( 175, 9, 10, 11 ), 'Fresh import collects every placeholder and ignored id.' );
+check( count( $items ) === 4, 'Fresh import yields 4 items.' );
 $by_id = array();
 foreach ( $items as $i ) { $by_id[ $i['id'] ] = $i; }
-check( ! empty( $by_id[9]['source_url'] ) && ! empty( $by_id[10]['source_url'] ), 'Items carry their source_url when provided.' );
+check( ! empty( $by_id[175]['source_url'] ) && ! empty( $by_id[9]['source_url'] ) && ! empty( $by_id[10]['source_url'] ), 'Items carry their source_url when provided.' );
 check( empty( $by_id[11]['source_url'] ), 'An id without a source_url has none attached.' );
+check( isset( $by_id[175]['group'] ) && 'placeholders' === $by_id[175]['group'], 'Placeholder items keep their group.' );
 check( $by_id[9]['group'] === 'ignored', 'Items keep their group.' );
-
-// The placeholders group and the source_urls map are never imported as media themselves.
-check( ! in_array( 175, ids_of( $items ), true ), 'The placeholders group is not imported as media.' );
 
 // --- Scenario 2: re-import where every id already maps to an existing attachment -> nothing re-imported. ---
 $GLOBALS['paf_pixassist_options'] = array(
 	'imported_starter_content' => array(
 		'anima-portfolio' => array(
 			'media' => array(
+				'placeholders' => array( 175 => 5000 ),
 				'ignored' => array( 9 => 5001, 10 => 5002, 11 => 5003 ),
 			),
 		),
 	),
 );
-$GLOBALS['paf_existing_attachments'] = array( 5001, 5002, 5003 );
+$GLOBALS['paf_existing_attachments'] = array( 5000, 5001, 5002, 5003 );
 $items = $method->invoke( $sc, 'anima-portfolio', $media, true );
 check( $items === array(), 'Re-import skips media already imported with existing attachments (no duplicates).' );
 
@@ -106,19 +106,20 @@ $GLOBALS['paf_pixassist_options'] = array(
 	'imported_starter_content' => array(
 		'anima-portfolio' => array(
 			'media' => array(
+				'placeholders' => array( 175 => 5000 ),
 				'ignored' => array( 9 => 5001, 10 => 9999 /* deleted */ ),
 				// 11 was never imported.
 			),
 		),
 	),
 );
-$GLOBALS['paf_existing_attachments'] = array( 5001 ); // 9999 no longer exists
+$GLOBALS['paf_existing_attachments'] = array( 5000, 5001 ); // 9999 no longer exists
 $items = $method->invoke( $sc, 'anima-portfolio', $media, true );
 check( ids_of( $items ) === array( 10, 11 ), 'Re-import re-fetches ids whose local attachment is gone, plus never-imported ids; keeps existing ones skipped.' );
 
 // --- Scenario 4: dedup is per-demo, not global. A different demo key does not see this demo's journal. ---
 $items = $method->invoke( $sc, 'anima-blog', $media, true );
-check( ids_of( $items ) === array( 9, 10, 11 ), 'Dedup is scoped to the demo key.' );
+check( ids_of( $items ) === array( 175, 9, 10, 11 ), 'Dedup is scoped to the demo key.' );
 
 // --- Scenario 5: the per-media upload path (used by the modern hub's client loop via /upload_media) is the
 //     server-side backstop. A second upload of an already-imported id reuses the attachment, never inserting. ---

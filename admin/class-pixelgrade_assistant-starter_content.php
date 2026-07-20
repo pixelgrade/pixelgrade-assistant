@@ -7394,8 +7394,9 @@ HTML;
 		/**
 		 * Build the flat fetch list of source media to import, skipping anything already imported.
 		 *
-		 * The 'placeholders' GROUP is the rotation pool (not imported as-is) and the 'source_urls' entry is a
-		 * metadata map, so both are skipped. A source id already imported for this demo whose local attachment
+		 * The `placeholders` and `ignored` groups are both imported so the exporter can distinguish the
+		 * rotation pool from source assets that must be preserved. The `source_urls` entry is only a metadata
+		 * map, so it is skipped. A source id already imported for this demo whose local attachment
 		 * still exists is skipped too: re-importing a starter must REUSE attachments, not duplicate them. The
 		 * journal records only the latest remote->local mapping, so a duplicate import would leave the original
 		 * orphaned in the media library (the 110 -> 220 doubling). If the mapped attachment is gone (deleted by
@@ -7417,7 +7418,7 @@ HTML;
 			$items = array();
 			foreach ( $media as $group => $ids ) {
 				$group = sanitize_key( $group );
-				if ( 'placeholders' === $group || 'source_urls' === $group || empty( $ids ) || ! is_array( $ids ) ) {
+				if ( 'source_urls' === $group || empty( $ids ) || ! is_array( $ids ) ) {
 					continue;
 				}
 				foreach ( $ids as $remote_id ) {
