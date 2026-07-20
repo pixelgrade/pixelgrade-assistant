@@ -732,13 +732,17 @@ function scrollStarterProgressIntoView( starterId ) {
 	}, 80 );
 }
 
+function isImportableMediaGroup( groupKey ) {
+	return [ 'placeholders', 'ignored' ].includes( groupKey );
+}
+
 function countMediaItems( media ) {
 	if ( ! media ) {
 		return 0;
 	}
 
 	return Object.keys( media ).reduce( ( count, groupKey ) => {
-		if ( 'placeholders' === groupKey || 'source_urls' === groupKey || ! media[ groupKey ] ) {
+		if ( ! isImportableMediaGroup( groupKey ) || ! media[ groupKey ] ) {
 			return count;
 		}
 
@@ -1131,7 +1135,7 @@ function buildImportTasks( starter, config, data, setProgress, filters = {} ) {
 		let mediaIndex = 0;
 
 		Object.keys( config.media ).forEach( ( groupKey ) => {
-			if ( 'placeholders' === groupKey || 'source_urls' === groupKey || ! config.media[ groupKey ] ) {
+			if ( ! isImportableMediaGroup( groupKey ) || ! config.media[ groupKey ] ) {
 				return;
 			}
 

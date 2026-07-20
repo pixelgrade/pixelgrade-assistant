@@ -7365,7 +7365,7 @@ HTML;
 		 * @return int|WP_Error Number of imported media records.
 		 */
 		private function import_starter_media( $demo_key, $base_url, $media, $use_source_urls = false ) {
-			if ( empty( $media['placeholders'] ) || ! is_array( $media ) ) {
+			if ( ! is_array( $media ) ) {
 				return 0;
 			}
 
@@ -7419,7 +7419,7 @@ HTML;
 			$items = array();
 			foreach ( $media as $group => $ids ) {
 				$group = sanitize_key( $group );
-				if ( 'source_urls' === $group || empty( $ids ) || ! is_array( $ids ) ) {
+				if ( ! in_array( $group, array( 'placeholders', 'ignored' ), true ) || empty( $ids ) || ! is_array( $ids ) ) {
 					continue;
 				}
 				foreach ( $ids as $remote_id ) {

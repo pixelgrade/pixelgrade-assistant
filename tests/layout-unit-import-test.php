@@ -2178,6 +2178,29 @@ foreach ( $GLOBALS['paf_remote_requests'] as $request ) {
 }
 assert_same( array( 30, 90 ), $media_request_timeouts, 'A transient full-starter media timeout must be retried with a longer timeout.' );
 
+$GLOBALS['paf_remote_requests']       = array();
+$GLOBALS['paf_remote_media_failures'] = array();
+$GLOBALS['paf_pixassist_options']     = array();
+$GLOBALS['paf_pixassist_db_options']  = array();
+$GLOBALS['paf_uploaded_bits']         = array();
+$GLOBALS['paf_inserted_attachments']  = array();
+$GLOBALS['paf_attachment_metadata']   = array();
+$GLOBALS['paf_next_attachment_id']    = 3100;
+
+$ignored_only_summary = $starter_content->import_starter(
+	'ignored-only',
+	'https://starter.test/wp-json/sce/v2/',
+	array(
+		'media' => array(
+			'ignored' => array( 9102 ),
+		),
+	)
+);
+
+assert_same( 'success', $ignored_only_summary['code'], 'A full starter with exact assets but no placeholder pool must still import media.' );
+assert_same( 1, $ignored_only_summary['data']['summary']['media'], 'An ignored-only media manifest must import its exact asset.' );
+assert_same( 3101, $GLOBALS['paf_pixassist_options']['imported_starter_content']['ignored-only']['media']['ignored'][9102], 'An ignored-only media import must journal the local attachment.' );
+
 $GLOBALS['paf_pixassist_options']  = array(
 	'account' => array(
 		'is_connected' => true,

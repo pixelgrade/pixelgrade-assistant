@@ -137,4 +137,87 @@ describe( 'Starter Sites — granular full-site import', () => {
 
 		expect( requestedSteps ).toEqual( [ 'wprm_course', 'page' ] );
 	} );
+
+	test( 'should upload placeholders and ignored media with their source groups', async () => {
+		const uploads = [];
+		const manifest = {
+			media: {
+				placeholders: [ 175, 176 ],
+				ignored: [ 9 ],
+				source_urls: {
+					175: 'https://starter.example.test/placeholder-175.jpg',
+					176: 'https://starter.example.test/placeholder-176.jpg',
+					9: 'https://starter.example.test/logo.svg',
+				},
+				metadata: [ 999 ],
+			},
+		};
+		window.pixassist = { wpRest: {} };
+		window.fetch = jest.fn().mockImplementation( async ( url, options = {} ) => {
+			if ( String( url ).includes( '/data' ) ) {
+				return {
+					ok: true,
+					json: async () => ( { code: 'success', message: '', data: manifest } ),
+				};
+			}
+
+			if ( String( url ).includes( '/media?id=' ) ) {
+				const remoteId = new URL( String( url ) ).searchParams.get( 'id' );
+				return {
+					ok: true,
+					json: async () => ( {
+						code: 'success',
+						data: {
+							media: {
+								title: 'attachment-' + remoteId,
+								ext: 'jpg',
+								data: 'data:image/jpeg;base64,aW1hZ2U=',
+							},
+						},
+					} ),
+				};
+			}
+
+			const request = JSON.parse( options.body );
+			uploads.push( {
+				remoteId: request.remote_id,
+				group: request.group,
+			} );
+
+			return {
+				ok: true,
+				json: async () => ( { code: 'success', message: '', data: {} } ),
+			};
+		} );
+		const starter = {
+			id: 'pile-lt-media-contract',
+			baseRestUrl: 'https://starter.example.test/pile-lt/wp-json/sce/v2/',
+			segments: [],
+		};
+		const data = {
+			endpoints: {
+				uploadMedia: {
+					method: 'POST',
+					url: 'https://local.example.test/wp-json/pixassist/v1/upload-media',
+				},
+			},
+		};
+		const setProgress = jest.fn();
+
+		await importStarter( starter, data, { importing: 'Preparing starter.' }, setProgress );
+
+		expect( uploads ).toEqual( [
+			{ remoteId: 175, group: 'placeholders' },
+			{ remoteId: 176, group: 'placeholders' },
+			{ remoteId: 9, group: 'ignored' },
+		] );
+		const manifestProgress = setProgress.mock.calls.find( ( [ update ] ) => update && Number.isFinite( update.total ) );
+		expect( manifestProgress[ 0 ] ).toMatchObject( {
+			total: 7,
+			phaseTotals: {
+				prepare: 1,
+				media: 6,
+			},
+		} );
+	} );
 } );

@@ -67,6 +67,7 @@ function ids_of( $items ) {
 $media = array(
 	'placeholders' => array( 175 ),
 	'ignored'      => array( 9, 10, 11 ),
+	'metadata'     => array( 99 ),
 	'source_urls'  => array(
 		175 => 'https://starter.pixelgrade.com/anima-portfolio/wp-content/uploads/placeholder.jpg',
 		9  => 'https://starter.pixelgrade.com/anima-portfolio/wp-content/uploads/9.jpg',
@@ -79,6 +80,7 @@ $GLOBALS['paf_pixassist_options'] = array();
 $items = $method->invoke( $sc, 'anima-portfolio', $media, true );
 check( ids_of( $items ) === array( 175, 9, 10, 11 ), 'Fresh import collects every placeholder and ignored id.' );
 check( count( $items ) === 4, 'Fresh import yields 4 items.' );
+check( ! in_array( 99, ids_of( $items ), true ), 'Unknown media metadata groups are not treated as attachment pools.' );
 $by_id = array();
 foreach ( $items as $i ) { $by_id[ $i['id'] ] = $i; }
 check( ! empty( $by_id[175]['source_url'] ) && ! empty( $by_id[9]['source_url'] ) && ! empty( $by_id[10]['source_url'] ), 'Items carry their source_url when provided.' );
