@@ -10,6 +10,8 @@ const workflowPath = path.join( repoRoot, '.github/workflows/release-cockpit-syn
 function extractVersionStatusScript() {
 	const workflow = fs.readFileSync( workflowPath, 'utf8' );
 	assert.match( workflow, /uses: actions\/checkout@v7/, 'workflow actions must use the Node 24 runtime' );
+	assert.match( workflow, /export TITLE="\$title"/, 'issue matcher must receive the title environment variable' );
+	assert.doesNotMatch( workflow, /TITLE="\$title" gh issue list/, 'title must not be scoped only to the gh process' );
 
 	const lines = workflow.split( '\n' );
 	const start = lines.findIndex( ( line ) => line.includes( "node <<'NODE'" ) );

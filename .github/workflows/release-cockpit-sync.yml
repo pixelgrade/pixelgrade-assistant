@@ -174,8 +174,9 @@ jobs:
           4. Keep this issue as evidence or close it after the cockpit status is updated.
           EOF
 
+          export TITLE="$title"
           existing_issue="$(
-            TITLE="$title" gh issue list \
+            gh issue list \
               --repo "$COCKPIT_REPO" \
               --state open \
               --limit 100 \
