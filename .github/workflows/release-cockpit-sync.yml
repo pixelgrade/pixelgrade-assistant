@@ -49,20 +49,44 @@ jobs:
             return match[1].trim();
           }
 
+          function singletonVersion(source) {
+            const argument = firstMatch(
+              source,
+              /PixelgradeAssistant::instance\(\s*__FILE__,\s*([^,)]+)\s*\)/,
+              'singleton version argument'
+            );
+            const literal = argument.match(/^['"]([^'"]+)['"]$/);
+
+            if (literal) {
+              return literal[1];
+            }
+
+            if (!/^[A-Z][A-Z0-9_]*$/.test(argument)) {
+              throw new Error(`Unsupported singleton version argument: ${argument}`);
+            }
+
+            const escapedConstant = argument.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            return firstMatch(
+              source,
+              new RegExp(`define\\(\\s*['"]${escapedConstant}['"]\\s*,\\s*['"]([^'"]+)['"]\\s*\\)`),
+              `${argument} constant value`
+            );
+          }
+
           const pluginVersion = firstMatch(plugin, /Version:\s*([^\s*]+)/, 'plugin header version');
-          const singletonVersion = firstMatch(plugin, /PixelgradeAssistant::instance\(\s*__FILE__,\s*['"]([^'"]+)['"]\s*\)/, 'singleton version');
+          const resolvedSingletonVersion = singletonVersion(plugin);
           const readmeStableTag = firstMatch(readme, /^Stable tag:\s*(.+)$/m, 'readme stable tag');
           const packageVersion = String(pkg.version || '').trim();
 
           const uniqueVersions = new Set([
             pluginVersion,
-            singletonVersion,
+            resolvedSingletonVersion,
             readmeStableTag,
             packageVersion,
           ]);
 
           console.log(`plugin_version=${pluginVersion}`);
-          console.log(`singleton_version=${singletonVersion}`);
+          console.log(`singleton_version=${resolvedSingletonVersion}`);
           console.log(`readme_stable_tag=${readmeStableTag}`);
           console.log(`package_version=${packageVersion}`);
           console.log(`versions_consistent=${uniqueVersions.size === 1 ? 'yes' : 'no'}`);
