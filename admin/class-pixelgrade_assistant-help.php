@@ -56,7 +56,9 @@ class PixelgradeAssistant_Help {
 	 */
 	public static function get_kb_product_sku() {
 		$slug = strtolower( (string) PixelgradeAssistant_Admin::get_original_theme_slug() );
-		$sku  = $slug;
+		$sku  = method_exists( 'PixelgradeAssistant_Admin', 'get_product_sku' )
+			? strtolower( (string) PixelgradeAssistant_Admin::get_product_sku() )
+			: $slug;
 
 		/**
 		 * Filter the knowledge-base product SKU used to fetch in-dashboard documentation.

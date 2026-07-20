@@ -1364,7 +1364,7 @@ class PixelgradeAssistant_Admin {
 			// The theme SKU (e.g. anima-lt) disambiguates products that share a hash. Anima's
 			// hash (QBAXY) is shared by every premium LT product, so without the SKU the
 			// Manager cannot resolve which product config to return. See #59.
-			'sku'     => self::get_original_theme_slug(),
+			'sku'     => self::get_product_sku(),
 			// This is the Pixelgrade Assistant Manager configuration version, not the API version.
 			// @todo this parameter naming is quite confusing.
 			'version' => self::$pixelgrade_assistant_manager_api_version,
@@ -1704,6 +1704,36 @@ class PixelgradeAssistant_Admin {
 
         return sanitize_title( $wupdates_identification['slug'] );
     }
+
+	/**
+	 * Get the canonical product SKU used by Pixelgrade services.
+	 *
+	 * The released Anima distribution registers its historical WUpdates slug as
+	 * `anima`, while the LT product that owns its starter catalog, documentation,
+	 * and account context is registered as `anima-lt`.
+	 *
+	 * @since 2.3.2
+	 *
+	 * @return string
+	 */
+	public static function get_product_sku() {
+		$original_slug = self::get_original_theme_slug();
+		$theme_hash    = self::get_theme_hash_id();
+		$product_sku   = $original_slug;
+
+		if ( 'QBAXY' === $theme_hash && 'anima' === $original_slug ) {
+			$product_sku = 'anima-lt';
+		}
+
+		/**
+		 * Filter the canonical product SKU used by Pixelgrade services.
+		 *
+		 * @param string       $product_sku   Canonical service product SKU.
+		 * @param string       $original_slug Raw WUpdates theme slug.
+		 * @param string|false $theme_hash    WUpdates product hash.
+		 */
+		return sanitize_title( apply_filters( 'pixassist_product_sku', $product_sku, $original_slug, $theme_hash ) );
+	}
 
 	/**
      * Get the current theme original name from the WUpdates code.
@@ -2119,9 +2149,27 @@ class PixelgradeAssistant_Admin {
 		}
 
 		$current_theme_type = self::get_theme_type();
+		$compatible_types   = array( $current_theme_type );
 
-		if ( in_array( $current_theme_type, $item['applicableTypes'] ) ) {
-			return true;
+		// Anima's released LT distribution uses a more specific WUpdates type, while
+		// the existing starter catalog and required-plugin rules are published for
+		// the established WordPress.org type.
+		if ( 'theme_lt_wporg' === $current_theme_type ) {
+			$compatible_types[] = 'theme_wporg';
+		}
+
+		/**
+		 * Filter the theme types that may satisfy an applicability rule.
+		 *
+		 * @param string[] $compatible_types   Compatible theme types.
+		 * @param string   $current_theme_type Active WUpdates theme type.
+		 */
+		$compatible_types = apply_filters( 'pixassist_compatible_theme_types', $compatible_types, $current_theme_type );
+
+		foreach ( (array) $compatible_types as $compatible_type ) {
+			if ( in_array( $compatible_type, $item['applicableTypes'], true ) ) {
+				return true;
+			}
 		}
 
 		return false;

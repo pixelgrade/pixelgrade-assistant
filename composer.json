@@ -50,6 +50,7 @@
             "php tests/portfolio-cpt-test.php",
             "php tests/admin-wupdates-bootstrap-order-test.php",
             "php tests/wupdates-identification-test.php",
+            "php tests/anima-product-sku-test.php",
             "php tests/remote-config-cache-test.php"
         ]
     }
