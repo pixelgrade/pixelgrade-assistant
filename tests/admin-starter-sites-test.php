@@ -413,7 +413,7 @@ assert_same( 'Mies LT', pixassist_starter_lineage_title( 'anima-portfolio', 'Mer
 assert_same( 'Felt LT', pixassist_starter_lineage_title( 'felt-lt', 'Felt LT' ), 'A starter without a lineage mapping keeps its cloud title.' );
 assert_same( 'Anima LT demo content', $payload['copy']['importTitle'], 'Payload copy must preserve the legacy importTitle token replacement.' );
 assert_same( 'Successfully applied.', $payload['copy']['success'], 'Starter Sites success copy must use the composer apply language.' );
-assert_same( 'Use %s', $payload['copy']['actions']['useStarter'], 'Payload copy must expose the gallery-card primary action template.' );
+assert_same( 'Set up %s', $payload['copy']['actions']['useStarter'], 'Payload copy must expose the gallery-card primary action template.' );
 assert_same( 'Apply full site', $payload['copy']['actions']['applyFullSite'], 'Payload copy must include the empty-site composer final action.' );
 assert_same( 'Apply layouts', $payload['copy']['actions']['applyLayouts'], 'Payload copy must include the existing-site composer final action.' );
 assert_same( 'Add portfolio', $payload['copy']['actions']['addPortfolio'], 'Payload copy must include the portfolio composer final action.' );
@@ -653,9 +653,13 @@ assert_true( false !== strpos( $starter_sites_js, "phase.total > 0 || 'active' =
 assert_true( false !== strpos( $starter_sites_js, 'All done — your site is ready.' ), 'Starter Sites progress completion copy must be friendly and plain-language.' );
 assert_true( false !== strpos( $starter_sites_js, 'Last completed' ), 'Starter Sites progress must show the last completed items.' );
 assert_true( false !== strpos( $starter_sites_js, 'progress__warning' ), 'Starter Sites progress must persist non-fatal warnings inline.' );
-assert_same( 2, substr_count( $starter_sites_js, 'renderProgressWarnings( state.warnings )' ), 'Starter Sites progress warnings must stay visible while working and after completion.' );
+// Four call sites: the inline status notice (working + completion branches) plus the focused
+// applying hero and the completion hero — warnings stay visible in every progress surface.
+assert_same( 4, substr_count( $starter_sites_js, 'renderProgressWarnings( state.warnings )' ), 'Starter Sites progress warnings must stay visible while working and after completion.' );
 assert_true( false !== strpos( $starter_sites_js, 'aria-valuetext' ), 'Starter Sites progressbar must expose accessible phase progress text.' );
-assert_true( false !== strpos( $starter_sites_js, 'scrollStarterProgressIntoView' ), 'Starter Sites progress must auto-scroll into view when applying starts.' );
+// The composer swaps into a top-of-page applying state when an apply starts, so the scroll
+// target is the top of the hub (the old scroll chased a bottom-anchored progress card).
+assert_true( false !== strpos( $starter_sites_js, 'scrollHubToTop' ), 'Starter Sites must scroll to the focused applying view when applying starts.' );
 assert_true( false !== strpos( $starter_sites_js, 'data-starter-progress-id' ), 'Starter Sites progress must expose a scoped progress target for auto-scroll.' );
 assert_true( false !== strpos( $starter_sites_js, 'prefers-reduced-motion: reduce' ), 'Starter Sites progress auto-scroll must respect reduced motion preferences.' );
 assert_true( false !== strpos( $starter_sites_js, 'disabled: ! canApply' ), 'Starter Sites Cancel must remain available while an apply is running.' );

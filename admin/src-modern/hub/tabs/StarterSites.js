@@ -5,7 +5,7 @@
  * be injected by Pixelgrade Plus through the PHP `pixelgrade/admin_hub/starters` filter and carry a
  * `gate` so this presentational tab can show an upsell without owning commercial state.
  */
-import { createElement, Fragment, useEffect, useState } from '@wordpress/element';
+import { createElement, Fragment, useEffect, useRef, useState } from '@wordpress/element';
 import { __, sprintf } from '@wordpress/i18n';
 import { Button, Card, CardBody, CardHeader, CheckboxControl, Flex, FlexItem, Spinner } from '@wordpress/components';
 import { LayoutPreview, PreviewModeToggle } from '../LayoutPreview';
@@ -43,7 +43,9 @@ const DEFAULT_STARTER_SITES = {
 			import: __( 'Import', 'pixelgrade_assistant' ),
 			imported: __( 'Imported', 'pixelgrade_assistant' ),
 			reimport: __( 'Re-import', 'pixelgrade_assistant' ),
-			useStarter: __( 'Use %s', 'pixelgrade_assistant' ),
+			// "Set up", not "Use": the button opens the composer (nothing is imported yet), and the
+			// label should promise that next step instead of sounding like an instant import.
+			useStarter: __( 'Set up %s', 'pixelgrade_assistant' ),
 			applyAgain: __( 'Apply again', 'pixelgrade_assistant' ),
 			applyFullSite: __( 'Apply full site', 'pixelgrade_assistant' ),
 			applyLayouts: __( 'Apply layouts', 'pixelgrade_assistant' ),
@@ -52,6 +54,11 @@ const DEFAULT_STARTER_SITES = {
 			cancel: __( 'Cancel', 'pixelgrade_assistant' ),
 			backToStarterSites: __( 'Back to Starter Sites', 'pixelgrade_assistant' ),
 			preview: __( 'Preview', 'pixelgrade_assistant' ),
+			browseDemo: __( 'Browse the live demo ↗', 'pixelgrade_assistant' ),
+			viewYourSite: __( 'View your site', 'pixelgrade_assistant' ),
+			editSiteEditor: __( 'Edit in Site Editor', 'pixelgrade_assistant' ),
+			fineTuneStyles: __( 'Fine-tune colors & fonts', 'pixelgrade_assistant' ),
+			adjustApplyAgain: __( 'Adjust & apply again', 'pixelgrade_assistant' ),
 			setupPlus: __( 'Set up Pixelgrade Plus', 'pixelgrade_assistant' ),
 			managePlus: __( 'Manage Pixelgrade Plus', 'pixelgrade_assistant' ),
 			working: __( 'Applying...', 'pixelgrade_assistant' ),
@@ -69,6 +76,26 @@ const DEFAULT_STARTER_SITES = {
 			confirmReimportNote: __( "You already applied this starter's full site. Applying it again is safe — nothing gets duplicated; layout and design parts are refreshed to the starter's version.", 'pixelgrade_assistant' ),
 			confirmReimportYes: __( 'Yes, apply again', 'pixelgrade_assistant' ),
 			confirmReimportNo: __( 'Keep my site as is', 'pixelgrade_assistant' ),
+			// R1/R2 reinforcement: the grid CTA and the composer both spell out that opening/configuring
+			// is safe — nothing touches the site until the Apply press.
+			cardHint: __( 'Opens setup — nothing is imported yet.', 'pixelgrade_assistant' ),
+			notAppliedHint: __( 'Nothing changes on your site until you press “%s”.', 'pixelgrade_assistant' ),
+			// The include checklist collapses behind this disclosure for the Full site / Layouts presets;
+			// it stays expanded for "Choose parts" where picking IS the task.
+			seeEverything: __( 'See everything included (%d items)', 'pixelgrade_assistant' ),
+			hideEverything: __( 'Hide the included items', 'pixelgrade_assistant' ),
+			// Focused applying state.
+			applyingTitle: __( 'Setting up %s', 'pixelgrade_assistant' ),
+			// Honest: the import loop runs from this page — leaving really does pause it (re-apply is
+			// safe and resumes, but "runs in the background" would be a lie).
+			applyingNote: __( 'Keep this page open while this runs — it usually takes a few minutes.', 'pixelgrade_assistant' ),
+			etaLessMinute: __( 'less than a minute left', 'pixelgrade_assistant' ),
+			etaMinutes: __( 'about %d min left', 'pixelgrade_assistant' ),
+			// Hero completion state.
+			doneTitle: __( '%s is live on your site', 'pixelgrade_assistant' ),
+			doneFinished: __( 'Finished %1$d steps in %2$s.', 'pixelgrade_assistant' ),
+			doneIntro: __( 'Here’s your site right now:', 'pixelgrade_assistant' ),
+			makeItYours: __( 'Make it yours:', 'pixelgrade_assistant' ),
 			presets: {
 				fullSite: __( 'Full site', 'pixelgrade_assistant' ),
 				layoutsOnly: __( 'Layouts only', 'pixelgrade_assistant' ),
@@ -709,27 +736,16 @@ function startStarterProgressHeartbeat( setStates ) {
 	}, STARTER_PROGRESS_TICK_INTERVAL );
 }
 
-function scrollStarterProgressIntoView( starterId ) {
-	if ( 'undefined' === typeof window || 'undefined' === typeof document || ! starterId ) {
+// When an apply starts, the composer swaps into the focused applying page state rendered at the
+// top of the page — so the right move is simply back to the top (the old scroll-to-progress-card
+// chased a bottom-anchored notice that no longer exists).
+function scrollHubToTop() {
+	if ( 'undefined' === typeof window || 'function' !== typeof window.scrollTo ) {
 		return;
 	}
 
-	window.setTimeout( () => {
-		const progressNode = Array.from( document.querySelectorAll( '[data-starter-progress-id]' ) ).find(
-			( node ) => node.getAttribute( 'data-starter-progress-id' ) === starterId
-		);
-
-		if ( ! progressNode || 'function' !== typeof progressNode.scrollIntoView ) {
-			return;
-		}
-
-		const reduceMotion = window.matchMedia && window.matchMedia( '(prefers-reduced-motion: reduce)' ).matches;
-		progressNode.scrollIntoView( {
-			behavior: reduceMotion ? 'auto' : 'smooth',
-			block: 'start',
-			inline: 'nearest',
-		} );
-	}, 80 );
+	const reduceMotion = window.matchMedia && window.matchMedia( '(prefers-reduced-motion: reduce)' ).matches;
+	window.scrollTo( { top: 0, behavior: reduceMotion ? 'auto' : 'smooth' } );
 }
 
 function isImportableMediaGroup( groupKey ) {
@@ -2846,23 +2862,34 @@ function renderStarterCard( starter, context ) {
 					  )
 					: null,
 			),
+			! locked && copy.composer.cardHint
+				? createElement(
+						'p',
+						{ style: { color: '#757c85', fontSize: '11.5px', margin: '8px 0 0' } },
+						copy.composer.cardHint
+				  )
+				: null,
 			importedStatus,
 			renderStatusNotice( state, copy, starter.id )
 		)
 	);
 }
 
-function renderComposerPartGroups( starter, copy, composerState, isWorking, onTogglePart ) {
+function renderComposerPartGroups( starter, copy, composerState, isWorking, onTogglePart, showPreviewToggle = true ) {
 	const selected = selectedPartSet( composerState );
 
 	return createElement(
 		'div',
 		{ style: { display: 'grid', gap: '18px' } },
-		createElement(
-			'div',
-			{ style: { display: 'flex', justifyContent: 'flex-end' } },
-			createElement( PreviewModeToggle, null )
-		),
+		// On an effectively-empty site the "My site" source has nothing to render (every card falls
+		// back to shimmer/"No preview") — hide the toggle for exactly the audience this flow targets.
+		showPreviewToggle
+			? createElement(
+					'div',
+					{ style: { display: 'flex', justifyContent: 'flex-end' } },
+					createElement( PreviewModeToggle, null )
+			  )
+			: null,
 		getComposerParts( starter, copy ).map( ( group ) =>
 			createElement(
 				'section',
@@ -2988,6 +3015,455 @@ function renderPresetChoices( presets, copy, composerState, isWorking, onPresetC
 	);
 }
 
+/**
+ * True when the site has effectively no content of its own — the audience the starter flow
+ * primarily serves. Used to drop UI that needs existing content to be meaningful (the "My site"
+ * preview source, which would render nothing but shimmer/"No preview" cards).
+ */
+function isSiteEffectivelyEmpty( data ) {
+	const analysis = ( data && data.siteAnalysis ) || DEFAULT_STARTER_SITES.siteAnalysis;
+
+	return Boolean( analysis && ( analysis.isEmpty || ! analysis.hasContent ) );
+}
+
+/**
+ * Rough time-left estimate from observed throughput. Deliberately coarse ("about X min") and
+ * withheld until enough steps have finished for the projection to be honest.
+ */
+function getStarterProgressEtaText( state, copy ) {
+	const total = Number( ( state && state.total ) || 0 );
+	const current = Number( ( state && state.current ) || 0 );
+
+	if ( ! total || current < 3 || current >= total || ! ( state && state.startedAt ) ) {
+		return '';
+	}
+
+	const elapsed = Date.now() - state.startedAt;
+	if ( elapsed < 15000 ) {
+		return '';
+	}
+
+	const remaining = ( elapsed / current ) * ( total - current );
+	if ( remaining < 60000 ) {
+		return copy.composer.etaLessMinute;
+	}
+
+	return sprintf( copy.composer.etaMinutes, Math.round( remaining / 60000 ) );
+}
+
+function renderComposerFallbackImage( starter ) {
+	if ( ! starter.image ) {
+		return null;
+	}
+
+	return createElement( 'img', {
+		src: starter.image,
+		alt: '',
+		style: {
+			aspectRatio: '16 / 10',
+			background: '#f0f0f1',
+			display: 'block',
+			height: 'auto',
+			objectFit: 'cover',
+			objectPosition: 'top',
+			width: '100%',
+		},
+	} );
+}
+
+/**
+ * Applying as a PAGE STATE: while the import runs the configurator disappears and progress is the
+ * page — starter face, one bar, one human phase line, elapsed + rough ETA, with the full telemetry
+ * (per-phase timeline, step counts, log) always visible below.
+ */
+function renderComposerApplyingHero( starter, copy, state, summary ) {
+	const total = Number( ( state && state.total ) || 0 );
+	const current = Number( ( state && state.current ) || 0 );
+	const ratio = total > 0 ? Math.max( 0, Math.min( 1, current / total ) ) : 0;
+	const percent = Math.round( ratio * 100 );
+	const elapsedText = state && state.startedAt ? formatElapsed( Date.now() - state.startedAt ) : '0s';
+	const phaseStates = getStarterProgressPhaseState( state );
+	const activePhase =
+		phaseStates.find( ( phase ) => 'active' === phase.status ) ||
+		phaseStates.find( ( phase ) => 'pending' === phase.status ) ||
+		phaseStates[ 0 ];
+	const etaText = getStarterProgressEtaText( state, copy );
+	const progressText = total
+		? sprintf( __( '%1$d of %2$d steps', 'pixelgrade_assistant' ), current, total )
+		: '';
+	const ariaValueText = total
+		? sprintf(
+				__( '%1$s, %2$d of %3$d steps, %4$d percent complete', 'pixelgrade_assistant' ),
+				activePhase.label,
+				current,
+				total,
+				percent
+		  )
+		: __( 'Preparing import steps', 'pixelgrade_assistant' );
+
+	return createElement(
+		'div',
+		{
+			role: 'status',
+			'data-starter-progress-id': starter.id,
+			style: {
+				display: 'grid',
+				gap: '6px',
+				justifyItems: 'center',
+				margin: '36px auto 0',
+				maxWidth: '560px',
+				textAlign: 'center',
+			},
+		},
+		starter.image
+			? createElement( 'img', {
+					src: starter.image,
+					alt: '',
+					style: {
+						aspectRatio: '16 / 10',
+						background: '#f0f0f1',
+						border: '1px solid #dcdcde',
+						borderRadius: '6px',
+						boxShadow: '0 8px 24px rgba(0, 0, 0, 0.12)',
+						display: 'block',
+						height: 'auto',
+						marginBottom: '12px',
+						objectFit: 'cover',
+						objectPosition: 'top',
+						width: '240px',
+					},
+			  } )
+			: null,
+		createElement(
+			'h2',
+			{ style: { fontSize: '24px', lineHeight: 1.2, margin: 0 } },
+			sprintf( copy.composer.applyingTitle, starter.title || starter.id )
+		),
+		summary
+			? createElement(
+					'p',
+					{ style: { color: '#50575e', fontSize: '13px', margin: '2px 0 0', maxWidth: '480px' } },
+					summary
+			  )
+			: null,
+		createElement(
+			'div',
+			{
+				className: 'progress__bar',
+				role: 'progressbar',
+				'aria-valuemin': 0,
+				'aria-valuemax': total || 100,
+				'aria-valuenow': total ? current : percent,
+				'aria-valuetext': ariaValueText,
+				style: {
+					background: 'rgba(30,90,168,0.18)',
+					borderRadius: '999px',
+					boxSizing: 'border-box',
+					height: '8px',
+					margin: '18px 0 0',
+					maxWidth: '420px',
+					overflow: 'hidden',
+					width: '100%',
+				},
+			},
+			createElement( 'div', {
+				className: 'progress__bar-fill',
+				style: {
+					background: '#1e5aa8',
+					height: '100%',
+					transition: 'width 180ms ease',
+					width: percent + '%',
+				},
+			} )
+		),
+		createElement(
+			'p',
+			{ 'aria-live': 'polite', style: { color: '#1d2327', fontSize: '15px', fontWeight: 600, margin: '10px 0 0' } },
+			( activePhase && activePhase.label ? activePhase.label : __( 'Preparing…', 'pixelgrade_assistant' ) ) + '…'
+		),
+		// One consolidated meta line — steps, elapsed, ETA — so no number appears twice on screen.
+		createElement(
+			'p',
+			{ style: { color: '#757c85', fontSize: '12px', fontVariantNumeric: 'tabular-nums', margin: 0 } },
+			[ progressText, elapsedText, etaText ].filter( Boolean ).join( ' · ' )
+		),
+		state.heartbeat
+			? createElement(
+					'p',
+					{
+						style: {
+							alignItems: 'center',
+							color: '#3b5b97',
+							display: 'flex',
+							fontSize: '12px',
+							gap: '7px',
+							justifyContent: 'center',
+							margin: '4px 0 0',
+						},
+					},
+					createElement( Spinner, { style: { flex: '0 0 auto', height: '14px', margin: 0, width: '14px' } } ),
+					state.heartbeat
+			  )
+			: null,
+		renderProgressWarnings( state.warnings ),
+		// The telemetry lives in a quiet white card that matches the hero's language — not a blue
+		// admin notice. The duplicate steps/elapsed header is gone (it's in the meta line above).
+		createElement(
+			'div',
+			{
+				style: {
+					background: '#fff',
+					border: '1px solid #e2e4e7',
+					borderRadius: '8px',
+					boxShadow: '0 1px 2px rgba(0, 0, 0, 0.04)',
+					boxSizing: 'border-box',
+					fontSize: '13px',
+					marginTop: '18px',
+					maxWidth: '460px',
+					padding: '6px 18px 16px',
+					textAlign: 'left',
+					width: '100%',
+				},
+			},
+			renderProgressTimeline( phaseStates ),
+			renderProgressLog( state.log )
+		),
+		createElement(
+			'p',
+			{ style: { color: '#8c939d', fontSize: '12px', margin: '14px 0 0' } },
+			copy.composer.applyingNote
+		)
+	);
+}
+
+/**
+ * A scaled, non-interactive iframe of the REAL front end (same origin). Used by the completion
+ * hero: after an import the honest payoff is the actual site — full-bleed heroes, real menus —
+ * not a block re-render (the preview route constrains full-viewport blocks, which made the site
+ * look like a miniature floating inside the frame).
+ */
+function SiteFramePreview( { src, title = '', height = 440, viewportWidth = 1200 } ) {
+	const hostRef = useRef( null );
+	const [ scale, setScale ] = useState( 0 );
+
+	useEffect( () => {
+		const el = hostRef.current;
+		if ( ! el ) {
+			return undefined;
+		}
+		if ( 'undefined' === typeof ResizeObserver ) {
+			setScale( ( el.clientWidth || viewportWidth ) / viewportWidth );
+			return undefined;
+		}
+		const ro = new ResizeObserver( () => setScale( ( el.clientWidth || 1 ) / viewportWidth ) );
+		ro.observe( el );
+		return () => ro.disconnect();
+	}, [ viewportWidth ] );
+
+	return createElement(
+		'div',
+		{
+			ref: hostRef,
+			style: { background: '#fff', height: height + 'px', overflow: 'hidden', position: 'relative', width: '100%' },
+		},
+		scale
+			? createElement( 'iframe', {
+					src,
+					title,
+					scrolling: 'no',
+					tabIndex: -1,
+					'aria-hidden': 'true',
+					style: {
+						background: '#fff',
+						border: 0,
+						// Render enough page to fill the cropped window exactly at this scale — plus the
+						// admin toolbar strip we crop off above.
+						height: ( Math.ceil( height / scale ) + 32 ) + 'px',
+						left: 0,
+						pointerEvents: 'none',
+						position: 'absolute',
+						// The viewer is logged in, so the front end carries the 32px admin toolbar; shift
+						// it out of the crop window so the frame shows the site the way a visitor sees it.
+						top: Math.round( -32 * scale ) + 'px',
+						transform: 'scale(' + scale + ')',
+						transformOrigin: 'top left',
+						width: viewportWidth + 'px',
+					},
+			  } )
+			: null
+	);
+}
+
+/**
+ * Completion as the HERO: the climax of the funnel is the user's transformed site, so show it —
+ * a browser-framed view of their real front page, with "View your site" as the primary payoff
+ * action.
+ */
+function renderComposerSuccessHero( starter, copy, state, onResetState ) {
+	const total = Number( ( state && state.total ) || 0 );
+	const current = Number( ( state && state.current ) || 0 );
+	const elapsedText = state && state.startedAt ? formatElapsed( Date.now() - state.startedAt ) : '';
+	const finishedText = total ? sprintf( copy.composer.doneFinished, current || total, elapsedText || '0s' ) : '';
+	const siteUrl = ( typeof window !== 'undefined' && window.pixassist && window.pixassist.siteUrl ) || '/';
+	const adminUrl = getAdminUrl();
+	const siteHost = String( siteUrl ).replace( /^https?:\/\//, '' ).replace( /\/$/, '' );
+
+	return createElement(
+		'div',
+		{
+			role: 'status',
+			style: {
+				display: 'grid',
+				gap: '8px',
+				justifyItems: 'center',
+				margin: '18px auto 0',
+				maxWidth: '780px',
+				textAlign: 'center',
+			},
+		},
+		createElement(
+			'span',
+			{
+				'aria-hidden': true,
+				style: {
+					alignItems: 'center',
+					background: '#0a7a28',
+					borderRadius: '50%',
+					color: '#fff',
+					display: 'inline-flex',
+					fontSize: '22px',
+					fontWeight: 700,
+					height: '44px',
+					justifyContent: 'center',
+					width: '44px',
+				},
+			},
+			'✓'
+		),
+		createElement(
+			'h2',
+			{ style: { fontSize: '26px', lineHeight: 1.2, margin: '4px 0 0' } },
+			sprintf( copy.composer.doneTitle, starter.title || starter.id )
+		),
+		createElement(
+			'p',
+			{ style: { color: '#50575e', fontSize: '13.5px', margin: 0 } },
+			( finishedText ? finishedText + ' ' : '' ) + copy.composer.doneIntro
+		),
+		renderProgressWarnings( state.warnings ),
+		createElement(
+			'div',
+			{
+				style: {
+					border: '1px solid #dcdcde',
+					borderRadius: '8px',
+					boxShadow: '0 10px 30px rgba(0, 0, 0, 0.12)',
+					marginTop: '10px',
+					overflow: 'hidden',
+					textAlign: 'left',
+					width: '100%',
+				},
+			},
+			createElement(
+				'div',
+				{
+					'aria-hidden': true,
+					style: {
+						alignItems: 'center',
+						background: '#f6f7f7',
+						borderBottom: '1px solid #e3e5e8',
+						display: 'flex',
+						gap: '6px',
+						padding: '7px 12px',
+					},
+				},
+				[ 0, 1, 2 ].map( ( dot ) =>
+					createElement( 'span', {
+						key: dot,
+						style: {
+							background: '#d5d8dc',
+							borderRadius: '50%',
+							display: 'inline-block',
+							height: '9px',
+							width: '9px',
+						},
+					} )
+				),
+				createElement(
+					'span',
+					{
+						style: {
+							background: '#fff',
+							border: '1px solid #e3e5e8',
+							borderRadius: '10px',
+							color: '#757c85',
+							fontSize: '11px',
+							marginLeft: '8px',
+							padding: '2px 12px',
+						},
+					},
+					siteHost
+				)
+			),
+			createElement( SiteFramePreview, {
+				// Cache-bust so the frame shows the just-imported front page, not a stale cached one.
+				src: String( siteUrl ) + ( String( siteUrl ).indexOf( '?' ) === -1 ? '?' : '&' ) + 'pixassist-preview=' + ( state.startedAt || 1 ),
+				title: sprintf( copy.composer.doneTitle, starter.title || starter.id ),
+				height: 440,
+			} )
+		),
+		createElement(
+			'div',
+			{
+				style: {
+					alignItems: 'center',
+					display: 'flex',
+					flexWrap: 'wrap',
+					gap: '10px',
+					justifyContent: 'center',
+					marginTop: '14px',
+				},
+			},
+			createElement(
+				Button,
+				{ variant: 'primary', href: siteUrl, target: '_blank', rel: 'noreferrer' },
+				copy.actions.viewYourSite
+			),
+			adminUrl
+				? createElement(
+						Button,
+						{ variant: 'secondary', href: adminUrl + 'site-editor.php' },
+						copy.actions.editSiteEditor
+				  )
+				: null
+		),
+		createElement(
+			'div',
+			{
+				style: {
+					alignItems: 'center',
+					display: 'flex',
+					flexWrap: 'wrap',
+					gap: '2px 4px',
+					justifyContent: 'center',
+					marginTop: '4px',
+				},
+			},
+			createElement( 'span', { style: { color: '#757c85', fontSize: '12.5px' } }, copy.composer.makeItYours ),
+			adminUrl
+				? createElement(
+						Button,
+						{ variant: 'tertiary', href: adminUrl + 'admin.php?page=pixelgrade&tab=styles' },
+						copy.actions.fineTuneStyles
+				  )
+				: null,
+			onResetState
+				? createElement( Button, { variant: 'tertiary', onClick: onResetState }, copy.actions.adjustApplyAgain )
+				: null
+		)
+	);
+}
+
 function renderComposerView( starter, context ) {
 	const {
 		copy,
@@ -2995,6 +3471,9 @@ function renderComposerView( starter, context ) {
 		state,
 		isWorking,
 		isConfirmingReimport,
+		siteIsEmpty,
+		partsDisclosureOpen,
+		onTogglePartsDisclosure,
 		onBack,
 		onPresetChange,
 		onTogglePart,
@@ -3003,14 +3482,69 @@ function renderComposerView( starter, context ) {
 		onCancelReimport,
 		onInstallRequirements,
 		onRetry,
+		onResetState,
 	} = context;
 	const presets = buildComposerPresets( starter, copy );
 	const summary = getComposerSummary( starter, copy, composerState );
 	const reassurance = getComposerReassurance( starter, copy, composerState );
 	const actionLabel = getComposerActionLabel( starter, copy, composerState );
-	const preview = starter.image || '';
 	const isSuccess = state && 'success' === state.status;
-	const canApply = selectedPartSet( composerState ).size > 0 && ! isWorking;
+	const selectedCount = selectedPartSet( composerState ).size;
+	const canApply = selectedCount > 0 && ! isWorking;
+	// The checklist is the TASK only on "Choose parts"; on the other presets it is reference
+	// material, folded behind a disclosure so the decision stays above the fold.
+	const partsExpanded = 'chooseParts' === composerState.presetId || partsDisclosureOpen;
+
+	// While the import runs, progress IS the page — the (locked) configurator would only be noise
+	// above a bottom-anchored card. No back/cancel here: the run cannot be stopped, and the note
+	// below is honest about keeping the page open.
+	if ( isWorking ) {
+		return createElement(
+			'section',
+			{ className: 'pixelgrade-starter-sites__composer' },
+			renderComposerApplyingHero( starter, copy, state, summary )
+		);
+	}
+
+	// Completion is the payoff — the user's own site, live, front and center.
+	if ( isSuccess ) {
+		return createElement(
+			'section',
+			{ className: 'pixelgrade-starter-sites__composer' },
+			createElement(
+				Button,
+				{ variant: 'tertiary', onClick: onBack, style: { marginBottom: '18px' } },
+				copy.actions.backToStarterSites
+			),
+			renderComposerSuccessHero( starter, copy, state, onResetState )
+		);
+	}
+
+	// The hero preview is the polished demo, live and scrollable — the strongest version of "what
+	// you get". Forced to demo mode: the source toggle only governs the per-part cards.
+	const demoPreview = starter.baseRestUrl
+		? createElement(
+				'div',
+				{
+					style: {
+						border: '1px solid #dcdcde',
+						borderRadius: '4px',
+						maxHeight: '560px',
+						overflowY: 'auto',
+						overscrollBehavior: 'contain',
+					},
+				},
+				createElement( LayoutPreview, {
+					baseRestUrl: starter.baseRestUrl,
+					demoKey: starter.id,
+					unitType: 'wp_template',
+					unit: 'front-page',
+					forceMode: 'demo',
+					title: starter.title || starter.id,
+					fallback: renderComposerFallbackImage( starter ),
+				} )
+		  )
+		: renderComposerFallbackImage( starter );
 
 	return createElement(
 		'section',
@@ -3048,34 +3582,18 @@ function renderComposerView( starter, context ) {
 						top: '72px',
 					},
 				},
-				preview
-					? createElement( 'img', {
-							src: preview,
-							alt: '',
-							style: {
-								aspectRatio: '16 / 10',
-								background: '#f0f0f1',
-								border: '1px solid #dcdcde',
-								borderRadius: '4px',
-								display: 'block',
-								height: 'auto',
-								objectFit: 'cover',
-								objectPosition: 'top',
-								width: '100%',
-							},
-					  } )
-					: null,
+				demoPreview,
 				starter.previewUrl || starter.url
 					? createElement(
 							Button,
 							{
 								href: starter.previewUrl || starter.url,
-								variant: 'tertiary',
+								variant: 'secondary',
 								target: '_blank',
 								rel: 'noreferrer noopener',
 								style: { justifySelf: 'start' },
 							},
-							copy.actions.preview
+							copy.actions.browseDemo
 					  )
 					: null
 			),
@@ -3116,7 +3634,14 @@ function renderComposerView( starter, context ) {
 								chip.label
 							)
 						)
-					)
+					),
+					copy.composer.notAppliedHint
+						? createElement(
+								'p',
+								{ style: { color: '#757c85', fontSize: '12px', margin: '10px 0 0' } },
+								sprintf( copy.composer.notAppliedHint, actionLabel )
+						  )
+						: null
 				),
 				createElement(
 					'section',
@@ -3124,12 +3649,8 @@ function renderComposerView( starter, context ) {
 					createElement( 'h3', { style: { fontSize: '13px', margin: '0 0 10px' } }, copy.composer.preset ),
 					renderPresetChoices( presets, copy, composerState, isWorking, onPresetChange )
 				),
-				createElement(
-					'section',
-					null,
-					createElement( 'h3', { style: { fontSize: '15px', margin: '0 0 16px' } }, copy.composer.include ),
-					renderComposerPartGroups( starter, copy, composerState, isWorking, onTogglePart )
-				),
+				// The decision block: what this does, the safety line, and Apply — directly under the
+				// preset chooser so the primary action is above the fold instead of ~740px below it.
 				createElement(
 					'section',
 					{
@@ -3138,12 +3659,11 @@ function renderComposerView( starter, context ) {
 							border: '1px solid #dcdcde',
 							borderRadius: '4px',
 							display: 'grid',
-							gap: '14px',
-							padding: '16px',
+							gap: '12px',
+							padding: '16px 18px',
 						},
 					},
-					createElement( 'h3', { style: { fontSize: '15px', margin: 0 } }, copy.composer.summary ),
-					createElement( 'p', { style: { color: '#50575e', margin: 0 } }, summary ),
+					createElement( 'p', { style: { color: '#3c434a', margin: 0 } }, summary ),
 					reassurance && ! isConfirmingReimport
 						? createElement(
 								'p',
@@ -3193,30 +3713,69 @@ function renderComposerView( starter, context ) {
 								createElement(
 									Button,
 									{
-										// After a finished apply the job is done — "View your site" (in the
-										// success notice) takes over as the primary action; re-applying stays
-										// available but demoted, so nobody re-runs an import by reflex.
-										variant: isSuccess ? 'secondary' : 'primary',
+										variant: 'primary',
 										isBusy: isWorking,
 										disabled: ! canApply,
 										onClick: onApply,
 									},
-									isWorking ? copy.actions.working : isSuccess ? copy.actions.applyAgain || actionLabel : actionLabel
+									isWorking ? copy.actions.working : actionLabel
 								),
 								createElement(
 									Button,
-									{
-										variant: 'secondary',
-										// While an import runs this button cannot stop it — offering "Cancel"
-										// would lie. Navigation comes back as soon as the run settles.
-										disabled: isWorking,
-										onClick: onBack,
-									},
-									isSuccess ? copy.actions.backToStarterSites : copy.actions.cancel
+									{ variant: 'tertiary', disabled: isWorking, onClick: onBack },
+									copy.actions.cancel
 								)
 						  ),
+					! partsExpanded && selectedCount > 0
+						? createElement(
+								'button',
+								{
+									type: 'button',
+									'aria-expanded': false,
+									onClick: onTogglePartsDisclosure,
+									style: {
+										background: '#fbfbfc',
+										border: '1px dashed #c5cad1',
+										borderRadius: '4px',
+										color: '#2271b1',
+										cursor: 'pointer',
+										fontSize: '13px',
+										padding: '10px 14px',
+										textAlign: 'left',
+									},
+								},
+								'▸ ' + sprintf( copy.composer.seeEverything, selectedCount )
+						  )
+						: null,
 					renderStatusNotice( state, copy, starter.id, onInstallRequirements, onRetry )
-				)
+				),
+				partsExpanded
+					? createElement(
+							'section',
+							null,
+							createElement(
+								'div',
+								{
+									style: {
+										alignItems: 'center',
+										display: 'flex',
+										gap: '12px',
+										justifyContent: 'space-between',
+										margin: '0 0 16px',
+									},
+								},
+								createElement( 'h3', { style: { fontSize: '15px', margin: 0 } }, copy.composer.include ),
+								'chooseParts' !== composerState.presetId
+									? createElement(
+											Button,
+											{ variant: 'tertiary', onClick: onTogglePartsDisclosure, 'aria-expanded': true },
+											copy.composer.hideEverything
+									  )
+									: null
+							),
+							renderComposerPartGroups( starter, copy, composerState, isWorking, onTogglePart, ! siteIsEmpty )
+					  )
+					: null
 			)
 		)
 	);
@@ -3236,8 +3795,11 @@ export function StarterSites() {
 	const [ states, setStates ] = useState( {} );
 	const [ activeStarterId, setActiveStarterId ] = useState( '' );
 	const [ composerStates, setComposerStates ] = useState( {} );
-	// The starter whose Summary card is showing the inline "apply again?" confirm.
+	// The starter whose decision block is showing the inline "apply again?" confirm.
 	const [ confirmingStarterId, setConfirmingStarterId ] = useState( '' );
+	// The collapsed "See everything included" checklist disclosure; resets when a composer opens.
+	const [ partsDisclosureOpen, setPartsDisclosureOpen ] = useState( false );
+	const siteIsEmpty = isSiteEffectivelyEmpty( data );
 
 	const activeStarter = activeStarterId ? starters.find( ( starter ) => starter.id === activeStarterId ) : null;
 
@@ -3307,6 +3869,7 @@ export function StarterSites() {
 
 	const openComposer = ( starter ) => {
 		setActiveStarterId( starter.id );
+		setPartsDisclosureOpen( false );
 		setComposerStates( ( current ) => {
 			if ( current[ starter.id ] ) {
 				return current;
@@ -3431,7 +3994,7 @@ export function StarterSites() {
 					log: sprintf( __( 'Started applying %s.', 'pixelgrade_assistant' ), starter.title || starter.id ),
 				}
 			);
-			scrollStarterProgressIntoView( starter.id );
+			scrollHubToTop();
 
 			for ( const [ index, operation ] of operations.entries() ) {
 				const baseOperations = operations.filter( ( candidate, candidateIndex ) => candidateIndex !== index );
@@ -3615,6 +4178,12 @@ export function StarterSites() {
 			state,
 			isWorking,
 			isConfirmingReimport: confirmingStarterId === activeStarter.id,
+			siteIsEmpty,
+			partsDisclosureOpen,
+			onTogglePartsDisclosure: () => setPartsDisclosureOpen( ( open ) => ! open ),
+			// From the success hero back into configuring: clear the finished-run state so the
+			// decision block returns in its idle form.
+			onResetState: () => setStarterState( activeStarter.id, { status: 'idle', message: '' } ),
 			onBack: () => {
 				setConfirmingStarterId( '' );
 				setActiveStarterId( '' );

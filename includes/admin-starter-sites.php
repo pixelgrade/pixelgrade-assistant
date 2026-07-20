@@ -1048,7 +1048,8 @@ if ( ! function_exists( 'pixassist_get_starter_sites_copy' ) ) {
 			'actions'     => array(
 				'import'             => isset( $l10n['import'] ) ? (string) $l10n['import'] : esc_html__( 'Import', '__plugin_txtd' ),
 				'imported'           => isset( $l10n['imported'] ) ? (string) $l10n['imported'] : esc_html__( 'Imported', '__plugin_txtd' ),
-				'useStarter'         => esc_html__( 'Use %s', '__plugin_txtd' ),
+				// "Set up", not "Use": the button opens the composer (nothing is imported yet).
+				'useStarter'         => esc_html__( 'Set up %s', '__plugin_txtd' ),
 				'applyFullSite'      => esc_html__( 'Apply full site', '__plugin_txtd' ),
 				'applyLayouts'       => esc_html__( 'Apply layouts', '__plugin_txtd' ),
 				'applySelectedParts' => esc_html__( 'Apply selected parts', '__plugin_txtd' ),

@@ -313,6 +313,10 @@ export function DemoLiveLink( { baseRestUrl, demoKey, unitType, unit, config } )
  * @param {string}        [props.title]       Accessible title.
  * @param {*}             [props.fallback]    Rendered when there is no src or on error.
  * @param {Object}        [props.config]      Override for the localized config.
+ * @param {string}        [props.forceMode]   Pin the preview source ('demo'|'site') regardless of the
+ *                                            shared My-site/Demo toggle — for surfaces where only one
+ *                                            source makes sense (the composer hero, the post-apply
+ *                                            "your site now" frame).
  */
 export function LayoutPreview( props ) {
 	const {
@@ -326,11 +330,13 @@ export function LayoutPreview( props ) {
 		title = '',
 		fallback = null,
 		config,
+		forceMode = '',
 	} = props;
 
 	ensureKeyframes();
 
-	const mode = usePreviewMode();
+	const sharedMode = usePreviewMode();
+	const mode = 'demo' === forceMode || 'site' === forceMode ? forceMode : sharedMode;
 	const cfg = config || getLayoutPreviewConfig();
 	const vw = viewportWidth || ( cfg && cfg.vw ) || DEFAULT_VW;
 	const baseSrc = getLayoutPreviewUrl( { baseRestUrl, demoKey, unitType, unit, config: cfg, mode } );
