@@ -590,8 +590,15 @@ if ( ! function_exists( 'pixassist_get_overview_starter_state' ) ) {
 		$active_id  = ! empty( $applied['activeStarter'] ) ? sanitize_key( $applied['activeStarter'] ) : '';
 		$active_id  = '' !== $active_id ? $active_id : pixassist_get_overview_last_imported_starter_id( $imported );
 
+		$theme_ready = false;
+		if ( function_exists( 'pixassist_get_setup_theme_facts' ) ) {
+			$theme_facts = pixassist_get_setup_theme_facts();
+			$theme_ready = ! empty( $theme_facts['is_pixelgrade'] );
+		}
+
 		return array(
 			'starters_count' => count( $starters ),
+			'theme_ready'    => $theme_ready,
 			'has_imported'   => ! empty( $imported ) || '' !== $active_id,
 			'active_id'      => $active_id,
 			'active_title'   => pixassist_get_overview_starter_title( $starters, $active_id ),
@@ -694,6 +701,13 @@ if ( ! function_exists( 'pixassist_get_overview_starter_state_value' ) ) {
 
 		if ( ! empty( $state['starters_count'] ) ) {
 			return esc_html__( 'Ready to choose a design', '__plugin_txtd' );
+		}
+
+		// An empty catalog on a not-yet-Pixelgrade theme is a symptom of the pending theme step —
+		// point forward instead of reading as a dead end. A Pixelgrade theme that genuinely exposes
+		// no demos keeps the plain fact.
+		if ( empty( $state['theme_ready'] ) ) {
+			return esc_html__( 'Available after Anima LT is installed', '__plugin_txtd' );
 		}
 
 		return esc_html__( 'No designs available', '__plugin_txtd' );
@@ -1307,7 +1321,7 @@ if ( ! function_exists( 'pixassist_get_onboarding_steps' ) ) {
 	 *
 	 * @param array $facts { base_url, theme_ready, demos_exist, starter_imported, plugins_ready }.
 	 *
-	 * @return array[] Each step: { id, title, description, url, done (bool), optional (bool) }.
+	 * @return array[] Each step: { id, title, description, url, done (bool), optional (bool), locked (bool) }.
 	 */
 	function pixassist_get_onboarding_steps( $facts ) {
 		$base_url = isset( $facts['base_url'] ) ? (string) $facts['base_url'] : '';
@@ -1331,7 +1345,10 @@ if ( ! function_exists( 'pixassist_get_onboarding_steps' ) ) {
 			),
 		);
 
-		// Starter step only when the theme exposes demos (the wizard hides it otherwise).
+		// Starter step whenever the theme exposes demos — and, LOCKED, before the default theme is
+		// set up, so a fresh site shows the full journey ("0 of 3") including its payoff instead of
+		// two steps of plumbing. A Pixelgrade theme that genuinely exposes no demos still omits it,
+		// otherwise onboarding could never complete there (the wizard's carry-over guarantee).
 		if ( ! empty( $facts['demos_exist'] ) ) {
 			$steps[] = array(
 				'id'          => 'starter',
@@ -1340,10 +1357,140 @@ if ( ! function_exists( 'pixassist_get_onboarding_steps' ) ) {
 				'url'         => $base_url . '&tab=starter-sites',
 				'done'        => ! empty( $facts['starter_imported'] ),
 				'optional'    => false,
+				'locked'      => false,
+			);
+		} elseif ( empty( $facts['theme_ready'] ) ) {
+			$steps[] = array(
+				'id'          => 'starter',
+				'title'       => esc_html__( 'Choose a starter site', '__plugin_txtd' ),
+				'description' => esc_html__( 'Unlocks after Anima LT is installed.', '__plugin_txtd' ),
+				'url'         => $base_url . '&tab=starter-sites',
+				'done'        => false,
+				'optional'    => false,
+				'locked'      => true,
 			);
 		}
 
 		return $steps;
+	}
+}
+
+if ( ! function_exists( 'pixassist_get_onboarding_mode' ) ) {
+	/**
+	 * The first-run Home state, derived from the steps. Pure.
+	 *
+	 * - `setup`: the essentials (theme and/or plugins) are still missing — Home is a funnel.
+	 * - `choose`: essentials ready, a starter remains to be chosen — Home offers the start.
+	 * - `complete`: every required step done — Home is the calm dashboard.
+	 *
+	 * @param array[] $steps Steps from pixassist_get_onboarding_steps().
+	 *
+	 * @return string setup|choose|complete
+	 */
+	function pixassist_get_onboarding_mode( $steps ) {
+		$by_id = array();
+		foreach ( (array) $steps as $step ) {
+			if ( is_array( $step ) && ! empty( $step['id'] ) ) {
+				$by_id[ $step['id'] ] = $step;
+			}
+		}
+
+		if ( empty( $by_id['theme']['done'] ) || empty( $by_id['plugins']['done'] ) ) {
+			return 'setup';
+		}
+
+		if ( isset( $by_id['starter'] ) && empty( $by_id['starter']['done'] ) ) {
+			return 'choose';
+		}
+
+		return 'complete';
+	}
+}
+
+if ( ! function_exists( 'pixassist_get_onboarding_finish_setup' ) ) {
+	/**
+	 * The "Finish setup" row shown on Home after a "Set up later" dismissal — the persistent
+	 * re-entry point, so dismissing the guide never strands the user. Pure.
+	 *
+	 * @param array[] $steps   Steps from pixassist_get_onboarding_steps().
+	 * @param bool    $enabled From pixassist_onboarding_enabled().
+	 * @param array   $state   From pixassist_get_onboarding_state().
+	 *
+	 * @return array { show, label, description, resumeLabel }
+	 */
+	function pixassist_get_onboarding_finish_setup( $steps, $enabled, $state ) {
+		$required = array();
+		foreach ( (array) $steps as $step ) {
+			if ( is_array( $step ) && empty( $step['optional'] ) ) {
+				$required[] = $step;
+			}
+		}
+		$done = count( array_filter( $required, function ( $step ) {
+			return ! empty( $step['done'] );
+		} ) );
+
+		$mode = pixassist_get_onboarding_mode( $steps );
+
+		return array(
+			'show'        => $enabled && ! empty( $state['dismissed'] ) && ! pixassist_onboarding_is_complete( $steps ),
+			'label'       => sprintf(
+				/* translators: 1: number of completed setup steps, 2: total setup steps. */
+				esc_html__( 'Finish setup — %1$d of %2$d done', '__plugin_txtd' ),
+				$done,
+				count( $required )
+			),
+			'description' => 'choose' === $mode
+				? esc_html__( 'Choose a starter site to see your design tools in action.', '__plugin_txtd' )
+				: esc_html__( 'Install the essentials to unlock your design tools.', '__plugin_txtd' ),
+			'resumeLabel' => esc_html__( 'Resume', '__plugin_txtd' ),
+		);
+	}
+}
+
+if ( ! function_exists( 'pixassist_get_onboarding_starter_picker' ) ) {
+	/**
+	 * The inline starter picker the Get started card shows in `choose` mode: the top starters plus
+	 * the Browse hand-off. Ids only — the card resolves full descriptors from the Starter Sites
+	 * payload already localized on the hub page. Copy lives here (PHP owns copy + logic).
+	 *
+	 * Choosing remains explicit and confirmed; nothing here imports anything.
+	 *
+	 * @param string $mode     From pixassist_get_onboarding_mode().
+	 * @param string $base_url Hub page URL (carries `?page=pixelgrade`).
+	 *
+	 * @return array|null { ids, browseUrl, browseLabel, startLabel, confirmBody, confirmLabel, cancelLabel }
+	 */
+	function pixassist_get_onboarding_starter_picker( $mode, $base_url ) {
+		if ( 'choose' !== $mode || ! function_exists( 'pixassist_get_starter_sites_data' ) ) {
+			return null;
+		}
+
+		$data     = pixassist_get_starter_sites_data();
+		$starters = isset( $data['starters'] ) && is_array( $data['starters'] ) ? $data['starters'] : array();
+		$ids      = array();
+		foreach ( $starters as $starter ) {
+			if ( is_array( $starter ) && ! empty( $starter['id'] ) ) {
+				$ids[] = (string) $starter['id'];
+			}
+			if ( count( $ids ) >= 3 ) {
+				break;
+			}
+		}
+
+		if ( empty( $ids ) ) {
+			return null;
+		}
+
+		return array(
+			'ids'          => $ids,
+			'browseUrl'    => (string) $base_url . '&tab=starter-sites',
+			'browseLabel'  => esc_html__( 'Browse all designs', '__plugin_txtd' ),
+			'startLabel'   => esc_html__( 'Start with this design', '__plugin_txtd' ),
+			/* translators: %s: starter design name. */
+			'confirmBody'  => esc_html__( 'Import everything from %s? This adds its content, layouts, menus, and design to this site.', '__plugin_txtd' ),
+			'confirmLabel' => esc_html__( 'Import full site', '__plugin_txtd' ),
+			'cancelLabel'  => esc_html__( 'Cancel', '__plugin_txtd' ),
+		);
 	}
 }
 
@@ -1540,6 +1687,21 @@ if ( ! function_exists( 'pixassist_get_onboarding_dismiss_endpoint' ) ) {
 	}
 }
 
+if ( ! function_exists( 'pixassist_get_onboarding_resume_endpoint' ) ) {
+	/**
+	 * The REST descriptor the "Finish setup" row uses to bring the guide back after a
+	 * "Set up later" dismissal. Mirrors the dismiss endpoint shape; guarded outside WordPress.
+	 *
+	 * @return array { method, url }
+	 */
+	function pixassist_get_onboarding_resume_endpoint() {
+		return array(
+			'method' => 'POST',
+			'url'    => function_exists( 'rest_url' ) ? esc_url_raw( rest_url( 'pixassist/v1/onboarding_resume' ) ) : '',
+		);
+	}
+}
+
 if ( ! function_exists( 'pixassist_get_onboarding_data' ) ) {
 	/**
 	 * Assemble the onboarding payload the Overview tab renders.
@@ -1553,15 +1715,24 @@ if ( ! function_exists( 'pixassist_get_onboarding_data' ) ) {
 		$steps   = pixassist_get_onboarding_steps( $facts );
 		$enabled = pixassist_onboarding_enabled();
 		$state   = pixassist_get_onboarding_state();
+		$mode    = pixassist_get_onboarding_mode( $steps );
+		$show    = pixassist_onboarding_should_show( $steps, $enabled, $state );
 
 		return array(
-			'show'            => pixassist_onboarding_should_show( $steps, $enabled, $state ),
+			'show'            => $show,
 			'enabled'         => $enabled,
 			'dismissed'       => ! empty( $state['dismissed'] ),
 			'completed'       => pixassist_onboarding_is_complete( $steps ),
+			'mode'            => $mode,
+			// While the guide is showing and setup is unfinished, Home is a funnel: the card takes
+			// the page and the dashboard (At a glance / actions / Plus invite) stays out of the way.
+			'takeover'        => $show && 'complete' !== $mode,
+			'finishSetup'     => pixassist_get_onboarding_finish_setup( $steps, $enabled, $state ),
+			'starterPicker'   => pixassist_get_onboarding_starter_picker( $mode, (string) $base_url ),
 			'steps'           => $steps,
 			'themeSetup'      => pixassist_get_default_theme_setup(),
 			'dismissEndpoint' => pixassist_get_onboarding_dismiss_endpoint(),
+			'resumeEndpoint'  => pixassist_get_onboarding_resume_endpoint(),
 		);
 	}
 }

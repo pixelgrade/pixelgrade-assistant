@@ -98,6 +98,14 @@ class PixelgradeAssistant_AdminRestInterface {
 			'show_in_index'       => false, // We don't need others to know about this (API discovery)
 		) );
 
+		// The "Finish setup" row's Resume action: clear the dismissal so the guide returns.
+		register_rest_route( $namespace, '/onboarding_resume', array(
+			'methods'             => WP_REST_Server::CREATABLE,
+			'callback'            => array( $this, 'resume_onboarding' ),
+			'permission_callback' => array( $this, 'permission_nonce_callback' ),
+			'show_in_index'       => false, // We don't need others to know about this (API discovery)
+		) );
+
 		// Design Library "new in the collection": record the current designs as seen so the quiet
 		// "New" note shows once and then stays quiet.
 		register_rest_route( $namespace, '/collection_seen', array(
@@ -143,6 +151,43 @@ class PixelgradeAssistant_AdminRestInterface {
 			'message' => esc_html__( 'Guide dismissed.', '__plugin_txtd' ),
 			'data'    => array(
 				'dismissed' => true,
+			),
+		) );
+	}
+
+	/**
+	 * Clear the onboarding dismissal so the "Get started" guide shows again (the Finish-setup
+	 * row's Resume action). The mirror of dismiss_onboarding(); touches only the same marker.
+	 *
+	 * @param WP_REST_Request $request Request object.
+	 *
+	 * @return WP_REST_Response
+	 */
+	public function resume_onboarding( $request ) {
+
+		$onboarding = PixelgradeAssistant_Admin::get_option( 'onboarding' );
+		if ( ! is_array( $onboarding ) ) {
+			$onboarding = array();
+		}
+
+		$onboarding['dismissed']    = false;
+		$onboarding['dismissed_at'] = 0;
+
+		PixelgradeAssistant_Admin::set_option( 'onboarding', $onboarding );
+
+		if ( false === PixelgradeAssistant_Admin::save_options() ) {
+			return rest_ensure_response( array(
+				'code'    => 'error_saving',
+				'message' => esc_html__( 'Something went wrong. Could not resume the guide.', '__plugin_txtd' ),
+				'data'    => array(),
+			) );
+		}
+
+		return rest_ensure_response( array(
+			'code'    => 'success',
+			'message' => esc_html__( 'Guide resumed.', '__plugin_txtd' ),
+			'data'    => array(
+				'dismissed' => false,
 			),
 		) );
 	}

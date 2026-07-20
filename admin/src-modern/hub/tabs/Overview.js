@@ -386,9 +386,87 @@ function renderPlusInvite( plus ) {
 	);
 }
 
+/**
+ * The persistent one-line re-entry row after a "Set up later" dismissal: setup progress + Resume.
+ * Server-decided (`onboarding.finishSetup.show`) so dismissing the guide never strands the user.
+ */
+function renderFinishSetupRow( onboarding ) {
+	const finishSetup = onboarding && onboarding.finishSetup ? onboarding.finishSetup : null;
+
+	if ( ! finishSetup || ! finishSetup.show ) {
+		return null;
+	}
+
+	const resume = () => {
+		const endpoint = onboarding.resumeEndpoint || {};
+		const rest =
+			typeof window !== 'undefined' && window.pixassist && window.pixassist.wpRest
+				? window.pixassist.wpRest
+				: {};
+
+		if ( ! endpoint.url || typeof window === 'undefined' || typeof window.fetch !== 'function' ) {
+			if ( typeof window !== 'undefined' && window.location ) {
+				window.location.reload();
+			}
+			return;
+		}
+
+		window
+			.fetch( endpoint.url, {
+				method: endpoint.method || 'POST',
+				credentials: 'same-origin',
+				headers: {
+					'Content-Type': 'application/json',
+					...( rest.nonce ? { 'X-WP-Nonce': rest.nonce } : {} ),
+				},
+				body: JSON.stringify( { pixassist_nonce: rest.pixassist_nonce || '' } ),
+			} )
+			.catch( () => {} )
+			.finally( () => window.location.reload() );
+	};
+
+	return createElement(
+		Card,
+		{ className: 'pixelgrade-overview__finish-setup', style: { margin: '0 0 24px' } },
+		createElement(
+			CardBody,
+			null,
+			createElement(
+				'div',
+				{ style: { alignItems: 'center', display: 'flex', flexWrap: 'wrap', gap: '8px 16px' } },
+				createElement(
+					'div',
+					{ style: { flex: '1 1 320px', minWidth: 0 } },
+					createElement( 'strong', { style: { fontSize: '13px' } }, finishSetup.label ),
+					finishSetup.description
+						? createElement(
+								'span',
+								{ style: { color: '#50575e', marginLeft: '8px' } },
+								finishSetup.description
+						  )
+						: null
+				),
+				createElement(
+					Button,
+					{ variant: 'primary', onClick: resume, style: { flex: '0 0 auto' } },
+					finishSetup.resumeLabel || __( 'Resume', 'pixelgrade_assistant' )
+				)
+			)
+		)
+	);
+}
+
 export function Overview() {
 	const data = getOverview();
 	const plus = data.plus || {};
+	const onboarding = data.onboarding || {};
+
+	// First-run funnel: while setup is unfinished and the guide is showing, the Get started card IS
+	// the page — the dashboard (At a glance / quick actions / Plus invite) waits until it has real
+	// value to show. Server-decided (`onboarding.takeover`); PHP owns the state model.
+	if ( onboarding.takeover ) {
+		return createElement( GetStartedCard, null );
+	}
 
 	return createElement(
 		Fragment,
@@ -396,6 +474,7 @@ export function Overview() {
 		// The onboarding checklist is the single Home spotlight. It self-hides when the server says
 		// onboarding is complete / dismissed / disabled (window.pixelgradeOverview.onboarding.show).
 		createElement( GetStartedCard, null ),
+		renderFinishSetupRow( onboarding ),
 		renderGlance( data ),
 		renderPlusInvite( plus )
 	);

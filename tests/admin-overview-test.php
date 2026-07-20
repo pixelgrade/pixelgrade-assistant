@@ -566,11 +566,12 @@ assert_true( false !== strpos( $get_started_js, 'shouldRouteToStarterChooser' ),
 assert_true( false !== strpos( $get_started_js, "hasIncompleteStep( steps, 'plugins' )" ), 'Get started must prioritize incomplete plugin setup before routing to Starter Sites.' );
 assert_true( false !== strpos( $get_started_js, 'window.location.reload()' ), 'Get started must refresh after successful setup so plugin state is current.' );
 assert_true( false !== strpos( $get_started_js, 'ensureThemeActive' ), 'Get started must install and activate the default Anima LT theme before plugin setup.' );
-assert_true( false !== strpos( $get_started_js, 'Install the essentials' ), 'The Get started primary must name the essentials-only automatic action.' );
+assert_true( false !== strpos( $get_started_js, 'Set up my site' ), 'The Get started primary is outcome-led; the helper line names the essentials it installs.' );
 assert_true( false !== strpos( $get_started_js, 'Installs and activates any missing essentials: Anima LT, Nova Blocks, and Style Manager.' ), 'Get started must explain the automatic action without claiming ready essentials will be reinstalled.' );
 assert_true( false !== strpos( $get_started_js, 'isAutomaticSetupPlugin' ), 'Get started must exclude external companion hand-offs from its automatic setup queue.' );
 assert_true( false !== strpos( $get_started_js, 'scheduleOnboardingRefresh' ), 'Get started must refresh server state after success or failure so retries never reuse stale descriptors.' );
-assert_same( false, strpos( $get_started_js, 'importStarter' ), 'Get started must never import starter content automatically.' );
+assert_true( false !== strpos( $get_started_js, 'onConfirm: runStarterImport' ), 'Importing a starter is reachable ONLY through the explicit in-card confirm — never automatically.' );
+assert_same( 1, substr_count( $get_started_js, 'importStarter(' ), 'The one importStarter call site lives in the confirmed runStarterImport runner.' );
 assert_same( false, strpos( $get_started_js, 'Review setup' ), 'The Get started primary must not promise a review while performing installs.' );
 
 /*
@@ -614,6 +615,26 @@ $step_ids_nd = array_map( function ( $s ) { return $s['id']; }, $steps_no_demos 
 assert_same( array( 'theme', 'plugins' ), $step_ids_nd, 'Without demos, the starter step is omitted and Account stays outside Get started.' );
 assert_same( true, $steps_no_demos[0]['done'], 'An active Pixelgrade theme completes the theme step.' );
 
+// 6b2. Fresh site (no Pixelgrade theme yet, so no demos either): the starter step is present but
+//      LOCKED, so the full journey reads "0 of 3" from the very first paint. It carries the chooser
+//      url (the post-install hand-off target) but is not actionable. A demo-less Pixelgrade theme
+//      (6b) still omits it, so onboarding stays completable there.
+$steps_locked = pixassist_get_onboarding_steps( array(
+	'base_url'          => 'https://example.test/wp-admin/admin.php?page=pixelgrade',
+	'theme_ready'       => false,
+	'demos_exist'       => false,
+	'starter_imported'  => false,
+	'plugins_ready'     => false,
+) );
+$step_ids_locked = array_map( function ( $s ) { return $s['id']; }, $steps_locked );
+assert_same( array( 'theme', 'plugins', 'starter' ), $step_ids_locked, 'Before the theme is ready the starter step is visible (locked) so the journey reads 0 of 3.' );
+assert_same( true, $steps_locked[2]['locked'], 'Pre-theme the starter step is locked.' );
+assert_same( false, $steps_locked[2]['done'], 'A locked starter step is never done.' );
+assert_same( false, $steps_locked[2]['optional'], 'The locked starter step is still part of the required journey.' );
+assert_same( 'https://example.test/wp-admin/admin.php?page=pixelgrade&tab=starter-sites', $steps_locked[2]['url'], 'The locked step carries the chooser url for the post-install hand-off.' );
+assert_same( false, $steps_with_demos[2]['locked'], 'With demos the starter step is unlocked.' );
+assert_same( false, pixassist_onboarding_is_complete( $steps_locked ), 'A fresh site is never complete.' );
+
 // 6c. Completion = all required setup steps done.
 assert_same( true, pixassist_onboarding_is_complete( $steps_no_demos ), 'Required theme/plugins done => complete.' );
 assert_same( false, pixassist_onboarding_is_complete( $steps_with_demos ), 'A required step undone => not complete.' );
@@ -644,7 +665,7 @@ add_filter( 'pixelgrade/admin_hub/tabs', 'pixassist_register_overview_tab' );
 $onboarding = pixassist_get_overview_data()['onboarding'];
 $ob_keys = array_keys( $onboarding );
 sort( $ob_keys );
-assert_same( array( 'completed', 'dismissEndpoint', 'dismissed', 'enabled', 'show', 'steps', 'themeSetup' ), $ob_keys, 'Onboarding payload exposes its state, steps, dismiss endpoint, and default theme setup descriptor.' );
+assert_same( array( 'completed', 'dismissEndpoint', 'dismissed', 'enabled', 'finishSetup', 'mode', 'resumeEndpoint', 'show', 'starterPicker', 'steps', 'takeover', 'themeSetup' ), $ob_keys, 'Onboarding payload exposes its state, mode, takeover flag, finish-setup row, starter picker, endpoints, steps, and theme setup descriptor.' );
 assert_same( 'anima-lt', $onboarding['themeSetup']['slug'], 'Fresh-site onboarding targets the WordPress.org Anima LT theme.' );
 assert_same( true, $onboarding['enabled'], 'Onboarding enabled by default in the payload.' );
 assert_same( false, $onboarding['dismissed'], 'Not dismissed without a persisted marker.' );
@@ -656,6 +677,89 @@ assert_same( true, $onboarding['show'], 'Card shows for a fresh, enabled, incomp
 assert_true( is_array( $onboarding['dismissEndpoint'] ), 'The dismiss endpoint descriptor is an array.' );
 assert_same( 'POST', $onboarding['dismissEndpoint']['method'], 'The dismiss endpoint is a POST.' );
 assert_same( '', $onboarding['dismissEndpoint']['url'], 'The dismiss endpoint url degrades to empty without rest_url().' );
+assert_same( 'POST', $onboarding['resumeEndpoint']['method'], 'The resume endpoint is a POST.' );
+
+/*
+ * 9b. First-run Home modes (#first-run-funnel): Home is a funnel until setup completes.
+ *
+ * mode: setup (essentials missing) -> choose (essentials ready, starter pending) -> complete.
+ * takeover: while the card shows and the mode is not complete, the dashboard stays out of the way.
+ * finishSetup: after a "Set up later" dismissal a persistent one-line re-entry row remains.
+ * starterPicker: in choose mode the card inlines the top starters (ids + copy; choosing is
+ * explicit + confirmed — nothing imports automatically).
+ */
+
+// Mode is derived purely from the steps.
+assert_same( 'setup', pixassist_get_onboarding_mode( $steps_locked ), 'Essentials missing => setup mode.' );
+assert_same( 'setup', pixassist_get_onboarding_mode( $steps_with_demos ), 'Theme still missing => setup mode even with demos.' );
+assert_same( 'complete', pixassist_get_onboarding_mode( $steps_no_demos ), 'Everything required done => complete mode.' );
+$steps_choose = pixassist_get_onboarding_steps( array(
+	'base_url'          => 'https://example.test/wp-admin/admin.php?page=pixelgrade',
+	'theme_ready'       => true,
+	'demos_exist'       => true,
+	'starter_imported'  => false,
+	'plugins_ready'     => true,
+) );
+assert_same( 'choose', pixassist_get_onboarding_mode( $steps_choose ), 'Essentials ready + starter pending => choose mode.' );
+
+// The finish-setup row: only after dismissal, with progress + a mode-aware description.
+$finish_hidden = pixassist_get_onboarding_finish_setup( $steps_locked, true, array( 'dismissed' => false ) );
+assert_same( false, $finish_hidden['show'], 'No finish-setup row while the guide itself is available.' );
+$finish_setup = pixassist_get_onboarding_finish_setup( $steps_locked, true, array( 'dismissed' => true ) );
+assert_same( true, $finish_setup['show'], 'A dismissed, incomplete setup keeps the persistent re-entry row.' );
+assert_same( 'Finish setup — 0 of 3 done', $finish_setup['label'], 'The row states the remaining journey.' );
+assert_same( 'Install the essentials to unlock your design tools.', $finish_setup['description'], 'Setup-mode description points at the essentials.' );
+assert_same( 'Resume', $finish_setup['resumeLabel'], 'The row offers a Resume action.' );
+$finish_choose = pixassist_get_onboarding_finish_setup( $steps_choose, true, array( 'dismissed' => true ) );
+assert_same( 'Finish setup — 2 of 3 done', $finish_choose['label'], 'Progress counts the completed essentials.' );
+assert_same( 'Choose a starter site to see your design tools in action.', $finish_choose['description'], 'Choose-mode description points at the starter choice.' );
+$finish_complete = pixassist_get_onboarding_finish_setup( $steps_no_demos, true, array( 'dismissed' => true ) );
+assert_same( false, $finish_complete['show'], 'A complete setup never shows the finish row.' );
+
+// Full payload in the fresh-site harness: setup mode, takeover on, no picker yet.
+assert_same( 'setup', $onboarding['mode'], 'A fresh site is in setup mode.' );
+assert_same( true, $onboarding['takeover'], 'While setup is pending and the card shows, Home is a funnel (takeover).' );
+assert_same( null, $onboarding['starterPicker'], 'No starter picker before the essentials are ready.' );
+assert_same( false, $onboarding['finishSetup']['show'], 'No finish-setup row while the card is visible.' );
+
+// 9c. Choose mode payload: essentials ready + starters available => picker with the top 3 ids and
+//     the Browse hand-off; takeover stays on until the starter is chosen.
+paf_reset();
+add_filter( 'pixelgrade/admin_hub/tabs', 'pixassist_register_overview_tab' );
+$GLOBALS['paf_theme_ready']  = true;
+$GLOBALS['paf_plugins_data'] = array( 'plugins' => array() );
+$GLOBALS['paf_starter_data'] = array(
+	'starters' => array(
+		array( 'id' => 'felt-lt', 'title' => 'Felt LT' ),
+		array( 'id' => 'julia-lt', 'title' => 'Julia LT' ),
+		array( 'id' => 'pile-lt', 'title' => 'Pile LT' ),
+		array( 'id' => 'patch-lt', 'title' => 'Patch LT' ),
+	),
+	'imported' => array(),
+	'applied'  => array(),
+);
+$onboarding_choose = pixassist_get_overview_data()['onboarding'];
+assert_same( 'choose', $onboarding_choose['mode'], 'Essentials ready + starter pending => choose mode.' );
+assert_same( true, $onboarding_choose['takeover'], 'Takeover holds until the starter is chosen.' );
+assert_same( array( 'felt-lt', 'julia-lt', 'pile-lt' ), $onboarding_choose['starterPicker']['ids'], 'The picker carries the top 3 starter ids.' );
+assert_true( false !== strpos( $onboarding_choose['starterPicker']['browseUrl'], 'tab=starter-sites' ), 'Browse hands off to the Starter Sites section.' );
+assert_same( 'Start with this design', $onboarding_choose['starterPicker']['startLabel'], 'The per-starter action copy lives in PHP.' );
+assert_same( 'Import full site', $onboarding_choose['starterPicker']['confirmLabel'], 'The confirm copy lives in PHP.' );
+
+// 9d. Complete: takeover off, no picker, card hidden.
+paf_reset();
+add_filter( 'pixelgrade/admin_hub/tabs', 'pixassist_register_overview_tab' );
+$GLOBALS['paf_theme_ready']  = true;
+$GLOBALS['paf_plugins_data'] = array( 'plugins' => array() );
+$GLOBALS['paf_starter_data'] = array(
+	'starters' => array( array( 'id' => 'felt-lt', 'title' => 'Felt LT' ) ),
+	'imported' => array( 'felt-lt' => array( 'importedAt' => 1750000000 ) ),
+	'applied'  => array( 'activeStarter' => 'felt-lt' ),
+);
+$onboarding_done = pixassist_get_overview_data()['onboarding'];
+assert_same( 'complete', $onboarding_done['mode'], 'Starter imported => complete mode.' );
+assert_same( false, $onboarding_done['takeover'], 'The calm dashboard returns once setup completes.' );
+assert_same( false, $onboarding_done['show'], 'The card hides once complete.' );
 
 /*
  * 10. Promise rows (#hub-home-promises): "Your style", "Last change", and "Diagnostics" are
@@ -686,6 +790,27 @@ assert_same(
 	pixassist_get_overview_starter_state_value( array( 'has_imported' => true, 'active_title' => 'Rosa LT', 'imported_at' => 0 ), $now ),
 	'An undated import reads the design name alone.'
 );
+
+// 10b2. An empty catalog points FORWARD while the theme is not ready (the fresh-install state),
+//       and stays a plain fact once a Pixelgrade theme genuinely exposes no demos.
+assert_same(
+	'Available after Anima LT is installed',
+	pixassist_get_overview_starter_state_value( array( 'has_imported' => false, 'starters_count' => 0, 'theme_ready' => false ), $now ),
+	'Pre-theme, the Started-from row points forward instead of reading as a dead end.'
+);
+assert_same(
+	'No designs available',
+	pixassist_get_overview_starter_state_value( array( 'has_imported' => false, 'starters_count' => 0, 'theme_ready' => true ), $now ),
+	'A Pixelgrade theme without demos keeps the plain fact.'
+);
+
+// 10b3. The full payload wires theme readiness into the starter row: a fresh non-Pixelgrade site
+//       reads the forward-pointing value in At a glance.
+paf_reset();
+add_filter( 'pixelgrade/admin_hub/tabs', 'pixassist_register_overview_tab' );
+$overview_fresh = pixassist_get_overview_data();
+$starter_fresh  = paf_find_summary_item( $overview_fresh['stateSummary'], 'starter' );
+assert_same( 'Available after Anima LT is installed', $starter_fresh['value'], 'A fresh site\'s Started-from row points at the theme step, not a dead end.' );
 
 // 10c. Last change: newest dated entry wins across journals; undated imports are skipped.
 $last_change = pixassist_get_overview_last_change_entry(

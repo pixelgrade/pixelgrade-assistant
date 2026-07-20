@@ -861,16 +861,20 @@ class PixelgradeAssistant_Admin {
 	        }
 
             if ( current_user_can( 'activate_plugins' ) && is_plugin_inactive( $plugin['file_path'] ) && method_exists( $tgmpa, 'get_tgmpa_url' ) ) {
+                // Core's plugins.php activation, NOT the TGMPA page: the TGMPA route silently
+                // no-ops when its registry isn't loaded yet (the remote theme config is not cached
+                // on the very first request after a theme switch), which broke the one-click
+                // essentials run. Core activation depends on nothing remote. Mirrors the core
+                // theme activateUrl in pixassist_get_default_theme_setup().
                 $tgmpa->plugins[ $slug ]['activate_url'] = wp_nonce_url(
                     add_query_arg(
                         array(
-                            'plugin'         => urlencode( $slug ),
-                            'tgmpa-activate' => 'activate-plugin',
+                            'action' => 'activate',
+                            'plugin' => urlencode( $plugin['file_path'] ),
                         ),
-                        $tgmpa->get_tgmpa_url()
+                        self_admin_url( 'plugins.php' )
                     ),
-                    'tgmpa-activate',
-                    'tgmpa-nonce'
+                    'activate-plugin_' . $plugin['file_path']
                 );
                 $tgmpa->plugins[ $slug ]['install_url'] = wp_nonce_url(
                     add_query_arg(

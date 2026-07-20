@@ -3,16 +3,20 @@
  *
  * Replaces the legacy full-screen setup wizard with a guided, stateful checklist at the top of the
  * Overview tab. It preserves the wizard's use-cases without rebuilding them:
- *   - Linear guidance: the ordered checklist with live per-step done state (server-computed).
+ *   - Linear guidance: the ordered checklist with live per-step done state (server-computed). The
+ *     full journey shows from the first paint — pre-theme, the starter step renders LOCKED so a
+ *     fresh site reads "0 of 3", not two steps of plumbing (#first-run-funnel).
  *   - Essentials orchestration: a primary action installs + activates the missing default theme and
  *     recommended plugins in sequence, with a combined progress bar + inline log.
- *   - Explicit design choice: once the essentials are ready, the primary routes to Starter Sites;
- *     this card never imports a starter automatically.
- *   - Dismiss (Phase 2 WRITE path): optimistic hide + a POST to the onboarding_dismiss REST route so
- *     it stays hidden across reloads.
+ *   - Explicit design choice: in `choose` mode (essentials ready, starter pending) the card inlines
+ *     the top starters with an in-card confirm, reusing the Starter Sites import machinery; this
+ *     card never imports a starter automatically.
+ *   - "Set up later" (dismiss): optimistic hide + a POST to the onboarding_dismiss REST route; the
+ *     Overview keeps a persistent "Finish setup" row as the way back (never a dead end).
  *
- * Visibility is server-decided (`onboarding.show`): the card is auto-hidden when complete, dismissed,
- * or the onboarding off-switch is set, and the starter step is omitted when the theme has no demos.
+ * Visibility + state are server-decided (`onboarding.show` / `onboarding.mode`): the card hides when
+ * complete, dismissed, or the onboarding off-switch is set. While it shows, the Overview yields the
+ * page to it (`onboarding.takeover`).
  *
  * No JSX, matching the rest of the hub bundle (externals stay wp-element/components/i18n).
  */
@@ -21,6 +25,7 @@ import { __ } from '@wordpress/i18n';
 import { Card, CardBody, CardHeader, Button, Spinner } from '@wordpress/components';
 import { getPluginsData, ensurePluginActive } from './Plugins';
 import { canManageThemeSetup, ensureThemeActive } from './ThemeSetup';
+import { getStarterSitesData, mergeCopy, importStarter, buildProgressState } from './StarterSites';
 
 function getOnboarding() {
 	if ( typeof window !== 'undefined' && window.pixelgradeOverview && window.pixelgradeOverview.onboarding ) {
@@ -77,7 +82,7 @@ function scheduleOnboardingRefresh() {
 	window.setTimeout( () => window.location.reload(), 700 );
 }
 
-function renderCheck( done ) {
+function renderCheck( done, locked ) {
 	return createElement(
 		'span',
 		{
@@ -85,7 +90,7 @@ function renderCheck( done ) {
 			style: {
 				alignItems: 'center',
 				background: done ? '#0a7a28' : '#fff',
-				border: '1px solid ' + ( done ? '#0a7a28' : '#c3c4c7' ),
+				border: ( locked ? '1px dashed ' : '1px solid ' ) + ( done ? '#0a7a28' : '#c3c4c7' ),
 				borderRadius: '50%',
 				color: '#fff',
 				display: 'inline-flex',
@@ -102,8 +107,11 @@ function renderCheck( done ) {
 	);
 }
 
+// Steps carry no per-step actions — the card funnels through its single primary CTA; manual paths
+// stay available in the Site Setup tab (#first-run-funnel decision).
 function renderStep( step ) {
 	const done = Boolean( step.done );
+	const locked = Boolean( step.locked );
 
 	const titleChildren = [ createElement( 'strong', { key: 'title' }, step.title ) ];
 	if ( step.optional ) {
@@ -124,16 +132,6 @@ function renderStep( step ) {
 		);
 	}
 
-	const action = done
-		? null
-		: createElement(
-				Button,
-				{ variant: 'secondary', href: step.url },
-				step.optional
-					? __( 'Set up', 'pixelgrade_assistant' )
-					: __( 'Open', 'pixelgrade_assistant' )
-		  );
-
 	return createElement(
 		'li',
 		{
@@ -147,16 +145,121 @@ function renderStep( step ) {
 				padding: '12px 0',
 			},
 		},
-		renderCheck( done ),
+		renderCheck( done, locked ),
 		createElement(
 			'div',
 			{ style: { flex: '1 1 auto', minWidth: 0 } },
 			createElement( 'div', { style: { margin: 0 } }, titleChildren ),
 			step.description
-				? createElement( 'p', { style: { color: '#50575e', margin: '2px 0 0' } }, step.description )
+				? createElement(
+						'p',
+						{
+							style: {
+								color: locked ? '#757575' : '#50575e',
+								fontStyle: locked ? 'italic' : 'normal',
+								margin: '2px 0 0',
+							},
+						},
+						step.description
+				  )
 				: null
+		)
+	);
+}
+
+/**
+ * The `choose`-mode inline picker: the top starters as cards with an in-card confirm, plus the
+ * Browse hand-off into the full Starter Sites section. Copy comes from the server payload.
+ */
+function renderStarterPicker( picker, starters, confirmId, handlers, isWorking ) {
+	const cards = starters.map( ( starter ) => {
+		const title = starter.title || starter.id;
+		const confirming = confirmId === starter.id;
+
+		const action = confirming
+			? createElement(
+					'div',
+					{ style: { display: 'grid', gap: '8px' } },
+					createElement(
+						'p',
+						{ style: { color: '#50575e', fontSize: '12px', margin: 0 } },
+						( picker.confirmBody || '%s' ).replace( '%s', title )
+					),
+					createElement(
+						'div',
+						{ style: { display: 'flex', gap: '8px' } },
+						createElement(
+							Button,
+							{ variant: 'primary', onClick: () => handlers.onConfirm( starter ), disabled: isWorking },
+							picker.confirmLabel || __( 'Import full site', 'pixelgrade_assistant' )
+						),
+						createElement(
+							Button,
+							{ variant: 'tertiary', onClick: handlers.onCancel, disabled: isWorking },
+							picker.cancelLabel || __( 'Cancel', 'pixelgrade_assistant' )
+						)
+					)
+			  )
+			: createElement(
+					Button,
+					{ variant: 'secondary', onClick: () => handlers.onStart( starter.id ), disabled: isWorking },
+					picker.startLabel || __( 'Start with this design', 'pixelgrade_assistant' )
+			  );
+
+		return createElement(
+			'div',
+			{
+				key: starter.id,
+				className: 'pixelgrade-get-started__starter',
+				style: {
+					border: '1px solid #dcdcde',
+					borderRadius: '4px',
+					display: 'flex',
+					flex: '1 1 200px',
+					flexDirection: 'column',
+					maxWidth: '260px',
+					overflow: 'hidden',
+				},
+			},
+			starter.image
+				? createElement( 'img', {
+						src: starter.image,
+						alt: '',
+						loading: 'lazy',
+						style: { display: 'block', height: '140px', objectFit: 'cover', objectPosition: 'top', width: '100%' },
+				  } )
+				: createElement( 'div', {
+						'aria-hidden': true,
+						style: { background: '#f0f0f1', height: '140px', width: '100%' },
+				  } ),
+			createElement(
+				'div',
+				{ style: { display: 'grid', gap: '8px', justifyItems: 'start', padding: '10px 12px 12px' } },
+				createElement( 'strong', { style: { fontSize: '13px' } }, title ),
+				action
+			)
+		);
+	} );
+
+	return createElement(
+		'div',
+		{ className: 'pixelgrade-get-started__picker', style: { margin: '16px 0 0' } },
+		createElement(
+			'div',
+			{ style: { display: 'flex', flexWrap: 'wrap', gap: '12px' } },
+			cards
 		),
-		action ? createElement( 'div', { style: { flex: '0 0 auto' } }, action ) : null
+		picker.browseUrl
+			? createElement(
+					'p',
+					{ style: { margin: '12px 0 0' } },
+					createElement(
+						Button,
+						{ variant: 'link', href: picker.browseUrl },
+						picker.browseLabel || __( 'Browse all designs', 'pixelgrade_assistant' )
+					)
+			  )
+			: null
 	);
 }
 
@@ -317,9 +420,28 @@ function buildRunTasks( onboarding, pushLog, setStatus ) {
 	return tasks;
 }
 
+/**
+ * Resolve the picker's starter ids against the Starter Sites payload localized on the hub page.
+ *
+ * @param {Object} picker The server-built `onboarding.starterPicker` descriptor.
+ * @return {Array} Normalized starter descriptors, in picker order.
+ */
+function resolvePickerStarters( picker ) {
+	if ( ! picker || ! Array.isArray( picker.ids ) || ! picker.ids.length ) {
+		return [];
+	}
+
+	const starters = getStarterSitesData().starters || [];
+
+	return picker.ids
+		.map( ( id ) => starters.find( ( starter ) => starter && starter.id === id ) )
+		.filter( Boolean );
+}
+
 export function GetStartedCard() {
 	const onboarding = getOnboarding();
 	const [ visible, setVisible ] = useState( true );
+	const [ confirmId, setConfirmId ] = useState( null );
 	const [ run, setRun ] = useState( { status: 'idle', message: '', current: 0, total: 0, log: [] } );
 
 	// Server is the source of truth for visibility; the card also hides optimistically on dismiss.
@@ -408,10 +530,68 @@ export function GetStartedCard() {
 			...current,
 			status: 'done',
 			current: tasks.length,
-			message: __( 'All set! Refreshing the page to show the latest status.', 'pixelgrade_assistant' ),
+			message: hasIncompleteStep( steps, 'starter' )
+				? __( 'All set! Refreshing — next, choose your starter site.', 'pixelgrade_assistant' )
+				: __( 'All set! Refreshing the page to show the latest status.', 'pixelgrade_assistant' ),
 		} ) );
 
 		scheduleOnboardingRefresh();
+	};
+
+	/**
+	 * Run the confirmed full-site import for one picked starter, reusing the Starter Sites import
+	 * machinery and mapping its progress into this card's progress bar + log. Reached ONLY through
+	 * the explicit in-card confirm — a starter is never imported automatically.
+	 *
+	 * @param {Object} starter Normalized starter descriptor.
+	 */
+	const runStarterImport = async ( starter ) => {
+		const data = getStarterSitesData();
+		const starterCopy = mergeCopy( data.copy );
+		let progress = null;
+
+		const setProgress = ( update, options = {} ) => {
+			progress = buildProgressState( progress, update, options );
+			const message = [ progress.message, progress.details ].filter( Boolean ).join( ' — ' );
+			setRun( {
+				status: 'working',
+				message,
+				current: progress.current || 0,
+				total: progress.total || 0,
+				log: progress.log || [],
+			} );
+		};
+
+		setConfirmId( null );
+		setRun( {
+			status: 'working',
+			// translators: %s: starter design name.
+			message: ( __( 'Importing %s…', 'pixelgrade_assistant' ) ).replace( '%s', starter.title || starter.id ),
+			current: 0,
+			total: 0,
+			log: [],
+		} );
+
+		try {
+			await importStarter( starter, data, starterCopy, setProgress );
+			setRun( ( current ) => ( {
+				...current,
+				status: 'done',
+				current: current.total || current.current,
+				message: __( 'All set! Refreshing to show your new site.', 'pixelgrade_assistant' ),
+			} ) );
+			scheduleOnboardingRefresh();
+		} catch ( error ) {
+			// No auto-refresh here: imports are long and already-imported pieces are journaled, so
+			// the user can read the error and safely confirm again to retry.
+			setRun( ( current ) => ( {
+				...current,
+				status: 'error',
+				message: error && error.message
+					? error.message
+					: __( 'The import could not finish. It is safe to try again.', 'pixelgrade_assistant' ),
+			} ) );
+		}
 	};
 
 	// Mirror the server completion rule and defensively ignore any optional step contributed later.
@@ -424,10 +604,15 @@ export function GetStartedCard() {
 
 	// The automatic phase installs only essentials. Choosing and applying a design remains explicit.
 	const shouldChooseStarter = shouldRouteToStarterChooser( steps );
+	const picker = onboarding.starterPicker || null;
+	const pickerStarters = shouldChooseStarter ? resolvePickerStarters( picker ) : [];
+	// The inline picker replaces the primary CTA in choose mode; when the picker cannot resolve
+	// (payload absent or the starter data is unavailable) the link into Starter Sites remains.
+	const showPicker = shouldChooseStarter && picker && pickerStarters.length > 0;
 	const starterUrl = shouldChooseStarter ? getStarterTabUrl( steps ) : '';
 	const primaryLabel = shouldChooseStarter
 		? __( 'Choose a starter site', 'pixelgrade_assistant' )
-		: __( 'Install the essentials', 'pixelgrade_assistant' );
+		: __( 'Set up my site', 'pixelgrade_assistant' );
 	const needsTheme = hasIncompleteStep( steps, 'theme' );
 	const expectsStarter = hasIncompleteStep( steps, 'starter' );
 	const themeStep = steps.find( ( step ) => step && 'theme' === step.id );
@@ -473,7 +658,9 @@ export function GetStartedCard() {
 				createElement(
 					Button,
 					{ variant: 'tertiary', onClick: dismiss, disabled: isWorking },
-					__( 'Dismiss', 'pixelgrade_assistant' )
+					// Not "Dismiss": dismissal is a deferral, and the Overview keeps a persistent
+					// "Finish setup" row as the way back.
+					__( 'Set up later', 'pixelgrade_assistant' )
 				)
 			)
 		),
@@ -485,35 +672,51 @@ export function GetStartedCard() {
 				{ style: { color: '#50575e', margin: '0 0 8px', maxWidth: '46em' } },
 				// Home's only orientation copy lives here, where a new user actually is — it leaves
 				// with the checklist once the site is set up.
-				__( 'Pixelgrade turns your theme into a design system — set colors, fonts, and spacing once, and your whole site follows. These quick steps get your site ready.', 'pixelgrade_assistant' )
+				showPicker
+					? __( 'Pixelgrade turns your theme into a design system — set colors, fonts, and spacing once, and your whole site follows. One step left: pick your starting design.', 'pixelgrade_assistant' )
+					: __( 'Pixelgrade turns your theme into a design system — set colors, fonts, and spacing once, and your whole site follows. These quick steps get your site ready.', 'pixelgrade_assistant' )
 			),
 			createElement(
 				'ul',
 				{ style: { listStyle: 'none', margin: '8px 0 0', padding: 0 } },
 				steps.map( ( step ) => renderStep( step ) )
 			),
-			createElement(
-				'div',
-				{ style: { display: 'grid', gap: '8px', justifyItems: 'start', margin: '16px 0 0' } },
-				createElement(
-					Button,
-					{
-						variant: 'primary',
-						href: primaryUrl || undefined,
-						onClick: primaryUrl ? undefined : runSetup,
-						isBusy: isWorking,
-						disabled: isWorking,
-					},
-					isWorking ? __( 'Setting up…', 'pixelgrade_assistant' ) : finalPrimaryLabel
-				),
-				! shouldChooseStarter
-					? createElement(
-							'p',
-							{ style: { color: '#50575e', fontSize: '12px', margin: 0 } },
-							essentialsDescription
-					  )
-					: null
-			),
+			showPicker
+				? renderStarterPicker(
+						picker,
+						pickerStarters,
+						confirmId,
+						{
+							onStart: ( id ) => setConfirmId( id ),
+							onConfirm: runStarterImport,
+							onCancel: () => setConfirmId( null ),
+						},
+						isWorking
+				  )
+				: createElement(
+						'div',
+						{ style: { display: 'grid', gap: '8px', justifyItems: 'start', margin: '16px 0 0' } },
+						createElement(
+							Button,
+							{
+								variant: 'primary',
+								href: primaryUrl || undefined,
+								onClick: primaryUrl ? undefined : runSetup,
+								isBusy: isWorking,
+								disabled: isWorking,
+								// The one action on a takeover page earns a touch more presence.
+								style: { fontSize: '14px', height: 'auto', padding: '10px 20px' },
+							},
+							isWorking ? __( 'Setting up…', 'pixelgrade_assistant' ) : finalPrimaryLabel
+						),
+						! shouldChooseStarter
+							? createElement(
+									'p',
+									{ style: { color: '#50575e', fontSize: '12px', margin: 0 } },
+									essentialsDescription
+							  )
+							: null
+				  ),
 			renderRun( run )
 		)
 	);

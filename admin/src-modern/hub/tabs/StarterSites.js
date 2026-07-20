@@ -582,7 +582,7 @@ function appendProgressLog( log, message, type = 'info', time = '' ) {
 		.slice( -8 );
 }
 
-function buildProgressState( previous, update, options = {} ) {
+export function buildProgressState( previous, update, options = {} ) {
 	const now = Date.now();
 	const incoming = 'string' === typeof update ? { message: update } : update || {};
 	const base = options.reset
