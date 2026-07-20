@@ -12512,6 +12512,7 @@ HTML;
 	public function end_import() {
 		$this->replace_demo_urls_in_content();
 		$this->backfill_pending_thumbnails();
+		$this->sanitize_style_manager_options_after_import();
 		$this->regenerate_style_manager_after_import();
 	}
 
@@ -13054,6 +13055,146 @@ HTML;
 		}
 
 		return $blocks;
+	}
+
+	/**
+	 * Collect persisted Style Manager option definitions from its final schema.
+	 *
+	 * @param array $config Style Manager Customizer configuration.
+	 *
+	 * @return array Option definitions keyed by setting ID.
+	 */
+	private function collect_style_manager_option_definitions( $config ) {
+		$definitions = array();
+
+		foreach ( (array) $config as $item ) {
+			if ( ! is_array( $item ) ) {
+				continue;
+			}
+
+			if (
+				isset( $item['setting_type'], $item['setting_id'] )
+				&& 'option' === $item['setting_type']
+				&& is_string( $item['setting_id'] )
+				&& ( ! isset( $item['type'] ) || ! in_array( $item['type'], array( 'html', 'button' ), true ) )
+				&& 0 === strpos( $item['setting_id'], 'sm_' )
+			) {
+				$definitions[ $item['setting_id'] ] = $item;
+			}
+
+			$definitions = array_merge( $definitions, $this->collect_style_manager_option_definitions( $item ) );
+		}
+
+		return $definitions;
+	}
+
+	/**
+	 * Get the final Style Manager schema used to validate destination state.
+	 *
+	 * @return array Option definitions keyed by setting ID.
+	 */
+	private function get_style_manager_option_definitions() {
+		$config = null;
+
+		if ( function_exists( '\\Pixelgrade\\StyleManager\\get_customizer_config' ) ) {
+			try {
+				$config = \Pixelgrade\StyleManager\get_customizer_config();
+			} catch ( \Throwable $exception ) {
+				$config = null;
+			}
+		}
+
+		/**
+		 * Filters the Style Manager schema used to repair destination options after import.
+		 *
+		 * @param array|null $config Final Style Manager Customizer configuration.
+		 */
+		$config = apply_filters( 'pixassist_sce_style_manager_schema', $config );
+
+		if ( ! is_array( $config ) ) {
+			return array();
+		}
+
+		return $this->collect_style_manager_option_definitions( $config );
+	}
+
+	/**
+	 * Whether a persisted Style Manager value violates its typed schema contract.
+	 *
+	 * @param mixed $value      Persisted option value.
+	 * @param array $definition Style Manager option definition.
+	 *
+	 * @return bool
+	 */
+	private function is_invalid_style_manager_option_value( $value, $definition ) {
+		$type = isset( $definition['type'] ) ? (string) $definition['type'] : '';
+
+		if ( 'range' === $type ) {
+			if ( '' === $value || ! is_numeric( $value ) ) {
+				return true;
+			}
+
+			$input_attrs = isset( $definition['input_attrs'] ) && is_array( $definition['input_attrs'] )
+				? $definition['input_attrs']
+				: array();
+			$number = (float) $value;
+
+			if ( isset( $input_attrs['min'] ) && is_numeric( $input_attrs['min'] ) && $number < (float) $input_attrs['min'] ) {
+				return true;
+			}
+
+			if ( isset( $input_attrs['max'] ) && is_numeric( $input_attrs['max'] ) && $number > (float) $input_attrs['max'] ) {
+				return true;
+			}
+		}
+
+		$choice_types = array(
+			'radio',
+			'radio_html',
+			'radio_image',
+			'select',
+			'select2',
+			'select_color',
+			'sm_radio',
+			'sm_switch',
+			'preset',
+		);
+		if (
+			in_array( $type, $choice_types, true )
+			&& isset( $definition['choices'] )
+			&& is_array( $definition['choices'] )
+			&& ( ! is_scalar( $value ) || ! array_key_exists( $value, $definition['choices'] ) )
+		) {
+			return true;
+		}
+
+		return false;
+	}
+
+	/**
+	 * Remove invalid destination artifacts so Style Manager can use schema defaults.
+	 *
+	 * Valid empty toggles and checkboxes are intentional false values and remain stored.
+	 * If the schema API is unavailable, no values are guessed at or removed.
+	 *
+	 * @return array Removed option IDs.
+	 */
+	private function sanitize_style_manager_options_after_import() {
+		$removed = array();
+
+		foreach ( $this->get_style_manager_option_definitions() as $option_id => $definition ) {
+			$value = get_option( $option_id, null );
+
+			if ( null === $value || ! $this->is_invalid_style_manager_option_value( $value, $definition ) ) {
+				continue;
+			}
+
+			if ( delete_option( $option_id ) ) {
+				$removed[] = $option_id;
+			}
+		}
+
+		return $removed;
 	}
 
 	/**

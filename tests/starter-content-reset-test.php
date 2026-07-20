@@ -23,6 +23,16 @@ $GLOBALS['paf_attachment_metadata']  = array();
 $GLOBALS['paf_deleted_attachments']  = array();
 $GLOBALS['paf_cache_flushes']        = 0;
 $GLOBALS['paf_style_cache_actions']  = array();
+$GLOBALS['paf_style_manager_schema'] = array(
+	'options' => array(
+		'variation' => array(
+			'type'         => 'range',
+			'setting_type' => 'option',
+			'setting_id'   => 'sm_site_color_variation',
+			'input_attrs'  => array( 'min' => 1, 'max' => 12 ),
+		),
+	),
+);
 
 function add_action( $hook, $callback, $priority = 10, $args = 1 ) {
 	$GLOBALS['paf_actions'][ $hook ][] = array(
@@ -43,6 +53,10 @@ function add_filter( $hook, $callback, $priority = 10, $args = 1 ) {
 }
 
 function apply_filters( $hook, $value ) {
+	if ( 'pixassist_sce_style_manager_schema' === $hook ) {
+		return $GLOBALS['paf_style_manager_schema'];
+	}
+
 	return $value;
 }
 
@@ -68,6 +82,16 @@ function get_option( $key, $default = false ) {
 
 function update_option( $key, $value ) {
 	$GLOBALS['paf_wp_options'][ $key ] = $value;
+
+	return true;
+}
+
+function delete_option( $key ) {
+	if ( ! array_key_exists( $key, $GLOBALS['paf_wp_options'] ) ) {
+		return false;
+	}
+
+	unset( $GLOBALS['paf_wp_options'][ $key ] );
 
 	return true;
 }
@@ -243,6 +267,7 @@ $GLOBALS['paf_pixassist_options'] = array(
 					'show_on_front' => 'posts',
 					'page_on_front' => 0,
 					'sm_palette'    => 'baseline',
+					'sm_site_color_variation' => '',
 				),
 				'mods'    => array(
 					'custom_logo'             => false,
@@ -269,6 +294,7 @@ $GLOBALS['paf_wp_options'] = array(
 	'page_on_front'   => 999,
 	'page_for_posts'  => 998,
 	'sm_palette'      => 'imported',
+	'sm_site_color_variation' => 8,
 );
 
 $GLOBALS['paf_theme_mods'] = array(
@@ -313,7 +339,8 @@ assert_same( 'posts', $GLOBALS['paf_wp_options']['show_on_front'], 'Pre-import s
 assert_same( 0, $GLOBALS['paf_wp_options']['page_on_front'], 'Pre-import page_on_front must be restored.' );
 assert_same( 9, $GLOBALS['paf_wp_options']['page_for_posts'], 'Post-import-only settings must be restored.' );
 assert_same( 'baseline', $GLOBALS['paf_wp_options']['sm_palette'], 'Style Manager options must be restored.' );
-assert_same( 4, $summary['options_restored'], 'Reset must summarize unique restored options.' );
+assert_same( '', $GLOBALS['paf_wp_options']['sm_site_color_variation'], 'Reset must preserve an invalid-looking Style Manager value from the pre-import journal.' );
+assert_same( 5, $summary['options_restored'], 'Reset must summarize unique restored options.' );
 
 assert_true( ! array_key_exists( 'custom_logo', $GLOBALS['paf_theme_mods'] ), 'False prior theme mods must be removed, not stored as imported values.' );
 assert_same( array( 'custom_logo' ), $GLOBALS['paf_removed_theme_mods'], 'Reset must remove theme mods that were absent before import.' );
