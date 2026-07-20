@@ -4,7 +4,7 @@ Tags: dashboard, starter-content, demo-content, recommended-plugins, pixelgrade
 Requires at least: 5.9
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 2.3.1
+Stable tag: 2.3.2
 License: GPLv3.0
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -100,6 +100,13 @@ Pixelgrade Assistant does not perform advertising, cross-site, or event-level be
 4. Preview the live color, typography, and spacing systems, then jump straight into the matching Style Manager controls.
 
 == Changelog ==
+
+= 2.3.2 =
+* Starter imports now preserve every saved, schema-backed Style Manager choice, including motion settings that remain dormant until Pixelgrade Plus is licensed.
+* Fix: invalid range and choice artifacts left by earlier or interrupted imports are repaired after import without disturbing reset or undo state.
+* Fix: Pile LT now imports its placeholder and source media, inline images, site logo, project templates, template parts, and footer reliably—even when old markup carries a stale attachment ID.
+* A redesigned first-run Home and starter apply flow makes choosing a design, following progress, and continuing after completion clearer.
+* Updated the WordPress JavaScript toolchain and patched dependency vulnerabilities.
 
 = 2.3.1 =
 * Starter Sites imports are more resilient to undeclared commerce content, unavailable layout units, media edge cases, and interrupted full-site runs.
