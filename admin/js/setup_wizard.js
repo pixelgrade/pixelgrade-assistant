@@ -21147,7 +21147,8 @@
 	                    remote_id: attach_id,
 	                    file_data: attachment.data.media.data,
 	                    ext: attachment.data.media.ext,
-	                    group: group_i
+	                    group: group_i,
+	                    source_urls: attachment.data.media.urls || {}
 	                  }, function (response) {
 	                    if (!isUndefined_1(response.code) && 'success' === response.code) {
 	                      component.addLogEntry('Imported media "' + attachment.data.media.title + '.' + attachment.data.media.ext + '" (#' + response.data.attachmentID + ').');

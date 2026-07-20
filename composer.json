@@ -40,6 +40,7 @@
             "php tests/starter-media-reimport-dedup-test.php",
             "php tests/starter-media-gate-test.php",
             "php tests/starter-reimport-media-repair-test.php",
+            "php tests/starter-media-source-remap-test.php",
             "php tests/thumbnail-backfill-test.php",
             "php tests/admin-system-status-test.php",
             "php tests/admin-tools-test.php",

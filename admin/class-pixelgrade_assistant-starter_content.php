@@ -51,6 +51,13 @@ class PixelgradeAssistant_StarterContent {
 	private $media_url_map_cache = array();
 
 	/**
+	 * Request-local cache for exact source-media URL replacements, keyed by demo.
+	 *
+	 * @var array
+	 */
+	private $media_source_replacement_cache = array();
+
+	/**
 	 * Request-local state for the site-mode preview menu injector — the source base whose demo menus the
 	 * preview renders for nav locations, and the lazily-built slug => items[] map.
 	 *
@@ -7351,7 +7358,10 @@ HTML;
 				absint( $params['remote_id'] ),
 				sanitize_text_field( $params['title'] ),
 				sanitize_text_field( $params['ext'] ),
-				$params['file_data']
+				$params['file_data'],
+				true,
+				false,
+				isset( $params['source_urls'] ) ? $params['source_urls'] : array()
 			) );
 		}
 
@@ -7640,6 +7650,7 @@ HTML;
 				return $attachment_id;
 			}
 
+			$this->record_imported_media_source_urls( $demo_key, $remote_id, array( 'full' => $source_url ), true );
 			$this->record_imported_media_attachment( $demo_key, $group, $remote_id, $attachment_id, $defer_save );
 
 			$attachment_data = wp_get_attachment_metadata( $attachment_id );
@@ -7726,7 +7737,8 @@ HTML;
 				sanitize_text_field( $media['ext'] ),
 				$media['data'],
 				false,
-				$defer_save
+				$defer_save,
+				! empty( $media['urls'] ) ? $media['urls'] : array()
 			);
 
 			if ( empty( $result['code'] ) || 'success' !== $result['code'] ) {
@@ -7828,10 +7840,22 @@ HTML;
 		 *
 		 * @return array Response payload.
 		 */
-		private function import_media_file( $demo_key, $group, $remote_id, $title, $ext, $file_data, $generate_metadata = true, $defer_save = false ) {
+		private function import_media_file( $demo_key, $group, $remote_id, $title, $ext, $file_data, $generate_metadata = true, $defer_save = false, $source_urls = array() ) {
 			$demo_key  = sanitize_text_field( $demo_key );
 			$group     = sanitize_text_field( $group );
 			$remote_id = absint( $remote_id );
+			$existing_attachment_id = $remote_id ? $this->get_imported_media_id( $demo_key, $remote_id ) : 0;
+
+			// The media payload carries the canonical source URLs even when an older starter manifest does not.
+			// Keep them beside the import journal so post content can be remapped independently of brittle block
+			// IDs/classes. For a fresh upload the attachment journal save below flushes this write too; a reused
+			// attachment must save it here because the function returns before inserting anything.
+			$this->record_imported_media_source_urls(
+				$demo_key,
+				$remote_id,
+				$source_urls,
+				! $existing_attachment_id || $defer_save
+			);
 
 			// Reuse an already-imported attachment for this (demo, source id) instead of inserting a duplicate.
 			// Importing media must be idempotent: replaying a starter import (or just its media step) must not
@@ -7839,12 +7863,12 @@ HTML;
 			// mapping. This is the server-side backstop shared by every import path, notably the modern hub's
 			// client-driven per-media upload loop, which calls straight in here via /upload_media and never goes
 			// through import_starter()'s collector.
-			if ( $remote_id && $this->starter_media_already_imported( $demo_key, $remote_id ) ) {
+			if ( $existing_attachment_id && 'attachment' === get_post_type( $existing_attachment_id ) ) {
 				return array(
 					'code'    => 'success',
 					'message' => '',
 					'data'    => array(
-						'attachmentID' => $this->get_imported_media_id( $demo_key, $remote_id ),
+						'attachmentID' => $existing_attachment_id,
 						'reused'       => true,
 					),
 				);
@@ -7963,6 +7987,71 @@ HTML;
 			PixelgradeAssistant_Admin::set_option( 'imported_starter_content', $starter_content );
 			// During a full-site media batch the caller flushes once at the end; saving the entire
 			// (growing) journal option per media item is O(n^2). Single uploads still save immediately.
+			if ( ! $defer_save ) {
+				PixelgradeAssistant_Admin::save_options();
+			}
+		}
+
+		/**
+		 * Record canonical source URLs for an imported media ID.
+		 *
+		 * The exporter normally rewrites content using block attachment IDs. That cannot cover an image nested
+		 * in a Paragraph/HTML block, or markup whose `wp-image-*` class points at a deleted source attachment.
+		 * The media endpoint still returns the real source URLs, so persist those as a deterministic fallback.
+		 *
+		 * @param string       $demo_key   Starter/demo key.
+		 * @param int          $remote_id  Source media ID.
+		 * @param string|array $source_urls Source URL or size => URL map.
+		 * @param bool         $defer_save Whether another journal write will save the option.
+		 *
+		 * @return void
+		 */
+		private function record_imported_media_source_urls( $demo_key, $remote_id, $source_urls, $defer_save = false ) {
+			$demo_key  = sanitize_text_field( $demo_key );
+			$remote_id = absint( $remote_id );
+			if ( empty( $demo_key ) || empty( $remote_id ) ) {
+				return;
+			}
+
+			if ( is_string( $source_urls ) ) {
+				$source_urls = array( 'full' => $source_urls );
+			}
+			if ( empty( $source_urls ) || ! is_array( $source_urls ) ) {
+				return;
+			}
+
+			$normalized = array();
+			foreach ( $source_urls as $size => $source_url ) {
+				$size       = sanitize_key( is_string( $size ) ? $size : 'full' );
+				$source_url = esc_url_raw( is_array( $source_url ) && isset( $source_url['url'] ) ? $source_url['url'] : $source_url );
+				if ( empty( $size ) || empty( $source_url ) || ! $this->is_allowed_demo_url( $source_url ) ) {
+					continue;
+				}
+				$normalized[ $size ] = $source_url;
+			}
+			if ( empty( $normalized ) ) {
+				return;
+			}
+
+			$starter_content = PixelgradeAssistant_Admin::get_option( 'imported_starter_content' );
+			if ( ! is_array( $starter_content ) ) {
+				$starter_content = array();
+			}
+			if ( empty( $starter_content[ $demo_key ] ) || ! is_array( $starter_content[ $demo_key ] ) ) {
+				$starter_content[ $demo_key ] = array();
+			}
+			if ( empty( $starter_content[ $demo_key ]['media_source_urls'] ) || ! is_array( $starter_content[ $demo_key ]['media_source_urls'] ) ) {
+				$starter_content[ $demo_key ]['media_source_urls'] = array();
+			}
+
+			$existing = isset( $starter_content[ $demo_key ]['media_source_urls'][ $remote_id ] )
+				&& is_array( $starter_content[ $demo_key ]['media_source_urls'][ $remote_id ] )
+				? $starter_content[ $demo_key ]['media_source_urls'][ $remote_id ]
+				: array();
+			$starter_content[ $demo_key ]['media_source_urls'][ $remote_id ] = array_merge( $existing, $normalized );
+
+			PixelgradeAssistant_Admin::set_option( 'imported_starter_content', $starter_content );
+			unset( $this->media_source_replacement_cache[ $demo_key ] );
 			if ( ! $defer_save ) {
 				PixelgradeAssistant_Admin::save_options();
 			}
@@ -11200,6 +11289,14 @@ HTML;
 					$response_data['data']['posts'][ $i ]['post_content'] = $post['post_content'];
 				}
 
+				// Exporter block rewriting intentionally follows attachment IDs, but real starter content may contain
+				// inline images inside Paragraph/HTML blocks (and occasionally stale wp-image classes). Exact source
+				// URLs captured during the media phase provide a deterministic final mapping to local attachments.
+				if ( isset( $post['post_content'] ) ) {
+					$post['post_content'] = $this->remap_imported_media_urls_in_content( $post['post_content'], $demo_key );
+					$response_data['data']['posts'][ $i ]['post_content'] = $post['post_content'];
+				}
+
 				$post_args = array(
 					'import_id'             => $post['ID'],
 					'post_title'            => wp_strip_all_tags( $post['post_title'] ),
@@ -13577,6 +13674,125 @@ HTML;
 
 	private function get_ignored_images( $demo_key ) {
 		return $this->get_media_url_map( $demo_key, 'ignored' );
+	}
+
+	/**
+	 * Replace exact source-media URLs in post content with their imported local attachment URLs.
+	 *
+	 * The source exporter handles dedicated media blocks. This fallback covers mixed markup such as an
+	 * `<img>` inside a Paragraph/HTML block, where the URL is authoritative even when `wp-image-*` is stale.
+	 * Only URLs recorded from the authenticated media import are considered; unrelated remote content is
+	 * never changed. When an img's src matches, its attachment class is corrected in the same tag.
+	 *
+	 * @param string $content  Source post content.
+	 * @param string $demo_key Starter/demo key.
+	 *
+	 * @return string
+	 */
+	private function remap_imported_media_urls_in_content( $content, $demo_key ) {
+		$content = (string) $content;
+		if ( '' === $content ) {
+			return $content;
+		}
+
+		$replacements = $this->get_imported_media_source_replacements( $demo_key );
+		if ( empty( $replacements ) ) {
+			return $content;
+		}
+
+		// Correct the attachment class only when the src in that same tag has an exact, trusted mapping.
+		$content = preg_replace_callback(
+			'/<img\b[^>]*>/i',
+			function ( $match ) use ( $replacements ) {
+				$tag = $match[0];
+				if ( ! preg_match( '/\bsrc\s*=\s*(["\'])(.*?)\1/i', $tag, $src_match ) ) {
+					return $tag;
+				}
+
+				$source_url = html_entity_decode( $src_match[2], ENT_QUOTES, 'UTF-8' );
+				if ( empty( $replacements[ $source_url ] ) ) {
+					return $tag;
+				}
+
+				$replacement = $replacements[ $source_url ];
+				$tag         = str_replace( $src_match[2], $replacement['url'], $tag );
+				$tag         = preg_replace( '/\bwp-image-\d+\b/', 'wp-image-' . absint( $replacement['id'] ), $tag );
+
+				return $tag;
+			},
+			$content
+		);
+
+		// Also cover srcset entries, media links, block JSON, and other exact URL-bearing attributes.
+		$search  = array_keys( $replacements );
+		$replace = array_map(
+			function ( $replacement ) {
+				return $replacement['url'];
+			},
+			array_values( $replacements )
+		);
+
+		return str_replace( $search, $replace, $content );
+	}
+
+	/**
+	 * Build source URL => local URL/attachment replacements from the starter import journal.
+	 *
+	 * @param string $demo_key Starter/demo key.
+	 *
+	 * @return array
+	 */
+	private function get_imported_media_source_replacements( $demo_key ) {
+		$demo_key = sanitize_key( $demo_key );
+		if ( isset( $this->media_source_replacement_cache[ $demo_key ] ) ) {
+			return $this->media_source_replacement_cache[ $demo_key ];
+		}
+
+		$starter_content = PixelgradeAssistant_Admin::get_option( 'imported_starter_content' );
+		$source_sets     = ! empty( $starter_content[ $demo_key ]['media_source_urls'] )
+			&& is_array( $starter_content[ $demo_key ]['media_source_urls'] )
+			? $starter_content[ $demo_key ]['media_source_urls']
+			: array();
+		$replacements = array();
+
+		foreach ( $source_sets as $remote_id => $source_urls ) {
+			$local_id = $this->get_imported_media_id( $demo_key, $remote_id );
+			if ( empty( $local_id ) ) {
+				continue;
+			}
+
+			$local_urls = $this->get_image_thumbnails_urls( $local_id );
+			if ( empty( $local_urls['full'] ) ) {
+				continue;
+			}
+
+			if ( is_string( $source_urls ) ) {
+				$source_urls = array( 'full' => $source_urls );
+			}
+			if ( ! is_array( $source_urls ) ) {
+				continue;
+			}
+
+			// Prefer the full-size pairing when a tiny image exposes the same URL for every registered size.
+			if ( isset( $source_urls['full'] ) ) {
+				$source_urls = array( 'full' => $source_urls['full'] ) + $source_urls;
+			}
+			foreach ( $source_urls as $size => $source_url ) {
+				$source_url = esc_url_raw( is_array( $source_url ) && isset( $source_url['url'] ) ? $source_url['url'] : $source_url );
+				if ( empty( $source_url ) || isset( $replacements[ $source_url ] ) ) {
+					continue;
+				}
+				$local_url = ! empty( $local_urls[ $size ] ) ? $local_urls[ $size ] : $local_urls['full'];
+				$replacements[ $source_url ] = array(
+					'id'  => absint( $local_id ),
+					'url' => $local_url,
+				);
+			}
+		}
+
+		$this->media_source_replacement_cache[ $demo_key ] = $replacements;
+
+		return $replacements;
 	}
 
 	/**

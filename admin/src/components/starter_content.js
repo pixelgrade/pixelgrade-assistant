@@ -719,7 +719,8 @@ class StarterContentContainer extends React.Component {
 										remote_id: attach_id,
 										file_data: attachment.data.media.data,
 										ext: attachment.data.media.ext,
-										group: group_i
+										group: group_i,
+										source_urls: attachment.data.media.urls || {}
 									},
 									function (response) {
 										if ( !_.isUndefined( response.code ) && 'success' === response.code) {

@@ -17,6 +17,7 @@
  */
 
 define( 'ABSPATH', __DIR__ . '/' );
+define( 'PIXELGRADE_ASSISTANT__API_BASE_DOMAIN', 'pixelgrade.com' );
 
 $GLOBALS['paf_pixassist_options']   = array();
 $GLOBALS['paf_existing_attachments'] = array(); // set of attachment IDs that "exist" as attachments
@@ -29,6 +30,7 @@ function absint( $v ) { return abs( (int) $v ); }
 function sanitize_key( $k ) { return preg_replace( '/[^a-z0-9_\-]/', '', strtolower( (string) $k ) ); }
 function sanitize_text_field( $s ) { return is_string( $s ) ? trim( $s ) : $s; }
 function esc_url_raw( $u ) { return (string) $u; }
+function wp_parse_url( $url, $component = -1 ) { return parse_url( $url, $component ); }
 function maybe_unserialize( $v ) { return $v; }
 function is_wp_error( $v ) { return false; }
 
@@ -37,6 +39,7 @@ function get_post_type( $id ) {
 }
 
 class PixelgradeAssistant_Admin {
+	public static function get_config() { return array(); }
 	public static function get_option( $key, $default = null, $force = false ) {
 		return isset( $GLOBALS['paf_pixassist_options'][ $key ] ) ? $GLOBALS['paf_pixassist_options'][ $key ] : $default;
 	}
@@ -136,10 +139,19 @@ $GLOBALS['paf_existing_attachments'] = array( 5001 );
 $upload = new ReflectionMethod( 'PixelgradeAssistant_StarterContent', 'import_media_file' );
 $upload->setAccessible( true );
 // file_data is deliberately ignored: the reuse short-circuit returns before any decode/upload happens.
-$res = $upload->invoke( $sc, 'anima-portfolio', 'ignored', 9, 'team4', 'jpeg', 'IRRELEVANT' );
+$source_urls = array(
+	'full'      => 'https://starter.pixelgrade.com/anima-portfolio/wp-content/uploads/team4.jpeg',
+	'thumbnail' => 'https://starter.pixelgrade.com/anima-portfolio/wp-content/uploads/team4-150x150.jpeg',
+);
+$res = $upload->invoke( $sc, 'anima-portfolio', 'ignored', 9, 'team4', 'jpeg', 'IRRELEVANT', true, false, $source_urls );
 check( is_array( $res ) && isset( $res['code'] ) && 'success' === $res['code'], 'Re-upload of an imported id returns success.' );
 check( ! empty( $res['data']['reused'] ), 'Re-upload reuses the existing attachment (no insert).' );
 check( isset( $res['data']['attachmentID'] ) && 5001 === (int) $res['data']['attachmentID'], 'Re-upload returns the existing attachment ID.' );
+check(
+	isset( $GLOBALS['paf_pixassist_options']['imported_starter_content']['anima-portfolio']['media_source_urls'][9] )
+	&& $source_urls === $GLOBALS['paf_pixassist_options']['imported_starter_content']['anima-portfolio']['media_source_urls'][9],
+	'Re-upload still records source URLs for an existing attachment so mixed-block content can be remapped.'
+);
 
 echo $failures ? "\nFAILED ($failures)\n" : "\nPASSED\n";
 exit( $failures ? 1 : 0 );

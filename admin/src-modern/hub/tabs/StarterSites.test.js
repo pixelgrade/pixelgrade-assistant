@@ -163,6 +163,7 @@ describe( 'Starter Sites — granular full-site import', () => {
 
 			if ( String( url ).includes( '/media?id=' ) ) {
 				const remoteId = new URL( String( url ) ).searchParams.get( 'id' );
+				const sourceUrl = 'https://starter.example.test/uploads/attachment-' + remoteId + '.jpg';
 				return {
 					ok: true,
 					json: async () => ( {
@@ -172,6 +173,7 @@ describe( 'Starter Sites — granular full-site import', () => {
 								title: 'attachment-' + remoteId,
 								ext: 'jpg',
 								data: 'data:image/jpeg;base64,aW1hZ2U=',
+								urls: { full: sourceUrl },
 							},
 						},
 					} ),
@@ -182,6 +184,7 @@ describe( 'Starter Sites — granular full-site import', () => {
 			uploads.push( {
 				remoteId: request.remote_id,
 				group: request.group,
+				sourceUrls: request.source_urls,
 			} );
 
 			return {
@@ -207,9 +210,9 @@ describe( 'Starter Sites — granular full-site import', () => {
 		await importStarter( starter, data, { importing: 'Preparing starter.' }, setProgress );
 
 		expect( uploads ).toEqual( [
-			{ remoteId: 175, group: 'placeholders' },
-			{ remoteId: 176, group: 'placeholders' },
-			{ remoteId: 9, group: 'ignored' },
+			{ remoteId: 175, group: 'placeholders', sourceUrls: { full: 'https://starter.example.test/uploads/attachment-175.jpg' } },
+			{ remoteId: 176, group: 'placeholders', sourceUrls: { full: 'https://starter.example.test/uploads/attachment-176.jpg' } },
+			{ remoteId: 9, group: 'ignored', sourceUrls: { full: 'https://starter.example.test/uploads/attachment-9.jpg' } },
 		] );
 		const manifestProgress = setProgress.mock.calls.find( ( [ update ] ) => update && Number.isFinite( update.total ) );
 		expect( manifestProgress[ 0 ] ).toMatchObject( {

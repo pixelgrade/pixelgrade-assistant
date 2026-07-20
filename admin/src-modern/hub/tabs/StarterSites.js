@@ -1282,6 +1282,7 @@ function buildImportTasks( starter, config, data, setProgress, filters = {} ) {
 						file_data: media.data,
 						ext: media.ext,
 						group: groupKey,
+						source_urls: media.urls || {},
 					} );
 					markMediaImportedThisSession( demoKey, remoteId );
 					setProgress(
