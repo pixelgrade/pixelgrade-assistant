@@ -148,6 +148,7 @@ class PixelgradeAssistant_StarterContent {
 				$this,
 				'filter_post_option_page_for_posts'
 			), 10, 2 );
+			add_filter( 'pixassist_sce_import_post_option_site_logo', array( $this, 'filter_post_theme_mod_custom_logo' ), 10, 2 );
 			add_filter( 'pixassist_sce_import_post_theme_mod_nav_menu_locations', array(
 				$this,
 				'filter_post_theme_mod_nav_menu_locations'

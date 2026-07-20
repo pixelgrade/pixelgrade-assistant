@@ -2165,9 +2165,10 @@ $starter_summary = $starter_content->import_starter(
 );
 
 assert_same( 'success', $starter_summary['code'], 'Full starter media import must retry a transient media fetch timeout and still succeed.' );
-assert_same( 1, $starter_summary['data']['summary']['media'], 'Retried full-starter media import must count the imported media item.' );
+assert_same( 2, $starter_summary['data']['summary']['media'], 'Full-starter media import must count the placeholder and ignored media items.' );
 assert_same( 'retried media', $GLOBALS['paf_uploaded_bits'][0][1], 'Retried media payload must be uploaded after the successful retry.' );
-assert_same( true, $GLOBALS['paf_attachment_metadata'][3001]['imported_with_pixassist'], 'Retried media import must still tag attachment metadata for safe reset.' );
+assert_same( true, $GLOBALS['paf_attachment_metadata'][3001]['imported_with_pixassist'], 'Placeholder media import must tag attachment metadata for safe reset.' );
+assert_same( true, $GLOBALS['paf_attachment_metadata'][3002]['imported_with_pixassist'], 'Retried ignored media import must tag attachment metadata for safe reset.' );
 
 $media_request_timeouts = array();
 foreach ( $GLOBALS['paf_remote_requests'] as $request ) {

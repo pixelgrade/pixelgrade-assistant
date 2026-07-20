@@ -618,6 +618,13 @@ assert_same( 12, $GLOBALS['paf_wp_options']['sm_site_frame_variation'], 'Site Fr
 assert_same( 'NOTES', $GLOBALS['paf_wp_options']['blogname'], 'Source site title should be imported from the WP REST root when the SCE payload omits it.' );
 assert_same( 'Journal', $GLOBALS['paf_wp_options']['blogdescription'], 'Source site tagline should be imported from the WP REST root when the SCE payload omits it.' );
 
+$GLOBALS['paf_pixassist_options']['imported_starter_content']['anima-blog']['media']['ignored'][299] = 6001;
+assert_same(
+	6001,
+	apply_filters( 'pixassist_sce_import_post_option_site_logo', 299, 'anima-blog' ),
+	'The core site_logo option should use the local attachment imported for the source logo.'
+);
+
 // The Composer/UI path imports taxonomies and post settings through separate REST steps. It must
 // still import/remap menus referenced only by nav_menu_locations, not only the manifest menus.
 $GLOBALS['paf_pixassist_options'] = array();
