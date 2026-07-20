@@ -356,6 +356,7 @@ class WP_REST_Response {}
 class PAF_WPDB {
 	public $posts = 'wp_posts';
 	public $postmeta = 'wp_postmeta';
+	public $options = 'wp_options';
 	public $queries = array();
 
 	public function get_var( $sql ) {
@@ -702,5 +703,75 @@ assert_same(
 	in_array( "UPDATE wp_postmeta SET meta_value = REPLACE(meta_value, 'https://starter.test/anima-blog/', 'https://local.test/') WHERE meta_key='_menu_item_url'", $GLOBALS['wpdb']->queries, true ),
 	'End import should rebase custom menu-item URLs that point to the source site root, not only the SCE REST base.'
 );
+
+// A fresh or previously interrupted destination can already contain empty typed Style Manager
+// options. The closing settings pass must remove only schema-invalid artifacts so the control's
+// own default applies, while preserving intentional empty toggles and valid saved choices.
+$GLOBALS['paf_style_manager_schema'] = array(
+	'sections' => array(
+		'colors' => array(
+			'options' => array(
+				'variation' => array(
+					'type'         => 'range',
+					'setting_type' => 'option',
+					'setting_id'   => 'sm_site_color_variation',
+					'input_attrs'  => array( 'min' => 1, 'max' => 12 ),
+				),
+				'spacing' => array(
+					'type'         => 'range',
+					'setting_type' => 'option',
+					'setting_id'   => 'sm_spacing_level',
+					'input_attrs'  => array( 'min' => 0, 'max' => 2 ),
+				),
+				'contrast' => array(
+					'type'         => 'radio_html',
+					'setting_type' => 'option',
+					'setting_id'   => 'sm_elements_color_contrast',
+					'choices'      => array( 'normal' => 'Normal', 'maximum' => 'Maximum' ),
+				),
+				'hover' => array(
+					'type'         => 'radio',
+					'setting_type' => 'option',
+					'setting_id'   => 'sm_collection_hover_effect',
+					'choices'      => array( 'none' => 'None', 'pile' => 'Pile' ),
+				),
+				'intro' => array(
+					'type'         => 'sm_toggle',
+					'setting_type' => 'option',
+					'setting_id'   => 'sm_intro_animations_enable',
+				),
+			),
+		),
+	),
+);
+
+add_filter(
+	'pixassist_sce_style_manager_schema',
+	function () {
+		return $GLOBALS['paf_style_manager_schema'];
+	}
+);
+
+$GLOBALS['paf_wp_options']['sm_site_color_variation']    = '';
+$GLOBALS['paf_wp_options']['sm_elements_color_contrast'] = '';
+$GLOBALS['paf_wp_options']['sm_collection_hover_effect'] = 'pile';
+$GLOBALS['paf_wp_options']['sm_intro_animations_enable'] = '';
+$GLOBALS['paf_wp_options']['sm_spacing_level']            = '1.5';
+
+$starter_content->end_import();
+
+assert_same( false, array_key_exists( 'sm_site_color_variation', $GLOBALS['paf_wp_options'] ), 'An empty range artifact should be removed after starter import.' );
+assert_same( false, array_key_exists( 'sm_elements_color_contrast', $GLOBALS['paf_wp_options'] ), 'An invalid discrete-choice artifact should be removed after starter import.' );
+assert_same( 'pile', $GLOBALS['paf_wp_options']['sm_collection_hover_effect'], 'A valid imported Style Manager choice must remain stored.' );
+assert_same( '', $GLOBALS['paf_wp_options']['sm_intro_animations_enable'], 'An empty toggle must remain an intentional false value.' );
+assert_same( '1.5', $GLOBALS['paf_wp_options']['sm_spacing_level'], 'A valid range value must remain stored.' );
+
+$GLOBALS['paf_style_manager_schema']                     = null;
+$GLOBALS['paf_wp_options']['sm_site_color_variation']    = '';
+$GLOBALS['paf_wp_options']['sm_elements_color_contrast'] = '';
+$starter_content->end_import();
+
+assert_same( '', $GLOBALS['paf_wp_options']['sm_site_color_variation'], 'Without a schema, the importer must not guess whether a destination value is invalid.' );
+assert_same( '', $GLOBALS['paf_wp_options']['sm_elements_color_contrast'], 'A missing schema must preserve invalid-looking discrete choices.' );
 
 echo "starter-import-parity-test: OK\n";
