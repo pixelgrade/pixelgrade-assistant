@@ -105,6 +105,7 @@ Pixelgrade Assistant does not perform advertising, cross-site, or event-level be
 * Starter imports now preserve every saved, schema-backed Style Manager choice, including motion settings that remain dormant until Pixelgrade Plus is licensed.
 * Fix: invalid range and choice artifacts left by earlier or interrupted imports are repaired after import without disturbing reset or undo state.
 * Fix: Pile LT now imports its placeholder and source media, inline images, site logo, project templates, template parts, and footer reliably—even when old markup carries a stale attachment ID.
+* Fix: imported pages retain their assigned block templates when the matching template is imported later in the starter process.
 * A redesigned first-run Home and starter apply flow makes choosing a design, following progress, and continuing after completion clearer.
 * Updated the WordPress JavaScript toolchain and patched dependency vulnerabilities.
 
