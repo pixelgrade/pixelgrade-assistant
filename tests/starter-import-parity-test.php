@@ -26,6 +26,8 @@ $GLOBALS['paf_term_meta']               = array();
 $GLOBALS['paf_remote_terms']            = array();
 $GLOBALS['paf_remote_posts']            = array();
 $GLOBALS['paf_remote_wp_post_formats']  = array();
+$GLOBALS['paf_available_page_templates'] = array();
+$GLOBALS['paf_return_permalinks']        = true;
 $GLOBALS['paf_next_post_id']            = 3001;
 
 function add_action( $hook, $callback, $priority = 10, $args = 1 ) {
@@ -123,7 +125,7 @@ function taxonomy_exists( $taxonomy ) {
 }
 
 function get_permalink( $id ) {
-	return '';
+	return $GLOBALS['paf_return_permalinks'] ? 'https://local.test/?p=' . absint( $id ) : '';
 }
 
 function has_blocks( $content ) {
@@ -268,13 +270,34 @@ function wp_insert_post( $args ) {
 		'post_title'   => isset( $args['post_title'] ) ? $args['post_title'] : '',
 		'post_content' => isset( $args['post_content'] ) ? $args['post_content'] : '',
 		'post_status'  => isset( $args['post_status'] ) ? $args['post_status'] : 'publish',
+		'meta'         => isset( $args['meta_input'] ) && is_array( $args['meta_input'] ) ? $args['meta_input'] : array(),
 	);
+
+	if ( 'wp_template' === $GLOBALS['paf_posts'][ $id ]->post_type && '' !== $GLOBALS['paf_posts'][ $id ]->post_name ) {
+		$GLOBALS['paf_available_page_templates'][ $GLOBALS['paf_posts'][ $id ]->post_name ] = true;
+	}
 
 	return $id;
 }
 
 function wp_update_post( $args ) {
-	return isset( $args['ID'] ) ? $args['ID'] : 0;
+	$post_id = isset( $args['ID'] ) ? absint( $args['ID'] ) : 0;
+	if ( ! $post_id || empty( $GLOBALS['paf_posts'][ $post_id ] ) ) {
+		return 0;
+	}
+
+	// Mirror the relevant WordPress behavior: wp_update_post() merges the current
+	// WP_Post into the update, including its magic page_template property. Core
+	// then resets a template that is not registered yet to "default".
+	$post = $GLOBALS['paf_posts'][ $post_id ];
+	if ( 'page' === $post->post_type && ! empty( $post->meta['_wp_page_template'] ) ) {
+		$template = (string) $post->meta['_wp_page_template'];
+		if ( 'default' !== $template && empty( $GLOBALS['paf_available_page_templates'][ $template ] ) ) {
+			$post->meta['_wp_page_template'] = 'default';
+		}
+	}
+
+	return $post_id;
 }
 
 function wp_set_object_terms( $post_id, $terms, $taxonomy, $append = false ) {
@@ -335,6 +358,20 @@ function get_post_meta( $post_id, $key, $single = false ) {
 	return $single ? '' : array();
 }
 
+function get_post( $post_id ) {
+	return isset( $GLOBALS['paf_posts'][ $post_id ] ) ? $GLOBALS['paf_posts'][ $post_id ] : null;
+}
+
+function update_post_meta( $post_id, $key, $value ) {
+	if ( empty( $GLOBALS['paf_posts'][ $post_id ] ) ) {
+		return false;
+	}
+
+	$GLOBALS['paf_posts'][ $post_id ]->meta[ $key ] = $value;
+
+	return true;
+}
+
 function wp_delete_post( $post_id, $force_delete = false ) {
 	if ( isset( $GLOBALS['paf_posts'][ $post_id ] ) ) {
 		$GLOBALS['paf_posts'][ $post_id ]->deleted = true;
@@ -359,6 +396,14 @@ class PAF_WPDB {
 	public $queries = array();
 
 	public function get_var( $sql ) {
+		if ( preg_match( "/post_name = '([^']+)' AND post_type = '([^']+)'/", $sql, $matches ) ) {
+			foreach ( $GLOBALS['paf_posts'] as $post ) {
+				if ( empty( $post->deleted ) && $matches[1] === $post->post_name && $matches[2] === $post->post_type ) {
+					return $post->ID;
+				}
+			}
+		}
+
 		return 0;
 	}
 
@@ -518,6 +563,65 @@ $GLOBALS['paf_remote_wp_post_formats'][18] = array(
 	'format' => 'quote',
 );
 
+$GLOBALS['paf_remote_posts']['page'][131] = paf_source_post_record(
+	131,
+	'page',
+	'Work',
+	array(
+		'post_name' => 'work',
+		'guid'      => 'https://starter.test/anima-blog/work/',
+		'meta'      => array(
+			'_wp_page_template' => array( 'archive-portfolio' ),
+		),
+	)
+);
+
+$GLOBALS['paf_remote_posts']['page'][132] = paf_source_post_record(
+	132,
+	'page',
+	'Filtered Work',
+	array(
+		'post_name' => 'filtered-work',
+		'guid'      => 'https://starter.test/anima-blog/filtered-work/',
+		'meta'      => array(
+			'_wp_page_template' => array( 'archive-portfolio' ),
+		),
+	)
+);
+
+$GLOBALS['paf_remote_posts']['page'][133] = paf_source_post_record(
+	133,
+	'page',
+	'Template-less Work',
+	array(
+		'post_name' => 'template-less-work',
+		'guid'      => 'https://starter.test/anima-blog/template-less-work/',
+		'meta'      => array(
+			'_wp_page_template' => array( 'archive-portfolio' ),
+		),
+	)
+);
+
+$GLOBALS['paf_remote_posts']['wp_template'][125] = paf_source_post_record(
+	125,
+	'wp_template',
+	'Portfolio Archive',
+	array(
+		'post_name'    => 'archive-portfolio',
+		'post_content' => '<!-- wp:query {"query":{"postType":"portfolio"}} /-->',
+	)
+);
+
+$GLOBALS['paf_remote_posts']['wp_template'][126] = paf_source_post_record(
+	126,
+	'wp_template',
+	'Filtered Portfolio Archive',
+	array(
+		'post_name'    => 'filtered-portfolio',
+		'post_content' => '<!-- wp:query {"query":{"postType":"portfolio"}} /-->',
+	)
+);
+
 $GLOBALS['paf_remote_posts']['nav_menu_item'][1162] = paf_source_post_record(
 	1162,
 	'nav_menu_item',
@@ -567,6 +671,11 @@ $source_data = array(
 	),
 	'post_types'    => array(
 		array(
+			'name'     => 'page',
+			'ids'      => array( 131, 132, 133 ),
+			'priority' => 10,
+		),
+		array(
 			'name'     => 'post',
 			'ids'      => array( 18 ),
 			'priority' => 10,
@@ -575,6 +684,11 @@ $source_data = array(
 				'name'     => 'nav_menu_item',
 				'ids'      => array( 1162 ),
 				'priority' => 900,
+			),
+			array(
+				'name'     => 'wp_template',
+				'ids'      => array( 125, 126 ),
+				'priority' => 910,
 			),
 		),
 		'post_settings' => array(
@@ -589,6 +703,20 @@ $source_data = array(
 );
 
 $starter_content = new PixelgradeAssistant_StarterContent( (object) array( 'file' => __FILE__ ) );
+add_filter(
+	'pixassist_sce_insert_post_args',
+	function ( $post_args, $post ) {
+		if ( 132 === $post['ID'] ) {
+			$post_args['meta_input']['_wp_page_template'] = 'filtered-portfolio';
+		} elseif ( 133 === $post['ID'] ) {
+			unset( $post_args['meta_input']['_wp_page_template'] );
+		}
+
+		return $post_args;
+	},
+	10,
+	2
+);
 $result          = $starter_content->import_starter( 'anima-blog', 'https://starter.test/anima-blog/wp-json/sce/v2/', $source_data );
 
 assert_same( 'success', $result['code'], 'The full starter import should succeed.' );
@@ -612,6 +740,50 @@ assert_same( array( 2002 ), $GLOBALS['paf_inserted_posts'][ $local_primary_menu_
 
 $local_post_id = $imported['post_types']['post'][18];
 assert_same( 'quote', $GLOBALS['paf_post_formats'][ $local_post_id ], 'Imported posts should keep their source post format even when SCE omits it and WP REST has it.' );
+$local_work_id = $imported['post_types']['page'][131];
+assert_same(
+	'archive-portfolio',
+	get_post_meta( $local_work_id, '_wp_page_template', true ),
+	'A page template imported before its matching wp_template must survive the importer post-processing update.'
+);
+$local_filtered_work_id = $imported['post_types']['page'][132];
+assert_same(
+	'filtered-portfolio',
+	get_post_meta( $local_filtered_work_id, '_wp_page_template', true ),
+	'Post-argument filters that transform a late page template must survive importer post-processing.'
+);
+$local_template_less_work_id = $imported['post_types']['page'][133];
+assert_same(
+	'',
+	get_post_meta( $local_template_less_work_id, '_wp_page_template', true ),
+	'Post-argument filters that remove a source page template must not have it restored after post-processing.'
+);
+
+update_post_meta( $local_work_id, '_wp_page_template', 'default' );
+update_post_meta( $local_filtered_work_id, '_wp_page_template', 'default' );
+$GLOBALS['paf_return_permalinks'] = false;
+$starter_content->import_starter( 'anima-blog', 'https://starter.test/anima-blog/wp-json/sce/v2/', $source_data );
+assert_same(
+	'archive-portfolio',
+	get_post_meta( $local_work_id, '_wp_page_template', true ),
+	'Re-importing must repair an importer-owned default template even when no unrelated post update is needed.'
+);
+assert_same(
+	'filtered-portfolio',
+	get_post_meta( $local_filtered_work_id, '_wp_page_template', true ),
+	'Re-importing must repair a filtered template from its effective imported value, not the raw starter value.'
+);
+$GLOBALS['paf_return_permalinks'] = true;
+
+update_post_meta( $local_work_id, '_wp_page_template', 'custom-portfolio' );
+$GLOBALS['paf_available_page_templates']['custom-portfolio'] = true;
+$starter_content->import_starter( 'anima-blog', 'https://starter.test/anima-blog/wp-json/sce/v2/', $source_data );
+assert_same(
+	'custom-portfolio',
+	get_post_meta( $local_work_id, '_wp_page_template', true ),
+	'Re-importing must preserve an explicit page-template choice made after the original starter import.'
+);
+
 assert_same( 'editorial', $GLOBALS['paf_wp_options']['sm_site_frame_style'], 'Site Frame style should be inferred from source frontend classes when SCE omits it.' );
 assert_same( 2, $GLOBALS['paf_wp_options']['sm_site_frame_palette'], 'Site Frame palette should be inferred from source frontend classes when SCE omits it.' );
 assert_same( 12, $GLOBALS['paf_wp_options']['sm_site_frame_variation'], 'Site Frame variation should be inferred from source frontend classes when SCE omits it.' );
