@@ -10804,6 +10804,9 @@ HTML;
 					if ( isset( $starter_content[ $demo_key ][ $group ][ $type ] ) && is_array( $starter_content[ $demo_key ][ $group ][ $type ] ) ) {
 						unset( $starter_content[ $demo_key ][ $group ][ $type ][ $source_id ] );
 					}
+					if ( 'post_types' === $group && 'page' === $type && isset( $starter_content[ $demo_key ]['effective_page_templates'] ) ) {
+						unset( $starter_content[ $demo_key ]['effective_page_templates'][ $source_id ] );
+					}
 				}
 			}
 		}
@@ -10871,6 +10874,9 @@ HTML;
 				foreach ( $map as $source_id => $local_id ) {
 					if ( isset( $starter_content[ $demo_key ][ $group ][ $type ] ) && is_array( $starter_content[ $demo_key ][ $group ][ $type ] ) ) {
 						unset( $starter_content[ $demo_key ][ $group ][ $type ][ $source_id ] );
+					}
+					if ( 'post_types' === $group && 'page' === $type && isset( $starter_content[ $demo_key ]['effective_page_templates'] ) ) {
+						unset( $starter_content[ $demo_key ]['effective_page_templates'][ $source_id ] );
 					}
 				}
 			}
@@ -11188,7 +11194,9 @@ HTML;
 	 * @return bool|array|WP_REST_Response False on failure, the imported post IDs otherwise.
 	 */
 	private function import_post_type( $demo_key, $base_url, $args = array() ) {
-		$imported_ids = array();
+		$imported_ids             = array();
+		$reused_existing_ids      = array();
+		$effective_page_templates = array();
 
 		if ( empty( $args['ids'] ) ) {
 			return false;
@@ -11340,6 +11348,7 @@ HTML;
 						// collect_starter_media_items()) but the post keeps URLs/ids of the deleted ones and
 						// its cleared `_thumbnail_id` stays cleared. Repair importer-owned posts from the
 						// fresh source record so a re-import actually restores their images.
+						$reused_existing_ids[ $post['ID'] ] = $imported_ids[ $post['ID'] ];
 						$this->maybe_repair_imported_post_media( $imported_ids[ $post['ID'] ], $post, $demo_key );
 						continue;
 					}
@@ -11420,6 +11429,19 @@ HTML;
 				// Allow others to have a say in it.
 				$post_args = apply_filters( 'pixassist_sce_insert_post_args', $post_args, $post, $demo_key );
 
+				if ( 'page' === $post['post_type'] ) {
+					$effective_page_templates[ $post['ID'] ] = '';
+					if ( ! empty( $post_args['meta_input']['_wp_page_template'] ) ) {
+						$effective_page_template = $post_args['meta_input']['_wp_page_template'];
+						if ( is_array( $effective_page_template ) ) {
+							$effective_page_template = reset( $effective_page_template );
+						}
+						if ( is_string( $effective_page_template ) ) {
+							$effective_page_templates[ $post['ID'] ] = $effective_page_template;
+						}
+					}
+				}
+
 				// Since wp_insert_post() at post.php@L3884 does a wp_unslash() on the whole post data, we need to do a wp_slash() to prevent things from breaking.
 				$post_args = wp_slash_strings_only( $post_args );
 
@@ -11455,6 +11477,24 @@ HTML;
 
 			if ( ! isset( $imported_ids[ $post['ID'] ] ) ) {
 				continue;
+			}
+
+			$source_page_template = array_key_exists( $post['ID'], $effective_page_templates )
+				? $effective_page_templates[ $post['ID'] ]
+				: '';
+			if ( ! array_key_exists( $post['ID'], $effective_page_templates )
+				&& isset( $starter_content[ $demo_key ]['effective_page_templates'] )
+				&& is_array( $starter_content[ $demo_key ]['effective_page_templates'] )
+				&& array_key_exists( $post['ID'], $starter_content[ $demo_key ]['effective_page_templates'] ) ) {
+				$source_page_template = $starter_content[ $demo_key ]['effective_page_templates'][ $post['ID'] ];
+			} elseif ( ! array_key_exists( $post['ID'], $effective_page_templates )
+				&& 'page' === $post['post_type']
+				&& ! empty( $post['meta']['_wp_page_template'] ) ) {
+				$source_page_template = $post['meta']['_wp_page_template'];
+				if ( is_array( $source_page_template ) ) {
+					$source_page_template = reset( $source_page_template );
+				}
+				$source_page_template = is_string( $source_page_template ) ? $source_page_template : '';
 			}
 
 			$update_args = array(
@@ -11510,11 +11550,39 @@ HTML;
 				wp_update_post( $update_args );
 			}
 
+			// wp_update_post() merges the WP_Post object's magic `page_template`
+			// property into the update. When a block template is scheduled later in
+			// the starter manifest, Core does not know it yet and resets the imported
+			// `_wp_page_template` meta to `default`. Restore the effective imported
+			// value, and repair importer-owned pages affected by earlier imports.
+			if ( '' !== $source_page_template ) {
+				$current_page_template = get_post_meta( $update_args['ID'], '_wp_page_template', true );
+				$should_restore_template = in_array( $current_page_template, array( '', 'default' ), true )
+					&& (
+						! isset( $reused_existing_ids[ $post['ID'] ] )
+						|| get_post_meta( $update_args['ID'], 'imported_with_pixassist', true )
+					);
+
+				if ( $should_restore_template && $source_page_template !== $current_page_template ) {
+					update_post_meta( $update_args['ID'], '_wp_page_template', $source_page_template );
+				}
+			}
+
 			do_action( 'pixassist_sce_after_insert_post', $post, $imported_ids, $demo_key );
 		}
 
 		// Remember the imported post IDs
 		$starter_content[ $demo_key ]['post_types'][ $args['post_type'] ] = $imported_ids;
+		if ( ! empty( $effective_page_templates ) ) {
+			if ( empty( $starter_content[ $demo_key ]['effective_page_templates'] )
+				|| ! is_array( $starter_content[ $demo_key ]['effective_page_templates'] ) ) {
+				$starter_content[ $demo_key ]['effective_page_templates'] = array();
+			}
+			$starter_content[ $demo_key ]['effective_page_templates'] = array_replace(
+				$starter_content[ $demo_key ]['effective_page_templates'],
+				$effective_page_templates
+			);
+		}
 		// Save the data in the DB
 		PixelgradeAssistant_Admin::set_option( 'imported_starter_content', $starter_content );
 		PixelgradeAssistant_Admin::save_options();
