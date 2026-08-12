@@ -279,7 +279,7 @@ assert_same( 'Get Help', $help['label'], 'The Help CTA must read "Get Help".' );
 
 assert_same( 'discover', $overview['plus']['state'], 'Inactive Plus must be in the discover state.' );
 assert_same( false, $overview['plus']['isActive'], 'Inactive Plus must report isActive=false.' );
-assert_same( 'https://pixelgrade.com/plus/', $overview['plus']['url'], 'Discover state links to the shop plus page.' );
+assert_same( 'https://pixelgrade.com/plus/?utm_source=assistant&utm_medium=product&utm_campaign=assistant-hub&utm_content=home_plus_discover', $overview['plus']['url'], 'Discover state links to the shop plus page with attribution — without UTM these clicks are invisible in GA4.' );
 assert_true( '' !== $overview['plus']['label'], 'Plus card must carry a CTA label.' );
 
 assert_true( is_array( $overview['account'] ), 'Overview must carry the account identity.' );

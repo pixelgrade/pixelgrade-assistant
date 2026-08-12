@@ -802,7 +802,10 @@ if ( ! function_exists( 'pixassist_get_overview_plus_card' ) ) {
 		$product_label = ! empty( $status['plus_product_label'] ) ? (string) $status['plus_product_label'] : 'Pixelgrade Plus';
 		$settings_url  = ! empty( $status['plus_settings_url'] ) ? (string) $status['plus_settings_url'] : '';
 		$shop_base     = defined( 'PIXELGRADE_ASSISTANT__SHOP_BASE' ) ? PIXELGRADE_ASSISTANT__SHOP_BASE : 'https://pixelgrade.com/';
-		$discover_url  = trailingslashit( $shop_base ) . 'plus/';
+		// Attribution: without UTM these clicks land as unattributable direct/referral traffic in
+		// GA4, and the in-product discovery loop — the mechanism the whole model depends on —
+		// cannot be measured. Durable campaign name; not tied to any one experiment.
+		$discover_url  = trailingslashit( $shop_base ) . 'plus/?utm_source=assistant&utm_medium=product&utm_campaign=assistant-hub&utm_content=home_plus_discover';
 		$account_url   = pixassist_get_hub_url( 'account', 'plus' );
 
 		if ( empty( $status['is_plus_active'] ) ) {
