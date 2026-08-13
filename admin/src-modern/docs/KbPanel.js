@@ -534,7 +534,6 @@ function BaseEscalation( { context, allArticles, onOpenArticle, prefill } ) {
 		} ),
 		createElement( TextControl, {
 			label: getCopy( 'ticketSubjectLabel', __( 'Subject', 'pixelgrade_assistant' ) ),
-			__next40pxDefaultSize: true,
 			value: subject,
 			onChange: setSubject,
 			maxLength: subjectMaxLength,
@@ -691,7 +690,6 @@ export function KbPanel( { context, layout, EscalationSlot, showEscalation = tru
 		createElement( TextControl, {
 			className: extraClass,
 			label: getCopy( 'searchPlaceholder', __( 'Search the documentation...', 'pixelgrade_assistant' ) ),
-			__next40pxDefaultSize: true,
 			hideLabelFromVision: true,
 			type: 'search',
 			value: search,

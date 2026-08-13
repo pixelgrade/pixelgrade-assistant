@@ -262,7 +262,6 @@ function ResetActionCard( {
 							onChange: setAnswer,
 							type: 'number',
 							disabled: busy,
-							__next40pxDefaultSize: true,
 						} ),
 						createElement(
 							Flex,

@@ -86,7 +86,6 @@ export function LibraryToolbar( {
 					'div',
 					{ className: 'pixassist-library-toolbar__control', style: { minWidth: '150px' } },
 					createElement( SelectControl, {
-						__next40pxDefaultSize: true,
 						__nextHasNoMarginBottom: true,
 						hideLabelFromVision: true,
 						label: typeFilterLabel,
@@ -99,7 +98,6 @@ export function LibraryToolbar( {
 					'div',
 					{ className: 'pixassist-library-toolbar__control', style: { minWidth: '150px' } },
 					createElement( SelectControl, {
-						__next40pxDefaultSize: true,
 						__nextHasNoMarginBottom: true,
 						hideLabelFromVision: true,
 						label: sourceFilterLabel,
@@ -148,7 +146,6 @@ export function LibraryToolbar( {
 									{ style: { minWidth: '220px', padding: '4px 8px 0' } },
 									createElement( RangeControl, {
 										__nextHasNoMarginBottom: true,
-										__next40pxDefaultSize: true,
 										label: __( 'Preview size', 'pixelgrade_assistant' ),
 										value: PREVIEW_SIZE_MAX_COLUMNS + 1 - columns,
 										onChange: ( value ) =>
