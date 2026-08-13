@@ -1,6 +1,6 @@
 {
 	"name": "pixelgrade_assistant",
-	"version": "2.3.2",
+	"version": "2.3.3",
 	"description": "Caring is the coolest thing",
 	"main": "admin/js/setup_wizard.js",
 	"repository": "git+https://github.com/pixelgrade/pixelgrade-assistant.git",
@@ -31,7 +31,6 @@
 		"@material-ui/styles": "^4.11.5",
 		"@wordpress/api-fetch": "^7.50.0",
 		"@wordpress/icons": "^15.0.0",
-		"@wordpress/interface": "^9.34.0",
 		"core-js": "^3.22.0",
 		"entities": "^4.3.0",
 		"lodash": "^4.17.15",

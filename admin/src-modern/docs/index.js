@@ -7,11 +7,10 @@
  * through the ./events bus. No JSX: WordPress 5.9 is still supported.
  */
 import { createElement, Fragment, useEffect, useState } from '@wordpress/element';
-import { Button } from '@wordpress/components';
+import { Button, Fill } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
 import { registerPlugin } from '@wordpress/plugins';
 import { PluginMoreMenuItem } from '@wordpress/editor';
-import { PinnedItems } from '@wordpress/interface';
 import { useCommand } from '@wordpress/commands';
 import { help as helpIcon } from '@wordpress/icons';
 import { getDocsData } from './data';
@@ -48,16 +47,11 @@ function toggleDocs( state ) {
 }
 
 // Pinned toolbar button — the primary, most-discoverable launcher, matching the editor's other pinned
-// plugin icons. PinnedItems IS the Fill; its slot name is `PinnedItems/<scope>` in the shared
-// wp-components registry. The editor mounts a single PinnedItems slot, but the scope differs by
-// editor/version (post vs site vs unified `core`), so we fill each candidate — only the active
-// editor's mounted slot renders, giving exactly one button.
+// plugin icons. Fill the editor's `PinnedItems/<scope>` slot directly through wp-components. This is
+// the complete behavior we need from the private @wordpress/interface PinnedItems wrapper, whose
+// wp-interface script handle is no longer registered by WordPress 7.1.
 function DocsToolbarButton( { label } ) {
 	const state = useDocsWindowState();
-
-	if ( ! PinnedItems ) {
-		return null;
-	}
 
 	const button = () =>
 		createElement( Button, {
@@ -71,9 +65,9 @@ function DocsToolbarButton( { label } ) {
 	return createElement(
 		Fragment,
 		null,
-		createElement( PinnedItems, { scope: 'core' }, button() ),
-		createElement( PinnedItems, { scope: 'core/edit-site' }, button() ),
-		createElement( PinnedItems, { scope: 'core/edit-post' }, button() )
+		createElement( Fill, { name: 'PinnedItems/core' }, button() ),
+		createElement( Fill, { name: 'PinnedItems/core/edit-site' }, button() ),
+		createElement( Fill, { name: 'PinnedItems/core/edit-post' }, button() )
 	);
 }
 

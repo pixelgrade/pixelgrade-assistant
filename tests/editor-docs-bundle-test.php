@@ -1,12 +1,9 @@
 <?php
 /**
- * Pins the editor docs launcher bundle against bundling @wordpress/interface.
+ * Keeps the editor docs launcher independent from the removed wp-interface handle.
  *
- * WordPress core registers the `core/interface` data store in the block editors.
- * If the docs launcher embeds @wordpress/interface instead of depending on the
- * core `wp-interface` script handle, the Site Editor logs:
- *
- *     Store "core/interface" is already registered.
+ * WordPress 7.1 no longer registers or exposes `wp-interface`. The toolbar
+ * launcher uses the public components SlotFill API directly instead.
  *
  * Standalone: run with `php tests/editor-docs-bundle-test.php`.
  *
@@ -34,19 +31,25 @@ $asset = require $asset_path;
 
 assert_true( is_array( $asset ), 'The editor docs asset manifest must return an array.' );
 assert_true( isset( $asset['dependencies'] ) && is_array( $asset['dependencies'] ), 'The editor docs asset manifest must declare dependencies.' );
-assert_true(
+assert_false(
 	in_array( 'wp-interface', $asset['dependencies'], true ),
-	'The editor docs launcher must depend on core wp-interface instead of bundling @wordpress/interface.'
+	'The editor docs launcher must not depend on the removed wp-interface script handle.'
 );
 
 $bundle = file_get_contents( $bundle_path );
 
 assert_false(
+	false !== strpos( $bundle, 'window.wp.interface' ) ||
 	false !== strpos( $bundle, 'createReduxStore)("core/interface"' ) ||
 	false !== strpos( $bundle, 'createReduxStore)(\'core/interface\'' ) ||
 	false !== strpos( $bundle, 'createReduxStore("core/interface"' ) ||
 	false !== strpos( $bundle, 'createReduxStore(\'core/interface\'' ),
 	'The editor docs launcher must not bundle the core/interface Redux store.'
+);
+
+assert_true(
+	false !== strpos( $bundle, 'PinnedItems/' ),
+	'The editor docs launcher must fill the editor PinnedItems slot directly.'
 );
 
 echo "Editor docs bundle dependencies OK\n";

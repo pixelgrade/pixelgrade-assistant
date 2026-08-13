@@ -4,7 +4,7 @@ Tags: dashboard, starter-content, demo-content, recommended-plugins, pixelgrade
 Requires at least: 5.9
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 2.3.2
+Stable tag: 2.3.3
 License: GPLv3.0
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -100,6 +100,10 @@ Pixelgrade Assistant does not perform advertising, cross-site, or event-level be
 4. Preview the live color, typography, and spacing systems, then jump straight into the matching Style Manager controls.
 
 == Changelog ==
+
+= 2.3.3 =
+* WordPress 7.1 compatibility: updated editor controls to use current core component defaults, restored the documentation toolbar launcher, and verified the Assistant hub, documentation window, and editor integrations.
+* Pixelgrade Plus discovery links from the Assistant hub now carry stable campaign attribution so their contribution can be measured.
 
 = 2.3.2 =
 * Starter imports now preserve every saved, schema-backed Style Manager choice, including motion settings that remain dormant until Pixelgrade Plus is licensed.
