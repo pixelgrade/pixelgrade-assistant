@@ -80,7 +80,7 @@ $data = pixassist_get_admin_hub_data();
 
 $keys = array_keys( $data );
 sort( $keys );
-assert_same( array( 'baseUrl', 'defaultTab', 'tabAliases', 'tabs' ), $keys, 'Hub data must expose exactly tabs/defaultTab/baseUrl/tabAliases.' );
+assert_same( array( 'baseUrl', 'defaultTab', 'extensionSurfaces', 'tabAliases', 'tabs' ), $keys, 'Hub data must expose tabs/defaultTab/baseUrl/tabAliases and its versioned extension surfaces.' );
 assert_same( array(), $data['tabs'], 'With no registered tabs, tabs must be an empty array.' );
 assert_same( '', $data['defaultTab'], 'With no registered tabs, defaultTab must be empty.' );
 assert_same( 'https://example.test/wp-admin/admin.php?page=pixelgrade', $data['baseUrl'], 'baseUrl must point at the top-level hub page (admin.php form).' );
@@ -89,6 +89,7 @@ assert_same( array( 'tab' => 'design-library', 'section' => 'starter-sites' ), $
 assert_same( array( 'tab' => 'design-library', 'section' => 'layouts' ), $data['tabAliases']['layouts'], 'Legacy Layouts links must route to the Design Library layouts (Site Parts) section.' );
 assert_same( array( 'tab' => 'design-library', 'section' => 'content' ), $data['tabAliases']['content'], 'Legacy Page Patterns links must route to the Design Library content section.' );
 assert_same( array( 'tab' => 'design-library', 'section' => 'starter-sites' ), $data['tabAliases']['recipes'], 'Legacy Recipes links must route to the Design Library starter-sites section because recipes live in that flow.' );
+assert_same( 1, $data['extensionSurfaces']['setupPluginRows'] ?? null, 'The host must advertise version 1 of the in-list Setup plugin-row surface.' );
 
 /*
  * With registered tabs, the hub data carries the normalized + sorted registry and defaults to the

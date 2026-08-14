@@ -4,6 +4,7 @@ import { addFilter, removeAllFilters } from '@wordpress/hooks';
 import { Plugins } from './Plugins';
 
 const FILTER = 'pixelgrade.adminHub.setupSections';
+const PLUGIN_ROWS_FILTER = 'pixelgrade.adminHub.setupPluginRows';
 const NAMESPACE = 'pixelgrade-assistant/test-setup-sections';
 
 function FirstSection( props ) {
@@ -12,6 +13,14 @@ function FirstSection( props ) {
 
 function SecondSection() {
 	return createElement( 'p', { className: 'second-section' }, 'second' );
+}
+
+function AdvancedFilteringRow( props ) {
+	return createElement(
+		'p',
+		{ className: 'advanced-filtering-row' },
+		'row:' + props.sectionId + ':' + props.setupData.marker
+	);
 }
 
 describe( 'Setup tab — contributed sections', () => {
@@ -105,6 +114,81 @@ describe( 'Setup tab — contributed sections', () => {
 
 		expect( rendered.getAttribute( 'data-setup-section' ) ).toBe( 'fonts20' );
 		expect( rendered.id ).toBe( 'pixelgrade-setup-section-fonts20' );
+	} );
+} );
+
+describe( 'Setup tab — contributed Recommended plugin rows', () => {
+	let container;
+	let root;
+
+	beforeEach( () => {
+		container = document.createElement( 'div' );
+		document.body.appendChild( container );
+		root = createRoot( container );
+		window.pixelgradePlugins = {
+			plugins: [],
+			copy: { empty: 'No recommended plugins.' },
+			readiness: {},
+			marker: 'host-data',
+		};
+	} );
+
+	afterEach( () => {
+		flushSync( () => root.unmount() );
+		container.remove();
+		removeAllFilters( PLUGIN_ROWS_FILTER );
+		delete window.pixelgradePlugins;
+	} );
+
+	function renderPlugins() {
+		flushSync( () => {
+			root.render( createElement( Plugins ) );
+		} );
+
+		return container;
+	}
+
+	test( 'renders a companion-owned row inside the Recommended plugins list and suppresses the empty notice', () => {
+		addFilter( PLUGIN_ROWS_FILTER, NAMESPACE, ( rows ) => [
+			...rows,
+			{ id: 'advanced-filtering', order: 30, component: AdvancedFilteringRow },
+		] );
+
+		const result = renderPlugins();
+		const row = result.querySelector( '[data-setup-plugin-row="advanced-filtering"]' );
+
+		expect( row ).not.toBeNull();
+		expect( row.id ).toBe( 'pixelgrade-setup-plugin-row-advanced-filtering' );
+		expect( row.style.marginTop ).toBe( '0px' );
+		expect( row.style.marginBottom ).toBe( '12px' );
+		expect( row.querySelector( '.advanced-filtering-row' ).textContent ).toBe(
+			'row:advanced-filtering:host-data'
+		);
+		expect( result.textContent ).not.toContain( 'No recommended plugins.' );
+		expect(
+			result.querySelector( '.pixelgrade-plugins__intro' ).compareDocumentPosition( row ) &
+				Node.DOCUMENT_POSITION_FOLLOWING
+		).toBeTruthy();
+	} );
+
+	test( 'normalizes order and drops malformed or duplicate plugin-row descriptors', () => {
+		addFilter( PLUGIN_ROWS_FILTER, NAMESPACE, () => [
+			{ id: '', component: AdvancedFilteringRow },
+			{ id: 'bad-component', component: 'not-a-function' },
+			{ id: ' Second Row! ', order: 20, component: SecondSection },
+			{ id: 'advanced-filtering', order: 30, component: AdvancedFilteringRow },
+			{ id: 'advanced-filtering', order: 1, component: SecondSection },
+			null,
+		] );
+
+		const result = renderPlugins();
+		const rows = result.querySelectorAll( '[data-setup-plugin-row]' );
+
+		expect( rows ).toHaveLength( 2 );
+		expect( rows[ 0 ].getAttribute( 'data-setup-plugin-row' ) ).toBe( 'secondrow' );
+		expect( rows[ 1 ].getAttribute( 'data-setup-plugin-row' ) ).toBe( 'advanced-filtering' );
+		expect( rows[ 1 ].querySelector( '.advanced-filtering-row' ) ).not.toBeNull();
+		expect( rows[ 1 ].querySelector( '.second-section' ) ).toBeNull();
 	} );
 } );
 

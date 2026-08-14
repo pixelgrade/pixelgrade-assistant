@@ -15,6 +15,8 @@ import { canManageThemeSetup, ensureThemeActive } from './ThemeSetup';
 
 const SETUP_SECTIONS_FILTER = 'pixelgrade.adminHub.setupSections';
 const SETUP_SECTION_ID_PREFIX = 'pixelgrade-setup-section-';
+const SETUP_PLUGIN_ROWS_FILTER = 'pixelgrade.adminHub.setupPluginRows';
+const SETUP_PLUGIN_ROW_ID_PREFIX = 'pixelgrade-setup-plugin-row-';
 
 const DEFAULT_PLUGINS = {
 	plugins: [],
@@ -761,6 +763,25 @@ function renderSetupSections( data ) {
 	} );
 }
 
+/**
+ * Companion-owned rows rendered as first-class Recommended plugin cards.
+ *
+ * Assistant owns only the normalized component port and its placement. Each companion owns its
+ * component, payload, actions, and security decisions, so commercial package data never enters
+ * Assistant's plugin payload.
+ */
+function getSetupPluginRows( data ) {
+	return getContributedSections( SETUP_PLUGIN_ROWS_FILTER, data );
+}
+
+function renderSetupPluginRows( rows, data ) {
+	return renderContributedSections( rows, {
+		idPrefix: SETUP_PLUGIN_ROW_ID_PREFIX,
+		extraProps: { setupData: data },
+		containerStyle: { margin: '0 0 12px' },
+	} );
+}
+
 export function Plugins() {
 	const data = getPluginsData();
 	const copy = data.copy || DEFAULT_PLUGINS.copy;
@@ -769,8 +790,10 @@ export function Plugins() {
 	const [ plugins, setPlugins ] = useState( Array.isArray( data.plugins ) ? data.plugins : [] );
 	const [ themeSetup, setThemeSetup ] = useState( data.themeSetup || {} );
 	const [ notice, setNotice ] = useState( null );
+	const contributedPluginRows = getSetupPluginRows( data );
 
 	useSectionDeepLink( SETUP_SECTION_ID_PREFIX );
+	useSectionDeepLink( SETUP_PLUGIN_ROW_ID_PREFIX );
 
 	const updatePlugin = ( slug, patch ) => {
 		setPlugins( ( current ) =>
@@ -810,8 +833,13 @@ export function Plugins() {
 				  )
 				: null
 		),
-		plugins.length
-			? plugins.map( ( plugin ) => renderPlugin( plugin, updatePlugin, copy, setNotice ) )
+		plugins.length || contributedPluginRows.length
+			? createElement(
+					Fragment,
+					null,
+					plugins.map( ( plugin ) => renderPlugin( plugin, updatePlugin, copy, setNotice ) ),
+					renderSetupPluginRows( contributedPluginRows, data )
+			  )
 			: createElement(
 					Notice,
 					{ status: 'info', isDismissible: false },

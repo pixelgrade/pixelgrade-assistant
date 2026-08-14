@@ -404,5 +404,7 @@ assert_true( false !== strpos( $plugins_js, 'scheduleStatusRefresh' ), 'Setup JS
 assert_true( false !== strpos( $plugins_js, 'window.location.reload()' ), 'Setup JS must reload the page so stale plugin status is replaced automatically.' );
 assert_true( false !== strpos( $plugins_js, "plugin.actionType === 'external'" ), 'Setup JS must render external Plus hand-offs without calling wp.updates.installPlugin.' );
 assert_true( false !== strpos( $plugins_js, 'ensureThemeActive' ), 'Setup must install and activate Anima LT directly from the active-theme blocker.' );
+assert_true( false !== strpos( $plugins_js, 'pixelgrade.adminHub.setupPluginRows' ), 'Setup must expose the curated companion plugin-row filter inside Recommended plugins.' );
+assert_true( false !== strpos( $plugins_js, 'pixelgrade-setup-plugin-row-' ), 'Contributed plugin rows must keep a stable deep-linkable host wrapper.' );
 
 echo "Admin Plugins tab OK\n";

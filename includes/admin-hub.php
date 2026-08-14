@@ -134,6 +134,7 @@ if ( ! function_exists( 'pixassist_get_admin_hub_data' ) ) {
 	 *     @type array[] $tabs       Normalized visible tabs (see pixassist_get_admin_hub_tabs()).
 	 *     @type string  $defaultTab Id of the first visible tab (lowest order), or '' when none.
 	 *     @type string  $baseUrl    Admin URL of the hub page (for `?tab=` deep links).
+	 *     @type array   $extensionSurfaces Versioned client extension surfaces supported by this host.
 	 *     @type array   $tabAliases Legacy tab ids mapped to current ids — either a plain target id
 	 *                               string, or `array( 'tab' => …, 'section' => … )` when the legacy
 	 *                               id maps to a section inside a merged tab.
@@ -144,10 +145,13 @@ if ( ! function_exists( 'pixassist_get_admin_hub_data' ) ) {
 		$default_tab = ! empty( $tabs ) ? $tabs[0]['id'] : '';
 
 		return array(
-			'tabs'       => $tabs,
-			'defaultTab' => $default_tab,
-			'baseUrl'    => pixassist_get_hub_url(),
-			'tabAliases' => pixassist_get_admin_hub_tab_aliases(),
+			'tabs'              => $tabs,
+			'defaultTab'        => $default_tab,
+			'baseUrl'           => pixassist_get_hub_url(),
+			'tabAliases'        => pixassist_get_admin_hub_tab_aliases(),
+			'extensionSurfaces' => array(
+				'setupPluginRows' => 1,
+			),
 		);
 	}
 }

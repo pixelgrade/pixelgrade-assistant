@@ -10,6 +10,8 @@
  *   - pixassist_get_admin_hub_tabs(): normalized list of hub tabs registered via the
  *     `pixelgrade/admin_hub/tabs` PHP filter. The hub React app (#43) localizes this and re-applies
  *     the JS filter `pixelgrade.adminHub.tabs` (@wordpress/hooks) before rendering.
+ *   - pixassist_get_admin_hub_data(): bootstraps versioned `extensionSurfaces` capabilities so
+ *     independently deployed companions can negotiate newer host placement APIs.
  *   - pixassist_get_account() / pixassist_is_account_connected(): host-owned account READ accessors.
  *     Identity only — never OAuth tokens/secrets.
  *   - pixassist_get_account_credentials() (defined by includes/account.php): PHP-only OAuth

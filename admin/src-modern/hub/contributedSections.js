@@ -6,7 +6,8 @@
  * descriptors ({ id, component, order }) for sections rendered below it, without the host tab knowing
  * anything about their contents. First introduced for the Styles tab
  * (`pixelgrade.adminHub.stylesSections`, pixelgrade-assistant#66) and generalized here so the Setup
- * tab (`pixelgrade.adminHub.setupSections`) can reuse the exact same behavior: normalization, sort
+ * tab (`pixelgrade.adminHub.setupSections`) and its in-list companion rows
+ * (`pixelgrade.adminHub.setupPluginRows`) can reuse the exact same behavior: normalization, sort
  * order, container markup, and the `?tab=<tab>&section=<id>` deep-link scroll/focus/highlight.
  */
 import { createElement, useEffect } from '@wordpress/element';
@@ -101,13 +102,16 @@ export function getContributedSections( filterName, data ) {
  * @param {string} options.idPrefix     Container id prefix, e.g. `pixelgrade-styles-section-`. Also
  *                                      derives the CSS class base and `data-*` attribute name (see
  *                                      idPrefixParts()).
- * @param {Object} [options.extraProps] Extra props merged into each component's props alongside
- *                                      `sectionId` (e.g. `{ stylesData }` or `{ setupData }`).
+ * @param {Object} [options.extraProps]     Extra props merged into each component's props alongside
+ *                                          `sectionId` (e.g. `{ stylesData }` or `{ setupData }`).
+ * @param {Object} [options.containerStyle] Optional wrapper style. Defaults to the vertical section
+ *                                          spacing used by contributed tab sections.
  * @return {Array} React elements.
  */
-export function renderContributedSections( sections, { idPrefix, extraProps } = {} ) {
+export function renderContributedSections( sections, { idPrefix, extraProps, containerStyle } = {} ) {
 	const { classBase, dataAttr } = idPrefixParts( idPrefix );
 	const baseProps = extraProps || {};
+	const wrapperStyle = containerStyle || { marginTop: '24px' };
 
 	return ( sections || [] ).map( ( section ) => {
 		const SectionComponent = section.component;
@@ -120,7 +124,7 @@ export function renderContributedSections( sections, { idPrefix, extraProps } = 
 				className: classBase + ' ' + classBase + '--' + section.id,
 				[ 'data-' + dataAttr ]: section.id,
 				tabIndex: '-1',
-				style: { marginTop: '24px' },
+				style: wrapperStyle,
 			},
 			createElement( SectionComponent, { ...baseProps, sectionId: section.id } )
 		);
