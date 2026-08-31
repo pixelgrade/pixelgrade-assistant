@@ -7,20 +7,42 @@ namespace Composer\Autoload;
 class ComposerStaticInitd98a8e17c5f40f2bda5705caf42b3d19
 {
     public static $prefixLengthsPsr4 = array (
-        'C' => 
+        'W' =>
+        array (
+            'WP\\McpSchema\\' => 13,
+            'WP\\MCP\\' => 7,
+        ),
+        'C' =>
         array (
             'Composer\\Semver\\' => 16,
+        ),
+        'A' =>
+        array (
+            'Automattic\\Jetpack\\Autoloader\\' => 30,
         ),
     );
 
     public static $prefixDirsPsr4 = array (
-        'Composer\\Semver\\' => 
+        'WP\\McpSchema\\' =>
+        array (
+            0 => __DIR__ . '/..' . '/wordpress/php-mcp-schema/src',
+        ),
+        'WP\\MCP\\' =>
+        array (
+            0 => __DIR__ . '/..' . '/wordpress/mcp-adapter/includes',
+        ),
+        'Composer\\Semver\\' =>
         array (
             0 => __DIR__ . '/..' . '/composer/semver/src',
+        ),
+        'Automattic\\Jetpack\\Autoloader\\' =>
+        array (
+            0 => __DIR__ . '/..' . '/automattic/jetpack-autoloader/src',
         ),
     );
 
     public static $classMap = array (
+        'Automattic\\Jetpack\\Autoloader\\AutoloadGenerator' => __DIR__ . '/..' . '/automattic/jetpack-autoloader/src/AutoloadGenerator.php',
         'Composer\\InstalledVersions' => __DIR__ . '/..' . '/composer/InstalledVersions.php',
     );
 

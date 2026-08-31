@@ -49,56 +49,13 @@ class PixelgradeAssistant_CLI_Recipe_Command {
 	public function list_recipes( $args, $assoc_args ) {
 		PixelgradeAssistant_CLI_Envelope::require_capability( 'manage_options', $assoc_args );
 
-		$starter_content = $this->get_starter_content();
-		if ( ! $starter_content ) {
-			$this->halt_assistant_unavailable( $assoc_args );
-
-			return;
-		}
-
-		$sources     = array();
+		// The comma-separated flag is the CLI's own encoding; the ability takes a real array. Both
+		// resolve through the same PixelgradeAssistant_Agent_Core::resolve_recipe_sources().
 		$source_flag = \WP_CLI\Utils\get_flag_value( $assoc_args, 'source', '' );
+		$ids         = ( '' !== $source_flag && null !== $source_flag ) ? explode( ',', (string) $source_flag ) : array();
 
-		if ( '' !== $source_flag && null !== $source_flag ) {
-			$ids         = array_values( array_unique( array_filter( array_map( 'sanitize_key', explode( ',', (string) $source_flag ) ) ) ) );
-			$all_sources = function_exists( 'pixassist_get_layout_units_sources' ) ? pixassist_get_layout_units_sources() : array();
-
-			foreach ( $all_sources as $source ) {
-				if ( ! empty( $source['id'] ) && in_array( $source['id'], $ids, true ) ) {
-					$sources[] = $source;
-				}
-			}
-		}
-
-		$result = $starter_content->list_recipes( $sources );
-		$data   = ( isset( $result['data'] ) && is_array( $result['data'] ) ) ? $result['data'] : array();
-
-		$recipes  = ( isset( $data['recipes'] ) && is_array( $data['recipes'] ) ) ? $data['recipes'] : array();
-		$failures = ( isset( $data['failures'] ) && is_array( $data['failures'] ) ) ? $data['failures'] : array();
-
-		// Per-source build failures never move the exit code for `recipe list` (contract §1.3: 0 /
-		// 1 / 3, no 2) — they are surfaced as warnings on an otherwise ok:true, exit-0 response.
-		$warnings = array();
-		foreach ( $failures as $failure ) {
-			$warnings[] = array(
-				'code'    => isset( $failure['code'] ) ? (string) $failure['code'] : 'recipe_source_failed',
-				'message' => isset( $failure['message'] ) ? (string) $failure['message'] : '',
-				'ids'     => isset( $failure['id'] ) ? array( (string) $failure['id'] ) : array(),
-			);
-		}
-
-		PixelgradeAssistant_CLI_Envelope::emit(
-			true,
-			'ok',
-			sprintf(
-				/* translators: %d: number of recipes. */
-				_n( '%d recipe available.', '%d recipes available.', count( $recipes ), '__plugin_txtd' ),
-				count( $recipes )
-			),
-			$data,
-			$warnings,
-			0,
-			array(),
+		PixelgradeAssistant_CLI_Envelope::emit_result(
+			PixelgradeAssistant_Agent_Core::list_recipes( array( 'sources' => $ids ) ),
 			$assoc_args
 		);
 	}
@@ -179,174 +136,37 @@ class PixelgradeAssistant_CLI_Recipe_Command {
 	public function apply( $args, $assoc_args ) {
 		PixelgradeAssistant_CLI_Envelope::require_capability( 'manage_options', $assoc_args );
 
-		$recipe_id = isset( $args[0] ) ? sanitize_key( $args[0] ) : '';
-		$base_url  = isset( $assoc_args['source-url'] ) ? esc_url_raw( $assoc_args['source-url'] ) : '';
+		// Same shared seam as `starter import`: one https pin, one sanitization, two wordings.
+		$validated = PixelgradeAssistant_Agent_Core::validate_keyed_source(
+			isset( $args[0] ) ? $args[0] : '',
+			isset( $assoc_args['source-url'] ) ? $assoc_args['source-url'] : '',
+			__( 'You need to provide a recipe id and --source-url.', '__plugin_txtd' ),
+			__( '--source-url must use https://.', '__plugin_txtd' )
+		);
 
-		if ( '' === $recipe_id || '' === $base_url ) {
-			PixelgradeAssistant_CLI_Envelope::emit(
-				false,
-				'invalid_params',
-				__( 'You need to provide a recipe id and --source-url.', '__plugin_txtd' ),
-				array(),
-				array(),
-				1,
-				array(),
-				$assoc_args
-			);
+		if ( isset( $validated['code'] ) ) {
+			PixelgradeAssistant_CLI_Envelope::emit_result( $validated, $assoc_args );
 
 			return;
 		}
 
-		// Security hardening: pin the scheme so an operator-typed --source-url cannot
-		// accidentally downgrade to cleartext (an on-path attacker could then substitute the
-		// fetched recipe content, which apply_recipe() trusts at admin level).
-		if ( 'https' !== wp_parse_url( $base_url, PHP_URL_SCHEME ) ) {
-			PixelgradeAssistant_CLI_Envelope::emit(
-				false,
-				'invalid_params',
-				__( '--source-url must use https://.', '__plugin_txtd' ),
-				array(),
-				array(),
-				1,
-				array(),
-				$assoc_args
-			);
-
-			return;
-		}
+		$recipe_id = $validated['key'];
+		$base_url  = $validated['source_url'];
 
 		PixelgradeAssistant_CLI_Envelope::require_yes_or_halt(
 			$assoc_args,
 			sprintf( 'wp pixelgrade assist recipe apply %s --source-url=%s --yes', $recipe_id, $base_url )
 		);
 
-		$starter_content = $this->get_starter_content();
-		if ( ! $starter_content ) {
-			$this->halt_assistant_unavailable( $assoc_args );
-
-			return;
-		}
-
-		$options = array(
-			'include_look'   => (bool) \WP_CLI\Utils\get_flag_value( $assoc_args, 'include-look', false ),
-			'include_sample' => (bool) \WP_CLI\Utils\get_flag_value( $assoc_args, 'include-sample', false ),
-		);
-
-		$before_units = $starter_content->get_applied_layout_units();
-
-		$result = $starter_content->apply_recipe( $recipe_id, $base_url, $options );
-
-		// H1 defensive twin: apply_recipe()'s own error paths (import_layout_unit(),
-		// layout_unit_error_response()) are array-only today, but unwrap defensively in case that
-		// ever changes — cheap insurance against the same WP_REST_Response degradation as
-		// `starter import`.
-		if ( class_exists( 'WP_REST_Response' ) && $result instanceof WP_REST_Response ) {
-			$result = $result->get_data();
-		}
-
-		$after_units         = $starter_content->get_applied_layout_units();
-		$after_content_units = $starter_content->get_applied_content_units();
-
-		$code    = isset( $result['code'] ) ? (string) $result['code'] : 'unknown_error';
-		$message = isset( $result['message'] ) ? (string) $result['message'] : '';
-		$data    = ( isset( $result['data'] ) && is_array( $result['data'] ) ) ? $result['data'] : array();
-
-		// Mandatory post-apply re-read (contract §1.3).
-		$data['appliedLayoutUnits']  = $after_units;
-		$data['appliedContentUnits'] = $after_content_units;
-
-		if ( 'success' === $code ) {
-			PixelgradeAssistant_CLI_Envelope::emit(
-				true,
-				'ok',
-				'' !== $message ? $message : __( 'Recipe applied.', '__plugin_txtd' ),
-				$data,
-				array(),
-				0,
-				array(),
-				$assoc_args
-			);
-
-			return;
-		}
-
-		if ( in_array( $code, array( 'invalid_params', 'recipe_empty' ), true ) ) {
-			PixelgradeAssistant_CLI_Envelope::emit( false, $code, $message, $data, array(), 1, array(), $assoc_args );
-
-			return;
-		}
-
-		// apply_recipe() rolls back applied units on a mid-bundle failure
-		// (rollback_recipe_apply_units()) before returning, so a genuine partial only exists when
-		// that rollback did not fully restore the pre-call state — detected the same
-		// read-back-and-diff way as `starter import`.
-		$partial = ( $after_units !== $before_units );
-
-		if ( $partial ) {
-			PixelgradeAssistant_CLI_Envelope::emit(
-				true,
-				'partial',
-				$message,
-				$data,
+		PixelgradeAssistant_CLI_Envelope::emit_result(
+			PixelgradeAssistant_Agent_Core::apply_recipe(
 				array(
-					array(
-						'code'    => $code,
-						'message' => $message,
-					),
-				),
-				2,
-				array(),
-				$assoc_args
-			);
-
-			return;
-		}
-
-		// M2(a): the units are back to (or still at) their pre-call state, but
-		// import_recipe_look() runs only after every unit already succeeded — a look-step failure
-		// rolls the units back while leaving whatever design settings it already wrote untouched.
-		// The CLI cannot tell from here whether the failure happened before or during the look
-		// step, so — conservatively — warn whenever --include-look was requested.
-		$warnings = array();
-		if ( ! empty( $options['include_look'] ) ) {
-			$warnings[] = array(
-				'code'    => 'look_partially_applied',
-				'message' => __( 'This recipe requested --include-look. The failure may have happened after design settings (colors/fonts) were already written; they are not automatically reverted. Check the site\'s Style Manager settings before retrying.', '__plugin_txtd' ),
-			);
-		}
-
-		PixelgradeAssistant_CLI_Envelope::emit( false, $code, $message, $data, $warnings, 1, array(), $assoc_args );
-	}
-
-	/**
-	 * Resolve the loaded PixelgradeAssistant_StarterContent instance.
-	 *
-	 * @return PixelgradeAssistant_StarterContent|null
-	 */
-	private function get_starter_content() {
-		if ( ! function_exists( 'PixelgradeAssistant' ) ) {
-			return null;
-		}
-
-		$plugin = PixelgradeAssistant();
-
-		return isset( $plugin->starter_content ) ? $plugin->starter_content : null;
-	}
-
-	/**
-	 * Halt with a consistent "core not loaded" envelope.
-	 *
-	 * @param array $assoc_args
-	 */
-	private function halt_assistant_unavailable( $assoc_args ) {
-		PixelgradeAssistant_CLI_Envelope::emit(
-			false,
-			'assistant_unavailable',
-			__( 'Pixelgrade Assistant core modules are not loaded.', '__plugin_txtd' ),
-			array(),
-			array(),
-			1,
-			array(),
+					'recipe_id'      => $recipe_id,
+					'source_url'     => $base_url,
+					'include_look'   => (bool) \WP_CLI\Utils\get_flag_value( $assoc_args, 'include-look', false ),
+					'include_sample' => (bool) \WP_CLI\Utils\get_flag_value( $assoc_args, 'include-sample', false ),
+				)
+			),
 			$assoc_args
 		);
 	}

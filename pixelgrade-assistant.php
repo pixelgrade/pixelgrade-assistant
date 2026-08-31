@@ -100,9 +100,24 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/admin-help.php';
 // Include functions that might assist when in dev mode.
 require_once plugin_dir_path( __FILE__ ) . 'includes/integrations/devmode.php';
 
+// The agent surface: the shared verb bodies that both the CLI and the abilities run, the
+// `pixelgrade/*` ability registrations, and the curated MCP server. The core loads first and
+// unconditionally, because abilities register outside WP-CLI.
+require_once plugin_dir_path( __FILE__ ) . 'includes/agent/class-pixelgrade_assistant-agent-core.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/agent/class-pixelgrade_assistant-abilities.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/agent/class-pixelgrade_assistant-mcp-server.php';
+
 // WP-CLI subtree: `wp pixelgrade assist …`. Inert (no-op) outside WP-CLI — see the
 // class_exists( '\WP_CLI' ) guard inside.
 require_once plugin_dir_path( __FILE__ ) . 'includes/cli/class-pixelgrade_assistant-cli.php';
+
+// Abilities register on `wp_abilities_api_init` (WordPress 6.9+); the MCP server must be wired
+// before the adapter's own `init`/`rest_api_init` hooks fire, so both happen at load time here.
+// Assistant hosts the curated server for the whole stack (contract §4, decision D2) — abilities
+// owned by Style Manager, Pixelgrade Plus and Nova Blocks are aggregated without moving their
+// registrations.
+PixelgradeAssistant_Abilities::register();
+PixelgradeAssistant_MCP_Server::register();
 
 /**
  * Returns the main instance of PixelgradeAssistant to prevent the need to use globals.

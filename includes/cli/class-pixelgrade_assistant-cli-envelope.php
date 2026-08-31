@@ -117,6 +117,29 @@ class PixelgradeAssistant_CLI_Envelope {
 	 * @param string $capability Required WordPress capability.
 	 * @param array  $assoc_args The command's assoc_args (for --format on the halt envelope).
 	 */
+	/**
+	 * Print and halt on a result produced by {@see PixelgradeAssistant_Agent_Core}.
+	 *
+	 * The core returns the envelope as plain data so the abilities can return it verbatim; this is
+	 * the CLI's half of that split — the only place that knows about formats, STDOUT and exit
+	 * codes.
+	 *
+	 * @param array $result     A core result: ok/code/summary/data/warnings/exit/extra.
+	 * @param array $assoc_args The command's assoc_args (read here only for --format).
+	 */
+	public static function emit_result( $result, $assoc_args = array() ) {
+		self::emit(
+			$result['ok'],
+			$result['code'],
+			$result['summary'],
+			$result['data'],
+			$result['warnings'],
+			$result['exit'],
+			isset( $result['extra'] ) ? $result['extra'] : array(),
+			$assoc_args
+		);
+	}
+
 	public static function require_capability( $capability, $assoc_args = array() ) {
 		if ( function_exists( 'current_user_can' ) && current_user_can( $capability ) ) {
 			return;

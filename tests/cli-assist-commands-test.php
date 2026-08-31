@@ -233,6 +233,7 @@ namespace {
 	// Load the CLI classes under test.
 	// ---------------------------------------------------------------------------------------
 
+	require_once __DIR__ . '/../includes/agent/class-pixelgrade_assistant-agent-core.php';
 	require_once __DIR__ . '/../includes/cli/class-pixelgrade_assistant-cli-envelope.php';
 	require_once __DIR__ . '/../includes/cli/class-pixelgrade_assistant-cli-starter-command.php';
 	require_once __DIR__ . '/../includes/cli/class-pixelgrade_assistant-cli-recipe-command.php';

@@ -23,6 +23,10 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 if ( class_exists( '\WP_CLI' ) ) {
+	// The verb bodies live on the shared seam the `pixelgrade/*` abilities also call, so the CLI
+	// and the abilities cannot drift. `require_once` is idempotent — the main plugin file loads
+	// this unconditionally too, because abilities register outside WP-CLI.
+	require_once __DIR__ . '/../agent/class-pixelgrade_assistant-agent-core.php';
 	require_once __DIR__ . '/class-pixelgrade_assistant-cli-envelope.php';
 	require_once __DIR__ . '/class-pixelgrade_assistant-cli-starter-command.php';
 	require_once __DIR__ . '/class-pixelgrade_assistant-cli-recipe-command.php';

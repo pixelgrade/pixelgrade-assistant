@@ -1,33 +1,59 @@
-<?php return array (
-  'root' => 
-  array (
-    'pretty_version' => 'dev-master',
-    'version' => 'dev-master',
-    'aliases' => 
-    array (
+<?php return array(
+    'root' => array(
+        'name' => '__root__',
+        'pretty_version' => 'dev-main',
+        'version' => 'dev-main',
+        'reference' => 'da228dcc457004be6bcd1c99aee51b4099281651',
+        'type' => 'library',
+        'install_path' => __DIR__ . '/../../',
+        'aliases' => array(),
+        'dev' => false,
     ),
-    'reference' => '3ab93ec23df3ad8740d2c2327fa8723e5dc98d0d',
-    'name' => '__root__',
-  ),
-  'versions' => 
-  array (
-    '__root__' => 
-    array (
-      'pretty_version' => 'dev-master',
-      'version' => 'dev-master',
-      'aliases' => 
-      array (
-      ),
-      'reference' => '3ab93ec23df3ad8740d2c2327fa8723e5dc98d0d',
+    'versions' => array(
+        '__root__' => array(
+            'pretty_version' => 'dev-main',
+            'version' => 'dev-main',
+            'reference' => 'da228dcc457004be6bcd1c99aee51b4099281651',
+            'type' => 'library',
+            'install_path' => __DIR__ . '/../../',
+            'aliases' => array(),
+            'dev_requirement' => false,
+        ),
+        'automattic/jetpack-autoloader' => array(
+            'pretty_version' => 'v5.0.23',
+            'version' => '5.0.23.0',
+            'reference' => 'd11b2d621035dcb920abce8ae09bebd5da5f9ff8',
+            'type' => 'composer-plugin',
+            'install_path' => __DIR__ . '/../automattic/jetpack-autoloader',
+            'aliases' => array(),
+            'dev_requirement' => false,
+        ),
+        'composer/semver' => array(
+            'pretty_version' => '3.3.2',
+            'version' => '3.3.2.0',
+            'reference' => '3953f23262f2bff1919fc82183ad9acb13ff62c9',
+            'type' => 'library',
+            'install_path' => __DIR__ . '/./semver',
+            'aliases' => array(),
+            'dev_requirement' => false,
+        ),
+        'wordpress/mcp-adapter' => array(
+            'pretty_version' => 'v0.6.1',
+            'version' => '0.6.1.0',
+            'reference' => '23cb53e0b82f39238eec1c38cb055e28aa30fa7c',
+            'type' => 'wordpress-plugin',
+            'install_path' => __DIR__ . '/../wordpress/mcp-adapter',
+            'aliases' => array(),
+            'dev_requirement' => false,
+        ),
+        'wordpress/php-mcp-schema' => array(
+            'pretty_version' => 'v0.1.3',
+            'version' => '0.1.3.0',
+            'reference' => 'b2fcf97aa023ce46e9f03493c194a72d5a46bea2',
+            'type' => 'library',
+            'install_path' => __DIR__ . '/../wordpress/php-mcp-schema',
+            'aliases' => array(),
+            'dev_requirement' => false,
+        ),
     ),
-    'composer/semver' => 
-    array (
-      'pretty_version' => '3.3.2',
-      'version' => '3.3.2.0',
-      'aliases' => 
-      array (
-      ),
-      'reference' => '3953f23262f2bff1919fc82183ad9acb13ff62c9',
-    ),
-  ),
 );

@@ -1,6 +1,12 @@
 {
     "require": {
-        "composer/semver": "^3.3"
+        "composer/semver": "^3.3",
+        "wordpress/mcp-adapter": "0.6.1"
+    },
+    "config": {
+        "allow-plugins": {
+            "automattic/jetpack-autoloader": true
+        }
     },
     "scripts": {
         "test": [
@@ -52,7 +58,8 @@
             "php tests/wupdates-identification-test.php",
             "php tests/anima-product-sku-test.php",
             "php tests/remote-config-cache-test.php",
-            "php tests/cli-assist-commands-test.php"
+            "php tests/cli-assist-commands-test.php",
+            "php tests/agent-abilities-test.php"
         ]
     }
 }
