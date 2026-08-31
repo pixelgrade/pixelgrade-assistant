@@ -527,6 +527,15 @@ namespace {
 		paf_assert( ! in_array( $must_stay_private, $whitelist, true ), $must_stay_private . ' stays private' );
 	}
 
+	// The transport gate: reaching the server at all needs the lowest capability any exposed
+	// ability requires, so a subscriber cannot enumerate the catalog it could never execute.
+	$GLOBALS['paf_denied_caps'] = array();
+	paf_assert_same( true, PixelgradeAssistant_MCP_Server::can_reach_server(), 'a user with edit_posts may reach the server' );
+
+	$GLOBALS['paf_denied_caps'] = array( 'edit_posts' => true );
+	paf_assert_same( false, PixelgradeAssistant_MCP_Server::can_reach_server(), 'a user without edit_posts is refused at the transport, before any ability is named' );
+	$GLOBALS['paf_denied_caps'] = array();
+
 	// A site filter can narrow, never widen: the server hands the adapter the reviewed constant,
 	// intersected with what actually registered.
 	$GLOBALS['paf_filters'] = array();

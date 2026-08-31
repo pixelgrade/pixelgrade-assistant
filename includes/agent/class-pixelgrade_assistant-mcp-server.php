@@ -115,23 +115,34 @@ class PixelgradeAssistant_MCP_Server {
 	/**
 	 * Load the vendored adapter.
 	 *
-	 * Two things are deliberate here:
+	 * Three things are deliberate here:
 	 *
-	 * 1. We skip entirely if something else already loaded the adapter (the standalone MCP Adapter
-	 *    plugin, or another Pixelgrade plugin). Its `constants()` call would re-`define()`
-	 *    WP_MCP_DIR, and its default server is then that installation's business, not ours.
-	 * 2. We define WP_MCP_AUTOLOAD = false first. The adapter's own Autoloader looks for a
+	 * 1. The "is it already loaded?" test is `defined( 'WP_MCP_VERSION' )`, NOT
+	 *    `class_exists( '\WP\MCP\Core\McpAdapter' )`. The class is always autoloadable — it is a
+	 *    Composer dependency of this plugin — so a class_exists() check answers "can I load it?"
+	 *    when the question is "has someone already booted it?". It reports true before anything is
+	 *    wired, we skip the bootstrap, no McpAdapter instance is ever created at load time, and no
+	 *    server is registered. Only the constant distinguishes an autoloadable class from a booted
+	 *    adapter.
+	 * 2. We skip entirely if something else already booted it (the standalone MCP Adapter plugin,
+	 *    or another Pixelgrade plugin): its `constants()` would re-`define()` WP_MCP_DIR, and its
+	 *    default server is then that installation's business, not ours.
+	 * 3. We define WP_MCP_AUTOLOAD = false first. The adapter's own Autoloader looks for a
 	 *    `vendor/autoload_packages.php` INSIDE the package, which does not exist when the package
 	 *    is a dependency rather than a plugin; without this constant it would bail before
 	 *    bootstrapping and show an admin notice. Assistant's Composer autoloader already maps the
 	 *    `WP\MCP\` namespace, so there is nothing left for the adapter's autoloader to do. The
 	 *    constant is the package's own documented bypass.
 	 *
+	 * Timing matters too: this runs at plugin-load time, because McpAdapter::instance() registers
+	 * its `init` @20 / `rest_api_init` @15 hook the first time it is called. Called any later, the
+	 * hook it registers has already passed and no server is ever created.
+	 *
 	 * @return bool
 	 */
 	private static function bootstrap_adapter() {
-		if ( class_exists( '\WP\MCP\Core\McpAdapter' ) ) {
-			return true;
+		if ( defined( 'WP_MCP_VERSION' ) ) {
+			return class_exists( '\WP\MCP\Core\McpAdapter' );
 		}
 
 		$entry = self::plugin_dir() . 'vendor/wordpress/mcp-adapter/mcp-adapter.php';
@@ -191,8 +202,32 @@ class PixelgradeAssistant_MCP_Server {
 			array( \WP\MCP\Transport\HttpTransport::class ),
 			\WP\MCP\Infrastructure\ErrorHandling\ErrorLogMcpErrorHandler::class,
 			null,
-			$tools
+			$tools,
+			array(),
+			array(),
+			array( __CLASS__, 'can_reach_server' )
 		);
+	}
+
+	/**
+	 * Who may reach the server at all.
+	 *
+	 * Without this the adapter's default transport gate is `read`, so any logged-in subscriber
+	 * could connect and enumerate the catalog — every tool name, description and input schema —
+	 * even though each ability's own permission callback would then refuse to execute. Denying the
+	 * call but publishing the map is a needless disclosure, so the transport asks for the LOWEST
+	 * capability any exposed ability requires: `edit_posts` (Nova Blocks' floor; the Style Manager
+	 * set needs `edit_theme_options` and the Plus/Assistant set `manage_options`).
+	 *
+	 * This can only narrow, never widen. Every ability still enforces its own, stricter capability
+	 * in its own permission callback — passing this gate buys visibility, not execution.
+	 *
+	 * @param \WP_REST_Request $request
+	 *
+	 * @return bool
+	 */
+	public static function can_reach_server( $request = null ) {
+		return current_user_can( 'edit_posts' );
 	}
 
 	/**
