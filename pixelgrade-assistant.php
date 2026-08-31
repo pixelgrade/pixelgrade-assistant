@@ -100,6 +100,10 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/admin-help.php';
 // Include functions that might assist when in dev mode.
 require_once plugin_dir_path( __FILE__ ) . 'includes/integrations/devmode.php';
 
+// WP-CLI subtree: `wp pixelgrade assist …`. Inert (no-op) outside WP-CLI — see the
+// class_exists( '\WP_CLI' ) guard inside.
+require_once plugin_dir_path( __FILE__ ) . 'includes/cli/class-pixelgrade_assistant-cli.php';
+
 /**
  * Returns the main instance of PixelgradeAssistant to prevent the need to use globals.
  *
