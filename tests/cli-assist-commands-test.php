@@ -418,7 +418,7 @@ namespace {
 
 	paf_reset_runtime();
 	$cmd = new PixelgradeAssistant_CLI_Starter_Command();
-	$exit = paf_run( array( $cmd, 'import' ), array( 'anima-restaurant' ), array( 'url' => 'https://x.test/', 'format' => 'json' ) );
+	$exit = paf_run( array( $cmd, 'import' ), array( 'anima-restaurant' ), array( 'source-url' => 'https://x.test/', 'format' => 'json' ) );
 	assert_same( 1, $exit, 'starter import: missing --yes must exit 1.' );
 	assert_same( 'confirmation_required', WP_CLI::$printed_value['code'], 'starter import: missing --yes code.' );
 
@@ -433,7 +433,7 @@ namespace {
 	);
 	$GLOBALS['paf_active_starter'] = 'anima-restaurant';
 	$cmd  = new PixelgradeAssistant_CLI_Starter_Command();
-	$exit = paf_run( array( $cmd, 'import' ), array( 'anima-restaurant' ), array( 'url' => 'https://x.test/', 'yes' => true, 'format' => 'json' ) );
+	$exit = paf_run( array( $cmd, 'import' ), array( 'anima-restaurant' ), array( 'source-url' => 'https://x.test/', 'yes' => true, 'format' => 'json' ) );
 	assert_same( 0, $exit, 'starter import: success exits 0.' );
 	assert_same( true, WP_CLI::$printed_value['ok'], 'starter import: success ok:true.' );
 	assert_same( 'anima-restaurant', WP_CLI::$printed_value['data']['activeStarter'], 'starter import: data.activeStarter is re-read post-import.' );
@@ -446,7 +446,7 @@ namespace {
 		'data'    => array(),
 	);
 	$cmd  = new PixelgradeAssistant_CLI_Starter_Command();
-	$exit = paf_run( array( $cmd, 'import' ), array( 'x' ), array( 'url' => 'https://evil.test/', 'yes' => true, 'format' => 'json' ) );
+	$exit = paf_run( array( $cmd, 'import' ), array( 'x' ), array( 'source-url' => 'https://evil.test/', 'yes' => true, 'format' => 'json' ) );
 	assert_same( 1, $exit, 'starter import: invalid_source must exit 1.' );
 	assert_same( false, WP_CLI::$printed_value['ok'], 'starter import: invalid_source ok:false.' );
 	assert_same( 'invalid_source', WP_CLI::$printed_value['code'], 'starter import: invalid_source code round-trips.' );
@@ -458,7 +458,7 @@ namespace {
 		'data'    => array( 'requiredPlugins' => array( array( 'slug' => 'nova-blocks', 'name' => 'Nova Blocks' ) ) ),
 	);
 	$cmd  = new PixelgradeAssistant_CLI_Starter_Command();
-	$exit = paf_run( array( $cmd, 'import' ), array( 'x' ), array( 'url' => 'https://x.test/', 'yes' => true, 'format' => 'json' ) );
+	$exit = paf_run( array( $cmd, 'import' ), array( 'x' ), array( 'source-url' => 'https://x.test/', 'yes' => true, 'format' => 'json' ) );
 	assert_same( 2, $exit, 'starter import: missing_required_plugins must exit 2.' );
 	assert_same( true, WP_CLI::$printed_value['ok'], 'starter import: missing_required_plugins ok:true.' );
 	assert_same( 1, count( WP_CLI::$printed_value['warnings'] ), 'starter import: missing_required_plugins must surface a warning.' );
@@ -474,7 +474,7 @@ namespace {
 		'x' => array( 'media' => array( 1 => 1 ) ),
 	);
 	$cmd  = new PixelgradeAssistant_CLI_Starter_Command();
-	$exit = paf_run( array( $cmd, 'import' ), array( 'x' ), array( 'url' => 'https://x.test/', 'yes' => true, 'format' => 'json' ) );
+	$exit = paf_run( array( $cmd, 'import' ), array( 'x' ), array( 'source-url' => 'https://x.test/', 'yes' => true, 'format' => 'json' ) );
 	assert_same( 2, $exit, 'starter import: a mid-import failure that wrote journal content must exit 2 (partial).' );
 	assert_same( true, WP_CLI::$printed_value['ok'], 'starter import: partial must be ok:true.' );
 	assert_same( 'partial', WP_CLI::$printed_value['code'], 'starter import: partial code.' );
@@ -487,7 +487,7 @@ namespace {
 		'data'    => array(),
 	);
 	$cmd  = new PixelgradeAssistant_CLI_Starter_Command();
-	$exit = paf_run( array( $cmd, 'import' ), array( 'x' ), array( 'url' => 'https://x.test/', 'yes' => true, 'format' => 'json' ) );
+	$exit = paf_run( array( $cmd, 'import' ), array( 'x' ), array( 'source-url' => 'https://x.test/', 'yes' => true, 'format' => 'json' ) );
 	assert_same( 1, $exit, 'starter import: a failure that wrote nothing must exit 1 (total failure).' );
 	assert_same( false, WP_CLI::$printed_value['ok'], 'starter import: total failure ok:false.' );
 	assert_same( 'starter_data_missing', WP_CLI::$printed_value['code'], 'starter import: total failure code round-trips.' );
@@ -567,13 +567,13 @@ namespace {
 
 	paf_reset_runtime();
 	$cmd  = new PixelgradeAssistant_CLI_Recipe_Command();
-	$exit = paf_run( array( $cmd, 'apply' ), array(), array( 'url' => 'https://x.test/', 'yes' => true, 'format' => 'json' ) );
+	$exit = paf_run( array( $cmd, 'apply' ), array(), array( 'source-url' => 'https://x.test/', 'yes' => true, 'format' => 'json' ) );
 	assert_same( 1, $exit, 'recipe apply: missing recipe-id must exit 1.' );
 	assert_same( 'invalid_params', WP_CLI::$printed_value['code'], 'recipe apply: invalid_params code.' );
 
 	paf_reset_runtime();
 	$cmd  = new PixelgradeAssistant_CLI_Recipe_Command();
-	$exit = paf_run( array( $cmd, 'apply' ), array( 'anima-restaurant' ), array( 'url' => 'https://x.test/', 'format' => 'json' ) );
+	$exit = paf_run( array( $cmd, 'apply' ), array( 'anima-restaurant' ), array( 'source-url' => 'https://x.test/', 'format' => 'json' ) );
 	assert_same( 1, $exit, 'recipe apply: missing --yes must exit 1.' );
 	assert_same( 'confirmation_required', WP_CLI::$printed_value['code'], 'recipe apply: missing --yes code.' );
 
@@ -584,7 +584,7 @@ namespace {
 		'code' => 'success', 'message' => 'Recipe applied.', 'data' => array( 'recipe' => array( 'id' => 'anima-restaurant' ) ),
 	);
 	$cmd  = new PixelgradeAssistant_CLI_Recipe_Command();
-	$exit = paf_run( array( $cmd, 'apply' ), array( 'anima-restaurant' ), array( 'url' => 'https://x.test/', 'yes' => true, 'format' => 'json' ) );
+	$exit = paf_run( array( $cmd, 'apply' ), array( 'anima-restaurant' ), array( 'source-url' => 'https://x.test/', 'yes' => true, 'format' => 'json' ) );
 	assert_same( 0, $exit, 'recipe apply: success exits 0.' );
 	assert_true( isset( WP_CLI::$printed_value['data']['appliedLayoutUnits']['header'] ), 'recipe apply: data.appliedLayoutUnits is re-read post-apply.' );
 	assert_true( isset( WP_CLI::$printed_value['data']['appliedContentUnits']['page:index'] ), 'recipe apply: data.appliedContentUnits is re-read post-apply.' );
@@ -592,7 +592,7 @@ namespace {
 	paf_reset_runtime();
 	$GLOBALS['paf_starter_content']->apply_recipe_result = array( 'code' => 'recipe_empty', 'message' => 'Empty recipe.', 'data' => array() );
 	$cmd  = new PixelgradeAssistant_CLI_Recipe_Command();
-	$exit = paf_run( array( $cmd, 'apply' ), array( 'x' ), array( 'url' => 'https://x.test/', 'yes' => true, 'format' => 'json' ) );
+	$exit = paf_run( array( $cmd, 'apply' ), array( 'x' ), array( 'source-url' => 'https://x.test/', 'yes' => true, 'format' => 'json' ) );
 	assert_same( 1, $exit, 'recipe apply: recipe_empty must exit 1.' );
 	assert_same( false, WP_CLI::$printed_value['ok'], 'recipe apply: recipe_empty ok:false.' );
 
@@ -602,7 +602,7 @@ namespace {
 	$GLOBALS['paf_starter_content']->applied_layout_units_sequence = array( $same_units, $same_units );
 	$GLOBALS['paf_starter_content']->apply_recipe_result = array( 'code' => 'missing_tax', 'message' => 'boom', 'data' => array() );
 	$cmd  = new PixelgradeAssistant_CLI_Recipe_Command();
-	$exit = paf_run( array( $cmd, 'apply' ), array( 'x' ), array( 'url' => 'https://x.test/', 'yes' => true, 'format' => 'json' ) );
+	$exit = paf_run( array( $cmd, 'apply' ), array( 'x' ), array( 'source-url' => 'https://x.test/', 'yes' => true, 'format' => 'json' ) );
 	assert_same( 1, $exit, 'recipe apply: a clean rollback (units unchanged) must exit 1.' );
 	assert_same( false, WP_CLI::$printed_value['ok'], 'recipe apply: clean rollback ok:false.' );
 	assert_same( 'missing_tax', WP_CLI::$printed_value['code'], 'recipe apply: clean rollback code round-trips.' );
@@ -612,7 +612,7 @@ namespace {
 	$GLOBALS['paf_starter_content']->applied_layout_units_sequence = array( array(), array( 'header' => array( 'type' => 'header' ) ) );
 	$GLOBALS['paf_starter_content']->apply_recipe_result = array( 'code' => 'missing_tax', 'message' => 'boom', 'data' => array() );
 	$cmd  = new PixelgradeAssistant_CLI_Recipe_Command();
-	$exit = paf_run( array( $cmd, 'apply' ), array( 'x' ), array( 'url' => 'https://x.test/', 'yes' => true, 'format' => 'json' ) );
+	$exit = paf_run( array( $cmd, 'apply' ), array( 'x' ), array( 'source-url' => 'https://x.test/', 'yes' => true, 'format' => 'json' ) );
 	assert_same( 2, $exit, 'recipe apply: leftover applied units after a failure must exit 2 (partial).' );
 	assert_same( true, WP_CLI::$printed_value['ok'], 'recipe apply: partial ok:true.' );
 	assert_same( 'partial', WP_CLI::$printed_value['code'], 'recipe apply: partial code.' );

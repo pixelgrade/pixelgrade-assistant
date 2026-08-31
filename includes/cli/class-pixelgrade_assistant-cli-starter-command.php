@@ -99,8 +99,16 @@ class PixelgradeAssistant_CLI_Starter_Command {
 	 * <demo-key>
 	 * : The starter/demo key (see `wp pixelgrade assist starter list`).
 	 *
-	 * --url=<base-url>
+	 * --source-url=<base-url>
 	 * : The starter's source SCE REST base URL (its `baseRestUrl`).
+	 *
+	 * NOTE: the agentic-stack contract (§1.3) names this flag `--url`, but WP-CLI reserves
+	 * `--url` as one of its own global parameters ("pretend request came from given URL") and
+	 * strips it from every command's $assoc_args before the command ever runs — confirmed
+	 * empirically: a value passed as `--url=…` never reaches this (or any) command. `--url` can
+	 * therefore never work as a per-command flag under WP-CLI; `--source-url` is used here as the
+	 * only usable name, flagged for a Gate-0 contract fix rather than silently shipping a flag
+	 * that can never carry a value.
 	 *
 	 * [--yes]
 	 * : Confirm the import. Required outside an interactive TTY.
@@ -117,7 +125,7 @@ class PixelgradeAssistant_CLI_Starter_Command {
 	 *
 	 * ## EXAMPLES
 	 *
-	 *     wp pixelgrade assist starter import anima-restaurant --url=https://demo.example.com/wp-json/sce/v2/ --yes --user=admin
+	 *     wp pixelgrade assist starter import anima-restaurant --source-url=https://demo.example.com/wp-json/sce/v2/ --yes --user=admin
 	 *
 	 * @subcommand import
 	 */
@@ -125,13 +133,13 @@ class PixelgradeAssistant_CLI_Starter_Command {
 		PixelgradeAssistant_CLI_Envelope::require_capability( 'manage_options', $assoc_args );
 
 		$demo_key = isset( $args[0] ) ? sanitize_key( $args[0] ) : '';
-		$base_url = isset( $assoc_args['url'] ) ? esc_url_raw( $assoc_args['url'] ) : '';
+		$base_url = isset( $assoc_args['source-url'] ) ? esc_url_raw( $assoc_args['source-url'] ) : '';
 
 		if ( '' === $demo_key || '' === $base_url ) {
 			PixelgradeAssistant_CLI_Envelope::emit(
 				false,
 				'invalid_params',
-				__( 'You need to provide a demo key and --url.', '__plugin_txtd' ),
+				__( 'You need to provide a demo key and --source-url.', '__plugin_txtd' ),
 				array(),
 				array(),
 				1,
@@ -144,7 +152,7 @@ class PixelgradeAssistant_CLI_Starter_Command {
 
 		PixelgradeAssistant_CLI_Envelope::require_yes_or_halt(
 			$assoc_args,
-			sprintf( 'wp pixelgrade assist starter import %s --url=%s --yes', $demo_key, $base_url )
+			sprintf( 'wp pixelgrade assist starter import %s --source-url=%s --yes', $demo_key, $base_url )
 		);
 
 		$starter_content = $this->get_starter_content();

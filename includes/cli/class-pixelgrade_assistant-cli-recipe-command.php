@@ -102,8 +102,16 @@ class PixelgradeAssistant_CLI_Recipe_Command {
 	 * <recipe-id>
 	 * : The recipe/source id (see `wp pixelgrade assist recipe list`).
 	 *
-	 * --url=<base-url>
+	 * --source-url=<base-url>
 	 * : The recipe source's SCE REST base URL.
+	 *
+	 * NOTE: the agentic-stack contract (§1.3) names this flag `--url`, but WP-CLI reserves
+	 * `--url` as one of its own global parameters ("pretend request came from given URL") and
+	 * strips it from every command's $assoc_args before the command ever runs — confirmed
+	 * empirically: a value passed as `--url=…` never reaches this (or any) command. `--url` can
+	 * therefore never work as a per-command flag under WP-CLI; `--source-url` is used here as the
+	 * only usable name, flagged for a Gate-0 contract fix rather than silently shipping a flag
+	 * that can never carry a value.
 	 *
 	 * [--include-look]
 	 * : Also apply the source's design look (colors/fonts).
@@ -126,7 +134,7 @@ class PixelgradeAssistant_CLI_Recipe_Command {
 	 *
 	 * ## EXAMPLES
 	 *
-	 *     wp pixelgrade assist recipe apply anima-restaurant --url=https://demo.example.com/wp-json/sce/v2/ --yes --user=admin
+	 *     wp pixelgrade assist recipe apply anima-restaurant --source-url=https://demo.example.com/wp-json/sce/v2/ --yes --user=admin
 	 *
 	 * @subcommand apply
 	 */
@@ -134,13 +142,13 @@ class PixelgradeAssistant_CLI_Recipe_Command {
 		PixelgradeAssistant_CLI_Envelope::require_capability( 'manage_options', $assoc_args );
 
 		$recipe_id = isset( $args[0] ) ? sanitize_key( $args[0] ) : '';
-		$base_url  = isset( $assoc_args['url'] ) ? esc_url_raw( $assoc_args['url'] ) : '';
+		$base_url  = isset( $assoc_args['source-url'] ) ? esc_url_raw( $assoc_args['source-url'] ) : '';
 
 		if ( '' === $recipe_id || '' === $base_url ) {
 			PixelgradeAssistant_CLI_Envelope::emit(
 				false,
 				'invalid_params',
-				__( 'You need to provide a recipe id and --url.', '__plugin_txtd' ),
+				__( 'You need to provide a recipe id and --source-url.', '__plugin_txtd' ),
 				array(),
 				array(),
 				1,
@@ -153,7 +161,7 @@ class PixelgradeAssistant_CLI_Recipe_Command {
 
 		PixelgradeAssistant_CLI_Envelope::require_yes_or_halt(
 			$assoc_args,
-			sprintf( 'wp pixelgrade assist recipe apply %s --url=%s --yes', $recipe_id, $base_url )
+			sprintf( 'wp pixelgrade assist recipe apply %s --source-url=%s --yes', $recipe_id, $base_url )
 		);
 
 		$starter_content = $this->get_starter_content();
