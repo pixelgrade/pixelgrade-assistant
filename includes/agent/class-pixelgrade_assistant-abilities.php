@@ -47,7 +47,13 @@ class PixelgradeAssistant_Abilities {
 	 * four may be active and a category must exist before an ability that names it registers.
 	 */
 	public static function register_category() {
-		if ( ! function_exists( 'wp_register_ability_category' ) || wp_has_ability_category( self::CATEGORY ) ) {
+		// Both functions are guarded, not just the registrar: if the API ever ships them
+		// asymmetrically, an unguarded wp_has_ability_category() would fatal here.
+		if ( ! function_exists( 'wp_register_ability_category' ) || ! function_exists( 'wp_has_ability_category' ) ) {
+			return;
+		}
+
+		if ( wp_has_ability_category( self::CATEGORY ) ) {
 			return;
 		}
 
@@ -139,11 +145,27 @@ class PixelgradeAssistant_Abilities {
 	 */
 	private static function permission_callback( $descriptor ) {
 		return static function () use ( $descriptor ) {
+			// A named reason, matching the other three repos: "denied" and "denied because Plus does
+			// not grant this" are different operator problems and should not look identical.
 			if ( ! self::entitled( $descriptor ) ) {
-				return false;
+				return new WP_Error(
+					'permission_denied',
+					__( 'This ability requires a Pixelgrade Plus entitlement that is not currently granted.', '__plugin_txtd' )
+				);
 			}
 
-			return current_user_can( PixelgradeAssistant_Agent_Core::CAPABILITY );
+			if ( ! current_user_can( PixelgradeAssistant_Agent_Core::CAPABILITY ) ) {
+				return new WP_Error(
+					'permission_denied',
+					sprintf(
+						/* translators: %s: the WordPress capability the ability requires. */
+						__( 'This ability requires the "%s" capability.', '__plugin_txtd' ),
+						PixelgradeAssistant_Agent_Core::CAPABILITY
+					)
+				);
+			}
+
+			return true;
 		};
 	}
 
@@ -230,20 +252,20 @@ class PixelgradeAssistant_Abilities {
 			'properties' => array(
 				'ok'       => array(
 					'type'        => 'boolean',
-					'description' => 'Always true here: the call completed. A failure arrives as an error, not as this envelope.',
+					'description' => __( 'Always true here: the call completed. A failure arrives as an error, not as this envelope.', '__plugin_txtd' ),
 				),
 				'code'     => array(
 					'type'        => 'string',
-					'description' => 'Stable machine token, never translated. "ok" means nothing to inspect; anything else means the call completed WITH findings you must read (e.g. "partial").',
+					'description' => __( 'Stable machine token, never translated. "ok" means nothing to inspect; anything else means the call completed WITH findings you must read (e.g. "partial").', '__plugin_txtd' ),
 				),
 				'summary'  => array(
 					'type'        => 'string',
-					'description' => 'One human-readable line.',
+					'description' => __( 'One human-readable line.', '__plugin_txtd' ),
 				),
 				'data'     => $data_schema,
 				'warnings' => array(
 					'type'        => 'array',
-					'description' => 'Findings that did not fail the call. Each has at least {code, message}.',
+					'description' => __( 'Findings that did not fail the call. Each has at least {code, message}.', '__plugin_txtd' ),
 					'items'       => array( 'type' => 'object' ),
 				),
 			),
@@ -266,7 +288,7 @@ class PixelgradeAssistant_Abilities {
 
 			'pixelgrade/list-starters' => array(
 				'label'       => __( 'List starter sites', '__plugin_txtd' ),
-				'description' => 'List the starter sites (demo content bundles) this site can import from the Pixelgrade hub. Read-only. Call this first to discover the demo key and the source URL that pixelgrade/import-starter requires — those two values come from here, not from guesswork. Set refresh:true to bypass the cached hub config and re-fetch; a hub that cannot be reached is a retryable failure, not an empty catalog.',
+				'description' => __( 'List the starter sites (demo content bundles) this site can import from the Pixelgrade hub. Read-only. Call this first to discover the demo key and the source URL that pixelgrade/import-starter requires — those two values come from here, not from guesswork. Set refresh:true to bypass the cached hub config and re-fetch; a hub that cannot be reached is a retryable failure, not an empty catalog.', '__plugin_txtd' ),
 				'annotations' => array( 'readonly' => true, 'destructive' => false, 'idempotent' => true ),
 				'input_schema' => array(
 					'type'       => 'object',
@@ -274,7 +296,7 @@ class PixelgradeAssistant_Abilities {
 						'refresh' => array(
 							'type'        => 'boolean',
 							'default'     => false,
-							'description' => 'Bypass the cached hub config and fetch a fresh starter descriptor list.',
+							'description' => __( 'Bypass the cached hub config and fetch a fresh starter descriptor list.', '__plugin_txtd' ),
 						),
 					),
 					'additionalProperties' => false,
@@ -285,7 +307,7 @@ class PixelgradeAssistant_Abilities {
 						'properties' => array(
 							'starters' => array(
 								'type'        => 'array',
-								'description' => 'The normalized hub catalog. Each entry carries the demo key and its source base URL.',
+								'description' => __( 'The normalized hub catalog. Each entry carries the demo key and its source base URL.', '__plugin_txtd' ),
 								'items'       => array( 'type' => 'object' ),
 							),
 						),
@@ -302,23 +324,23 @@ class PixelgradeAssistant_Abilities {
 
 			'pixelgrade/import-starter' => array(
 				'label'       => __( 'Import a starter site', '__plugin_txtd' ),
-				'description' => 'Import a starter site\'s full content — posts, pages, media, taxonomies, widgets and design settings — into this site. DESTRUCTIVE and NOT idempotent: it creates content and media every time it runs, and before anything is journaled it force-deletes an untouched default "Hello world!" post and "Sample Page" pair if present; that deletion is not undone by pixelgrade/reset-starter-content. Requires confirm:true. Get demo_key and source_url from pixelgrade/list-starters; source_url must be https and its host must be on the allowlist. A result with code "partial" means some units imported and some failed — read warnings and data before retrying. code "missing_required_plugins" means nothing usable was imported until those plugins are installed.',
+				'description' => __( 'Import a starter site\'s full content — posts, pages, media, taxonomies, widgets and design settings — into this site. DESTRUCTIVE and NOT idempotent: it creates content and media every time it runs, and before anything is journaled it force-deletes an untouched default "Hello world!" post and "Sample Page" pair if present; that deletion is not undone by pixelgrade/reset-starter-content. Requires confirm:true. Get demo_key and source_url from pixelgrade/list-starters; source_url must be https and its host must be on the allowlist. A result with code "partial" means some units imported and some failed — read warnings and data before retrying. code "missing_required_plugins" means nothing usable was imported until those plugins are installed.', '__plugin_txtd' ),
 				'annotations' => array( 'readonly' => false, 'destructive' => true, 'idempotent' => false ),
 				'input_schema' => array(
 					'type'       => 'object',
 					'properties' => array(
 						'demo_key'   => array(
 							'type'        => 'string',
-							'description' => 'The starter/demo key, as listed by pixelgrade/list-starters.',
+							'description' => __( 'The starter/demo key, as listed by pixelgrade/list-starters.', '__plugin_txtd' ),
 						),
 						'source_url' => array(
 							'type'        => 'string',
-							'description' => 'The starter\'s source SCE REST base URL (its baseRestUrl). Must use https://.',
+							'description' => __( 'The starter\'s source SCE REST base URL (its baseRestUrl). Must use https://.', '__plugin_txtd' ),
 						),
 						'confirm'    => array(
 							'type'        => 'boolean',
 							'default'     => false,
-							'description' => 'Must be true. This import creates content it cannot cleanly reverse.',
+							'description' => __( 'Must be true. This import creates content it cannot cleanly reverse.', '__plugin_txtd' ),
 						),
 					),
 					'required'             => array( 'demo_key', 'source_url' ),
@@ -360,7 +382,7 @@ class PixelgradeAssistant_Abilities {
 
 			'pixelgrade/reset-starter-content' => array(
 				'label'       => __( 'Reset starter content', '__plugin_txtd' ),
-				'description' => 'Undo every starter import journaled on this site: delete the imported posts, media and terms, and restore the options and theme mods that were replaced. DESTRUCTIVE — it deletes content. Requires confirm:true. Idempotent: running it again on an already-reset site is a no-op. code "partial" means some journaled posts were already gone (data.posts_missing counts them); that is a finding, not a failure. It does NOT restore the default "Hello world!" post and "Sample Page" that an import may have removed.',
+				'description' => __( 'Undo every starter import journaled on this site: delete the imported posts, media and terms, and restore the options and theme mods that were replaced. DESTRUCTIVE — it deletes content. Requires confirm:true. Idempotent: running it again on an already-reset site is a no-op. code "partial" means some journaled posts were already gone (data.posts_missing counts them); that is a finding, not a failure. It does NOT restore the default "Hello world!" post and "Sample Page" that an import may have removed.', '__plugin_txtd' ),
 				'annotations' => array( 'readonly' => false, 'destructive' => true, 'idempotent' => true ),
 				'input_schema' => array(
 					'type'       => 'object',
@@ -368,7 +390,7 @@ class PixelgradeAssistant_Abilities {
 						'confirm' => array(
 							'type'        => 'boolean',
 							'default'     => false,
-							'description' => 'Must be true. This deletes imported content.',
+							'description' => __( 'Must be true. This deletes imported content.', '__plugin_txtd' ),
 						),
 					),
 					'additionalProperties' => false,
@@ -391,7 +413,7 @@ class PixelgradeAssistant_Abilities {
 
 			'pixelgrade/list-recipes' => array(
 				'label'       => __( 'List recipes', '__plugin_txtd' ),
-				'description' => 'List the source recipes — bundles of layout units that can be applied together — backed by the layout units available to this site. Read-only. Call this to discover the recipe_id pixelgrade/apply-recipe needs. Pass sources to narrow the list to specific hub source ids; omit it for every source. A source that fails to build is reported in warnings and never fails the call.',
+				'description' => __( 'List the source recipes — bundles of layout units that can be applied together — backed by the layout units available to this site. Read-only. Call this to discover the recipe_id pixelgrade/apply-recipe needs. Pass sources to narrow the list to specific hub source ids; omit it for every source. A source that fails to build is reported in warnings and never fails the call.', '__plugin_txtd' ),
 				'annotations' => array( 'readonly' => true, 'destructive' => false, 'idempotent' => true ),
 				'input_schema' => array(
 					'type'       => 'object',
@@ -399,7 +421,7 @@ class PixelgradeAssistant_Abilities {
 						'sources' => array(
 							'type'        => 'array',
 							'items'       => array( 'type' => 'string' ),
-							'description' => 'Hub source ids to restrict the listing to. Omit for every source.',
+							'description' => __( 'Hub source ids to restrict the listing to. Omit for every source.', '__plugin_txtd' ),
 						),
 					),
 					'additionalProperties' => false,
@@ -425,33 +447,33 @@ class PixelgradeAssistant_Abilities {
 
 			'pixelgrade/apply-recipe' => array(
 				'label'       => __( 'Apply a recipe', '__plugin_txtd' ),
-				'description' => 'Apply one source recipe as a single bundle of layout units. DESTRUCTIVE and NOT idempotent — it creates content each time. Requires confirm:true. Get recipe_id from pixelgrade/list-recipes; source_url must be https. include_look also writes the recipe\'s design settings (colors and fonts) through Style Manager: if the apply then fails, the layout units are rolled back but those design settings are NOT reverted, and the result says so in warnings. code "partial" means the rollback did not fully restore the pre-call state.',
+				'description' => __( 'Apply one source recipe as a single bundle of layout units. DESTRUCTIVE and NOT idempotent — it creates content each time. Requires confirm:true. Get recipe_id from pixelgrade/list-recipes; source_url must be https. include_look also writes the recipe\'s design settings (colors and fonts) through Style Manager: if the apply then fails, the layout units are rolled back but those design settings are NOT reverted, and the result says so in warnings. code "partial" means the rollback did not fully restore the pre-call state.', '__plugin_txtd' ),
 				'annotations' => array( 'readonly' => false, 'destructive' => true, 'idempotent' => false ),
 				'input_schema' => array(
 					'type'       => 'object',
 					'properties' => array(
 						'recipe_id'      => array(
 							'type'        => 'string',
-							'description' => 'The recipe/source id, as listed by pixelgrade/list-recipes.',
+							'description' => __( 'The recipe/source id, as listed by pixelgrade/list-recipes.', '__plugin_txtd' ),
 						),
 						'source_url'     => array(
 							'type'        => 'string',
-							'description' => 'The recipe source\'s SCE REST base URL. Must use https://.',
+							'description' => __( 'The recipe source\'s SCE REST base URL. Must use https://.', '__plugin_txtd' ),
 						),
 						'include_look'   => array(
 							'type'        => 'boolean',
 							'default'     => false,
-							'description' => 'Also apply the recipe\'s design settings (colors and fonts). These are not reverted if a later step fails.',
+							'description' => __( 'Also apply the recipe\'s design settings (colors and fonts). These are not reverted if a later step fails.', '__plugin_txtd' ),
 						),
 						'include_sample' => array(
 							'type'        => 'boolean',
 							'default'     => false,
-							'description' => 'Also import the recipe\'s sample content.',
+							'description' => __( 'Also import the recipe\'s sample content.', '__plugin_txtd' ),
 						),
 						'confirm'        => array(
 							'type'        => 'boolean',
 							'default'     => false,
-							'description' => 'Must be true. This creates content it cannot cleanly reverse.',
+							'description' => __( 'Must be true. This creates content it cannot cleanly reverse.', '__plugin_txtd' ),
 						),
 					),
 					'required'             => array( 'recipe_id', 'source_url' ),

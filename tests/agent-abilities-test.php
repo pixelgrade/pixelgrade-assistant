@@ -17,6 +17,16 @@
  * 7. The entitlement seam (§4 forward policy) keeps a gated ability out of the registry AND denies
  *    in the permission callback; the shipped set declares no entitlement.
  * 8. The whitelist is the reviewed 14 and the server only ever hands the adapter names from it.
+ * 9. Exposure cannot escape the reviewed constant: `meta.mcp.public` is granted ONLY on an adapter
+ *    this plugin booted (architecture review H1 — a foreign default server would otherwise publish
+ *    all 14 behind its own `read` gate), the filter's incoming names are discarded rather than
+ *    merged, and a filter-added name never reaches the tool list handed to `create_server()`.
+ * 10. The adapter version handshake (H2): a foreign-booted adapter outside the pinned minor is
+ *    skew, and skew degrades to "no curated server" rather than a fatal inside `init`.
+ * 11. Request bounds (security LOW-1): body size and JSON-RPC batch length are capped, both
+ *    filterable.
+ * 12. Uncaught-Throwable redaction (security LOW-2): exception text and class never reach a client;
+ *    deliberate refusals pass through untouched.
  *
  * Standalone: run with `php tests/agent-abilities-test.php < /dev/null`.
  *
@@ -58,6 +68,21 @@ namespace {
 
 		public function get_error_data() {
 			return $this->data;
+		}
+	}
+
+	/**
+	 * Minimal WP_REST_Request double: the transport bound check only ever reads the raw body.
+	 */
+	class Fake_Rest_Request {
+		private $body;
+
+		public function __construct( $body = '' ) {
+			$this->body = (string) $body;
+		}
+
+		public function get_body() {
+			return $this->body;
 		}
 	}
 
@@ -127,6 +152,14 @@ namespace {
 
 	function __return_false() {
 		return false;
+	}
+
+	function is_wp_error( $thing ) {
+		return $thing instanceof WP_Error;
+	}
+
+	function esc_html( $text ) {
+		return htmlspecialchars( (string) $text, ENT_QUOTES );
 	}
 
 	function current_user_can( $capability ) {
@@ -320,6 +353,20 @@ namespace {
 		return $GLOBALS['paf_abilities'];
 	}
 
+	/**
+	 * Register abilities WITHOUT resetting the filter chain — for the exposure tests, which need
+	 * Assistant's own `public_abilities` callback in place to exercise the real grant path.
+	 */
+	function paf_register_abilities_with_current_filters() {
+		$GLOBALS['paf_abilities']          = array();
+		$GLOBALS['paf_ability_categories'] = array();
+
+		PixelgradeAssistant_Abilities::register_category();
+		PixelgradeAssistant_Abilities::register_abilities();
+
+		return $GLOBALS['paf_abilities'];
+	}
+
 	// --- 1. Registration presence and shape ----------------------------------------------------
 
 	$abilities = paf_register_abilities();
@@ -389,7 +436,9 @@ namespace {
 
 	$GLOBALS['paf_denied_caps'] = array( 'manage_options' => true );
 	foreach ( $abilities as $name => $args ) {
-		paf_assert_same( false, call_user_func( $args['permission_callback'], array() ), $name . ' denies a user without manage_options' );
+		$denied = call_user_func( $args['permission_callback'], array() );
+		paf_assert( true !== $denied, $name . ' denies a user without manage_options' );
+		paf_assert( $denied instanceof WP_Error && 'permission_denied' === $denied->get_error_code(), $name . ' names the reason it denied' );
 	}
 	$GLOBALS['paf_denied_caps'] = array();
 
@@ -536,22 +585,167 @@ namespace {
 	paf_assert_same( false, PixelgradeAssistant_MCP_Server::can_reach_server(), 'a user without edit_posts is refused at the transport, before any ability is named' );
 	$GLOBALS['paf_denied_caps'] = array();
 
-	// A site filter can narrow, never widen: the server hands the adapter the reviewed constant,
-	// intersected with what actually registered.
+	// --- 9. Exposure cannot escape the reviewed constant (architecture review H1 / L4) -----------
+
+	// Helper: force the "did WE boot the adapter?" flag, which decides whether meta.mcp.public may
+	// be granted at all.
+	$set_bootstrapped = static function ( $value ) {
+		$ref  = new \ReflectionClass( 'PixelgradeAssistant_MCP_Server' );
+		$prop = $ref->getProperty( 'bootstrapped' );
+		if ( PHP_VERSION_ID < 80100 ) {
+			$prop->setAccessible( true );
+		}
+		$prop->setValue( null, $value );
+	};
+
+	// (a) A FOREIGN-BOOTED adapter: another plugin loaded MCP Adapter, so its default server is
+	// still running and we did not suppress it. Granting meta.mcp.public would publish all 14 onto
+	// that server, behind ITS transport gate (`read`) — the disclosure the edit_posts floor exists
+	// to close, walked around by another plugin's presence. So nothing may be granted.
+	$set_bootstrapped( false );
+	$GLOBALS['paf_filters'] = array();
+	add_filter( 'pixelgrade/mcp/public_abilities', array( 'PixelgradeAssistant_MCP_Server', 'public_abilities' ) );
+
+	$foreign = paf_register_abilities_with_current_filters();
+
+	foreach ( $foreign as $name => $args ) {
+		paf_assert_same( false, $args['meta']['mcp']['public'], $name . ' is NOT public when a foreign plugin booted the adapter' );
+	}
+	paf_assert_same( array(), PixelgradeAssistant_MCP_Server::public_abilities(), 'no name is granted on a foreign-booted adapter' );
+
+	// (b) An adapter WE booted: its default server is suppressed, so the grant is inert-but-honest
+	// and the reviewed 14 are declared public.
+	$set_bootstrapped( true );
+	paf_assert_same(
+		$expected_whitelist,
+		PixelgradeAssistant_MCP_Server::public_abilities(),
+		'the reviewed 14 are granted on an adapter we booted'
+	);
+
+	// (c) The callback DISCARDS incoming names rather than merging them. Merging let a third-party
+	// add_filter flip meta.mcp.public on a non-reviewed write — invisible on the curated server,
+	// live on a coexisting default server.
+	paf_assert_same(
+		$expected_whitelist,
+		PixelgradeAssistant_MCP_Server::public_abilities( array( 'pixelgrade/canonicalize-post', 'pixelgrade/set-design-settings' ) ),
+		'names arriving from another filter are discarded, not merged'
+	);
+
+	// (d) L4, made non-vacuous: the list actually handed to create_server() is the constant
+	// intersected with what registered — never the filter's output. Asserting the constant is
+	// immutable would be a tautology; this asserts the property that matters.
 	$GLOBALS['paf_filters'] = array();
 	add_filter(
 		'pixelgrade/mcp/public_abilities',
 		static function ( $names ) {
-			$names[] = 'pixelgrade/canonicalize-post';
+			$names[] = 'pixelgrade/reset-starter-content';
 
 			return $names;
 		}
 	);
+
+	$tools = PixelgradeAssistant_MCP_Server::tools_for_server();
+
 	paf_assert(
-		! in_array( 'pixelgrade/canonicalize-post', PixelgradeAssistant_MCP_Server::PUBLIC_ABILITIES, true ),
-		'a filter cannot add a name to the reviewed constant the server passes to the adapter'
+		! in_array( 'pixelgrade/reset-starter-content', $tools, true ),
+		'a filter-added name never reaches the tool list handed to the adapter'
+	);
+	paf_assert(
+		in_array( 'pixelgrade/list-starters', $tools, true ),
+		'a registered, reviewed name does reach the tool list'
+	);
+	paf_assert(
+		! in_array( 'pixelgrade/get-design-settings', $tools, true ),
+		'a reviewed name whose owning plugin is inactive is dropped from the tool list'
 	);
 	$GLOBALS['paf_filters'] = array();
+
+	// --- 10. Adapter version handshake (architecture review H2) ---------------------------------
+
+	// We booted it from the pinned vendor copy: by definition the version this file targets.
+	$set_bootstrapped( true );
+	paf_assert_same( true, PixelgradeAssistant_MCP_Server::adapter_version_supported(), 'our own pinned boot is always supported' );
+
+	// Foreign boot, matching minor — 0.x patch releases do not change signatures.
+	$set_bootstrapped( false );
+	define( 'WP_MCP_VERSION', '0.6.9' );
+	paf_assert_same( true, PixelgradeAssistant_MCP_Server::adapter_version_supported(), 'a foreign 0.6.x adapter is supported' );
+
+	// The skew case cannot be re-tested in-process (WP_MCP_VERSION is a constant), so the
+	// comparison itself is pinned directly.
+	$ref  = new \ReflectionClass( 'PixelgradeAssistant_MCP_Server' );
+	$same = $ref->getMethod( 'same_minor' );
+	if ( PHP_VERSION_ID < 80100 ) {
+		$same->setAccessible( true );
+	}
+
+	paf_assert_same( true, $same->invoke( null, '0.6.1', '0.6.1' ), 'identical versions match' );
+	paf_assert_same( true, $same->invoke( null, 'v0.6.9', '0.6.1' ), 'a v-prefixed patch bump matches' );
+	paf_assert_same( false, $same->invoke( null, '0.7.0', '0.6.1' ), 'a minor bump is skew — the create_server signature may have changed' );
+	paf_assert_same( false, $same->invoke( null, '1.0.0', '0.6.1' ), 'a major bump is skew' );
+	paf_assert_same( false, $same->invoke( null, 'garbage', '0.6.1' ), 'an unparseable version fails closed' );
+
+	$set_bootstrapped( true );
+
+	// --- 11. Request bounds (security review LOW-1) ---------------------------------------------
+
+	paf_assert_same( true, PixelgradeAssistant_MCP_Server::within_request_limits( null ), 'no request object is not a rejection' );
+
+	$small = new Fake_Rest_Request( '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' );
+	paf_assert_same( true, PixelgradeAssistant_MCP_Server::within_request_limits( $small ), 'an ordinary single message passes' );
+
+    $oversized = new Fake_Rest_Request( str_repeat( 'x', PixelgradeAssistant_MCP_Server::MAX_REQUEST_BYTES + 1 ) );
+	$rejected  = PixelgradeAssistant_MCP_Server::within_request_limits( $oversized );
+	paf_assert( $rejected instanceof WP_Error && 'rest_request_too_large' === $rejected->get_error_code(), 'an oversized body is refused' );
+
+	$batch      = array();
+	$batch_size = PixelgradeAssistant_MCP_Server::MAX_BATCH_MESSAGES + 1;
+	for ( $i = 0; $i < $batch_size; $i++ ) {
+		$batch[] = array( 'jsonrpc' => '2.0', 'id' => $i, 'method' => 'tools/call' );
+	}
+	$big_batch = new Fake_Rest_Request( json_encode( $batch ) );
+	$rejected  = PixelgradeAssistant_MCP_Server::within_request_limits( $big_batch );
+	paf_assert( $rejected instanceof WP_Error && 'rest_batch_too_large' === $rejected->get_error_code(), 'an over-long JSON-RPC batch is refused' );
+
+	$ok_batch = new Fake_Rest_Request( json_encode( array_slice( $batch, 0, 2 ) ) );
+	paf_assert_same( true, PixelgradeAssistant_MCP_Server::within_request_limits( $ok_batch ), 'a short batch passes' );
+
+	// The caps are filterable for a site that genuinely batches.
+	$GLOBALS['paf_filters'] = array();
+	add_filter( 'pixelgrade/mcp/max_batch_messages', static function () use ( $batch_size ) { return $batch_size + 1; } );
+	paf_assert_same( true, PixelgradeAssistant_MCP_Server::within_request_limits( $big_batch ), 'the batch cap is filterable' );
+	$GLOBALS['paf_filters'] = array();
+
+	// --- 12. Uncaught-Throwable redaction (security review LOW-2 item 1) ------------------------
+
+	$leaky = new WP_Error(
+		'mcp_execution_failed',
+		'SQLSTATE[HY000] [2002] No such file or directory at /var/www/secret/wp-includes/wp-db.php:1234',
+		array( 'error_type' => 'PDOException' )
+	);
+
+	$redacted = PixelgradeAssistant_MCP_Server::redact_tool_error( $leaky, array(), 'pixelgrade-list-starters' );
+
+	paf_assert( $redacted instanceof WP_Error, 'an uncaught-Throwable error stays an error' );
+	paf_assert_same( 'mcp_execution_failed', $redacted->get_error_code(), 'the machine token is preserved' );
+	paf_assert(
+		false === strpos( $redacted->get_error_message(), '/var/www' ),
+		'the exception message — and any path in it — never reaches the client'
+	);
+	paf_assert(
+		false === strpos( $redacted->get_error_message(), 'PDOException' ),
+		'the exception class never reaches the client'
+	);
+	paf_assert_same( array(), (array) $redacted->get_error_data(), 'error_type is dropped from the payload' );
+
+	// A deliberate refusal must pass through untouched — it is written for the caller.
+	$deliberate = new WP_Error( 'confirmation_required', 'Importing starter content is destructive.' );
+	$passed     = PixelgradeAssistant_MCP_Server::redact_tool_error( $deliberate, array(), 'pixelgrade-import-starter' );
+
+	paf_assert_same( $deliberate, $passed, 'a deliberate refusal is not redacted' );
+
+	$envelope = array( 'ok' => true, 'code' => 'ok' );
+	paf_assert_same( $envelope, PixelgradeAssistant_MCP_Server::redact_tool_error( $envelope, array(), 'pixelgrade-list-starters' ), 'a successful result is untouched' );
 
 	// -------------------------------------------------------------------------------------------
 
