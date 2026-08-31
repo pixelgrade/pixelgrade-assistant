@@ -92,7 +92,7 @@ Under `--format=json`, STDOUT is the envelope and nothing else; diagnostics go t
 
 ## 3. Agent invariants
 
-These are the ten things that go wrong. Read them before your first write.
+These are the twelve things that go wrong. Read them before your first write.
 
 1. **Always `--format=json`, and always read the envelope.** The default is `table`. `ok` is bound
    to the exit code, not to the outcome: `ok:true` means exit 0 **or 2**. A command that stripped
