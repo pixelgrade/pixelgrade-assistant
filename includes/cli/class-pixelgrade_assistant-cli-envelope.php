@@ -139,12 +139,20 @@ class PixelgradeAssistant_CLI_Envelope {
 	}
 
 	/**
-	 * Contract §3.6: whether a destructive command is confirmed — via `--yes`, or (on an
-	 * interactive TTY only) an explicit "y" answer to $confirm_message. In any non-TTY context
-	 * with no `--yes`, this returns false rather than blocking on stdin or silently proceeding.
+	 * Contract §3.6 (W2 review H1, pinned in the FROZEN contract as of v0.3.2): whether a
+	 * destructive command is confirmed. Confirmation is bound to the OUTPUT FORMAT, not to TTY
+	 * detection:
+	 *
+	 * - `--format=json|yaml`: `--yes` is strictly required. A prompt would corrupt the machine
+	 *   contract (STDOUT must stay envelope-only), so no prompt is ever attempted here — this
+	 *   returns false immediately without touching STDIN/STDOUT.
+	 * - `--format=table`: an interactive-style confirm is permitted. Its prompt goes to STDERR
+	 *   (never STDOUT, so it can never land ahead of a JSON/YAML envelope if the caller re-runs
+	 *   this in table mode inside a script) and reads one line from STDIN; a closed/non-
+	 *   interactive STDIN yields an empty read (declined), never a block.
 	 *
 	 * @param array  $assoc_args      Command assoc_args.
-	 * @param string $confirm_message Message shown at an interactive TTY prompt.
+	 * @param string $confirm_message Message shown at the table-mode STDERR prompt.
 	 *
 	 * @return bool
 	 */
@@ -153,14 +161,16 @@ class PixelgradeAssistant_CLI_Envelope {
 			return true;
 		}
 
-		if ( function_exists( 'posix_isatty' ) && defined( 'STDIN' ) && @posix_isatty( STDIN ) ) {
-			fwrite( STDOUT, $confirm_message . ' [y/N] ' );
-			$answer = strtolower( trim( (string) fgets( STDIN ) ) );
+		$format = \WP_CLI\Utils\get_flag_value( $assoc_args, 'format', 'table' );
 
-			return in_array( $answer, array( 'y', 'yes' ), true );
+		if ( in_array( $format, array( 'json', 'yaml' ), true ) ) {
+			return false;
 		}
 
-		return false;
+		fwrite( STDERR, $confirm_message . ' [y/N] ' );
+		$answer = strtolower( trim( (string) fgets( STDIN ) ) );
+
+		return in_array( $answer, array( 'y', 'yes' ), true );
 	}
 
 	/**

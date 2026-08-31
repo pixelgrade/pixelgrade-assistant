@@ -1,11 +1,13 @@
 <?php
 /**
  * Pins the `wp pixelgrade assist` CLI subtree: the §2 envelope shape, the §2 exit-code mapping,
- * the §3.0 permission-first rule, and the §3.6 --yes rule, per
- * docs/plans/agentic-stack/CONTRACT.md (v0.3) §1.3.
+ * the §3.0 permission-first rule, and the §3.6 --yes rule (format-bound, not TTY-bound, per
+ * v0.3.2/v0.3.3), per docs/plans/agentic-stack/CONTRACT.md (v0.3.3) §1.3.
  *
- * Standalone: run with `php tests/cli-assist-commands-test.php` (no WordPress, no real WP-CLI
- * needed — WP_CLI and the WP function surface the CLI code touches are stubbed below).
+ * Standalone: run with `php tests/cli-assist-commands-test.php < /dev/null` (no WordPress, no
+ * real WP-CLI needed — WP_CLI and the WP function surface the CLI code touches are stubbed
+ * below). The `< /dev/null` is a safety habit, not a requirement: this file never drives the
+ * table-mode interactive-STDIN branch of `confirmed()` (see the note where that's skipped).
  *
  * @package PixelgradeAssistant
  */
@@ -24,6 +26,20 @@ namespace {
 	// WP_CLI stub: captures halt()/success()/warning()/log()/print_value() calls so the tests
 	// can assert on the envelope and exit code without a real WP-CLI runtime.
 	// ---------------------------------------------------------------------------------------
+
+	// Minimal WP_REST_Response stub (H1): production code checks `$result instanceof
+	// WP_REST_Response` and unwraps via get_data() — this lets the test drive that exact shape.
+	class WP_REST_Response {
+		private $data;
+
+		public function __construct( $data = null, $status = 200 ) {
+			$this->data = $data;
+		}
+
+		public function get_data() {
+			return $this->data;
+		}
+	}
 
 	class WP_CLI_Test_Halt_Exception extends \Exception {
 		public $exit_code;
@@ -94,6 +110,10 @@ namespace {
 
 	function esc_url_raw( $url ) {
 		return (string) $url;
+	}
+
+	function wp_parse_url( $url, $component = -1 ) {
+		return parse_url( (string) $url, $component );
 	}
 
 	function __( $text, $domain = 'default' ) {
@@ -355,18 +375,27 @@ namespace {
 	}
 
 	paf_reset_runtime();
-	// §3.6: --yes present -> confirmed, no halt.
+	// §3.6: --yes present -> confirmed, no halt, no matter the format.
 	assert_true(
 		PixelgradeAssistant_CLI_Envelope::confirmed( array( 'yes' => true ), 'Proceed?' ),
 		'--yes must confirm.'
 	);
+	assert_true(
+		PixelgradeAssistant_CLI_Envelope::confirmed( array( 'yes' => true, 'format' => 'json' ), 'Proceed?' ),
+		'--yes must confirm under --format=json too.'
+	);
 
 	paf_reset_runtime();
-	// §3.6: no --yes, non-TTY (the test harness's STDIN is never a TTY) -> not confirmed, and the
-	// halt helper must halt 1 with ok:false, never proceed and never hang.
+	// §3.6 (v0.3.2, W2 review H1): confirmation is bound to --format, NOT to TTY detection. Under
+	// json/yaml, --yes is strictly required and no prompt is ever attempted — confirmed() must
+	// return false immediately without touching STDIN/STDOUT.
 	assert_true(
-		! PixelgradeAssistant_CLI_Envelope::confirmed( array(), 'Proceed?' ),
-		'Missing --yes in a non-TTY context must not confirm.'
+		! PixelgradeAssistant_CLI_Envelope::confirmed( array( 'format' => 'json' ), 'Proceed?' ),
+		'Missing --yes under --format=json must not confirm (no prompt attempted).'
+	);
+	assert_true(
+		! PixelgradeAssistant_CLI_Envelope::confirmed( array( 'format' => 'yaml' ), 'Proceed?' ),
+		'Missing --yes under --format=yaml must not confirm (no prompt attempted).'
 	);
 	try {
 		PixelgradeAssistant_CLI_Envelope::require_yes_or_halt( array( 'format' => 'json' ), 'wp pixelgrade assist starter reset --yes' );
@@ -376,6 +405,16 @@ namespace {
 		assert_same( false, WP_CLI::$printed_value['ok'], 'Missing --yes must be ok:false.' );
 		assert_same( 'confirmation_required', WP_CLI::$printed_value['code'], 'Missing --yes code.' );
 	}
+
+	// NOT exercised here: the --format=table branch of confirmed() (an interactive-style
+	// WP_CLI::confirm() prompt, contract-permitted per v0.3.2) unconditionally writes to STDERR
+	// and reads one line from STDIN — driving that path here would make this file block on STDIN
+	// whenever `composer test` runs from an interactive terminal. Verified by code inspection
+	// instead (class-pixelgrade_assistant-cli-envelope.php, confirmed()): the --format check is
+	// the function's first statement after the --yes check, so the json/yaml assertions above
+	// prove the gate; the table branch is the same function with that condition false, differing
+	// only in that its prompt goes to STDERR (never STDOUT, per H2/security LOW-1) instead of
+	// being skipped.
 
 	echo "Envelope contract OK\n";
 
@@ -491,6 +530,51 @@ namespace {
 	assert_same( 1, $exit, 'starter import: a failure that wrote nothing must exit 1 (total failure).' );
 	assert_same( false, WP_CLI::$printed_value['ok'], 'starter import: total failure ok:false.' );
 	assert_same( 'starter_data_missing', WP_CLI::$printed_value['code'], 'starter import: total failure code round-trips.' );
+
+	paf_reset_runtime();
+	// H1: import_starter() is @return array|WP_REST_Response — a mid-run sub-step failure
+	// (import_settings()/import_taxonomy()/import_post_type()/import_parsed_widgets()) can return
+	// a WP_REST_Response, which has no ArrayAccess. The CLI must unwrap it (get_data()) so the
+	// real code/message reach the envelope instead of degrading to unknown_error/''. Partial case
+	// (journal grew):
+	$GLOBALS['paf_starter_content']->import_starter_result = new WP_REST_Response( array(
+		'code'    => 'missing_tax',
+		'message' => 'A required taxonomy could not be imported.',
+		'data'    => array(),
+	) );
+	$GLOBALS['paf_starter_content']->import_starter_journal = array(
+		'x' => array( 'media' => array( 1 => 1 ) ),
+	);
+	$cmd  = new PixelgradeAssistant_CLI_Starter_Command();
+	$exit = paf_run( array( $cmd, 'import' ), array( 'x' ), array( 'source-url' => 'https://x.test/', 'yes' => true, 'format' => 'json' ) );
+	assert_same( 2, $exit, 'starter import: a WP_REST_Response mid-run failure must still exit 2 (partial) once unwrapped.' );
+	assert_same( true, WP_CLI::$printed_value['ok'], 'starter import: WP_REST_Response partial must be ok:true.' );
+	assert_same( 'partial', WP_CLI::$printed_value['code'], 'starter import: WP_REST_Response partial code.' );
+	assert_same( 'missing_tax', WP_CLI::$printed_value['warnings'][0]['code'], 'starter import: WP_REST_Response must be unwrapped — real producer code must reach warnings[0].code, not lost to unknown_error.' );
+	assert_same( 'A required taxonomy could not be imported.', WP_CLI::$printed_value['warnings'][0]['message'], 'starter import: WP_REST_Response must be unwrapped — real message must reach warnings[0].message, not empty.' );
+
+	paf_reset_runtime();
+	// H1, total-failure case (nothing journaled): the real code/message must round-trip to the
+	// top-level envelope fields, not degrade to unknown_error/''.
+	$GLOBALS['paf_starter_content']->import_starter_result = new WP_REST_Response( array(
+		'code'    => 'starter_data_missing',
+		'message' => 'The starter source did not provide import data.',
+		'data'    => array(),
+	) );
+	$cmd  = new PixelgradeAssistant_CLI_Starter_Command();
+	$exit = paf_run( array( $cmd, 'import' ), array( 'x' ), array( 'source-url' => 'https://x.test/', 'yes' => true, 'format' => 'json' ) );
+	assert_same( 1, $exit, 'starter import: a WP_REST_Response total failure must exit 1 once unwrapped.' );
+	assert_same( false, WP_CLI::$printed_value['ok'], 'starter import: WP_REST_Response total failure ok:false.' );
+	assert_same( 'starter_data_missing', WP_CLI::$printed_value['code'], 'starter import: WP_REST_Response must be unwrapped — real code must round-trip, not unknown_error.' );
+	assert_same( 'The starter source did not provide import data.', WP_CLI::$printed_value['summary'], 'starter import: WP_REST_Response must be unwrapped — real message must reach summary, not empty.' );
+
+	paf_reset_runtime();
+	// Security LOW-2: --source-url must be https://.
+	$cmd  = new PixelgradeAssistant_CLI_Starter_Command();
+	$exit = paf_run( array( $cmd, 'import' ), array( 'x' ), array( 'source-url' => 'http://insecure.test/', 'yes' => true, 'format' => 'json' ) );
+	assert_same( 1, $exit, 'starter import: a non-https --source-url must exit 1.' );
+	assert_same( false, WP_CLI::$printed_value['ok'], 'starter import: non-https --source-url ok:false.' );
+	assert_same( 'invalid_params', WP_CLI::$printed_value['code'], 'starter import: non-https --source-url code.' );
 
 	echo "starter import contract OK\n";
 
@@ -616,6 +700,50 @@ namespace {
 	assert_same( 2, $exit, 'recipe apply: leftover applied units after a failure must exit 2 (partial).' );
 	assert_same( true, WP_CLI::$printed_value['ok'], 'recipe apply: partial ok:true.' );
 	assert_same( 'partial', WP_CLI::$printed_value['code'], 'recipe apply: partial code.' );
+
+	paf_reset_runtime();
+	// H1 defensive twin: apply_recipe()'s error paths are array-only today, but the CLI unwraps a
+	// WP_REST_Response defensively too (cheap insurance against the same degradation).
+	$rollback_units = array( 'header' => array( 'type' => 'header' ) );
+	$GLOBALS['paf_starter_content']->applied_layout_units_sequence = array( $rollback_units, $rollback_units );
+	$GLOBALS['paf_starter_content']->apply_recipe_result = new WP_REST_Response( array(
+		'code' => 'missing_tax', 'message' => 'boom', 'data' => array(),
+	) );
+	$cmd  = new PixelgradeAssistant_CLI_Recipe_Command();
+	$exit = paf_run( array( $cmd, 'apply' ), array( 'x' ), array( 'source-url' => 'https://x.test/', 'yes' => true, 'format' => 'json' ) );
+	assert_same( 1, $exit, 'recipe apply: a WP_REST_Response clean-rollback failure must exit 1 once unwrapped.' );
+	assert_same( 'missing_tax', WP_CLI::$printed_value['code'], 'recipe apply: WP_REST_Response must be unwrapped — real code must round-trip, not unknown_error.' );
+
+	paf_reset_runtime();
+	// M2(a): --include-look failures (units rolled back to their pre-call state) must carry a
+	// look_partially_applied warning, since import_recipe_look() runs after every unit already
+	// succeeded and its own failure is not undone by the unit rollback.
+	$look_same_units = array( 'header' => array( 'type' => 'header' ) );
+	$GLOBALS['paf_starter_content']->applied_layout_units_sequence = array( $look_same_units, $look_same_units );
+	$GLOBALS['paf_starter_content']->apply_recipe_result = array( 'code' => 'layout_import_error', 'message' => 'Look import failed.', 'data' => array() );
+	$cmd  = new PixelgradeAssistant_CLI_Recipe_Command();
+	$exit = paf_run( array( $cmd, 'apply' ), array( 'x' ), array( 'source-url' => 'https://x.test/', 'yes' => true, 'include-look' => true, 'format' => 'json' ) );
+	assert_same( 1, $exit, 'recipe apply: --include-look clean-rollback failure still exits 1.' );
+	assert_same( false, WP_CLI::$printed_value['ok'], 'recipe apply: --include-look clean-rollback ok:false.' );
+	assert_same( 1, count( WP_CLI::$printed_value['warnings'] ), 'recipe apply: --include-look failure must carry a look_partially_applied warning.' );
+	assert_same( 'look_partially_applied', WP_CLI::$printed_value['warnings'][0]['code'], 'recipe apply: look_partially_applied warning code.' );
+
+	// Control: the same shape of failure WITHOUT --include-look carries no such warning.
+	paf_reset_runtime();
+	$GLOBALS['paf_starter_content']->applied_layout_units_sequence = array( $look_same_units, $look_same_units );
+	$GLOBALS['paf_starter_content']->apply_recipe_result = array( 'code' => 'missing_tax', 'message' => 'boom', 'data' => array() );
+	$cmd  = new PixelgradeAssistant_CLI_Recipe_Command();
+	$exit = paf_run( array( $cmd, 'apply' ), array( 'x' ), array( 'source-url' => 'https://x.test/', 'yes' => true, 'format' => 'json' ) );
+	assert_same( 1, $exit, 'recipe apply: clean-rollback failure without --include-look still exits 1.' );
+	assert_same( 0, count( WP_CLI::$printed_value['warnings'] ), 'recipe apply: no look_partially_applied warning without --include-look.' );
+
+	paf_reset_runtime();
+	// Security LOW-2: --source-url must be https://.
+	$cmd  = new PixelgradeAssistant_CLI_Recipe_Command();
+	$exit = paf_run( array( $cmd, 'apply' ), array( 'x' ), array( 'source-url' => 'http://insecure.test/', 'yes' => true, 'format' => 'json' ) );
+	assert_same( 1, $exit, 'recipe apply: a non-https --source-url must exit 1.' );
+	assert_same( false, WP_CLI::$printed_value['ok'], 'recipe apply: non-https --source-url ok:false.' );
+	assert_same( 'invalid_params', WP_CLI::$printed_value['code'], 'recipe apply: non-https --source-url code.' );
 
 	echo "recipe apply contract OK\n";
 

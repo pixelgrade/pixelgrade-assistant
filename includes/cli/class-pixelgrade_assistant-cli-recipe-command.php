@@ -35,6 +35,15 @@ class PixelgradeAssistant_CLI_Recipe_Command {
 	 *     wp pixelgrade assist recipe list --format=json
 	 *     wp pixelgrade assist recipe list --source=anima-restaurant,anima-portfolio
 	 *
+	 * ## CODES
+	 *
+	 * `code` (contract §2 — never translated):
+	 *
+	 * * `ok` — exit 0, always (this command has no exit-2 case; per-source build failures are
+	 *   reported as `warnings[]`, each `{code, message, ids}`, without moving the exit code).
+	 * * `assistant_unavailable` — exit 1. Assistant's core modules are not loaded (defensive only).
+	 * * `permission_denied` — exit 3.
+	 *
 	 * @subcommand list
 	 */
 	public function list_recipes( $args, $assoc_args ) {
@@ -103,7 +112,10 @@ class PixelgradeAssistant_CLI_Recipe_Command {
 	 * : The recipe/source id (see `wp pixelgrade assist recipe list`).
 	 *
 	 * --source-url=<base-url>
-	 * : The recipe source's SCE REST base URL.
+	 * : The recipe source's SCE REST base URL. Must use `https://` — a plaintext `http://` source
+	 * is rejected (`code:"invalid_params"`) so an operator-typed URL cannot accidentally downgrade
+	 * to a scheme an on-path attacker could tamper with; the fetched content is trusted at admin
+	 * level once applied.
 	 *
 	 * NOTE: the agentic-stack contract (§1.3) names this flag `--url`, but WP-CLI reserves
 	 * `--url` as one of its own global parameters ("pretend request came from given URL") and
@@ -114,13 +126,20 @@ class PixelgradeAssistant_CLI_Recipe_Command {
 	 * that can never carry a value.
 	 *
 	 * [--include-look]
-	 * : Also apply the source's design look (colors/fonts).
+	 * : Also apply the source's design look (colors/fonts). CAUTION: the look step runs only after
+	 * every layout unit has already applied; if it then fails, `apply_recipe()` rolls the units
+	 * back but does not undo whatever design settings (theme mods / `sm_*` options) the look step
+	 * had already written — the CLI cannot tell from the outside whether that happened, so a
+	 * failure with `--include-look` set always carries a `warnings[]` entry warning that the site's
+	 * design settings may have changed even when the overall result is `ok:false`.
 	 *
 	 * [--include-sample]
 	 * : Also import sample content for feature units.
 	 *
 	 * [--yes]
-	 * : Confirm the apply. Required outside an interactive TTY.
+	 * : Confirm the apply. Under --format=table an interactive STDERR prompt is offered in its
+	 * place; under --format=json|yaml no prompt is ever shown and --yes is strictly required
+	 * (contract §3.6).
 	 *
 	 * [--format=<format>]
 	 * : Render output in a particular format.
@@ -136,6 +155,25 @@ class PixelgradeAssistant_CLI_Recipe_Command {
 	 *
 	 *     wp pixelgrade assist recipe apply anima-restaurant --source-url=https://demo.example.com/wp-json/sce/v2/ --yes --user=admin
 	 *
+	 * ## CODES
+	 *
+	 * `code` (contract §2 — never translated):
+	 *
+	 * * `ok` — exit 0.
+	 * * `invalid_params` — exit 1. Missing `<recipe-id>`/`--source-url`, or `--source-url` is not
+	 *   `https://`.
+	 * * `recipe_empty` — exit 1. The resolved recipe has no layout units.
+	 * * `confirmation_required` — exit 1. Missing `--yes` (contract §3.6).
+	 * * `partial` — exit 2, `ok:true`. `get_applied_layout_units()` differs before vs. after the
+	 *   call despite a failure — `apply_recipe()`'s own rollback did not fully restore the pre-call
+	 *   state. The underlying producer code/message is in `warnings[0].code`/`.message`.
+	 * * *(any other producer code)* — exit 1, `ok:false`. `apply_recipe()`'s rollback restored the
+	 *   pre-call applied-units state (or nothing had applied yet); not a closed set — bubbled from
+	 *   `import_layout_unit()`/`import_recipe_look()`. With `--include-look` set, this case also
+	 *   carries a `warnings[]` entry (`code:"look_partially_applied"`) per the CAUTION above.
+	 * * `assistant_unavailable` — exit 1. Assistant's core modules are not loaded (defensive only).
+	 * * `permission_denied` — exit 3.
+	 *
 	 * @subcommand apply
 	 */
 	public function apply( $args, $assoc_args ) {
@@ -149,6 +187,24 @@ class PixelgradeAssistant_CLI_Recipe_Command {
 				false,
 				'invalid_params',
 				__( 'You need to provide a recipe id and --source-url.', '__plugin_txtd' ),
+				array(),
+				array(),
+				1,
+				array(),
+				$assoc_args
+			);
+
+			return;
+		}
+
+		// Security hardening: pin the scheme so an operator-typed --source-url cannot
+		// accidentally downgrade to cleartext (an on-path attacker could then substitute the
+		// fetched recipe content, which apply_recipe() trusts at admin level).
+		if ( 'https' !== wp_parse_url( $base_url, PHP_URL_SCHEME ) ) {
+			PixelgradeAssistant_CLI_Envelope::emit(
+				false,
+				'invalid_params',
+				__( '--source-url must use https://.', '__plugin_txtd' ),
 				array(),
 				array(),
 				1,
@@ -179,6 +235,14 @@ class PixelgradeAssistant_CLI_Recipe_Command {
 		$before_units = $starter_content->get_applied_layout_units();
 
 		$result = $starter_content->apply_recipe( $recipe_id, $base_url, $options );
+
+		// H1 defensive twin: apply_recipe()'s own error paths (import_layout_unit(),
+		// layout_unit_error_response()) are array-only today, but unwrap defensively in case that
+		// ever changes — cheap insurance against the same WP_REST_Response degradation as
+		// `starter import`.
+		if ( class_exists( 'WP_REST_Response' ) && $result instanceof WP_REST_Response ) {
+			$result = $result->get_data();
+		}
 
 		$after_units         = $starter_content->get_applied_layout_units();
 		$after_content_units = $starter_content->get_applied_content_units();
@@ -238,7 +302,20 @@ class PixelgradeAssistant_CLI_Recipe_Command {
 			return;
 		}
 
-		PixelgradeAssistant_CLI_Envelope::emit( false, $code, $message, $data, array(), 1, array(), $assoc_args );
+		// M2(a): the units are back to (or still at) their pre-call state, but
+		// import_recipe_look() runs only after every unit already succeeded — a look-step failure
+		// rolls the units back while leaving whatever design settings it already wrote untouched.
+		// The CLI cannot tell from here whether the failure happened before or during the look
+		// step, so — conservatively — warn whenever --include-look was requested.
+		$warnings = array();
+		if ( ! empty( $options['include_look'] ) ) {
+			$warnings[] = array(
+				'code'    => 'look_partially_applied',
+				'message' => __( 'This recipe requested --include-look. The failure may have happened after design settings (colors/fonts) were already written; they are not automatically reverted. Check the site\'s Style Manager settings before retrying.', '__plugin_txtd' ),
+			);
+		}
+
+		PixelgradeAssistant_CLI_Envelope::emit( false, $code, $message, $data, $warnings, 1, array(), $assoc_args );
 	}
 
 	/**
