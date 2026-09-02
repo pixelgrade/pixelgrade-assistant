@@ -17,6 +17,8 @@
 define( 'ABSPATH', __DIR__ . '/' );
 define( 'HOUR_IN_SECONDS', 3600 );
 
+require_once __DIR__ . '/fixtures/wpdb-prepare.php';
+
 $GLOBALS['paf_filters']           = array();
 $GLOBALS['paf_pixassist_options'] = array();
 // Map of post_name => existing local post ID, consulted by the_slug_exists() via $wpdb.
@@ -146,19 +148,14 @@ class PAF_WPDB {
 	 * Stands in for wpdb::prepare(): substitutes the placeholders and, like the real
 	 * thing, supplies the quotes around %s itself. Marks the result so the test can
 	 * assert the caller went through prepare() rather than concatenating values.
+	 *
+	 * Substitution is a SINGLE pass over the format string, like the real prepare()'s
+	 * vsprintf(). Substituting one argument at a time would let a value containing a
+	 * literal `%s` swallow the next placeholder — something the real prepare() cannot
+	 * do, and which would make a `%`-in-slug test here report a fault that is not real.
 	 */
 	public function prepare( $query, ...$args ) {
-		$query = str_replace( array( "'%s'", '"%s"' ), '%s', $query );
-
-		foreach ( $args as $arg ) {
-			$replacement = is_int( $arg ) || is_float( $arg )
-				? (string) $arg
-				: "'" . str_replace( array( '\\', "'" ), array( '\\\\', "\\'" ), (string) $arg ) . "'";
-
-			$query = preg_replace( '/%[sdf]/', str_replace( '$', '\\$', $replacement ), $query, 1 );
-		}
-
-		return '/*prepared*/' . $query;
+		return '/*prepared*/' . paf_fake_wpdb_prepare( $query, $args );
 	}
 
 	public function get_var( $sql ) {

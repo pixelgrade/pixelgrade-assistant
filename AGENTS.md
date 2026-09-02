@@ -128,7 +128,7 @@ Release packaging notes:
 - Compiled assets live in `admin/js` and `admin/css`.
 - `gulp zip` packages the current compiled assets. Run `npm run distribution` first for release-grade assets.
 - Zip output is one directory above the plugin, named like `Pixelgrade-assistant-1-4-0.zip`.
-- The packaging task replaces source text-domain placeholders `__plugin_txtd` with `pixelgrade_assistant` inside the temporary build folder.
+- The packaging task replaces source text-domain placeholders `__plugin_txtd` with `pixelgrade-assistant` inside the temporary build folder.
 - If WP-CLI is available, packaging regenerates `languages/pixelgrade-assistant.pot` in the temporary build folder.
 - Agent files and private overlays must stay out of release zips.
 

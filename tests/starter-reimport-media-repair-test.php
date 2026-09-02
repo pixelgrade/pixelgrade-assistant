@@ -20,6 +20,8 @@
  */
 
 define( 'ABSPATH', __DIR__ . '/' );
+
+require_once __DIR__ . '/fixtures/wpdb-prepare.php';
 define( 'HOUR_IN_SECONDS', 3600 );
 
 $GLOBALS['paf_filters']           = array();
@@ -205,22 +207,9 @@ class WP_Error {}
 class PAF_WPDB {
 	public $posts = 'wp_posts';
 
-	/**
-	 * Stands in for wpdb::prepare(): substitutes the placeholders and, like the real
-	 * thing, supplies the quotes around %s itself.
-	 */
+	/** Stands in for wpdb::prepare(); see tests/fixtures/wpdb-prepare.php. */
 	public function prepare( $query, ...$args ) {
-		$query = str_replace( array( "'%s'", '"%s"' ), '%s', $query );
-
-		foreach ( $args as $arg ) {
-			$replacement = is_int( $arg ) || is_float( $arg )
-				? (string) $arg
-				: "'" . str_replace( array( '\\', "'" ), array( '\\\\', "\\'" ), (string) $arg ) . "'";
-
-			$query = preg_replace( '/%[sdf]/', str_replace( '$', '\\$', $replacement ), $query, 1 );
-		}
-
-		return $query;
+		return paf_fake_wpdb_prepare( $query, $args );
 	}
 
 	public function get_var( $sql ) {
