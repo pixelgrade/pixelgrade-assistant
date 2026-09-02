@@ -528,6 +528,28 @@ function paf_remote_data( $url = '' ) {
 		);
 	}
 
+	if ( false !== strpos( $url, 'starter.pixelgrade.com/content-library' ) ) {
+		// A catalog: it declares `post` and selects NOTHING from it. An empty selection must mean
+		// "offer nothing of this type" — the source's posts endpoint treats an empty include as no
+		// filter, so reading it the other way would hand over the whole corpus.
+		return array(
+			'code'    => 'success',
+			'message' => '',
+			'data'    => array(
+				'post_types' => array(
+					'page' => array(
+						'name' => 'page',
+						'ids'  => array( 48 ),
+					),
+					'post' => array(
+						'name' => 'post',
+						'ids'  => array(),
+					),
+				),
+			),
+		);
+	}
+
 	if ( false !== strpos( $url, 'starter.pixelgrade.com/mies-lt' ) ) {
 		return array(
 			'code'    => 'success',
@@ -687,6 +709,32 @@ function paf_remote_layout_units( $url = '', $args = array() ) {
 }
 
 function paf_remote_posts( $post_type, $url = '' ) {
+	if ( 'post' === $post_type && false !== strpos( $url, 'starter.pixelgrade.com/content-library' ) ) {
+		// The default post every WordPress install is created with. It exists on the source and the
+		// endpoint would happily return it; the empty selection is the only thing keeping it out.
+		return array(
+			array(
+				'ID'                    => 1,
+				'post_title'            => 'Hello world!',
+				'post_content'          => '<!-- wp:paragraph --><p>Welcome to WordPress.</p><!-- /wp:paragraph -->',
+				'post_content_filtered' => '',
+				'post_excerpt'          => '',
+				'post_status'           => 'publish',
+				'post_name'             => 'hello-world',
+				'post_type'             => 'post',
+				'post_date'             => '2026-01-01 00:00:00',
+				'post_date_gmt'         => '2026-01-01 00:00:00',
+				'post_modified'         => '2026-01-01 00:00:00',
+				'post_modified_gmt'     => '2026-01-01 00:00:00',
+				'post_parent'           => 0,
+				'menu_order'            => 0,
+				'guid'                  => 'https://starter.pixelgrade.com/content-library/?p=1',
+				'meta'                  => array(),
+				'taxonomies'            => array(),
+			),
+		);
+	}
+
 	if ( 'wp_template' === $post_type && false !== strpos( $url, 'portfolio-source.test' ) ) {
 		return array(
 			array(
@@ -888,7 +936,7 @@ function paf_remote_posts( $post_type, $url = '' ) {
 	}
 
 	if ( 'page' === $post_type ) {
-		if ( false !== strpos( $url, 'starter.pixelgrade.com/mies-lt' ) ) {
+		if ( false !== strpos( $url, 'starter.pixelgrade.com/mies-lt' ) || false !== strpos( $url, 'starter.pixelgrade.com/content-library' ) ) {
 			return array(
 				array(
 					'ID'                    => 48,
@@ -2375,5 +2423,21 @@ assert_same( 'Contact Page', $mies_contact_summary['data']['appliedContent']['pa
 $mies_journal = $GLOBALS['paf_pixassist_options']['imported_starter_content']['mies-lt'];
 assert_true( isset( $mies_journal['content_units']['page:contact'] ), 'Mies Contact import must record applied content state.' );
 assert_same( 'Contact Page', $mies_journal['content_units']['page:contact']['title'], 'Mies applied content state must carry the catalog title.' );
+
+/*
+ * A source that declares a content type and selects nothing from it must offer nothing of that type.
+ * `sce/v2/posts` treats an empty include as no filter and returns every record of the type, so the
+ * empty selection has to be honoured here or a catalog hands over its whole corpus — starting with
+ * the default "Hello world!" post every WordPress install is created with.
+ */
+$catalog_response = $starter_content->list_content_units( 'content-library', 'https://starter.pixelgrade.com/content-library/wp-json/sce/v2/' );
+assert_same( 'success', $catalog_response['code'], 'A catalog source must list successfully.' );
+
+$catalog_types = array();
+foreach ( $catalog_response['data']['units'] as $catalog_unit ) {
+	$catalog_types[ $catalog_unit['type'] ] = true;
+}
+assert_true( isset( $catalog_types['page'] ), 'The selected page must still be offered.' );
+assert_true( ! isset( $catalog_types['post'] ), 'A type selected as empty must contribute no units at all.' );
 
 echo "Layout unit import contract OK\n";

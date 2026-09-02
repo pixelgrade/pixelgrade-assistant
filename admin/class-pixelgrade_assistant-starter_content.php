@@ -1770,10 +1770,23 @@ class PixelgradeAssistant_StarterContent {
 
 		$units       = array();
 		$type_errors = array();
+		$declares_types = ! empty( $source_data['post_types'] ) && is_array( $source_data['post_types'] );
+
 		foreach ( $this->get_content_unit_post_types( $source_data ) as $post_type ) {
 			$ids   = ! empty( $source_data['post_types'][ $post_type ]['ids'] ) && is_array( $source_data['post_types'][ $post_type ]['ids'] )
 				? array_values( array_filter( array_map( 'absint', $source_data['post_types'][ $post_type ]['ids'] ) ) )
 				: array();
+
+			// An empty selection means "offer nothing of this type", never "offer everything of it".
+			// The source's `posts` endpoint treats an empty include as no filter and returns every
+			// record of the type, so a source that declares a type and selects nothing from it would
+			// otherwise hand over its whole corpus — including the default "Hello world!" post every
+			// WordPress install starts with. Only skip when the manifest actually spoke: with no
+			// manifest there is no selection to respect, and the unfiltered fetch stays the fallback.
+			if ( $declares_types && empty( $ids ) ) {
+				continue;
+			}
+
 			$posts = $this->fetch_layout_source_posts( $base_url, $post_type, $ids );
 			if ( is_wp_error( $posts ) ) {
 				// One failing post type must not discard the whole source: a source-side error on (say)
