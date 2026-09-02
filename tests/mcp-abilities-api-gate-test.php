@@ -288,9 +288,29 @@ if ( 'present' === $pa_gate_phase ) {
 	);
 
 	// H2, unchanged by the gate: the major.minor handshake still rejects skew.
+	// The reviewed whitelist is pinned by NAME, not merely by count. The canary exists to fail when
+	// an unreviewed name enters the curated list, and a count alone cannot see one reviewed name
+	// being swapped for another. These are the sixteen of contract v0.4.7 (W12).
 	pa_gate_assert(
-		16 === count( PixelgradeAssistant_MCP_Server::PUBLIC_ABILITIES ),
-		'the reviewed whitelist is still the sixteen names'
+		array(
+			'pixelgrade/get-design-system',
+			'pixelgrade/get-design-settings',
+			'pixelgrade/get-design-structure',
+			'pixelgrade/export-design-system',
+			'pixelgrade/flush-design-cache',
+			'pixelgrade/get-license-status',
+			'pixelgrade/get-devmode',
+			'pixelgrade/list-starters',
+			'pixelgrade/list-recipes',
+			'pixelgrade/list-blocks',
+			'pixelgrade/list-patterns',
+			'pixelgrade/validate-post',
+			'pixelgrade/apply-font-palette',
+			'pixelgrade/apply-color-palette',
+			'pixelgrade/import-starter',
+			'pixelgrade/set-devmode',
+		) === array_values( PixelgradeAssistant_MCP_Server::PUBLIC_ABILITIES ),
+		'the reviewed whitelist is still exactly the sixteen approved names'
 	);
 
 	pa_gate_assert(
