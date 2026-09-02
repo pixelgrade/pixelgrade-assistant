@@ -116,6 +116,11 @@ Pixelgrade Assistant does not perform advertising, cross-site, or event-level be
 * Site Setup now places rows contributed by companion plugins where they belong in the list, so an independently updated companion can slot in without waiting for an Assistant release.
 * Starter import, starter reset and recipe apply now refuse to run without an explicit confirmation on the machine paths, and accept starter sources only over `https`.
 * Clearer failure reporting throughout the new command paths: every outcome carries a stable code, a plain-language summary and any warnings, and a partly-completed import is reported as such rather than as a success.
+* New: the `pixelgrade/mcp/enabled` filter turns the assistant endpoint off completely — return false and it is never registered at all, so there is no route to reach. Everything else in the plugin is unaffected. See the FAQ.
+* The reviewed list of operations the endpoint may expose is sixteen: twelve that only read, and four that change something. Two of them are Pixelgrade Plus features, so on a site without Plus they never register and what the endpoint offers is unchanged.
+* Fix: the starter importer's internal slug lookup now uses a prepared database statement.
+* Fix: the plugin's text domain is now its slug, `pixelgrade-assistant`. The previous value was not a valid text domain, so WordPress.org translations could never be delivered; they can be now.
+* Four dashboard card titles loaded a small decorative image from a remote server. They now use the character directly, so the dashboard renders from the plugin alone.
 
 = 2.3.3 =
 * WordPress 7.1 compatibility: updated editor controls to use current core component defaults, restored the documentation toolbar launcher, and verified the Assistant hub, documentation window, and editor integrations.
