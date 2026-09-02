@@ -321,9 +321,36 @@ class PixelgradeAssistant_MCP_Server {
 	 * its `init` @20 / `rest_api_init` @15 hook the first time it is called. Called any later, the
 	 * hook it registers has already passed and no server is ever created.
 	 *
+	 * And nothing above happens at all below WordPress 6.9 — see the Abilities API gate first.
+	 *
 	 * @return bool
 	 */
 	private static function bootstrap_adapter() {
+		// THE ABILITIES API GATE. `mcp-adapter` declares `Requires at least: 6.9` and hard-depends on
+		// the Abilities API: with `wp_register_ability()` absent, its own `Plugin::setup()` bails and
+		// registers an `admin_notices` closure that renders "MCP Adapter requires WordPress 6.9 or
+		// newer" — non-dismissible, on every admin screen, naming a plugin this site's owner never
+		// installed. Worse, that closure calls `wp_admin_notice()`, which is only `@since` 6.4, so on
+		// the 5.9–6.3 span this plugin still supports it is an undefined function inside the
+		// `admin_notices` action: a fatal in wp-admin.
+		//
+		// The check belongs HERE, not in the adapter. The adapter is a general-purpose package that
+		// may legitimately be installed as a plugin in its own right, where announcing an unmet
+		// dependency to the person who installed it is the correct behaviour. We are a consumer that
+		// vendored it: our user did not choose it, cannot act on the notice, and — because every
+		// `pixelgrade/*` ability registers on `wp_abilities_api_init` behind the same predicate
+		// {@see PixelgradeAssistant_Abilities::register()} — would get a curated server with nothing
+		// on it even if the adapter did boot. So the honest posture below 6.9 is that the MCP surface
+		// simply does not exist, and this predicate is deliberately the exact one the abilities
+		// registrar already uses, so the two can never disagree about which WordPress versions have
+		// an agent surface.
+		//
+		// This is a load-time refusal, before `require`, so no adapter code runs and no constant of
+		// its is defined. The CLI subtree and everything else in the plugin are unaffected.
+		if ( ! function_exists( 'wp_register_ability' ) ) {
+			return false;
+		}
+
 		if ( defined( 'WP_MCP_VERSION' ) ) {
 			return class_exists( '\WP\MCP\Core\McpAdapter' );
 		}

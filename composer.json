@@ -59,7 +59,8 @@
             "php tests/anima-product-sku-test.php",
             "php tests/remote-config-cache-test.php",
             "php tests/cli-assist-commands-test.php",
-            "php tests/agent-abilities-test.php"
+            "php tests/agent-abilities-test.php",
+            "php tests/mcp-abilities-api-gate-test.php"
         ]
     }
 }
