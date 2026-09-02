@@ -42,9 +42,9 @@ test( 'release cockpit workflow parses the current version markers', () => {
 			.map( ( line ) => line.split( '=' ) )
 	);
 
-	assert.equal( outputs.plugin_version, '2.3.3' );
-	assert.equal( outputs.singleton_version, '2.3.3' );
-	assert.equal( outputs.readme_stable_tag, '2.3.3' );
-	assert.equal( outputs.package_version, '2.3.3' );
+	assert.equal( outputs.plugin_version, '2.4.0' );
+	assert.equal( outputs.singleton_version, '2.4.0' );
+	assert.equal( outputs.readme_stable_tag, '2.4.0' );
+	assert.equal( outputs.package_version, '2.4.0' );
 	assert.equal( outputs.versions_consistent, 'yes' );
 } );

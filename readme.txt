@@ -4,7 +4,7 @@ Tags: dashboard, starter-content, demo-content, recommended-plugins, pixelgrade
 Requires at least: 5.9
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 2.3.3
+Stable tag: 2.4.0
 License: GPLv3.0
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -108,6 +108,14 @@ Pixelgrade Assistant does not perform advertising, cross-site, or event-level be
 4. Preview the live color, typography, and spacing systems, then jump straight into the matching Style Manager controls.
 
 == Changelog ==
+
+= 2.4.0 =
+* New: run the Assistant from the command line — `wp pixelgrade assist` lists and imports starter sites, lists and applies recipes, and resets imported starter content, with human-readable tables or machine-readable JSON/YAML output.
+* New: an optional endpoint lets an AI assistant you authorise read your design system, block inventory and starter catalog, and apply a small, reviewed set of changes. It is closed by default: only a reviewed list of operations is ever exposed, the caller must be a logged-in WordPress user with editing rights, each operation still enforces its own stricter permission, and anything that changes or removes content must be confirmed explicitly. It needs WordPress 6.9 or newer; on older versions this part of the plugin stays completely inactive and everything else works as before.
+* New: a bundled operating guide documents both surfaces, so an assistant works from the same rules the plugin enforces instead of guessing.
+* Site Setup now places rows contributed by companion plugins where they belong in the list, so an independently updated companion can slot in without waiting for an Assistant release.
+* Starter import, starter reset and recipe apply now refuse to run without an explicit confirmation on the machine paths, and accept starter sources only over `https`.
+* Clearer failure reporting throughout the new command paths: every outcome carries a stable code, a plain-language summary and any warnings, and a partly-completed import is reported as such rather than as a success.
 
 = 2.3.3 =
 * WordPress 7.1 compatibility: updated editor controls to use current core component defaults, restored the documentation toolbar launcher, and verified the Assistant hub, documentation window, and editor integrations.
