@@ -86,7 +86,7 @@ class PixelgradeAssistant_MCP_Server {
 		'pixelgrade/list-patterns',          // nova-blocks (warms the cloud pattern cache — §4 ‡)
 		'pixelgrade/validate-post',          // nova-blocks
 
-		// --- the three opened writes ---
+		// --- the four opened writes ---
 		'pixelgrade/apply-font-palette',     // style-manager
 		'pixelgrade/apply-color-palette',    // style-manager
 		'pixelgrade/import-starter',         // pixelgrade-assistant
