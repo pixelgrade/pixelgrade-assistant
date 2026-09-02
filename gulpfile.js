@@ -1,5 +1,5 @@
 var plugin = 'pixelgrade-assistant',
-	textDomain = 'pixelgrade_assistant',
+	textDomain = 'pixelgrade-assistant',
 	source_SCSS = { admin: './admin/scss/**/*.scss', public: './public/scss/**/*.scss'},
 	dest_CSS = { admin:'./admin/css/', public: './public/css/'},
 
