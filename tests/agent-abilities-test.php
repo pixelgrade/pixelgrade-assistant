@@ -541,7 +541,7 @@ namespace {
 
 	$whitelist = PixelgradeAssistant_MCP_Server::PUBLIC_ABILITIES;
 
-	paf_assert_same( 14, count( $whitelist ), 'the reviewed whitelist is exactly the 14 abilities signed off at Gate 2' );
+	paf_assert_same( 16, count( $whitelist ), 'the reviewed whitelist is exactly the 16 abilities signed off at Gate 2 plus the W12 devmode pair' );
 	paf_assert_same( count( $whitelist ), count( array_unique( $whitelist ) ), 'the whitelist has no duplicates' );
 
 	$expected_whitelist = array(
@@ -551,6 +551,7 @@ namespace {
 		'pixelgrade/export-design-system',
 		'pixelgrade/flush-design-cache',
 		'pixelgrade/get-license-status',
+		'pixelgrade/get-devmode',
 		'pixelgrade/list-starters',
 		'pixelgrade/list-recipes',
 		'pixelgrade/list-blocks',
@@ -559,9 +560,10 @@ namespace {
 		'pixelgrade/apply-font-palette',
 		'pixelgrade/apply-color-palette',
 		'pixelgrade/import-starter',
+		'pixelgrade/set-devmode',
 	);
 
-	paf_assert_same( $expected_whitelist, $whitelist, 'the whitelist is the read set plus the three opened writes, and nothing else' );
+	paf_assert_same( $expected_whitelist, $whitelist, 'the whitelist is the read set plus the four opened writes, and nothing else' );
 
 	// The writes that must NOT be public.
 	foreach ( array(

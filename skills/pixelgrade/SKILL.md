@@ -1,6 +1,6 @@
 ---
 name: pixelgrade
-description: Control a Pixelgrade WordPress site from an agent — read and write the Style Manager design system (color palettes, font palettes, per-element type), check and activate a Pixelgrade Plus license, list and import starter sites and recipes, and list, validate or canonicalize Nova Blocks content. Use whenever the task mentions a Pixelgrade site, Style Manager, design tokens, color signal, Nova Blocks, block validity, starter sites, or a Pixelgrade Plus license, and whenever you are about to reach for `wp option` on a `sm_*` setting.
+description: Control a Pixelgrade WordPress site from an agent — read and write the Style Manager design system (color palettes, font palettes, per-element type), check and activate a Pixelgrade Plus license, entitle a lab site through Plus DevMode, list and import starter sites and recipes, and list, validate or canonicalize Nova Blocks content. Use whenever the task mentions a Pixelgrade site, Style Manager, design tokens, color signal, Nova Blocks, block validity, starter sites, or a Pixelgrade Plus license, and whenever you are about to reach for `wp option` on a `sm_*` setting.
 ---
 
 # Pixelgrade site control
@@ -26,7 +26,7 @@ wp pixelgrade blocks <verb>   # Nova Blocks — block registry, validity, canoni
 | Subtree | Verbs |
 |---|---|
 | `sm` | `get`, `set`, `export`, `structure`, `apply-font-palette`, `apply-color-palette`, `flush-cache` |
-| `plus` | `license status`, `license activate`, `license refresh`, `license disconnect` |
+| `plus` | `license status`, `license activate`, `license refresh`, `license disconnect`, `devmode status`, `devmode enable`, `devmode disable` |
 | `assist` | `starter list`, `starter import`, `starter reset`, `recipe list`, `recipe apply` |
 | `blocks` | `list`, `patterns`, `validate`, `canonicalize` |
 
@@ -42,11 +42,11 @@ Route `/wp-json/pixelgrade/v1/mcp` (streamable HTTP; a STDIO transport also exis
 `wp mcp-adapter serve --server=pixelgrade`). Authenticate with a WordPress **application
 password** over HTTP Basic. Server name `Pixelgrade`.
 
-**14 published tools**, named `pixelgrade-<verb>-<noun>`: the 11 read tools
+**16 published tools**, named `pixelgrade-<verb>-<noun>`: the 12 read tools
 (`get-design-system`, `get-design-settings`, `get-design-structure`, `export-design-system`,
-`flush-design-cache`, `get-license-status`, `list-starters`, `list-recipes`, `list-blocks`,
-`list-patterns`, `validate-post`) plus three opened writes (`apply-font-palette`,
-`apply-color-palette`, `import-starter`).
+`flush-design-cache`, `get-license-status`, `get-devmode`, `list-starters`, `list-recipes`,
+`list-blocks`, `list-patterns`, `validate-post`) plus four opened writes (`apply-font-palette`,
+`apply-color-palette`, `import-starter`, `set-devmode`).
 
 Everything else — writing arbitrary settings, license activation, starter reset, recipe apply,
 canonicalize — is deliberately **CLI-only**. If a tool is missing from `tools/list`, it is not
@@ -58,6 +58,13 @@ Two MCP-specific rules:
   catalog. Each tool still enforces its own, stricter capability on top.
 - **Destructive tools require an explicit `confirm: true` input property.** It is the machine
   mirror of `--yes`. There is no prompt on this path; without it the call is refused.
+- **`set-devmode` is published but self-gating.** It is the only published write that can refuse
+  on grounds other than a capability: it turns full Plus entitlements on for a LAB site, and it
+  returns `devmode_unavailable` unless the site reports a non-`production` environment type AND
+  `PIXELGRADE_PLUS_DEV_MODE` is already defined in `wp-config.php`. It never writes
+  `wp-config.php`. On a customer site it therefore exists and always says no. Call
+  `get-devmode` first — it is readonly, it answers everywhere, and its `reasons` tell you which
+  factor is missing instead of leaving you to guess.
 
 Every tool's `output_schema` is the **whole envelope**, not just `data` — because there is no
 exit code on the wire, `code` / `warnings` / `stripped` are your only way to notice a finding.
@@ -152,11 +159,12 @@ These are the twelve things that go wrong. Read them before your first write.
 11. **Destructive verbs need explicit intent.** `--yes` on CLI (strictly required under
     `--format=json`; without it you get `confirmation_required`, exit 1), `confirm: true` over MCP.
     Destructive = `apply-color-palette`, `apply-font-palette`, `license disconnect`,
-    `starter import`, `starter reset`, `recipe apply`, `canonicalize` — plus any `sm set` whose
-    payload carries a master font slot.
+    `devmode enable`, `devmode disable`, `starter import`, `starter reset`, `recipe apply`,
+    `canonicalize` — plus any `sm set` whose payload carries a master font slot.
 
 12. **Production sites are never an implicit target.** The commands carry no environment check and
-    will happily run anywhere. Point them at a site the user named. Work on local/staging by
+    will happily run anywhere — `plus devmode enable|disable` is the single exception, and it
+    refuses there because the underlying DevMode facility is inert on production anyway. Point them at a site the user named. Work on local/staging by
     default; a production run is an explicit, separate decision.
 
 Two supporting facts worth knowing:
@@ -193,6 +201,9 @@ Two supporting facts worth knowing:
 | Check the license and entitlements | `wp pixelgrade plus license status --entitlements` |
 | Activate / refresh a license | `wp pixelgrade plus license activate` · `… refresh` |
 | Disconnect a license | `wp pixelgrade plus license disconnect --yes` |
+| Check whether a lab site can be entitled | `wp pixelgrade plus devmode status` |
+| Entitle a LAB site with no license (dev only) | `wp pixelgrade plus devmode enable --yes` |
+| Return a lab site to its real license state | `wp pixelgrade plus devmode disable --yes` |
 | List available starter sites | `wp pixelgrade assist starter list` (`--refresh` to bypass cache) |
 | Import a starter site | `wp pixelgrade assist starter import <demo-key> --source-url=<https base> --yes` |
 | Undo a starter import | `wp pixelgrade assist starter reset --yes` |
@@ -227,6 +238,7 @@ Two flag traps:
 | `invalid_params` | 1 | Bad id, value or flag. `data` names the offenders and the accepted set. |
 | `ordering_conflict` | 1 | Master font slot and per-element field in one call. Split into two. |
 | `confirmation_required` | 1 | Destructive verb without `--yes` (CLI) or `confirm: true` (MCP). |
+| `devmode_unavailable` | 1 | `plus devmode enable\|disable` refused. `data.reasons` names the factor: `production_environment` (never overridable) or `missing_constant` (an operator must add `PIXELGRADE_PLUS_DEV_MODE` to `wp-config.php`; this command never writes it). |
 | `preset_rejected` | 1 | Agent-authored input carried a theme.json preset. |
 | `generator_unavailable` | 1 | The palette generator or its Node binary is missing. |
 | `harness_unavailable` | 1 | The blocks Node harness is not installed. The summary names the step. |

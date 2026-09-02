@@ -50,10 +50,21 @@ class PixelgradeAssistant_MCP_Server {
 	 * reviewed list — the P5 demo set signed off at Gate 2. Adding a name to it is a product
 	 * decision that goes through the orchestrator, not a refactor.
 	 *
-	 * Fourteen abilities: the complete read set (every ability annotated `readonly: true` in §4's
-	 * table) plus exactly three writes chosen for the demo — the two design applies and the starter
-	 * import. Everything else — set-design-settings, the three license writes, reset-starter-content,
-	 * apply-recipe, canonicalize-post — stays private and is reachable only over WP-CLI.
+	 * Sixteen abilities: the complete read set (every ability annotated `readonly: true` in §4's
+	 * table, `get-devmode` included) plus exactly four writes — the two design applies, the starter
+	 * import, and `set-devmode`. Everything else — set-design-settings, the three license writes,
+	 * reset-starter-content, apply-recipe, canonicalize-post, describe-block — stays private and is
+	 * reachable only over WP-CLI.
+	 *
+	 * `set-devmode` (contract v0.4.7, W12) is the one write on this list that is NOT gated only by
+	 * a capability. It carries its own two-factor gate inside the command core: it refuses unless
+	 * the site reports a non-`production` environment type AND an operator has already defined
+	 * `PIXELGRADE_PLUS_DEV_MODE` in `wp-config.php`. It never writes `wp-config.php`, so publishing
+	 * it cannot grant itself its own master gate. On a customer site the tool is therefore visible
+	 * and inert — it exists and always says no, naming the failing factor; on a lab site
+	 * provisioned with that constant it is the demo switch that puts the site into full Plus
+	 * entitlements headlessly. `get-devmode` is the readonly companion that answers *why* it would
+	 * refuse, which is why publishing the pair together is what makes the refusal actionable.
 	 *
 	 * Names are listed here whether or not their owning plugin is active: a name for an ability
 	 * that never registered is simply never exposed, so the list stays readable as policy rather
@@ -67,6 +78,7 @@ class PixelgradeAssistant_MCP_Server {
 		'pixelgrade/export-design-system',   // style-manager
 		'pixelgrade/flush-design-cache',     // style-manager (cache-only write, §4 carve-out)
 		'pixelgrade/get-license-status',     // pixelgrade-plus
+		'pixelgrade/get-devmode',            // pixelgrade-plus (lab entitlement switch — status only)
 		'pixelgrade/list-starters',          // pixelgrade-assistant
 		'pixelgrade/list-recipes',           // pixelgrade-assistant
 		'pixelgrade/list-blocks',            // nova-blocks
@@ -77,6 +89,7 @@ class PixelgradeAssistant_MCP_Server {
 		'pixelgrade/apply-font-palette',     // style-manager
 		'pixelgrade/apply-color-palette',    // style-manager
 		'pixelgrade/import-starter',         // pixelgrade-assistant
+		'pixelgrade/set-devmode',            // pixelgrade-plus (two-factor gated; refuses on production)
 	);
 
 	/**
@@ -452,7 +465,8 @@ class PixelgradeAssistant_MCP_Server {
 	 * even though each ability's own permission callback would then refuse to execute. Denying the
 	 * call but publishing the map is a needless disclosure, so the transport asks for the LOWEST
 	 * capability any exposed ability requires: `edit_posts` (Nova Blocks' floor; the Style Manager
-	 * set needs `edit_theme_options` and the Plus/Assistant set `manage_options`).
+	 * set needs `edit_theme_options` and the Plus/Assistant set `manage_options`, the two devmode
+	 * abilities included — a higher floor never lowers this one).
 	 *
 	 * This can only narrow, never widen. Every ability still enforces its own, stricter capability
 	 * in its own permission callback — passing this gate buys visibility, not execution.
