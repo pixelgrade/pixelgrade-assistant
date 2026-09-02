@@ -289,8 +289,8 @@ if ( 'present' === $pa_gate_phase ) {
 
 	// H2, unchanged by the gate: the major.minor handshake still rejects skew.
 	pa_gate_assert(
-		14 === count( PixelgradeAssistant_MCP_Server::PUBLIC_ABILITIES ),
-		'the reviewed whitelist is still the fourteen names'
+		16 === count( PixelgradeAssistant_MCP_Server::PUBLIC_ABILITIES ),
+		'the reviewed whitelist is still the sixteen names'
 	);
 
 	pa_gate_assert(
