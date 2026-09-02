@@ -284,7 +284,7 @@ function pixassist_get_default_config( $original_theme_slug ) {
 					'fields' => array(
 						'title'   => array(
 							'type'  => 'h4',
-							'value' => '<img class="emoji" alt="🎨" src="https://s.w.org/images/core/emoji/2.2.1/svg/1f3a8.svg"> ' . esc_html__( 'Tweaking Colors Schemes', '__plugin_txtd' ),
+							'value' => '🎨 ' . esc_html__( 'Tweaking Colors Schemes', '__plugin_txtd' ),
 							'class' => 'section__title',
 						),
 						'content' => array(
@@ -305,7 +305,7 @@ function pixassist_get_default_config( $original_theme_slug ) {
 					'fields' => array(
 						'title'   => array(
 							'type'  => 'h4',
-							'value' => '<img class="emoji" alt="🎨" src="https://s.w.org/images/core/emoji/2.2.1/svg/1f3a8.svg"> ' . esc_html__( 'Managing Fonts', '__plugin_txtd' ),
+							'value' => '🎨 ' . esc_html__( 'Managing Fonts', '__plugin_txtd' ),
 							'class' => 'section__title',
 						),
 						'content' => array(
@@ -326,7 +326,7 @@ function pixassist_get_default_config( $original_theme_slug ) {
 					'fields' => array(
 						'title'   => array(
 							'type'  => 'h4',
-							'value' => '<img class="emoji" alt="🎨" src="https://s.w.org/images/core/emoji/2.2.1/svg/1f3a8.svg"> ' . esc_html__( 'Custom CSS', '__plugin_txtd' ),
+							'value' => '🎨 ' . esc_html__( 'Custom CSS', '__plugin_txtd' ),
 							'class' => 'section__title',
 						),
 						'content' => array(
@@ -347,7 +347,7 @@ function pixassist_get_default_config( $original_theme_slug ) {
 					'fields' => array(
 						'title'   => array(
 							'type'  => 'h4',
-							'value' => '<img class="emoji" alt="🎨" src="https://s.w.org/images/core/emoji/2.2.1/svg/1f3a8.svg"> ' . esc_html__( 'Advanced Customizations', '__plugin_txtd' ),
+							'value' => '🎨 ' . esc_html__( 'Advanced Customizations', '__plugin_txtd' ),
 							'class' => 'section__title',
 						),
 						'content' => array(
