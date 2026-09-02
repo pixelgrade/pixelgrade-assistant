@@ -88,6 +88,14 @@ Pixelgrade Plus is the optional premium companion for the Pixelgrade LT stack �
 
 No. If Pixelgrade Care (our legacy companion for premium themes) is active, Pixelgrade Assistant detects it and stays out of the way — it does not load a second dashboard or touch your existing license. Your current setup keeps working exactly as before. New LT-stack sites use Pixelgrade Assistant, with Pixelgrade Plus as the optional premium path.
 
+= How do I turn the AI assistant endpoint off completely? =
+
+Add this to a small plugin or your theme's `functions.php`:
+
+`add_filter( 'pixelgrade/mcp/enabled', '__return_false' );`
+
+That is a full withdrawal rather than a locked door: the endpoint is never registered, so there is no route to reach, and no operation is offered to any caller. The rest of the plugin — the dashboard, Site Setup, starter content and the WP-CLI commands — is unaffected. The endpoint also stays completely inactive on WordPress older than 6.9 whether or not you use this filter.
+
 = Is this plugin tracking me? =
 
 Pixelgrade Assistant does not perform advertising, cross-site, or event-level behavioral tracking. The first-party services required for configuration, documentation, design assets, and starter content automatically retain your canonical site URL and the minimal operational context listed in the External services section. They do not receive your site content, credentials, license hashes, support messages, email address, user name, or IP address as part of the site registry.

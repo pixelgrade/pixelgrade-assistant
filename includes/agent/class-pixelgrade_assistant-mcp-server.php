@@ -106,6 +106,27 @@ class PixelgradeAssistant_MCP_Server {
 	 * the adapter hooks `init` @20 / `rest_api_init` @15 the moment it is instantiated.
 	 */
 	public static function register() {
+		/**
+		 * THE OFF SWITCH. Whether the curated MCP server exists on this site at all.
+		 *
+		 * Returning false here is a complete withdrawal, not a hidden route: the vendored adapter
+		 * is never `require`d, so no REST route is registered, no adapter hook is wired, and the
+		 * public whitelist is never published — which leaves `pixelgrade/mcp/public_abilities`
+		 * with no callback, so every ability in the stack stays private exactly as if this plugin
+		 * were not installed. Nothing else about the plugin changes: the CLI, Site Setup and the
+		 * abilities themselves are unaffected.
+		 *
+		 * It is consulted first precisely so a host can decline the whole surface without paying
+		 * for it. Default true — the endpoint is already closed by default in the sense that it
+		 * requires an authenticated, capable user, so this is for operators who want the route
+		 * gone rather than merely shut.
+		 *
+		 * @param bool $enabled Whether to register the curated MCP server. Default true.
+		 */
+		if ( ! apply_filters( 'pixelgrade/mcp/enabled', true ) ) {
+			return;
+		}
+
 		// Bootstrap BEFORE publishing the whitelist: whether we may grant `meta.mcp.public` at all
 		// depends on whether this plugin is the thing that booted the adapter (see
 		// public_abilities()).

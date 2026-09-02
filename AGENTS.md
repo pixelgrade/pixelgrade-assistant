@@ -75,6 +75,7 @@ Pixelgrade Plus and other companions extend Assistant through public hooks rathe
 - **`pixassist_localized_data` (filter)** — mutate the entire localized `pixassist` JS global.
 - **`pixassist_internal_api_endpoints` / `pixassist_external_api_endpoints` (filters)** — adjust the REST/API endpoint descriptors handed to JS.
 - **`pixassist_sce_allowed_demo_hosts` (filter)** — allow additional hosts for starter-content imports.
+- **`pixelgrade/mcp/enabled` (filter, default `true`)** — the off switch for the curated MCP server, consulted first in `PixelgradeAssistant_MCP_Server::register()`. Returning false is a COMPLETE withdrawal, not a locked route: the vendored adapter is never `require`d, no REST route is registered, no adapter hook is wired, and `pixelgrade/mcp/public_abilities` is never published — so every ability in the stack stays private exactly as if Assistant were absent. Nothing else in the plugin changes. Pin test: the `disabled` phase of `tests/mcp-abilities-api-gate-test.php`.
 - **`pixassist_allow_*_module` (filters)** — disable individual core modules (setup wizard, notifications, data collector).
 
 ### Host extension surface (0.9.0 — Assistant as host shell)

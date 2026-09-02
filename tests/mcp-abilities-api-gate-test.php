@@ -19,6 +19,15 @@
  *                   the gate exists: the adapter's own dependency notice calls wp_admin_notice()
  *                   (`@since` 6.4), which on 5.9–6.3 is a fatal inside `admin_notices`.
  *
+ * Phase `disabled` — everything `present` has (Abilities API declared, a supported adapter already
+ *                   booted), but `pixelgrade/mcp/enabled` answers false. Asserts the off switch is a
+ *                   complete withdrawal rather than a half-wired surface: no REST route, no
+ *                   `mcp_adapter_init`, no redaction filter, and the public whitelist never
+ *                   published — so a consumer asking for the list gets nothing, exactly as if this
+ *                   plugin were not installed. Because this phase differs from `present` only in the
+ *                   filter's answer, a regression that ignored the switch fails here and nowhere
+ *                   else.
+ *
  * Phase `present` — `wp_register_ability()` declared, so the gate passes and control reaches the
  *                   pre-existing already-booted branch. Asserts the 6.9+ path is untouched: a
  *                   foreign-booted adapter inside the pinned minor still wires `mcp_adapter_init`
@@ -41,7 +50,7 @@ $pa_gate_phase = getenv( 'PA_MCP_GATE_PHASE' );
 if ( false === $pa_gate_phase || '' === $pa_gate_phase ) {
 	$failed = false;
 
-	foreach ( array( 'absent', 'present' ) as $phase ) {
+	foreach ( array( 'absent', 'present', 'disabled' ) as $phase ) {
 		$command = sprintf(
 			'PA_MCP_GATE_PHASE=%s %s %s',
 			escapeshellarg( $phase ),
@@ -115,7 +124,15 @@ function add_filter( $hook, $callback, $priority = 10, $args = 1 ) {
 	return true;
 }
 
+// Filter returns a phase can force, so a phase can answer `pixelgrade/mcp/enabled` with false
+// without redeclaring this function (a function cannot be redeclared once the file is loaded).
+$GLOBALS['pa_gate_filter_returns'] = array();
+
 function apply_filters( $hook, $value ) {
+	if ( array_key_exists( $hook, $GLOBALS['pa_gate_filter_returns'] ) ) {
+		return $GLOBALS['pa_gate_filter_returns'][ $hook ];
+	}
+
 	return $value;
 }
 
@@ -176,6 +193,25 @@ if ( 'present' === $pa_gate_phase ) {
 	require_once dirname( __DIR__ ) . '/vendor/autoload.php';
 }
 
+if ( 'disabled' === $pa_gate_phase ) {
+	// Everything the `present` phase has — the Abilities API is declared and an adapter is already
+	// booted inside the pinned minor — so that what stops the server here can only be the off
+	// switch, not the 6.9 gate and not adapter skew.
+	function wp_register_ability( $name, $args ) {
+		return (object) array( 'name' => $name );
+	}
+
+	function wp_has_ability( $name ) {
+		return false;
+	}
+
+	define( 'WP_MCP_VERSION', '0.6.1' );
+
+	require_once dirname( __DIR__ ) . '/vendor/autoload.php';
+
+	$GLOBALS['pa_gate_filter_returns']['pixelgrade/mcp/enabled'] = false;
+}
+
 require_once dirname( __DIR__ ) . '/includes/agent/class-pixelgrade_assistant-mcp-server.php';
 
 // -------------------------------------------------------------------------------------------------
@@ -203,14 +239,17 @@ echo 'phase: ' . $pa_gate_phase . PHP_EOL;
 
 PixelgradeAssistant_MCP_Server::register();
 
-// The whitelist filter is published in BOTH phases, unconditionally and before the boot check. That
-// is what makes "Assistant absent means the whole stack is private" true: the filter is the one
-// channel style-manager, nova-blocks and pixelgrade-plus consult, and it must answer even when there
-// is no server.
-pa_gate_assert(
-	pa_gate_hooked( 'pa_gate_filters', 'pixelgrade/mcp/public_abilities' ),
-	'the public-abilities filter is published regardless of the adapter'
-);
+// The whitelist filter is published whatever the ADAPTER's state, unconditionally and before the
+// boot check. That is what makes "Assistant absent means the whole stack is private" true: the
+// filter is the one channel style-manager, nova-blocks and pixelgrade-plus consult, and it must
+// answer even when there is no server. The one thing that does suppress it is the off switch, which
+// withdraws the surface entirely rather than leaving a half-wired one.
+if ( 'disabled' !== $pa_gate_phase ) {
+	pa_gate_assert(
+		pa_gate_hooked( 'pa_gate_filters', 'pixelgrade/mcp/public_abilities' ),
+		'the public-abilities filter is published regardless of the adapter'
+	);
+}
 
 if ( 'absent' === $pa_gate_phase ) {
 	pa_gate_assert(
@@ -316,6 +355,43 @@ if ( 'present' === $pa_gate_phase ) {
 	pa_gate_assert(
 		! in_array( 'pixelgrade/describe-block', PixelgradeAssistant_MCP_Server::PUBLIC_ABILITIES, true ),
 		'describe-block stays private'
+	);
+}
+
+if ( 'disabled' === $pa_gate_phase ) {
+	// The off switch is a complete withdrawal. Everything the `present` phase wires must be absent
+	// here, even though the Abilities API is declared and a supported adapter is already booted.
+	pa_gate_assert(
+		! pa_gate_hooked( 'pa_gate_actions', 'mcp_adapter_init' ),
+		'no server is created: mcp_adapter_init is not hooked'
+	);
+
+	pa_gate_assert(
+		! pa_gate_hooked( 'pa_gate_filters', 'mcp_adapter_tool_call_result' ),
+		'the tool-result redaction filter is not added, because there is nothing to redact for'
+	);
+
+	pa_gate_assert(
+		! pa_gate_hooked( 'pa_gate_filters', 'pixelgrade/mcp/public_abilities' ),
+		'the public whitelist is never published, so every ability in the stack stays private'
+	);
+
+	// With no callback on the filter, a consumer asking for the public list gets its own default
+	// back — the same answer it would get if this plugin were not installed at all.
+	pa_gate_assert(
+		array() === apply_filters( 'pixelgrade/mcp/public_abilities', array() ),
+		'a consumer asking for the public list gets nothing, exactly as if Assistant were absent'
+	);
+
+	pa_gate_assert(
+		! pa_gate_hooked( 'pa_gate_actions', 'rest_api_init' ),
+		'no REST route is registered'
+	);
+
+	// The constant is the plugin's own record of what it supports; the switch must not disturb it.
+	pa_gate_assert(
+		16 === count( PixelgradeAssistant_MCP_Server::PUBLIC_ABILITIES ),
+		'the reviewed whitelist constant is untouched — the switch withdraws it, it does not edit it'
 	);
 }
 
