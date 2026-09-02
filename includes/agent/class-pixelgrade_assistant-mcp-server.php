@@ -50,11 +50,12 @@ class PixelgradeAssistant_MCP_Server {
 	 * reviewed list — the P5 demo set signed off at Gate 2. Adding a name to it is a product
 	 * decision that goes through the orchestrator, not a refactor.
 	 *
-	 * Sixteen abilities: the complete read set (every ability annotated `readonly: true` in §4's
-	 * table, `get-devmode` included) plus exactly four writes — the two design applies, the starter
-	 * import, and `set-devmode`. Everything else — set-design-settings, the three license writes,
-	 * reset-starter-content, apply-recipe, canonicalize-post, describe-block — stays private and is
-	 * reachable only over WP-CLI.
+	 * Sixteen abilities: the read set — every ability annotated `readonly: true` in §4's table
+	 * EXCEPT `describe-block`, which is readonly but deliberately CLI-only (v0.4.3) — plus exactly
+	 * four writes: the two design applies, the starter import, and `set-devmode`. That is twelve
+	 * published reads out of a thirteen-strong readonly set. Everything else —
+	 * set-design-settings, the three license writes, reset-starter-content, apply-recipe,
+	 * canonicalize-post and `describe-block` — stays private and is reachable only over WP-CLI.
 	 *
 	 * `set-devmode` (contract v0.4.7, W12) is the one write on this list that is NOT gated only by
 	 * a capability. It carries its own two-factor gate inside the command core: it refuses unless
