@@ -238,7 +238,9 @@ class PixelgradeAssistant_Agent_Core {
 			);
 		}
 
-		if ( in_array( $code, array( 'invalid_params', 'invalid_source' ), true ) ) {
+		// `not_a_starter` joins the refusals: a curated library is not a site, and the guard runs
+		// before anything is touched, so the call provably wrote nothing.
+		if ( in_array( $code, array( 'invalid_params', 'invalid_source', 'not_a_starter' ), true ) ) {
 			return self::result( false, $code, $message, $data, array(), 1 );
 		}
 
@@ -322,6 +324,259 @@ class PixelgradeAssistant_Agent_Core {
 		}
 
 		return self::result( true, 'ok', __( 'Starter content was reset.', '__plugin_txtd' ), $summary, array(), 0 );
+	}
+
+	/**
+	 * Resolve a list of source ids to the Page Patterns source descriptors.
+	 *
+	 * Reads the same collector the hub section reads, so the LISTING agrees across every surface —
+	 * `serves` is resolved in exactly one place. It is a catalog rule, not access control: importing
+	 * addresses a source by key and url, and what gates that is `is_allowed_demo_url()`.
+	 *
+	 * @param array $ids Sanitized source ids. Empty means "every source that serves content".
+	 *
+	 * @return array
+	 */
+	public static function resolve_page_pattern_sources( $ids ) {
+		$all_sources = function_exists( 'pixassist_get_content_patterns_sources' ) ? pixassist_get_content_patterns_sources() : array();
+
+		$ids = array_values( array_unique( array_filter( array_map( 'sanitize_key', (array) $ids ) ) ) );
+		if ( empty( $ids ) ) {
+			return $all_sources;
+		}
+
+		$sources = array();
+		foreach ( $all_sources as $source ) {
+			if ( ! empty( $source['id'] ) && in_array( $source['id'], $ids, true ) ) {
+				$sources[] = $source;
+			}
+		}
+
+		return $sources;
+	}
+
+	/**
+	 * `assist pattern list` / `pixelgrade/list-page-patterns`.
+	 *
+	 * A source that fails to answer never fails the call: it rides as a warning, the same way
+	 * `recipe list` treats a source that will not build. Losing one catalog must not hide the rest.
+	 *
+	 * @param array $params `sources` (string[] of source ids).
+	 *
+	 * @return array
+	 */
+	public static function list_page_patterns( $params = array() ) {
+		$starter_content = self::starter_content();
+		if ( ! $starter_content ) {
+			return self::assistant_unavailable();
+		}
+
+		$sources = self::resolve_page_pattern_sources( isset( $params['sources'] ) ? $params['sources'] : array() );
+
+		$result = $starter_content->list_content_units_for_sources( $sources );
+		$data   = ( isset( $result['data'] ) && is_array( $result['data'] ) ) ? $result['data'] : array();
+
+		$source_results = ( isset( $data['sources'] ) && is_array( $data['sources'] ) ) ? $data['sources'] : array();
+
+		$units    = array();
+		$warnings = array();
+		foreach ( $source_results as $source_result ) {
+			$code = isset( $source_result['code'] ) ? (string) $source_result['code'] : 'error';
+			if ( 'success' !== $code ) {
+				$warnings[] = array(
+					'code'    => $code,
+					'message' => isset( $source_result['message'] ) ? (string) $source_result['message'] : '',
+					'ids'     => isset( $source_result['id'] ) ? array( (string) $source_result['id'] ) : array(),
+				);
+				continue;
+			}
+
+			$source_units = isset( $source_result['units'] ) ? (array) $source_result['units'] : array();
+			foreach ( $source_units as $unit ) {
+				$units[] = $unit;
+			}
+		}
+
+		$data['patterns'] = $units;
+
+		return self::result(
+			true,
+			'ok',
+			sprintf(
+				/* translators: %d: number of page patterns. */
+				_n( '%d page pattern available.', '%d page patterns available.', count( $units ), '__plugin_txtd' ),
+				count( $units )
+			),
+			$data,
+			$warnings,
+			0
+		);
+	}
+
+	/**
+	 * Validate the record selector for a page-pattern import.
+	 *
+	 * Separate and public for the same reason `validate_keyed_source()` is: both surfaces must run
+	 * validation BEFORE their confirmation gate, or the same malformed call reports
+	 * `confirmation_required` on one and `invalid_params` on the other.
+	 *
+	 * @param string $unit            Raw record slug.
+	 * @param string $unit_type       Raw record post type ('' means the default).
+	 * @param string $missing_message Message for a missing slug.
+	 * @param string $type_message    Message template for an unsupported type; `%1$s` is the given
+	 *                                type and `%2$s` the accepted list.
+	 *
+	 * @return array `array( 'ok' => true, 'unit' => …, 'unit_type' => … )` or an envelope result.
+	 */
+	public static function validate_page_pattern_selector( $unit, $unit_type, $missing_message, $type_message ) {
+		$unit      = sanitize_text_field( (string) $unit );
+		$unit_type = ( '' !== (string) $unit_type ) ? sanitize_key( (string) $unit_type ) : 'page';
+
+		if ( '' === $unit ) {
+			return self::result( false, 'invalid_params', $missing_message, array(), array(), 1 );
+		}
+
+		$allowed = self::page_pattern_types();
+		if ( ! in_array( $unit_type, $allowed, true ) ) {
+			return self::result(
+				false,
+				'invalid_params',
+				sprintf( $type_message, $unit_type, implode( ', ', $allowed ) ),
+				array( 'accepted' => $allowed ),
+				array(),
+				1
+			);
+		}
+
+		return array(
+			'ok'        => true,
+			'unit'      => $unit,
+			'unit_type' => $unit_type,
+		);
+	}
+
+	/**
+	 * The record types a page pattern may be.
+	 *
+	 * Mirrors the importer's own `pixassist_content_unit_post_types` filter so the CLI and the
+	 * ability reject an unsupported type by name instead of letting it reach the importer and come
+	 * back as the same generic message a missing key produces.
+	 *
+	 * @return string[]
+	 */
+	public static function page_pattern_types() {
+		$types = apply_filters( 'pixassist_content_unit_post_types', array( 'page', 'post', 'portfolio', 'product' ) );
+
+		return array_values( array_unique( array_filter( array_map( 'sanitize_key', (array) $types ) ) ) );
+	}
+
+	/**
+	 * `assist pattern import` / `pixelgrade/import-page-pattern`.
+	 *
+	 * Callers MUST have run {@see validate_keyed_source()} and their own confirmation gate first.
+	 *
+	 * @param array $params `demo_key`, `source_url` (both already validated), `unit_type`, `unit`.
+	 *
+	 * @return array
+	 */
+	public static function import_page_pattern( $params ) {
+		$demo_key  = (string) $params['demo_key'];
+		$base_url  = (string) $params['source_url'];
+		$unit_type = sanitize_key( isset( $params['unit_type'] ) ? (string) $params['unit_type'] : 'page' );
+		$unit      = sanitize_text_field( isset( $params['unit'] ) ? (string) $params['unit'] : '' );
+
+		$starter_content = self::starter_content();
+		if ( ! $starter_content ) {
+			return self::assistant_unavailable();
+		}
+
+		// Read back BOTH journals. The applied-content-unit map is written only by the last statement
+		// of a successful import, so on its own it cannot see the media and terms the importer
+		// sideloads first — and those are real, user-visible state. The starter-content journal is
+		// where sideloaded media is recorded, so diffing the pair is what makes `partial` mean what
+		// the docs promise.
+		$before_units   = $starter_content->get_applied_content_units();
+		$before_journal = PixelgradeAssistant_Admin::get_option( 'imported_starter_content', array() );
+
+		$result = $starter_content->import_content_unit( $demo_key, $base_url, $unit_type, $unit );
+
+		// import_content_unit() is @return array|WP_REST_Response; unwrap so the real code reaches
+		// the envelope instead of degrading to unknown_error.
+		if ( class_exists( 'WP_REST_Response' ) && $result instanceof WP_REST_Response ) {
+			$result = $result->get_data();
+		}
+
+		$after_units   = $starter_content->get_applied_content_units();
+		$after_journal = PixelgradeAssistant_Admin::get_option( 'imported_starter_content', array() );
+
+		$code    = isset( $result['code'] ) ? (string) $result['code'] : 'unknown_error';
+		$message = isset( $result['message'] ) ? (string) $result['message'] : '';
+		$data    = ( isset( $result['data'] ) && is_array( $result['data'] ) ) ? $result['data'] : array();
+
+		// Mandatory post-import re-read (contract §1.3).
+		$data['appliedContentUnits'] = $after_units;
+
+		if ( 'success' === $code ) {
+			return self::result(
+				true,
+				'ok',
+				'' !== $message ? $message : __( 'Page pattern imported.', '__plugin_txtd' ),
+				$data,
+				array(),
+				0
+			);
+		}
+
+		// Refusals: the call did nothing and retrying it unchanged will do nothing either.
+		$refusals = array(
+			'invalid_params',
+			'invalid_source',
+			'unit_not_found',
+			'page_pattern_hidden',
+			'gated_segment_unavailable',
+		);
+		if ( in_array( $code, $refusals, true ) ) {
+			return self::result( false, $code, $message, $data, array(), 1 );
+		}
+
+		if ( 'missing_required_plugins' === $code ) {
+			return self::result(
+				true,
+				$code,
+				$message,
+				$data,
+				array(
+					array(
+						'code'    => $code,
+						'message' => $message,
+					),
+				),
+				2
+			);
+		}
+
+		// Anything else failed mid-import. Decide partial vs. total the way every other write in the
+		// contract decides it (§3.5): read back and diff what this call could have touched. The
+		// importer sideloads media and terms before the record, so a failure after that point leaves
+		// real state behind even when no content unit was journaled — which is why the journal is
+		// diffed too, and not just the applied-unit map.
+		if ( $after_units !== $before_units || $after_journal !== $before_journal ) {
+			return self::result(
+				true,
+				'partial',
+				$message,
+				$data,
+				array(
+					array(
+						'code'    => $code,
+						'message' => $message,
+					),
+				),
+				2
+			);
+		}
+
+		return self::result( false, $code, $message, $data, array(), 1 );
 	}
 
 	/**

@@ -6204,7 +6204,22 @@ HTML;
 		};
 		add_filter( 'pixassist_sce_insert_post_args', $thumbnail_insert_filter, 10, 3 );
 
-		$import_post = $unit_post;
+		// Re-fetch the record now that this site's media exist, so the source can rewrite the record's
+		// image references against them. The listing fetch above is deliberately map-free (it is a
+		// catalog read, shared by every site), and a saved `<img src>` the source cannot resolve comes
+		// back blanked — which is what leaves a `core/image` block with no source at all. On any
+		// failure the map-free record stands: a rewritten document is an improvement, not a
+		// precondition.
+		$import_source_post = $unit_post;
+		$mapped_posts       = $this->fetch_layout_source_posts( $base_url, $unit_type, array( (int) $unit_post['ID'] ), $demo_key );
+		if ( ! is_wp_error( $mapped_posts ) ) {
+			$mapped_post = $this->find_layout_unit_post( $mapped_posts, $unit );
+			if ( ! empty( $mapped_post ) && is_array( $mapped_post ) && (int) $mapped_post['ID'] === (int) $unit_post['ID'] ) {
+				$import_source_post = $mapped_post;
+			}
+		}
+
+		$import_post = $import_source_post;
 		if ( ! empty( $unit_slug ) ) {
 			$import_post['post_name'] = $this->get_unique_content_unit_slug( $unit_slug, $unit_type );
 		}
@@ -6536,6 +6551,21 @@ HTML;
 				return array(
 					'code'    => 'invalid_source',
 					'message' => esc_html__( 'The starter content source is not allowed.', '__plugin_txtd' ),
+					'data'    => array(),
+				);
+			}
+
+			// A curated catalog is not a site. It exists to be picked from one record at a time, and
+			// applying it whole takes the catalog's own design settings with it — the source exports
+			// its persisted Style Manager state regardless of what its export selection lists, so this
+			// is a measured overwrite of the user's colors, not a theoretical one. The hub already
+			// gives a library no Starter Sites card; this closes the same door on the REST, CLI and
+			// ability paths, which address a source by key and would otherwise reach it. Refused BEFORE
+			// the default-content deletion below, so a refused call provably changes nothing.
+			if ( $this->demo_key_is_library( $demo_key ) ) {
+				return array(
+					'code'    => 'not_a_starter',
+					'message' => esc_html__( 'This source is a library of individual designs, not a whole site. Add its designs one at a time from the Design Library instead.', '__plugin_txtd' ),
 					'data'    => array(),
 				);
 			}
@@ -9117,13 +9147,29 @@ HTML;
 	 *
 		 * @return array|WP_Error Source posts on success.
 		 */
-		private function fetch_layout_source_posts( $base_url, $post_type, $include = '' ) {
+		private function fetch_layout_source_posts( $base_url, $post_type, $include = '', $demo_key = '' ) {
 			$base_url    = trailingslashit( esc_url_raw( $base_url ) );
 			$post_type   = sanitize_key( $post_type );
+			$demo_key    = sanitize_key( $demo_key );
 			$include_ids = $this->normalize_layout_source_include_ids( $include );
 			$include     = empty( $include_ids ) ? '' : $include_ids;
-			$cache       = array( 'posts', $base_url, $post_type, $include_ids );
-			$cached      = $this->get_cached_layout_source( $cache );
+
+			// A demo key means "fetch this for IMPORT": the request carries the media maps this site has
+			// already built, and the source rewrites each record's image references against them. Without
+			// them the source cannot resolve a saved `<img src>` to anything local and blanks it to `#`
+			// (SCE `get_rotated_placeholder_url()`), which is how a `core/image` block arrives with no
+			// source at all. Never cached and never served from the listing cache: the rewritten document
+			// is specific to one site's media map at one moment, and the listing must stay map-free.
+			$media_maps = array();
+			if ( '' !== $demo_key ) {
+				$media_maps = array(
+					'placeholders'   => $this->get_placeholders( $demo_key ),
+					'ignored_images' => $this->get_ignored_images( $demo_key ),
+				);
+			}
+
+			$cache  = array( 'posts', $base_url, $post_type, $include_ids );
+			$cached = empty( $media_maps ) ? $this->get_cached_layout_source( $cache ) : false;
 			if ( false !== $cached ) {
 				return $cached;
 			}
@@ -9143,9 +9189,12 @@ HTML;
 					'method'    => 'POST',
 					'timeout'   => 15,
 					'blocking'  => true,
-					'body'      => array(
-						'post_type' => $post_type,
-						'include'   => $include,
+					'body'      => array_merge(
+						array(
+							'post_type' => $post_type,
+							'include'   => $include,
+						),
+						$media_maps
 					),
 					'sslverify' => true,
 			)
@@ -9167,6 +9216,10 @@ HTML;
 			}
 
 			$posts = isset( $data['posts'] ) && is_array( $data['posts'] ) ? $data['posts'] : array();
+
+			if ( ! empty( $media_maps ) ) {
+				return $posts;
+			}
 
 			return $this->set_cached_layout_source( $cache, $posts );
 		}
@@ -11136,6 +11189,31 @@ HTML;
 	 *
 	 * @return array[] Missing required plugins (each: slug, name, isInstalled, isActive). Empty when met.
 	 */
+	/**
+	 * Is this demo key a curated library rather than a whole-site starter?
+	 *
+	 * Unknown keys are NOT libraries: a source the hub cannot resolve must not be blocked by this
+	 * gate, exactly as an unresolvable key does not gain a required-plugin gate either.
+	 *
+	 * @param string $demo_key The starter/demo key being imported.
+	 *
+	 * @return bool
+	 */
+	private function demo_key_is_library( $demo_key ) {
+		$demo_key = sanitize_key( $demo_key );
+		if ( '' === $demo_key || ! function_exists( 'pixassist_get_admin_hub_starters' ) ) {
+			return false;
+		}
+
+		foreach ( (array) pixassist_get_admin_hub_starters() as $starter ) {
+			if ( ! empty( $starter['id'] ) && sanitize_key( $starter['id'] ) === $demo_key ) {
+				return ! empty( $starter['role'] ) && 'library' === sanitize_key( $starter['role'] );
+			}
+		}
+
+		return false;
+	}
+
 	private function get_missing_required_plugins( $demo_key ) {
 		$demo_key = sanitize_key( $demo_key );
 		if ( '' === $demo_key || ! function_exists( 'pixassist_get_admin_hub_starters' ) ) {
@@ -13888,8 +13966,13 @@ HTML;
 		foreach ( $map as $old_id => $new_id ) {
 			$sizes = $this->get_image_thumbnails_urls( $new_id );
 			if ( ! empty( $sizes ) ) {
-				$imported_ids[ $old_id ] = array(
-					'id'    => $new_id,
+				$imported_ids[ absint( $old_id ) ] = array(
+					// An attachment id is an integer. The journal can hold it as a numeric STRING, and
+					// the source writes whatever it receives straight into a block's `id` attribute —
+					// where `core/image` declares that attribute as a number. A string there parses fine
+					// but is not what the block's save() produces, so the document stops being a
+					// serialization fixed point and the next editor save silently rewrites it.
+					'id'    => absint( $new_id ),
 					'sizes' => $sizes,
 				);
 			}

@@ -10,6 +10,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
+// What each Design Library source contributes (parts and/or content records).
+require_once __DIR__ . '/starter-sources.php';
+
 if ( ! function_exists( 'pixassist_register_content_patterns_tab' ) ) {
 	/**
 	 * Preserve the legacy registration callback without exposing Page Patterns in navigation.
@@ -75,7 +78,7 @@ if ( ! function_exists( 'pixassist_get_content_patterns_copy' ) ) {
 	function pixassist_get_content_patterns_copy() {
 		return array(
 			'title'          => esc_html__( 'Page Patterns', '__plugin_txtd' ),
-			'description'    => esc_html__( 'Add ready-made content — a single page or post from a starter — instead of importing a whole starter site. For reusable parts like headers, footers, and templates, use the Site Parts section.', '__plugin_txtd' ),
+			'description'    => esc_html__( 'Add ready-made content — one complete page or post — instead of importing a whole starter site. For reusable parts like headers, footers, and templates, use the Site Parts section.', '__plugin_txtd' ),
 			'sourceLabel'    => esc_html__( 'Source', '__plugin_txtd' ),
 			'typeLabel'      => esc_html__( 'Type', '__plugin_txtd' ),
 			'allSources'     => esc_html__( 'All sources', '__plugin_txtd' ),
@@ -113,7 +116,7 @@ if ( ! function_exists( 'pixassist_get_content_patterns_copy' ) ) {
 			'previewLabel'   => esc_html__( 'Expand', '__plugin_txtd' ),
 			'previewFull'    => esc_html__( 'Open the full page pattern preview', '__plugin_txtd' ),
 			'noPreview'      => esc_html__( 'No preview', '__plugin_txtd' ),
-			'refreshTitle'   => esc_html__( 'Reload page patterns from your starters', '__plugin_txtd' ),
+			'refreshTitle'   => esc_html__( 'Reload page patterns from their sources', '__plugin_txtd' ),
 		);
 	}
 }
@@ -136,8 +139,9 @@ if ( ! function_exists( 'pixassist_get_content_patterns_sources' ) ) {
 				continue;
 			}
 
-			$role = ! empty( $starter['role'] ) ? sanitize_key( $starter['role'] ) : 'starter';
-			if ( 'library' === $role ) {
+			// A source is listed here only if it declares that it serves content records. Parts-only
+			// catalogs (and anything that predates `serves`, which resolves to parts-only) stay out.
+			if ( ! pixassist_starter_serves( $starter, 'content' ) ) {
 				continue;
 			}
 

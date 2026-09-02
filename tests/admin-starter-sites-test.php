@@ -289,6 +289,21 @@ add_filter(
 			'badge'       => 'Premium',
 			'source'      => 'plus',
 		);
+		// The two catalog shapes, injected raw so the REAL normalizer resolves them: the existing
+		// parts library, which declares no `serves` at all, and a content catalog that declares one.
+		$starters['frame-library'] = array(
+			'title' => 'Frame Library',
+			'url'   => 'https://starter.pixelgrade.test/frame-library/',
+			'order' => 70,
+			'role'  => 'library',
+		);
+		$starters['content-library'] = array(
+			'title'  => 'Content Library',
+			'url'    => 'https://starter.pixelgrade.test/content-library/',
+			'order'  => 80,
+			'role'   => 'library',
+			'serves' => array( 'content' ),
+		);
 		$starters[] = array(
 			'id'    => 'main',
 			'title' => 'Duplicate main',
@@ -303,9 +318,31 @@ add_filter(
 );
 
 $starters = pixassist_get_admin_hub_starters();
-assert_same( array( 'premium-pack', 'secondary', 'anima-portfolio', 'main' ), array_column( $starters, 'id' ), 'Starters must include free + injected premium entries, drop malformed entries, dedupe ids, and sort by order.' );
+assert_same( array( 'premium-pack', 'secondary', 'anima-portfolio', 'main', 'frame-library', 'content-library' ), array_column( $starters, 'id' ), 'Starters must include free + injected premium entries, drop malformed entries, dedupe ids, and sort by order.' );
 
-$expected_starter_keys = array( 'applyPlan', 'badge', 'baseRestUrl', 'capabilities', 'description', 'featureTags', 'gate', 'id', 'image', 'order', 'previewUrl', 'requiredPlugins', 'role', 'segments', 'source', 'title', 'url' );
+/*
+ * The join the two Design Library sections actually read: what the NORMALIZER emits, as the READER
+ * interprets it. Asserting the resolver in isolation would still pass if the normalizer stopped
+ * emitting `serves`, so these go through the real normalized descriptors.
+ */
+$by_id = array();
+foreach ( $starters as $normalized_starter ) {
+	$by_id[ $normalized_starter['id'] ] = $normalized_starter;
+}
+
+assert_same( array( 'parts' ), $by_id['frame-library']['serves'], 'A library that declares nothing must normalize to a parts catalog.' );
+assert_same( 'library', $by_id['frame-library']['role'], 'A library keeps its presentational role.' );
+assert_true( pixassist_starter_serves( $by_id['frame-library'], 'parts' ), 'A normalized parts library must read as a Site Parts source.' );
+assert_true( ! pixassist_starter_serves( $by_id['frame-library'], 'content' ), 'A normalized parts library must NOT read as a Page Patterns source.' );
+
+assert_same( array( 'content' ), $by_id['content-library']['serves'], 'An explicit content declaration must survive normalization.' );
+assert_true( pixassist_starter_serves( $by_id['content-library'], 'content' ), 'A normalized content catalog must read as a Page Patterns source.' );
+assert_true( ! pixassist_starter_serves( $by_id['content-library'], 'parts' ), 'A normalized content catalog must NOT read as a Site Parts source.' );
+
+assert_same( array( 'parts', 'content' ), $by_id['main']['serves'], 'A starter must normalize to serving both sections.' );
+assert_true( pixassist_starter_serves( $by_id['main'], 'parts' ) && pixassist_starter_serves( $by_id['main'], 'content' ), 'A normalized starter must read as a source for both sections.' );
+
+$expected_starter_keys = array( 'applyPlan', 'badge', 'baseRestUrl', 'capabilities', 'description', 'featureTags', 'gate', 'id', 'image', 'order', 'previewUrl', 'requiredPlugins', 'role', 'segments', 'serves', 'source', 'title', 'url' );
 foreach ( $starters as $starter ) {
 	$keys = array_keys( $starter );
 	sort( $keys );
@@ -400,7 +437,7 @@ $payload = pixassist_get_starter_sites_data();
 $keys    = array_keys( $payload );
 sort( $keys );
 assert_same( array( 'applied', 'collectionNews', 'copy', 'endpoints', 'imported', 'plus', 'serviceContext', 'siteAnalysis', 'starters' ), $keys, 'Starter Sites payload must expose starters, service context, site analysis, unified applied state, endpoints, imported, collection news, and Plus state.' );
-assert_same( 4, count( $payload['starters'] ), 'Payload starters must come from the same normalized free + injected list.' );
+assert_same( 6, count( $payload['starters'] ), 'Payload starters must come from the same normalized free + injected list, libraries included — the payload is shared, and each section decides what it lists from `serves`.' );
 assert_same( 'Starter Sites', $payload['copy']['title'], 'Payload copy must include a tab title.' );
 assert_same( 'Pick a free starter design, then choose how much of it to apply. (“LT” is our Anima LT theme line — each starter is built on it.)', $payload['copy']['description'], 'Starter Sites description must frame the gallery as a chooser (not a legacy demo-content import) and explain the "LT" lineage naming. Quotes must be curly so esc_html does not emit &quot; into React text.' );
 
@@ -446,7 +483,7 @@ assert_same(
 assert_same( array( 'new' => array() ), $payload['collectionNews'], 'The first-ever observation announces nothing (baseline seeding, the honesty guard).' );
 $seeded = $GLOBALS['paf_options']['seen_starters'];
 sort( $seeded );
-assert_same( 4, count( $seeded ), 'Baseline seeding records every current design id as seen.' );
+assert_same( 6, count( $seeded ), 'Baseline seeding records every current design id as seen.' );
 assert_true( in_array( 'main', $seeded, true ), 'The seeded baseline contains the current design ids.' );
 
 // A design that arrives after the baseline is news — by id, display-only.
@@ -720,5 +757,61 @@ assert_same( 'anima-portfolio', $applied_state['activeStarter'], 'Applied state 
 assert_true( false !== strpos( $starter_sites_js, 'applied.activeStarter' ), 'Starter Sites JS must gate the full-site status on the active starter.' );
 // normalizeApplied() must preserve activeStarter, or the gated chip would never have its value.
 assert_true( false !== strpos( $starter_sites_js, 'activeStarter: applied.activeStarter' ), 'Starter Sites JS must preserve activeStarter through normalizeApplied.' );
+
+// `serves` — what a source contributes to the Design Library, kept separate from the presentational
+// `role`. The derived defaults must reproduce every pre-existing behavior exactly.
+assert_same(
+	array( 'parts', 'content' ),
+	pixassist_get_starter_serves( array(), 'starter' ),
+	'A starter that declares nothing must serve both parts and content.'
+);
+assert_same(
+	array( 'parts' ),
+	pixassist_get_starter_serves( array(), 'library' ),
+	'A library that declares nothing must be a parts catalog — the pre-existing Frame Library behavior.'
+);
+assert_same(
+	array( 'content' ),
+	pixassist_get_starter_serves( array( 'serves' => array( 'content' ) ), 'library' ),
+	'An explicit content-only declaration must be honored.'
+);
+assert_same(
+	array( 'content', 'parts' ),
+	pixassist_get_starter_serves( array( 'serves' => 'content,parts' ), 'library' ),
+	'A comma-separated declaration must be accepted and preserved in declared order.'
+);
+assert_same(
+	array( 'content' ),
+	pixassist_get_starter_serves( array( 'serves' => array( 'content', 'content' ) ), 'library' ),
+	'A repeated value must be deduped.'
+);
+assert_same(
+	array( 'parts' ),
+	pixassist_get_starter_serves( array( 'serves' => array( 'bogus', array( 'nested' ) ) ), 'library' ),
+	'Unknown or non-scalar entries must be dropped and the derived default used instead.'
+);
+assert_same(
+	array( 'parts', 'content' ),
+	pixassist_get_starter_serves( array( 'serves' => '' ), 'starter' ),
+	'An empty declaration must fall back to the derived default, never to an empty capability set.'
+);
+
+// The reader tolerates a descriptor that predates `serves` (a stale cached payload).
+assert_true(
+	pixassist_starter_serves( array( 'role' => 'library' ), 'parts' ),
+	'A legacy library descriptor must still read as a parts source.'
+);
+assert_true(
+	! pixassist_starter_serves( array( 'role' => 'library' ), 'content' ),
+	'A legacy library descriptor must still be denied as a content source.'
+);
+assert_true(
+	pixassist_starter_serves( array(), 'content' ) && pixassist_starter_serves( array(), 'parts' ),
+	'A legacy starter descriptor must still read as both.'
+);
+assert_true(
+	! pixassist_starter_serves( 'not-an-array', 'parts' ),
+	'A malformed descriptor must never resolve as a source.'
+);
 
 echo "Admin Starter Sites tab OK\n";

@@ -120,6 +120,10 @@ class PixelgradeAssistant_CLI_Starter_Command {
 	 *   `https://`.
 	 * * `invalid_source` — exit 1. `--source-url` host is not on the allowlist
 	 *   (`is_allowed_demo_url()`).
+	 * * `not_a_starter` — exit 1. The demo key names a curated library, not a whole site. Refused
+	 *   before anything is touched — including the default-content deletion in the CAUTION above —
+	 *   so the call provably changed nothing. Add its items one at a time instead
+	 *   (`wp pixelgrade assist pattern import`).
 	 * * `missing_required_plugins` — exit 2, `ok:true`. Also surfaced in `warnings[]`;
 	 *   `data.requiredPlugins` names what's missing.
 	 * * `confirmation_required` — exit 1. Missing `--yes` (contract §3.6).

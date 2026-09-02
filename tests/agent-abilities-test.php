@@ -377,9 +377,11 @@ namespace {
 		'pixelgrade/reset-starter-content',
 		'pixelgrade/list-recipes',
 		'pixelgrade/apply-recipe',
+		'pixelgrade/list-page-patterns',
+		'pixelgrade/import-page-pattern',
 	);
 
-	paf_assert_same( $expected_names, array_keys( $abilities ), 'the five assist abilities register, with the exact contract §4 names' );
+	paf_assert_same( $expected_names, array_keys( $abilities ), 'the assist abilities register, with the exact contract §4 names' );
 
 	paf_assert( isset( $GLOBALS['paf_ability_categories']['pixelgrade'] ), 'the shared `pixelgrade` category is registered' );
 
@@ -574,6 +576,11 @@ namespace {
 		'pixelgrade/reset-starter-content',
 		'pixelgrade/apply-recipe',
 		'pixelgrade/canonicalize-post',
+		// Page Patterns is CLI + local-ability only for now. Publishing the read half over MCP is a
+		// whitelist curation decision of the same kind as the original fourteen, not a side effect
+		// of adding the ability.
+		'pixelgrade/list-page-patterns',
+		'pixelgrade/import-page-pattern',
 	) as $must_stay_private ) {
 		paf_assert( ! in_array( $must_stay_private, $whitelist, true ), $must_stay_private . ' stays private' );
 	}

@@ -76,6 +76,23 @@ function pixassist_get_admin_hub_starters() {
 			'baseRestUrl' => 'https://starter.pixelgrade.com/premium/wp-json/sce/v2/',
 			'gate'        => 'plus_licensed',
 		),
+		// A parts catalog that declares nothing: it must keep behaving exactly as before.
+		array(
+			'id'          => 'frame-library',
+			'title'       => 'Frame Library',
+			'baseRestUrl' => 'https://starter.pixelgrade.com/frame-library/wp-json/sce/v2/',
+			'gate'        => '',
+			'role'        => 'library',
+		),
+		// A content catalog owns no header, footer or template, so it must not be listed here.
+		array(
+			'id'          => 'content-library',
+			'title'       => 'Content Library',
+			'baseRestUrl' => 'https://starter.pixelgrade.com/content-library/wp-json/sce/v2/',
+			'gate'        => '',
+			'role'        => 'library',
+			'serves'      => array( 'content' ),
+		),
 	);
 }
 
@@ -168,7 +185,13 @@ $data = pixassist_get_layout_units_data();
 assert_same( 'Site Parts', $data['copy']['title'], 'The section payload must carry the Site Parts title.' );
 assert_same( 'Features', $data['copy']['features'], 'Layouts payload must carry the Features group label.' );
 assert_same( 'Include sample projects', $data['copy']['sampleLabel'], 'Layouts payload must carry the feature sample-toggle label.' );
-assert_same( 2, count( $data['sources'] ), 'Layouts payload must expose starter sources.' );
+assert_same( 3, count( $data['sources'] ), 'Layouts payload must expose every source that serves parts.' );
+assert_same( 'frame-library', $data['sources'][2]['id'], 'A parts library must remain a Site Parts source.' );
+assert_same(
+	array(),
+	array_values( array_filter( $data['sources'], function ( $source ) { return 'content-library' === $source['id']; } ) ),
+	'A content-only catalog must never be offered as a Site Parts source.'
+);
 assert_same( 'anima-restaurant', $data['sources'][0]['id'], 'Layouts sources must preserve starter IDs.' );
 assert_same( 'Olive & Ash', $data['sources'][0]['title'], 'Layouts sources must preserve starter titles.' );
 assert_same( '', $data['sources'][0]['gate'], 'Free source gates must stay empty.' );

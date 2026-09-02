@@ -13,6 +13,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
+// What each Design Library source contributes (parts and/or content records).
+require_once __DIR__ . '/starter-sources.php';
+
 if ( ! function_exists( 'pixassist_register_layout_units_tab' ) ) {
 	/**
 	 * Preserve the legacy registration callback without exposing Site Parts in navigation.
@@ -131,6 +134,12 @@ if ( ! function_exists( 'pixassist_get_layout_units_sources' ) ) {
 		$sources = array();
 		foreach ( $starters as $starter ) {
 			if ( empty( $starter['id'] ) || empty( $starter['baseRestUrl'] ) ) {
+				continue;
+			}
+
+			// A source is listed here only if it declares that it serves reusable parts. A content-only
+			// catalog owns no header, footer or template and must not appear as a Site Parts source.
+			if ( ! pixassist_starter_serves( $starter, 'parts' ) ) {
 				continue;
 			}
 

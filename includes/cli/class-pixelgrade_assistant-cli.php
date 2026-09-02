@@ -5,7 +5,8 @@
  * CLI wrappers over the existing Starter Sites / Recipes controller methods, built to the
  * agentic-stack contract (`docs/plans/agentic-stack/CONTRACT.md` v0.3, §1.3): the CLI wraps
  * `PixelgradeAssistant_StarterContent::import_starter()` / `::reset_starter_content()` /
- * `::list_recipes()` / `::apply_recipe()` and the `includes/admin-starter-sites.php` starter list
+ * `::list_recipes()` / `::apply_recipe()` / `::list_content_units_for_sources()` /
+ * `::import_content_unit()` and the `includes/admin-starter-sites.php` starter list
  * helpers directly, sidestepping the REST layer's nonce check entirely while leaving
  * `is_allowed_demo_url()` / `get_missing_required_plugins()` (both private, called from inside
  * `import_starter()`) in force.
@@ -30,7 +31,9 @@ if ( class_exists( '\WP_CLI' ) ) {
 	require_once __DIR__ . '/class-pixelgrade_assistant-cli-envelope.php';
 	require_once __DIR__ . '/class-pixelgrade_assistant-cli-starter-command.php';
 	require_once __DIR__ . '/class-pixelgrade_assistant-cli-recipe-command.php';
+	require_once __DIR__ . '/class-pixelgrade_assistant-cli-pattern-command.php';
 
 	\WP_CLI::add_command( 'pixelgrade assist starter', 'PixelgradeAssistant_CLI_Starter_Command' );
 	\WP_CLI::add_command( 'pixelgrade assist recipe', 'PixelgradeAssistant_CLI_Recipe_Command' );
+	\WP_CLI::add_command( 'pixelgrade assist pattern', 'PixelgradeAssistant_CLI_Pattern_Command' );
 }

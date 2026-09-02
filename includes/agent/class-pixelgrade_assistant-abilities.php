@@ -2,7 +2,7 @@
 /**
  * WordPress Abilities for the `assist` verbs — contract §4.
  *
- * Five abilities, mapping 1:1 onto the `wp pixelgrade assist …` commands of §1.3. Each one calls
+ * The `assist` abilities, mapping 1:1 onto the `wp pixelgrade assist …` commands of §1.3. Each one calls
  * the SAME {@see PixelgradeAssistant_Agent_Core} method the CLI calls, so a command and its
  * ability cannot produce different results for the same input.
  *
@@ -67,7 +67,7 @@ class PixelgradeAssistant_Abilities {
 	}
 
 	/**
-	 * Register the five `assist` abilities.
+	 * Register the `assist` abilities.
 	 */
 	public static function register_abilities() {
 		foreach ( self::descriptors() as $name => $descriptor ) {
@@ -274,7 +274,7 @@ class PixelgradeAssistant_Abilities {
 	}
 
 	/**
-	 * The five ability descriptors.
+	 * The ability descriptors.
 	 *
 	 * Descriptions are written for a language model deciding whether to call the tool: what it
 	 * does, when to reach for it, and what it costs.
@@ -324,7 +324,7 @@ class PixelgradeAssistant_Abilities {
 
 			'pixelgrade/import-starter' => array(
 				'label'       => __( 'Import a starter site', '__plugin_txtd' ),
-				'description' => __( 'Import a starter site\'s full content — posts, pages, media, taxonomies, widgets and design settings — into this site. DESTRUCTIVE and NOT idempotent: it creates content and media every time it runs, and before anything is journaled it force-deletes an untouched default "Hello world!" post and "Sample Page" pair if present; that deletion is not undone by pixelgrade/reset-starter-content. Requires confirm:true. Get demo_key and source_url from pixelgrade/list-starters; source_url must be https and its host must be on the allowlist. A result with code "partial" means some units imported and some failed — read warnings and data before retrying. code "missing_required_plugins" means nothing usable was imported until those plugins are installed.', '__plugin_txtd' ),
+				'description' => __( 'Import a starter site\'s full content — posts, pages, media, taxonomies, widgets and design settings — into this site. DESTRUCTIVE and NOT idempotent: it creates content and media every time it runs, and before anything is journaled it force-deletes an untouched default "Hello world!" post and "Sample Page" pair if present; that deletion is not undone by pixelgrade/reset-starter-content. Requires confirm:true. Get demo_key and source_url from pixelgrade/list-starters; source_url must be https and its host must be on the allowlist. A result with code "partial" means some units imported and some failed — read warnings and data before retrying. code "missing_required_plugins" means nothing usable was imported until those plugins are installed. code "not_a_starter" means the key names a curated library rather than a whole site: nothing was touched, and its items are added one at a time with pixelgrade/import-page-pattern.', '__plugin_txtd' ),
 				'annotations' => array( 'readonly' => false, 'destructive' => true, 'idempotent' => false ),
 				'input_schema' => array(
 					'type'       => 'object',
@@ -509,6 +509,124 @@ class PixelgradeAssistant_Abilities {
 								'source_url'     => $validated['source_url'],
 								'include_look'   => ! empty( $input['include_look'] ),
 								'include_sample' => ! empty( $input['include_sample'] ),
+							)
+						)
+					);
+				},
+			),
+
+			'pixelgrade/list-page-patterns' => array(
+				'label'       => __( 'List page patterns', '__plugin_txtd' ),
+				'description' => __( 'List the page patterns available to this site: complete Page, Post, Project or Product records that can be added one at a time. Read-only. Applying one CREATES A WHOLE NEW RECORD — that is a different action from inserting blocks into the document you are editing, which is a block pattern (see the nova-blocks patterns listing), and from applying an entire site (pixelgrade/import-starter). Call this to discover the slug, unit_type, demo_key and source_url that pixelgrade/import-page-pattern requires; those four values come from here, not from guesswork. Pass sources to narrow the list to specific hub source ids. A source that cannot be read is reported in warnings and never fails the call, so a single unreachable catalog cannot hide the rest.', '__plugin_txtd' ),
+				'annotations' => array( 'readonly' => true, 'destructive' => false, 'idempotent' => true ),
+				'input_schema' => array(
+					'type'       => 'object',
+					'properties' => array(
+						'sources' => array(
+							'type'        => 'array',
+							'items'       => array( 'type' => 'string' ),
+							'description' => __( 'Hub source ids to restrict the listing to. Omit for every source that offers content records.', '__plugin_txtd' ),
+						),
+					),
+					'additionalProperties' => false,
+				),
+				'output_schema' => self::envelope_schema(
+					array(
+						'type'       => 'object',
+						'properties' => array(
+							'patterns' => array( 'type' => 'array', 'items' => array( 'type' => 'object' ) ),
+							'sources'  => array( 'type' => 'array', 'items' => array( 'type' => 'object' ) ),
+							'applied'  => array( 'type' => 'object' ),
+						),
+						'additionalProperties' => true,
+					)
+				),
+				'execute'     => static function ( $input = array() ) {
+					return self::respond(
+						PixelgradeAssistant_Agent_Core::list_page_patterns(
+							array( 'sources' => isset( $input['sources'] ) ? (array) $input['sources'] : array() )
+						)
+					);
+				},
+			),
+
+			'pixelgrade/import-page-pattern' => array(
+				'label'       => __( 'Import a page pattern', '__plugin_txtd' ),
+				'description' => __( 'Import ONE page pattern into this site as a new content record, together with the media and terms it references. DESTRUCTIVE and NOT idempotent: it creates content and media every time it runs, and if this same pattern is already applied it is REMOVED FIRST — its page and its imported media are deleted — and then re-imported, so a failure mid-way can leave the previous copy gone. Requires confirm:true. Get slug, unit_type, demo_key and source_url from pixelgrade/list-page-patterns; source_url must be https and its host must be on the allowlist. The imported page takes a non-colliding slug when the source slug is already used. code "partial" means the import wrote media or terms and then failed; code "gated_segment_unavailable" or "page_pattern_hidden" means the record is not available to this site and retrying unchanged will not help.', '__plugin_txtd' ),
+				'annotations' => array( 'readonly' => false, 'destructive' => true, 'idempotent' => false ),
+				'input_schema' => array(
+					'type'       => 'object',
+					'properties' => array(
+						'slug'       => array(
+							'type'        => 'string',
+							'description' => __( 'The record\'s source slug, as listed by pixelgrade/list-page-patterns.', '__plugin_txtd' ),
+						),
+						'demo_key'   => array(
+							'type'        => 'string',
+							'description' => __( 'The source\'s demo key, as listed by pixelgrade/list-page-patterns.', '__plugin_txtd' ),
+						),
+						'source_url' => array(
+							'type'        => 'string',
+							'description' => __( 'The source\'s SCE REST base URL. Must use https://.', '__plugin_txtd' ),
+						),
+						'unit_type'  => array(
+							'type'        => 'string',
+							'default'     => 'page',
+							'description' => __( 'The record\'s post type: page, post, portfolio or product. Defaults to page.', '__plugin_txtd' ),
+						),
+						'confirm'    => array(
+							'type'        => 'boolean',
+							'default'     => false,
+							'description' => __( 'Must be true. This creates content and media, and replaces an already-applied copy of the same pattern.', '__plugin_txtd' ),
+						),
+					),
+					'required'             => array( 'slug', 'demo_key', 'source_url' ),
+					'additionalProperties' => false,
+				),
+				'output_schema' => self::envelope_schema(
+					array(
+						'type'                 => 'object',
+						'description'          => 'The import result, plus a mandatory post-import re-read: appliedContentUnits.',
+						'additionalProperties' => true,
+					)
+				),
+				'execute'     => static function ( $input = array() ) {
+					$validated = PixelgradeAssistant_Agent_Core::validate_keyed_source(
+						isset( $input['demo_key'] ) ? $input['demo_key'] : '',
+						isset( $input['source_url'] ) ? $input['source_url'] : '',
+						__( 'You need to provide demo_key and source_url.', '__plugin_txtd' ),
+						__( 'source_url must use https://.', '__plugin_txtd' )
+					);
+
+					if ( isset( $validated['code'] ) ) {
+						return self::respond( $validated );
+					}
+
+					// Validate the record selector before the confirmation gate, so both surfaces run
+					// validation and confirmation in the same order.
+					$selector = PixelgradeAssistant_Agent_Core::validate_page_pattern_selector(
+						isset( $input['slug'] ) ? $input['slug'] : '',
+						isset( $input['unit_type'] ) ? $input['unit_type'] : '',
+						__( 'You need to provide the page pattern slug.', '__plugin_txtd' ),
+						/* translators: 1: the given record type, 2: the accepted types. */
+						__( 'unit_type must be one of %2$s; got "%1$s".', '__plugin_txtd' )
+					);
+
+					if ( isset( $selector['code'] ) ) {
+						return self::respond( $selector );
+					}
+
+					if ( empty( $input['confirm'] ) ) {
+						return self::needs_confirmation( __( 'Importing a page pattern', '__plugin_txtd' ) );
+					}
+
+					return self::respond(
+						PixelgradeAssistant_Agent_Core::import_page_pattern(
+							array(
+								'demo_key'   => $validated['key'],
+								'source_url' => $validated['source_url'],
+								'unit_type'  => $selector['unit_type'],
+								'unit'       => $selector['unit'],
 							)
 						)
 					);

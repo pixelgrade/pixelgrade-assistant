@@ -49,8 +49,8 @@ password** over HTTP Basic. Server name `Pixelgrade`.
 `apply-color-palette`, `import-starter`, `set-devmode`).
 
 Everything else — writing arbitrary settings, license activation, starter reset, recipe apply,
-canonicalize — is deliberately **CLI-only**. If a tool is missing from `tools/list`, it is not
-broken; it is private. Do not try to reach it over MCP.
+page-pattern listing and import, canonicalize — is deliberately **CLI-only**. If a tool is missing
+from `tools/list`, it is not broken; it is private. Do not try to reach it over MCP.
 
 Two MCP-specific rules:
 
@@ -208,6 +208,8 @@ Two supporting facts worth knowing:
 | Import a starter site | `wp pixelgrade assist starter import <demo-key> --source-url=<https base> --yes` |
 | Undo a starter import | `wp pixelgrade assist starter reset --yes` |
 | List / apply a recipe | `wp pixelgrade assist recipe list` · `… recipe apply <id> --source-url=<https base> --yes` |
+| List page patterns (complete page/post records) | `wp pixelgrade assist pattern list` (`--source=<ids>`) |
+| Add one page pattern as a new page | `wp pixelgrade assist pattern import <slug> --demo-key=<key> --source-url=<https base> --yes` |
 | List available blocks | `wp pixelgrade blocks list` (`--namespace=all`, `--attributes`, `--supports`) |
 | List block patterns | `wp pixelgrade blocks patterns` (`--source=local\|cloud\|all`, `--refresh`) |
 | Check whether a page is editor-valid | `wp pixelgrade blocks validate <post-id> --all-parts` |

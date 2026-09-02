@@ -3785,9 +3785,10 @@ function renderComposerView( starter, context ) {
 export function StarterSites() {
 	const data = getStarterSitesData();
 	const copy = mergeCopy( data.copy );
-	// Layouts-only libraries (role === 'library', e.g. the Frame Library) are a Layouts SOURCE but not
-	// a whole-site starter — drop them from the Starter Sites cards. They stay in the localized data
-	// (the Layouts tab + its previews still read window.pixelgradeStarterSites for the source list).
+	// Libraries (role === 'library') are curated catalogs, not whole-site starters — drop them from
+	// the Starter Sites cards. They stay in the localized data, and what each one actually offers is
+	// decided server-side by its `serves` declaration (parts, content, or both), which is what the
+	// Site Parts and Page Patterns source lists read.
 	const starters = ( Array.isArray( data.starters ) ? data.starters : [] ).filter(
 		( starter ) => 'library' !== ( starter && starter.role )
 	);

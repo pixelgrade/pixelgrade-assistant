@@ -1,7 +1,7 @@
 /**
  * Page Patterns tab.
  *
- * Imports one page-like content example from a starter source without running the full starter import.
+ * Imports one page-like content record from a Design Library source without running a full starter import.
  */
 import { createElement, Fragment, useEffect, useMemo, useRef, useState } from '@wordpress/element';
 import { __, sprintf } from '@wordpress/i18n';
@@ -14,7 +14,7 @@ import { getContentPatternPreferences, saveContentPatternPreferences } from '../
 const DEFAULT_CONTENT_PATTERNS = {
 	copy: {
 		title: __( 'Page Patterns', 'pixelgrade_assistant' ),
-		description: __( 'Add ready-made content — a single page or post from a starter — instead of importing a whole starter site. For reusable parts like headers, footers, and templates, use the Layouts tab.', 'pixelgrade_assistant' ),
+		description: __( 'Add ready-made content — one complete page or post — instead of importing a whole starter site. For reusable parts like headers, footers, and templates, use the Layouts tab.', 'pixelgrade_assistant' ),
 		sourceLabel: __( 'Source', 'pixelgrade_assistant' ),
 		typeLabel: __( 'Type', 'pixelgrade_assistant' ),
 		allSources: __( 'All sources', 'pixelgrade_assistant' ),
@@ -22,7 +22,7 @@ const DEFAULT_CONTENT_PATTERNS = {
 		searchLabel: __( 'Search page patterns', 'pixelgrade_assistant' ),
 		loadLabel: __( 'Load page patterns', 'pixelgrade_assistant' ),
 		refreshLabel: __( 'Refresh', 'pixelgrade_assistant' ),
-		refreshTitle: __( 'Reload page patterns from your starters', 'pixelgrade_assistant' ),
+		refreshTitle: __( 'Reload page patterns from their sources', 'pixelgrade_assistant' ),
 		loading: __( 'Loading page patterns...', 'pixelgrade_assistant' ),
 		empty: __( 'No page patterns are available from these sources.', 'pixelgrade_assistant' ),
 		emptyFiltered: __( 'No page patterns match these filters.', 'pixelgrade_assistant' ),

@@ -57,7 +57,7 @@ function getSections() {
 			component: ContentPatterns,
 			title: __( 'Page Patterns', 'pixelgrade_assistant' ),
 			task: __( 'A single page', 'pixelgrade_assistant' ),
-			description: __( 'Add one ready-made page or post from a starter.', 'pixelgrade_assistant' ),
+			description: __( 'Add one ready-made page or post to your site.', 'pixelgrade_assistant' ),
 		},
 	];
 }

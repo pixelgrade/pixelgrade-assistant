@@ -108,6 +108,14 @@ namespace {
 		return preg_replace( '/[^a-z0-9_\-]/', '', strtolower( (string) $key ) );
 	}
 
+	function apply_filters( $hook, $value ) {
+		return $value;
+	}
+
+	function sanitize_text_field( $value ) {
+		return trim( strip_tags( (string) $value ) );
+	}
+
 	function esc_url_raw( $url ) {
 		return (string) $url;
 	}
@@ -168,6 +176,12 @@ namespace {
 		return $GLOBALS['paf_layout_units_sources'];
 	}
 
+	$GLOBALS['paf_content_patterns_sources'] = array();
+
+	function pixassist_get_content_patterns_sources() {
+		return $GLOBALS['paf_content_patterns_sources'];
+	}
+
 	// ---------------------------------------------------------------------------------------
 	// A scriptable double for PixelgradeAssistant_StarterContent: every test configures exactly
 	// the return values / journal side effects it needs.
@@ -183,6 +197,12 @@ namespace {
 		public $apply_recipe_result     = array();
 		public $applied_layout_units_sequence = array(); // consumed one at a time per call.
 		public $applied_content_units   = array();
+		public $applied_content_units_sequence = array(); // consumed one at a time per call.
+		public $list_content_units_result = array();
+		public $list_content_units_sources_seen = null;
+		public $import_content_unit_result = array();
+		public $import_content_unit_args_seen = null;
+		public $journal_after_import    = null; // when set, replaces the starter-content journal after the call.
 
 		public function import_starter( $demo_key, $base_url ) {
 			if ( null !== $this->import_starter_journal ) {
@@ -219,7 +239,29 @@ namespace {
 		}
 
 		public function get_applied_content_units() {
+			if ( ! empty( $this->applied_content_units_sequence ) ) {
+				return array_shift( $this->applied_content_units_sequence );
+			}
+
 			return $this->applied_content_units;
+		}
+
+		public function list_content_units_for_sources( $sources ) {
+			$this->list_content_units_sources_seen = $sources;
+
+			return $this->list_content_units_result;
+		}
+
+		public function import_content_unit( $demo_key, $base_url, $unit_type, $unit ) {
+			$this->import_content_unit_args_seen = compact( 'demo_key', 'base_url', 'unit_type', 'unit' );
+
+			// The real importer sideloads media into the starter-content journal before it journals
+			// the record itself; the double lets a test reproduce exactly that mid-way state.
+			if ( null !== $this->journal_after_import ) {
+				$GLOBALS['paf_options']['imported_starter_content'] = $this->journal_after_import;
+			}
+
+			return $this->import_content_unit_result;
 		}
 	}
 
@@ -237,6 +279,7 @@ namespace {
 	require_once __DIR__ . '/../includes/cli/class-pixelgrade_assistant-cli-envelope.php';
 	require_once __DIR__ . '/../includes/cli/class-pixelgrade_assistant-cli-starter-command.php';
 	require_once __DIR__ . '/../includes/cli/class-pixelgrade_assistant-cli-recipe-command.php';
+	require_once __DIR__ . '/../includes/cli/class-pixelgrade_assistant-cli-pattern-command.php';
 
 	// ---------------------------------------------------------------------------------------
 	// Test harness helpers.
@@ -250,6 +293,7 @@ namespace {
 		$GLOBALS['paf_admin_hub_starters']   = array();
 		$GLOBALS['paf_active_starter']       = '';
 		$GLOBALS['paf_layout_units_sources'] = array();
+		$GLOBALS['paf_content_patterns_sources'] = array();
 		$GLOBALS['paf_starter_content']      = new Fake_Starter_Content();
 	}
 
@@ -747,6 +791,241 @@ namespace {
 	assert_same( 'invalid_params', WP_CLI::$printed_value['code'], 'recipe apply: non-https --source-url code.' );
 
 	echo "recipe apply contract OK\n";
+
+	// =========================================================================================
+	// `pattern list`
+	// =========================================================================================
+
+	paf_reset_runtime();
+	$GLOBALS['paf_content_patterns_sources'] = array(
+		array( 'id' => 'content-library', 'baseRestUrl' => 'https://a.test/' ),
+		array( 'id' => 'rosa-lt', 'baseRestUrl' => 'https://b.test/' ),
+	);
+	$GLOBALS['paf_starter_content']->list_content_units_result = array(
+		'code' => 'success',
+		'data' => array(
+			'sources' => array(
+				array( 'id' => 'content-library', 'code' => 'success', 'units' => array( array( 'slug' => 'about-design-studio' ) ) ),
+				array( 'id' => 'rosa-lt', 'code' => 'success', 'units' => array( array( 'slug' => 'menu' ), array( 'slug' => 'contact' ) ) ),
+			),
+			'applied' => array(),
+		),
+	);
+	$cmd  = new PixelgradeAssistant_CLI_Pattern_Command();
+	$exit = paf_run( array( $cmd, 'list_patterns' ), array(), array( 'format' => 'json' ) );
+	assert_same( 0, $exit, 'pattern list: success exits 0.' );
+	assert_same( 3, count( WP_CLI::$printed_value['data']['patterns'] ), 'pattern list: units from every source must be flattened into data.patterns.' );
+	assert_same( 2, count( $GLOBALS['paf_starter_content']->list_content_units_sources_seen ), 'pattern list: no --source must pass every content source through.' );
+
+	paf_reset_runtime();
+	$GLOBALS['paf_content_patterns_sources'] = array(
+		array( 'id' => 'content-library', 'baseRestUrl' => 'https://a.test/' ),
+		array( 'id' => 'rosa-lt', 'baseRestUrl' => 'https://b.test/' ),
+	);
+	$GLOBALS['paf_starter_content']->list_content_units_result = array(
+		'code' => 'success',
+		'data' => array( 'sources' => array( array( 'id' => 'content-library', 'code' => 'success', 'units' => array() ) ), 'applied' => array() ),
+	);
+	$cmd  = new PixelgradeAssistant_CLI_Pattern_Command();
+	$exit = paf_run( array( $cmd, 'list_patterns' ), array(), array( 'source' => 'content-library', 'format' => 'json' ) );
+	assert_same( 0, $exit, 'pattern list: filtered listing exits 0.' );
+	$seen_ids = array_column( $GLOBALS['paf_starter_content']->list_content_units_sources_seen, 'id' );
+	assert_same( array( 'content-library' ), $seen_ids, 'pattern list: --source must filter the sources passed through.' );
+
+	paf_reset_runtime();
+	// A source that cannot be read must ride as a warning and never move the exit code — losing one
+	// catalog must not hide the rest.
+	$GLOBALS['paf_content_patterns_sources'] = array( array( 'id' => 'content-library', 'baseRestUrl' => 'https://a.test/' ) );
+	$GLOBALS['paf_starter_content']->list_content_units_result = array(
+		'code' => 'success',
+		'data' => array(
+			'sources' => array(
+				array( 'id' => 'content-library', 'code' => 'source_unreachable', 'message' => 'boom', 'units' => array() ),
+				array( 'id' => 'rosa-lt', 'code' => 'success', 'units' => array( array( 'slug' => 'menu' ) ) ),
+			),
+			'applied' => array(),
+		),
+	);
+	$cmd  = new PixelgradeAssistant_CLI_Pattern_Command();
+	$exit = paf_run( array( $cmd, 'list_patterns' ), array(), array( 'format' => 'json' ) );
+	assert_same( 0, $exit, 'pattern list: a failing source must not move the exit code.' );
+	assert_same( true, WP_CLI::$printed_value['ok'], 'pattern list: ok:true even with a failing source.' );
+	assert_same( 1, count( WP_CLI::$printed_value['warnings'] ), 'pattern list: a failing source must surface as a warning.' );
+	assert_same( 'source_unreachable', WP_CLI::$printed_value['warnings'][0]['code'], 'pattern list: the producer code must round-trip into the warning.' );
+	assert_same( 1, count( WP_CLI::$printed_value['data']['patterns'] ), 'pattern list: the healthy source\'s units must still be returned.' );
+
+	echo "pattern list contract OK\n";
+
+	// =========================================================================================
+	// `pattern import`
+	// =========================================================================================
+
+	paf_reset_runtime();
+	$GLOBALS['paf_starter_content']->import_content_unit_result = array(
+		'code' => 'success', 'message' => 'Imported.', 'data' => array( 'unit' => 'about-design-studio' ),
+	);
+	$cmd  = new PixelgradeAssistant_CLI_Pattern_Command();
+	$exit = paf_run(
+		array( $cmd, 'import' ),
+		array( 'about-design-studio' ),
+		array( 'demo-key' => 'content-library', 'source-url' => 'https://a.test/', 'yes' => true, 'format' => 'json' )
+	);
+	assert_same( 0, $exit, 'pattern import: success exits 0.' );
+	assert_same( true, WP_CLI::$printed_value['ok'], 'pattern import: success ok:true.' );
+	assert_same( 'ok', WP_CLI::$printed_value['code'], 'pattern import: success code.' );
+	assert_same(
+		array( 'demo_key' => 'content-library', 'base_url' => 'https://a.test/', 'unit_type' => 'page', 'unit' => 'about-design-studio' ),
+		$GLOBALS['paf_starter_content']->import_content_unit_args_seen,
+		'pattern import: the four arguments must reach import_content_unit() unchanged, with unit_type defaulting to page.'
+	);
+	assert_true( array_key_exists( 'appliedContentUnits', WP_CLI::$printed_value['data'] ), 'pattern import: the mandatory post-import re-read must be in data.' );
+
+	paf_reset_runtime();
+	$cmd  = new PixelgradeAssistant_CLI_Pattern_Command();
+	$exit = paf_run(
+		array( $cmd, 'import' ),
+		array( 'about-design-studio' ),
+		array( 'demo-key' => 'content-library', 'source-url' => 'https://a.test/', 'format' => 'json' )
+	);
+	assert_same( 1, $exit, 'pattern import: missing --yes must exit 1.' );
+	assert_same( 'confirmation_required', WP_CLI::$printed_value['code'], 'pattern import: missing --yes code.' );
+
+	paf_reset_runtime();
+	$cmd  = new PixelgradeAssistant_CLI_Pattern_Command();
+	$exit = paf_run(
+		array( $cmd, 'import' ),
+		array( 'about-design-studio' ),
+		array( 'demo-key' => 'content-library', 'source-url' => 'http://insecure.test/', 'yes' => true, 'format' => 'json' )
+	);
+	assert_same( 1, $exit, 'pattern import: a non-https --source-url must exit 1.' );
+	assert_same( 'invalid_params', WP_CLI::$printed_value['code'], 'pattern import: non-https --source-url code.' );
+
+	paf_reset_runtime();
+	$cmd  = new PixelgradeAssistant_CLI_Pattern_Command();
+	$exit = paf_run(
+		array( $cmd, 'import' ),
+		array(),
+		array( 'demo-key' => 'content-library', 'source-url' => 'https://a.test/', 'yes' => true, 'format' => 'json' )
+	);
+	assert_same( 1, $exit, 'pattern import: a missing <slug> must exit 1.' );
+	assert_same( 'invalid_params', WP_CLI::$printed_value['code'], 'pattern import: missing slug code.' );
+
+	paf_reset_runtime();
+	// Ordering: validation runs BEFORE the confirmation gate, so a malformed call says what is wrong
+	// with it rather than asking to be confirmed (the same order the ability surface runs).
+	$cmd  = new PixelgradeAssistant_CLI_Pattern_Command();
+	$exit = paf_run(
+		array( $cmd, 'import' ),
+		array(),
+		array( 'demo-key' => 'content-library', 'source-url' => 'https://a.test/', 'format' => 'json' )
+	);
+	assert_same( 1, $exit, 'pattern import: a missing <slug> without --yes must exit 1.' );
+	assert_same( 'invalid_params', WP_CLI::$printed_value['code'], 'pattern import: a missing <slug> must be reported as invalid_params, not confirmation_required.' );
+
+	paf_reset_runtime();
+	// Enumerated flag: validated in-command, naming the value and the accepted set (contract §2).
+	$cmd  = new PixelgradeAssistant_CLI_Pattern_Command();
+	$exit = paf_run(
+		array( $cmd, 'import' ),
+		array( 'about-design-studio' ),
+		array( 'demo-key' => 'content-library', 'source-url' => 'https://a.test/', 'unit-type' => 'bogus', 'yes' => true, 'format' => 'json' )
+	);
+	assert_same( 1, $exit, 'pattern import: an unsupported --unit-type must exit 1.' );
+	assert_same( 'invalid_params', WP_CLI::$printed_value['code'], 'pattern import: unsupported --unit-type code.' );
+	assert_same( array( 'page', 'post', 'portfolio', 'product' ), WP_CLI::$printed_value['data']['accepted'], 'pattern import: the refusal must name the accepted types.' );
+	assert_same( null, $GLOBALS['paf_starter_content']->import_content_unit_args_seen, 'pattern import: an unsupported --unit-type must never reach the importer.' );
+
+	// Refusals: nothing was written, so retrying unchanged cannot help — ok:false, exit 1.
+	foreach ( array( 'invalid_source', 'unit_not_found', 'page_pattern_hidden', 'gated_segment_unavailable' ) as $refusal ) {
+		paf_reset_runtime();
+		$GLOBALS['paf_starter_content']->import_content_unit_result = array( 'code' => $refusal, 'message' => 'no', 'data' => array() );
+		$cmd  = new PixelgradeAssistant_CLI_Pattern_Command();
+		$exit = paf_run(
+			array( $cmd, 'import' ),
+			array( 'about-design-studio' ),
+			array( 'demo-key' => 'content-library', 'source-url' => 'https://a.test/', 'yes' => true, 'format' => 'json' )
+		);
+		assert_same( 1, $exit, 'pattern import: ' . $refusal . ' must exit 1.' );
+		assert_same( false, WP_CLI::$printed_value['ok'], 'pattern import: ' . $refusal . ' ok:false.' );
+		assert_same( $refusal, WP_CLI::$printed_value['code'], 'pattern import: ' . $refusal . ' code round-trips.' );
+	}
+
+	paf_reset_runtime();
+	$GLOBALS['paf_starter_content']->import_content_unit_result = array(
+		'code' => 'missing_required_plugins', 'message' => 'install them', 'data' => array( 'requiredPlugins' => array( array( 'slug' => 'nova-blocks' ) ) ),
+	);
+	$cmd  = new PixelgradeAssistant_CLI_Pattern_Command();
+	$exit = paf_run(
+		array( $cmd, 'import' ),
+		array( 'about-design-studio' ),
+		array( 'demo-key' => 'content-library', 'source-url' => 'https://a.test/', 'yes' => true, 'format' => 'json' )
+	);
+	assert_same( 2, $exit, 'pattern import: missing_required_plugins must exit 2.' );
+	assert_same( true, WP_CLI::$printed_value['ok'], 'pattern import: missing_required_plugins ok:true.' );
+
+	paf_reset_runtime();
+	// The importer writes media and terms before the record, so a failure that changed the applied
+	// set is a genuine partial — decided by reading back and diffing, never by trusting the producer.
+	$GLOBALS['paf_starter_content']->applied_content_units_sequence = array(
+		array(),
+		array( 'page:about-design-studio' => array( 'slug' => 'about-design-studio' ) ),
+	);
+	$GLOBALS['paf_starter_content']->import_content_unit_result = array( 'code' => 'unit_import_failed', 'message' => 'boom', 'data' => array() );
+	$cmd  = new PixelgradeAssistant_CLI_Pattern_Command();
+	$exit = paf_run(
+		array( $cmd, 'import' ),
+		array( 'about-design-studio' ),
+		array( 'demo-key' => 'content-library', 'source-url' => 'https://a.test/', 'yes' => true, 'format' => 'json' )
+	);
+	assert_same( 2, $exit, 'pattern import: leftover applied content after a failure must exit 2 (partial).' );
+	assert_same( 'partial', WP_CLI::$printed_value['code'], 'pattern import: partial code.' );
+	assert_same( 'unit_import_failed', WP_CLI::$printed_value['warnings'][0]['code'], 'pattern import: the producer code must survive in the warning.' );
+
+	paf_reset_runtime();
+	// The importer sideloads media BEFORE it journals the record, so a failure after that point is a
+	// partial even though no content unit was ever applied. Only the starter-content journal can see
+	// it — which is why both journals are diffed.
+	$GLOBALS['paf_starter_content']->applied_content_units = array();
+	$GLOBALS['paf_starter_content']->import_content_unit_result = array( 'code' => 'unit_import_failed', 'message' => 'boom', 'data' => array() );
+	$GLOBALS['paf_starter_content']->journal_after_import = array( 'content-library' => array( 'media' => array( 'ignored' => array( 11 => 42 ) ) ) );
+	$cmd  = new PixelgradeAssistant_CLI_Pattern_Command();
+	$exit = paf_run(
+		array( $cmd, 'import' ),
+		array( 'about-design-studio' ),
+		array( 'demo-key' => 'content-library', 'source-url' => 'https://a.test/', 'yes' => true, 'format' => 'json' )
+	);
+	assert_same( 2, $exit, 'pattern import: media sideloaded before a failure must exit 2 (partial), even with no unit journaled.' );
+	assert_same( 'partial', WP_CLI::$printed_value['code'], 'pattern import: media-only partial code.' );
+
+	paf_reset_runtime();
+	// Same failure, nothing left behind -> a plain failure, not a partial.
+	$unchanged = array( 'page:other' => array( 'slug' => 'other' ) );
+	$GLOBALS['paf_starter_content']->applied_content_units_sequence = array( $unchanged, $unchanged );
+	$GLOBALS['paf_starter_content']->import_content_unit_result = array( 'code' => 'unit_import_failed', 'message' => 'boom', 'data' => array() );
+	$cmd  = new PixelgradeAssistant_CLI_Pattern_Command();
+	$exit = paf_run(
+		array( $cmd, 'import' ),
+		array( 'about-design-studio' ),
+		array( 'demo-key' => 'content-library', 'source-url' => 'https://a.test/', 'yes' => true, 'format' => 'json' )
+	);
+	assert_same( 1, $exit, 'pattern import: a failure that wrote nothing must exit 1.' );
+	assert_same( 'unit_import_failed', WP_CLI::$printed_value['code'], 'pattern import: the producer code round-trips on a clean failure.' );
+
+	paf_reset_runtime();
+	// Defensive unwrap: a WP_REST_Response error must not degrade to unknown_error.
+	$GLOBALS['paf_starter_content']->import_content_unit_result = new WP_REST_Response( array(
+		'code' => 'unit_not_found', 'message' => 'gone', 'data' => array(),
+	) );
+	$cmd  = new PixelgradeAssistant_CLI_Pattern_Command();
+	$exit = paf_run(
+		array( $cmd, 'import' ),
+		array( 'about-design-studio' ),
+		array( 'demo-key' => 'content-library', 'source-url' => 'https://a.test/', 'yes' => true, 'format' => 'json' )
+	);
+	assert_same( 1, $exit, 'pattern import: an unwrapped WP_REST_Response failure exits 1.' );
+	assert_same( 'unit_not_found', WP_CLI::$printed_value['code'], 'pattern import: WP_REST_Response must be unwrapped — real code must round-trip.' );
+
+	echo "pattern import contract OK\n";
 
 	echo "All wp pixelgrade assist CLI contract tests OK\n";
 }

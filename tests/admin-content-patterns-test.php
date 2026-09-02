@@ -79,6 +79,24 @@ function pixassist_get_admin_hub_starters() {
 			'baseRestUrl' => 'https://starter.pixelgrade.com/anima-restaurant/wp-json/sce/v2/',
 			'gate'        => '',
 		),
+		// A parts catalog: it declares nothing, so it resolves to parts-only and must stay out of
+		// the page-level section (the pre-existing Frame Library shape — a regression pin).
+		array(
+			'id'          => 'frame-library',
+			'title'       => 'Frame Library',
+			'baseRestUrl' => 'https://starter.pixelgrade.com/frame-library/wp-json/sce/v2/',
+			'gate'        => '',
+			'role'        => 'library',
+		),
+		// A content catalog: no starter card, but it is exactly what this section lists.
+		array(
+			'id'          => 'content-library',
+			'title'       => 'Content Library',
+			'baseRestUrl' => 'https://starter.pixelgrade.com/content-library/wp-json/sce/v2/',
+			'gate'        => '',
+			'role'        => 'library',
+			'serves'      => array( 'content' ),
+		),
 	);
 }
 
@@ -162,8 +180,14 @@ assert_same( 0, count( $tabs ), 'The normalized hub registry must not carry a st
 
 $data = pixassist_get_content_patterns_data();
 assert_same( 'Page Patterns', $data['copy']['title'], 'Page Patterns payload must carry tab copy.' );
-assert_same( 1, count( $data['sources'] ), 'Page Patterns payload must expose starter sources.' );
+assert_same( 2, count( $data['sources'] ), 'Page Patterns payload must expose every source that serves content.' );
 assert_same( 'anima-restaurant', $data['sources'][0]['id'], 'Page Patterns sources must preserve starter IDs.' );
+assert_same( 'content-library', $data['sources'][1]['id'], 'A library that serves content must be a Page Patterns source.' );
+assert_same(
+	array(),
+	array_values( array_filter( $data['sources'], function ( $source ) { return 'frame-library' === $source['id']; } ) ),
+	'A parts-only library must never be offered as a Page Patterns source.'
+);
 assert_same( PixelgradeAssistant_Admin::$internalApiEndpoints['contentUnits'], $data['endpoints']['contentUnits'], 'Page Patterns payload must expose the content-list endpoint.' );
 assert_same( PixelgradeAssistant_Admin::$internalApiEndpoints['importContentUnit'], $data['endpoints']['importContentUnit'], 'Page Patterns payload must expose the content-import endpoint.' );
 assert_same( PixelgradeAssistant_Admin::$internalApiEndpoints['undoContentUnit'], $data['endpoints']['undoContentUnit'], 'Page Patterns payload must expose the content-undo endpoint.' );

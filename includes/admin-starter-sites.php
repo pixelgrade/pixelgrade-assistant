@@ -18,6 +18,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 // Capability-segment model + server-side import enforcement (commerce/WooCommerce gating).
 require_once __DIR__ . '/starter-segments.php';
 
+// What each Design Library source contributes (parts and/or content records).
+require_once __DIR__ . '/starter-sources.php';
+
 if ( ! function_exists( 'pixassist_register_starter_sites_tab' ) ) {
 	/**
 	 * Preserve the legacy registration callback without exposing Starter Sites in navigation.
@@ -328,6 +331,11 @@ if ( ! function_exists( 'pixassist_normalize_admin_hub_starter' ) ) {
 	 * - gate (string): '' for free, plus|plus_licensed for premium upsells.
 	 * - image, previewUrl, badge, source (string): optional display metadata.
 	 * - order (int): sort weight.
+	 * - role (string): 'starter' (default) or 'library'. Presentation only — a library gets no
+	 *   card in the Starter Sites section.
+	 * - serves (string[]|string): which Design Library sections may list this source's material —
+	 *   any of `parts`, `content` (a comma-separated string is accepted). Defaults to both for a
+	 *   starter and to `parts` for a library.
 	 * - requiredPlugins (array[]): companion plugins that must be installed AND active before this
 	 *   starter can be imported (e.g. Nova Blocks + Style Manager for the free Anima starters). Each
 	 *   entry: slug, name, isInstalled, isActive. Data-driven (see
@@ -385,6 +393,10 @@ if ( ! function_exists( 'pixassist_normalize_admin_hub_starter' ) ) {
 			)
 		);
 
+		// sanitize_key() here, matching pixassist_starter_serves(): the reader is the tolerant entry
+		// point for un-normalized descriptors, and the two must never disagree about the same value.
+		$role = ( ! empty( $starter['role'] ) && 'library' === sanitize_key( $starter['role'] ) ) ? 'library' : 'starter';
+
 		$normalized = array(
 			'id'              => $id,
 			'title'           => pixassist_starter_lineage_title( $id, ! empty( $starter['title'] ) ? (string) $starter['title'] : pixassist_get_starter_sites_default_title() ),
@@ -397,11 +409,14 @@ if ( ! function_exists( 'pixassist_normalize_admin_hub_starter' ) ) {
 			'image'           => isset( $starter['image'] ) ? pixassist_starter_sites_esc_url_raw( $starter['image'] ) : '',
 			'previewUrl'      => isset( $starter['previewUrl'] ) ? pixassist_starter_sites_esc_url_raw( $starter['previewUrl'] ) : '',
 			'badge'           => isset( $starter['badge'] ) ? (string) $starter['badge'] : '',
-			// Surface role: 'starter' (default — a full starter site, shown in Starter Sites AND as a
-			// Layouts source) vs 'library' (a Layouts-only parts/template library, e.g. the Frame
-			// Library — hidden from the Starter Sites tab, still listed as a Layouts source). Access is
-			// unchanged; this is presentation only.
-			'role'            => ( isset( $starter['role'] ) && 'library' === $starter['role'] ) ? 'library' : 'starter',
+			// Surface role: 'starter' (default — a full starter site, shown in the Starter Sites
+			// section) vs 'library' (a curated catalog, hidden from that section). Presentation only;
+			// access is unchanged.
+			'role'            => $role,
+			// What the source contributes to the Design Library. `role` answers "does this get a
+			// card?"; `serves` answers "which sections may list its material?". Separating them lets
+			// a catalog offer content records without pretending to be a site.
+			'serves'          => pixassist_get_starter_serves( $starter, $role ),
 			'source'          => $source,
 			'order'           => isset( $starter['order'] ) ? (int) $starter['order'] : 10,
 			'featureTags'     => pixassist_get_starter_feature_tags( $starter, $id, $capabilities ),

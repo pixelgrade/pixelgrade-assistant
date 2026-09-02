@@ -29,6 +29,13 @@ $GLOBALS['paf_remote_wp_post_formats']  = array();
 $GLOBALS['paf_available_page_templates'] = array();
 $GLOBALS['paf_return_permalinks']        = true;
 $GLOBALS['paf_next_post_id']            = 3001;
+$GLOBALS['paf_hub_starters']            = array();
+
+function pixassist_get_admin_hub_starters() {
+	return isset( $GLOBALS['paf_hub_starters'] ) && is_array( $GLOBALS['paf_hub_starters'] )
+		? $GLOBALS['paf_hub_starters']
+		: array();
+}
 
 function add_action( $hook, $callback, $priority = 10, $args = 1 ) {
 	return true;
@@ -945,5 +952,40 @@ $starter_content->end_import();
 
 assert_same( '', $GLOBALS['paf_wp_options']['sm_site_color_variation'], 'Without a schema, the importer must not guess whether a destination value is invalid.' );
 assert_same( '', $GLOBALS['paf_wp_options']['sm_elements_color_contrast'], 'A missing schema must preserve invalid-looking discrete choices.' );
+
+/*
+ * A curated library is not a whole site.
+ *
+ * The source exports its persisted Style Manager state regardless of what its export selection
+ * lists, so applying a library whole would overwrite the user's colors. The hub gives a library no
+ * Starter Sites card, but the REST, CLI and ability paths address a source by key and would reach it
+ * anyway — so the refusal lives in import_starter() itself, ahead of the default-content deletion.
+ */
+$GLOBALS['paf_hub_starters'] = array(
+	array( 'id' => 'anima-blog', 'role' => 'starter' ),
+	array( 'id' => 'content-library', 'role' => 'library' ),
+);
+
+$GLOBALS['paf_deleted_posts']  = array();
+$GLOBALS['paf_inserted_posts'] = array();
+$before_options                = $GLOBALS['paf_wp_options'];
+
+$refused = $starter_content->import_starter( 'content-library', 'https://starter.test/content-library/wp-json/sce/v2/', $source_data );
+
+assert_same( 'not_a_starter', $refused['code'], 'A library source must never import as a whole site.' );
+assert_same( array(), $GLOBALS['paf_deleted_posts'], 'A refused library import must not reach the default-content deletion.' );
+assert_same( array(), $GLOBALS['paf_inserted_posts'], 'A refused library import must not insert anything.' );
+assert_same( $before_options, $GLOBALS['paf_wp_options'], "A refused library import must not touch the site's options, including its design settings." );
+
+// The same call for a starter is unaffected: the guard keys off the source's role, not its name.
+$GLOBALS['paf_hub_starters'] = array( array( 'id' => 'anima-blog', 'role' => 'starter' ) );
+$allowed                     = $starter_content->import_starter( 'anima-blog', 'https://starter.test/anima-blog/wp-json/sce/v2/', $source_data );
+assert_same( 'success', $allowed['code'], 'A starter source must still import normally once the guard exists.' );
+
+// A key the hub cannot resolve is not a library: an unknown source must fail on its own merits
+// (allow-list, plugins, payload), never on this gate.
+$GLOBALS['paf_hub_starters'] = array();
+$unknown                     = $starter_content->import_starter( 'never-heard-of-it', 'https://starter.test/x/wp-json/sce/v2/', $source_data );
+assert_same( true, 'not_a_starter' !== $unknown['code'], 'An unresolvable demo key must not be treated as a library.' );
 
 echo "starter-import-parity-test: OK\n";
