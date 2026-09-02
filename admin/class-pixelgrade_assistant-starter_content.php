@@ -14085,7 +14085,13 @@ HTML;
 	private function the_slug_exists( $post_name, $post_type ) {
 		global $wpdb;
 
-		$post_id = $wpdb->get_var( "SELECT ID FROM $wpdb->posts WHERE post_name = '" . $post_name . "' AND post_type = '" . $post_type . "' LIMIT 1" );
+		$post_id = $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT ID FROM {$wpdb->posts} WHERE post_name = %s AND post_type = %s LIMIT 1",
+				$post_name,
+				$post_type
+			)
+		);
 		if ( ! empty( $post_id ) ) {
 			return $post_id;
 		} else {

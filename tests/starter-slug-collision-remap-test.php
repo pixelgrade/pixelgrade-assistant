@@ -139,7 +139,37 @@ class WP_Error {}
 class PAF_WPDB {
 	public $posts = 'wp_posts';
 
+	/** Queries handed to get_var(), and whether each one came through prepare(). */
+	public $seen = array();
+
+	/**
+	 * Stands in for wpdb::prepare(): substitutes the placeholders and, like the real
+	 * thing, supplies the quotes around %s itself. Marks the result so the test can
+	 * assert the caller went through prepare() rather than concatenating values.
+	 */
+	public function prepare( $query, ...$args ) {
+		$query = str_replace( array( "'%s'", '"%s"' ), '%s', $query );
+
+		foreach ( $args as $arg ) {
+			$replacement = is_int( $arg ) || is_float( $arg )
+				? (string) $arg
+				: "'" . str_replace( array( '\\', "'" ), array( '\\\\', "\\'" ), (string) $arg ) . "'";
+
+			$query = preg_replace( '/%[sdf]/', str_replace( '$', '\\$', $replacement ), $query, 1 );
+		}
+
+		return '/*prepared*/' . $query;
+	}
+
 	public function get_var( $sql ) {
+		$prepared = ( 0 === strpos( $sql, '/*prepared*/' ) );
+		$sql      = $prepared ? substr( $sql, strlen( '/*prepared*/' ) ) : $sql;
+
+		$this->seen[] = array(
+			'sql'      => $sql,
+			'prepared' => $prepared,
+		);
+
 		if ( preg_match( "/post_name = '([^']+)'/", $sql, $m ) ) {
 			$slug = $m[1];
 			if ( isset( $GLOBALS['paf_slug_ids'][ $slug ] ) ) {
@@ -256,6 +286,43 @@ assert_same(
 	49,
 	(int) $starter_content->filter_post_option_page_for_posts( 1733, 'felt-lt' ),
 	'page_for_posts must remap the demo posts-page id to the existing local page.'
+);
+
+// 4. The slug lookup must reach the database through $wpdb->prepare(), with the slug and the
+//    post type as placeholders — never concatenated into the query string.
+assert_same(
+	true,
+	! empty( $GLOBALS['wpdb']->seen ),
+	'The slug lookup must actually have queried the database.'
+);
+foreach ( $GLOBALS['wpdb']->seen as $query ) {
+	assert_same(
+		true,
+		$query['prepared'],
+		'the_slug_exists() must query through $wpdb->prepare(), not a concatenated string: ' . $query['sql']
+	);
+}
+
+// 5. A slug carrying a quote stays inert data: prepare() escapes it, so it cannot close the
+//    literal and append a clause of its own.
+$GLOBALS['wpdb']->seen = array();
+$slug_lookup           = new ReflectionMethod( 'PixelgradeAssistant_StarterContent', 'the_slug_exists' );
+$slug_lookup->setAccessible( true );
+assert_same(
+	false,
+	$slug_lookup->invoke( $starter_content, "home' OR '1'='1", 'page' ),
+	'A quote-carrying slug must not match anything — the injected clause must stay inert data.'
+);
+$injection_sql = $GLOBALS['wpdb']->seen[0]['sql'];
+assert_same(
+	true,
+	false !== strpos( $injection_sql, "\\'" ),
+	'The quote in the slug must arrive escaped, not as a literal terminator: ' . $injection_sql
+);
+assert_same(
+	true,
+	false !== strpos( $injection_sql, "post_type = 'page' LIMIT 1" ),
+	'The post_type comparison and the LIMIT must survive intact after the hostile slug: ' . $injection_sql
 );
 
 echo "starter-slug-collision-remap-test: OK" . PHP_EOL;

@@ -205,6 +205,24 @@ class WP_Error {}
 class PAF_WPDB {
 	public $posts = 'wp_posts';
 
+	/**
+	 * Stands in for wpdb::prepare(): substitutes the placeholders and, like the real
+	 * thing, supplies the quotes around %s itself.
+	 */
+	public function prepare( $query, ...$args ) {
+		$query = str_replace( array( "'%s'", '"%s"' ), '%s', $query );
+
+		foreach ( $args as $arg ) {
+			$replacement = is_int( $arg ) || is_float( $arg )
+				? (string) $arg
+				: "'" . str_replace( array( '\\', "'" ), array( '\\\\', "\\'" ), (string) $arg ) . "'";
+
+			$query = preg_replace( '/%[sdf]/', str_replace( '$', '\\$', $replacement ), $query, 1 );
+		}
+
+		return $query;
+	}
+
 	public function get_var( $sql ) {
 		if ( preg_match( "/post_name = '([^']+)'/", $sql, $m ) ) {
 			$slug = $m[1];

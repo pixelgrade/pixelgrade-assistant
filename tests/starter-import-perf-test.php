@@ -109,7 +109,20 @@ require $wp_includes . '/class-wp-block-parser-frame.php';
 require $wp_includes . '/class-wp-block-parser.php';
 require $wp_includes . '/blocks.php';
 
-class PAF_WPDB { public $posts = 'wp_posts'; public function get_var( $sql ) { return 0; } }
+class PAF_WPDB {
+	public $posts = 'wp_posts';
+	public function prepare( $query, ...$args ) {
+		$query = str_replace( array( "'%s'", '"%s"' ), '%s', $query );
+		foreach ( $args as $arg ) {
+			$replacement = is_int( $arg ) || is_float( $arg )
+				? (string) $arg
+				: "'" . str_replace( array( '\\', "'" ), array( '\\\\', "\\'" ), (string) $arg ) . "'";
+			$query = preg_replace( '/%[sdf]/', str_replace( '$', '\\$', $replacement ), $query, 1 );
+		}
+		return $query;
+	}
+	public function get_var( $sql ) { return 0; }
+}
 $GLOBALS['wpdb'] = new PAF_WPDB();
 
 class PixelgradeAssistant_Admin {
