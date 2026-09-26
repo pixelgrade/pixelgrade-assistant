@@ -167,7 +167,7 @@ function scriptCompileRollupDevelopmentSequence (cb) {
 gulp.task('compile_dev_rollup', scriptCompileRollupDevelopmentSequence)
 
 function copyOtherScripts() {
-	return gulp.src(['./admin/src/admin-notices.js'])
+	return gulp.src(['./admin/src/admin-notices.js', './admin/src/local-avatar.js'])
 		.pipe(gulp.dest('./admin/js'));
 }
 gulp.task('copy_other_scripts', function() { return copyOtherScripts(); });

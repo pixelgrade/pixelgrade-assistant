@@ -251,6 +251,15 @@ class PixelgradeAssistant {
 		require_once plugin_dir_path( $this->file ) . 'includes/starter-cleanup.php';
 
 		/**
+		 * Local avatar images (#77): a per-user Media Library picture, stored as the
+		 * `pxg_local_avatar_id` user meta, served through `pre_get_avatar_data()` so every
+		 * `get_avatar()` consumer (Nova's Post Meta byline, core's Avatar block, comment lists,
+		 * author boxes) gets it with no changes on their end. Self-contained; registers its own
+		 * filter + profile-screen UI.
+		 */
+		require_once plugin_dir_path( $this->file ) . 'includes/local-avatar.php';
+
+		/**
 		 * Fires once Pixelgrade Assistant has loaded all of its core modules.
 		 *
 		 * This is the extension point for companion plugins (e.g. Pixelgrade Plus): hook in here to
