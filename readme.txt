@@ -2,7 +2,7 @@
 Contributors: pixelgrade, vlad.olaru, babbardel
 Tags: dashboard, starter-content, demo-content, recommended-plugins, pixelgrade
 Requires at least: 5.9
-Tested up to: 7.1
+Tested up to: 7.2
 Requires PHP: 7.4
 Stable tag: 2.4.0
 License: GPLv3.0
